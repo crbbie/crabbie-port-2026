@@ -4498,43 +4498,212 @@ apply: function(services, forms){
   }
 }
 };
+function renderCmsTermsContent(content){
+  var layout = document.querySelector('[data-view="terms"] .tos-layout');
+  if(!layout || !content) return;
+  var normalized = String(content).replace(/\r\n/g, '\n').trim();
+  if(!normalized) return;
+  var chunks = normalized.split(/(?=^#\s+)/m).map(function(part){ return part.trim(); }).filter(Boolean);
+  if(!chunks.length) return;
+
+  var navHtml = '<aside class="tos-nav" aria-label="Jump to a Terms section"><h6>JUMP TO A SECTION</h6>';
+  var bodyHtml = '<div>';
+
+  chunks.forEach(function(chunk, index){
+    var lines = chunk.split('\n');
+    var title = (lines.shift() || '').replace(/^#\s*/, '').trim() || ('Section ' + (index + 1));
+    var sectionId = 'tos-' + (index + 1);
+    var body = lines.join('\n').trim();
+    navHtml += '<button type="button" data-jump="' + sectionId + '">' + esc(title) + '</button>';
+
+    var blocks = body ? body.split(/\n\s*\n/) : [];
+    var inner = blocks.map(function(block){
+      var blockLines = block.split('\n').map(function(line){ return line.trim(); }).filter(Boolean);
+      if(blockLines.length && blockLines.every(function(line){ return /^[-*]\s+/.test(line); })){
+        return '<ul>' + blockLines.map(function(line){
+          return '<li>' + esc(line.replace(/^[-*]\s+/, '')) + '</li>';
+        }).join('') + '</ul>';
+      }
+      var safe = esc(block).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+      return '<p>' + safe + '</p>';
+    }).join('');
+
+    bodyHtml += '<section class="tos-sec" id="' + sectionId + '"><h3><span class="num-badge">' + (index + 1) + '</span> ' + esc(title) + '</h3><div class="tos-body">' + inner + '</div></section>';
+  });
+
+  navHtml += '</aside>';
+  bodyHtml += '</div>';
+  layout.innerHTML = navHtml + bodyHtml;
+}
+
+function applyCmsAboutPage(page){
+  var view = document.querySelector('[data-view="about"]');
+  if(!view || !page) return;
+
+  var name = page.name || 'Crabbie';
+  var title = view.querySelector('.about-hero .page-title');
+  if(title) title.innerHTML = "Hello, I'm <span class=\"hi\">" + esc(name) + "</span>.";
+
+  var bio = view.querySelector('.about-hero .bio');
+  if(bio) bio.textContent = page.bio || page.content || '';
+
+  if(page.profileImage){
+    var profile = view.querySelector('.profile-inner');
+    if(profile) profile.innerHTML = '<img src="' + esc(page.profileImage) + '" alt="' + esc(name) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+  }
+
+  if(Array.isArray(page.skills)){
+    var cloud = view.querySelector('.chip-cloud');
+    if(cloud) cloud.innerHTML = page.skills.map(function(skill){
+      return '<span class="make-chip"><span class="dot"></span>' + esc(skill) + '</span>';
+    }).join('');
+  }
+
+  if(Array.isArray(page.experience)){
+    var grid = view.querySelector('.exp-grid');
+    if(grid) grid.innerHTML = page.experience.map(function(item){
+      return '<div class="exp-card"><span class="tag-year">' + esc(item.tag || '') + '</span><h4>' + esc(item.title || '') + '</h4><p>' + esc(item.body || '') + '</p></div>';
+    }).join('');
+  }
+}
+
+function applyCmsSiteSettings(settings){
+  if(!settings) return;
+
+  if(settings.branding){
+    var branding = settings.branding;
+    if(branding.title){
+      var brand = document.querySelector('#mainNav .brand span');
+      if(brand) brand.textContent = branding.title;
+      var heroTitle = document.querySelector('.hero h1 .accent');
+      if(heroTitle) heroTitle.textContent = branding.title;
+      var footBrand = document.querySelector('.foot-brand');
+      if(footBrand) footBrand.innerHTML = esc(branding.title) + '<span>.</span>';
+    }
+    if(branding.tagline){
+      var tag = document.querySelector('.hero-tagline');
+      if(tag) tag.textContent = branding.tagline;
+    }
+    if(branding.intro){
+      var lede = document.querySelector('.hero-lede');
+      if(lede) lede.textContent = branding.intro;
+    }
+    if(branding.heroMedia){
+      var heroMedia = document.querySelector('.hero-art-inner');
+      if(heroMedia) heroMedia.innerHTML = '<img src="' + esc(branding.heroMedia) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    }
+  }
+
+  if(settings.footer && settings.footer.footer){
+    var foot = document.querySelector('.foot-tag');
+    if(foot) foot.textContent = settings.footer.footer;
+  }
+
+  if(settings.contact){
+    if(settings.contact.email){
+      MAIL = settings.contact.email;
+      document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
+        a.href = 'mailto:' + settings.contact.email;
+        if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = settings.contact.email;
+      });
+      var emailStrong = document.querySelector('.email-strong');
+      if(emailStrong) emailStrong.textContent = settings.contact.email;
+      if(directEmailLink) directEmailLink.href = 'mailto:' + settings.contact.email;
+    }
+    if(settings.contact.twitter){
+      document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
+        a.href = settings.contact.twitter;
+      });
+    }
+  }
+
+  if(settings.theme){
+    if(settings.theme.pink) document.documentElement.style.setProperty('--pink', settings.theme.pink);
+    if(settings.theme.lavender) document.documentElement.style.setProperty('--purple', settings.theme.lavender);
+    if(settings.theme.background) document.body.style.background = settings.theme.background;
+  }
+
+  if(settings.typography){
+    var cleanFont = function(v){ return String(v || '').replace(/[^a-zA-Z0-9 _-]/g, ''); };
+    var headingFont = cleanFont(settings.typography.headingFont || 'Fredoka');
+    var bodyFont = cleanFont(settings.typography.bodyFont || 'Nunito');
+    var accentFont = cleanFont(settings.typography.accentFont || 'Gochi Hand');
+    var style = document.getElementById('cmsTypographyStyle');
+    if(!style){ style = document.createElement('style'); style.id = 'cmsTypographyStyle'; document.head.appendChild(style); }
+    style.textContent =
+      'body{font-family:"' + bodyFont + '",system-ui,sans-serif;}' +
+      '.page-title,.section-title,.brand,.btn,.nav-cta,.work-title,.comm-name,.adm-editor h2{font-family:"' + headingFont + '",system-ui,sans-serif;}' +
+      '.hero-intro,.signature,.hand-note,.foot-tag{font-family:"' + accentFont + '",cursive;}';
+  }
+
+  if(settings.seo){
+    if(settings.seo.title) document.title = settings.seo.title;
+    if(settings.seo.description){
+      var meta = document.querySelector('meta[name="description"]');
+      if(!meta){ meta = document.createElement('meta'); meta.name = 'description'; document.head.appendChild(meta); }
+      meta.content = settings.seo.description;
+    }
+    if(settings.seo.socialImage){
+      var og = document.querySelector('meta[property="og:image"]');
+      if(!og){ og = document.createElement('meta'); og.setAttribute('property','og:image'); document.head.appendChild(og); }
+      og.content = settings.seo.socialImage;
+    }
+  }
+}
+
+function applyCmsNavigation(nav){
+  if(!Array.isArray(nav)) return;
+  var renderLink = function(item, extraClass){
+    var url = item.url || '#';
+    var go = url.charAt(0) === '#' ? url.slice(1) : '';
+    return '<a href="' + esc(url) + '"' + (go ? ' data-goto="' + esc(go) + '"' : '') + (extraClass ? ' class="' + extraClass + '"' : '') + '>' + esc(item.title || url) + '</a>';
+  };
+
+  var main = document.querySelector('#mainNav .nav-links');
+  if(main) main.innerHTML = nav.map(function(item){ return renderLink(item, ''); }).join('');
+
+  var mobile = document.getElementById('mobileMenu');
+  if(mobile){
+    var cta = mobile.querySelector('.mm-cta');
+    mobile.querySelectorAll('a:not(.mm-cta)').forEach(function(a){ a.remove(); });
+    var fragment = document.createDocumentFragment();
+    nav.forEach(function(item){
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = renderLink(item, '');
+      if(wrapper.firstElementChild) fragment.appendChild(wrapper.firstElementChild);
+    });
+    mobile.insertBefore(fragment, cta || null);
+  }
+
+  var navMap = {};
+  nav.forEach(function(item){ navMap[item.url] = item; });
+  document.querySelectorAll('footer a[data-goto]').forEach(function(a){
+    var href = a.getAttribute('href');
+    var item = navMap[href];
+    a.style.display = item ? '' : 'none';
+    if(item) a.textContent = item.title || a.textContent;
+  });
+}
+
 window.CrabbieSiteContent = {
 apply: function(pages, nav, settings){
-  if(settings){
-    if(settings.branding && settings.branding.tagline){
-      var tag = document.querySelector('.hero-tagline');
-      if(tag) tag.textContent = settings.branding.tagline;
-    }
-    if(settings.footer && settings.footer.footer){
-      var foot = document.querySelector('.foot-tag');
-      if(foot) foot.textContent = settings.footer.footer;
-    }
-    if(settings.contact && settings.contact.email){
-      var emailLinks = document.querySelectorAll('a[href^="mailto:"]');
-      emailLinks.forEach(function(a){ a.href = 'mailto:' + settings.contact.email; a.textContent = settings.contact.email; });
-    }
-  }
+  applyCmsSiteSettings(settings);
+
   if(Array.isArray(pages)){
-    pages.forEach(function(p){
-      if(p.slug === 'about'){
-        var bioEl = document.querySelector('.about-hero .bio');
-        if(bioEl && p.bio) bioEl.textContent = p.bio;
+    pages.forEach(function(page){
+      if(page.slug === 'about') applyCmsAboutPage(page);
+      if(page.slug === 'terms'){
+        var view = document.querySelector('[data-view="terms"]');
+        if(view){
+          var title = view.querySelector('.page-title');
+          if(title && page.title) title.textContent = page.title;
+        }
+        if(page.content) renderCmsTermsContent(page.content);
       }
     });
   }
-  if(Array.isArray(nav) && nav.length){
-    var linkMap = {};
-    nav.forEach(function(n){ linkMap[n.url] = n; });
-    document.querySelectorAll('#mainNav .nav-links a, #mobileNavPanel a').forEach(function(a){
-      var href = a.getAttribute('href');
-      if(linkMap[href] && !linkMap[href].published){
-        a.style.display = 'none';
-      } else if(linkMap[href]){
-        a.style.display = '';
-        if(linkMap[href].title) a.textContent = linkMap[href].title;
-      }
-    });
-  }
+
+  applyCmsNavigation(nav);
 }
 };
 window.CrabbieAdminAuth = {
