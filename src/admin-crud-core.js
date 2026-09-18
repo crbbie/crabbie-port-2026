@@ -1,4 +1,4 @@
-﻿export function formatPortfolioRow(rec, sort_order = 0) {
+export function formatPortfolioRow(rec, sort_order = 0) {
   const content = {
     cat: rec.category || '',
     blocks: rec.blocks || [],
@@ -91,6 +91,7 @@ export function formatCommissionRow(rec, sort_order = 0) {
     currency: rec.currency || 'USD',
     availability: avail,
     form_slug: rec.form || rec.formType || 'illustration',
+    thumbnail_path: rec.thumbnail || null,
     featured: !!rec.featured,
     published: !!rec.published,
     sort_order,

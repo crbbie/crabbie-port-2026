@@ -1,4 +1,4 @@
-﻿import { supabase, isConfigured } from './supabase-client.js';
+import { supabase, isConfigured } from './supabase-client.js';
 import {
   sanitizeStorageFileName,
   formatFileSize,
@@ -19,7 +19,15 @@ export async function uploadMediaFile(file, altText = '') {
 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    throw new Error('You must be signed in as admin to upload files.');
+    throw new Error('Not signed in. You must be signed in as admin to upload files.');
+  }
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData?.user) {
+    throw new Error('Your session has expired. Please sign in again.');
+  }
+  if (userData.user.app_metadata?.role !== 'admin') {
+    throw new Error('Access denied. Admin privileges are required to upload media.');
   }
 
   const storagePath = `uploads/${sanitizeStorageFileName(file.name)}`;
@@ -33,7 +41,13 @@ export async function uploadMediaFile(file, altText = '') {
     });
 
   if (uploadErr) {
-    throw new Error(`Storage upload failed: ${uploadErr.message}`);
+    const isRls = uploadErr.message?.toLowerCase().includes('row-level security') ||
+                  uploadErr.message?.toLowerCase().includes('policy') ||
+                  uploadErr.message?.toLowerCase().includes('unauthorized') ||
+                  uploadErr.statusCode === 403 ||
+                  uploadErr.statusCode === '403';
+    const prefix = isRls ? 'Storage upload failed (RLS / access denied)' : 'Storage upload failed';
+    throw new Error(`${prefix}: ${uploadErr.message}`);
   }
 
   const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(storagePath);
@@ -56,16 +70,29 @@ export async function uploadMediaFile(file, altText = '') {
     try {
       await supabase.storage.from('media').remove([storagePath]);
     } catch (_) {}
-    throw new Error(`Media record creation failed: ${dbErr.message}`);
+    const isRls = dbErr.message?.toLowerCase().includes('row-level security') ||
+                  dbErr.message?.toLowerCase().includes('policy') ||
+                  dbErr.code === '42501';
+    const prefix = isRls ? 'Media record creation failed (RLS / access denied)' : 'Media record creation failed';
+    throw new Error(`${prefix}: ${dbErr.message}`);
   }
 
-  return formatMediaItem(mediaRow, () => publicUrl);
+  return formatMediaItem(mediaRow, (p) => supabase.storage.from('media').getPublicUrl(p).data.publicUrl);
 }
 
 export async function deleteMediaFile(id, storagePath) {
   if (!isConfigured || !supabase) return { success: false, error: 'Not configured' };
 
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return { success: false, error: 'Not signed in. You must be signed in as admin to delete media.' };
+    }
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData?.user || userData.user.app_metadata?.role !== 'admin') {
+      return { success: false, error: 'Access denied. Admin privileges are required to delete media.' };
+    }
+
     let path = storagePath;
     if (!path && id) {
       const { data: row } = await supabase

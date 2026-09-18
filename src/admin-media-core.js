@@ -1,4 +1,4 @@
-﻿/**
+/**
  * admin-media-core.js
  * Pure functions for media processing, formatting, and validation.
  */
@@ -68,12 +68,18 @@ export function formatMediaItem(row = {}, getPublicUrlFn) {
 
 export function validateUploadFile(file, options = {}) {
   const maxSizeBytes = options.maxSizeBytes || 50 * 1024 * 1024; // 50MB default
-  if (!file) {
+  if (!file || typeof file !== 'object') {
     return { valid: false, error: 'No file provided.' };
+  }
+  if (typeof file.size === 'number' && file.size <= 0) {
+    return { valid: false, error: 'File is empty or invalid.' };
   }
   if (typeof file.size === 'number' && file.size > maxSizeBytes) {
     const mb = Math.round(maxSizeBytes / (1024 * 1024));
     return { valid: false, error: `File size exceeds ${mb}MB limit.` };
+  }
+  if (file.name && /\.(exe|bat|cmd|sh|ps1|msi|dll|scr|vbs|com)$/i.test(file.name)) {
+    return { valid: false, error: 'Unsupported file type. Executables are not allowed.' };
   }
   return { valid: true };
 }
