@@ -11,6 +11,12 @@ if (!html.includes('id="adminLoginShell"') || !html.includes('id="adminLoginForm
 if (!html.includes('class="admin-entry-link"') || !html.includes('href="#admin"')) {
   throw new Error('Public admin entry link missing.');
 }
+if (!html.includes('id="admin-route-bootstrap"')) {
+  throw new Error('Admin route bootstrap missing.');
+}
+if (/([^$]|^)\$\([^\n;]+\)\.forEach/gm.test(html)) {
+  throw new Error('Single-element $() selector is incorrectly used with .forEach().');
+}
 
 const vercelConfig = JSON.parse(await readFile('vercel.json', 'utf8'));
 const rewrites = Array.isArray(vercelConfig.rewrites) ? vercelConfig.rewrites : [];
