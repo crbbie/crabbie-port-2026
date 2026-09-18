@@ -3994,18 +3994,24 @@ if(dir === 'prev') reqFilter.page = Math.max(1, reqFilter.page - 1); else reqFil
 renderAdmin('requests');
 });
 });
-$$('[data-adm-req-refresh]', adminContent).forEach(function(btn){
+$('[data-adm-req-refresh]', adminContent).forEach(function(btn){
 btn.addEventListener('click', async function(){
-  if(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.fetchAdminCommissionRequests){
+  try{
+    if(!(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.fetchAdminCommissionRequests)){
+      throw new Error('Commission request service is unavailable.');
+    }
     toast('Refreshing requests…');
     var fresh = await window.CrabbieCommissionRequests.fetchAdminCommissionRequests();
     if(Array.isArray(fresh)){
       ADMIN_DRAFT.requests = fresh;
       if(Array.isArray(ADMIN_DATA.requests)) ADMIN_DATA.requests = fresh.slice();
     }
+    toast(tAdmin('toast.refreshed'));
+    renderAdmin('requests');
+  }catch(err){
+    console.error('Request refresh failed:', err);
+    toast('Refresh failed: ' + (err.message || 'Unknown error'));
   }
-  toast(tAdmin('toast.refreshed'));
-  renderAdmin('requests');
 });
 });
 $$('[data-adm-email-retry]', adminContent).forEach(function(btn){
@@ -4039,17 +4045,26 @@ var id = btn.getAttribute('data-adm-media-del');
 var name = btn.getAttribute('data-adm-media-name') || 'this media';
 var m = (ADMIN_DRAFT.media || []).find(function(x){ return x.id === id; });
 confirmDelete(name, async function(){
-  if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile){
-    await window.CrabbieAdminMedia.deleteMediaFile(id, m ? m.storagePath : null);
+  try{
+    if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile)){
+      throw new Error('Media delete service is unavailable.');
+    }
+    var deleteResult = await window.CrabbieAdminMedia.deleteMediaFile(id, m ? m.storagePath : null);
+    if(!deleteResult || !deleteResult.success){
+      throw new Error(deleteResult && deleteResult.error ? deleteResult.error : 'Media delete failed.');
+    }
+    var idx = (ADMIN_DRAFT.media || []).findIndex(function(x){ return x.id === id; });
+    if(idx !== -1) ADMIN_DRAFT.media.splice(idx, 1);
+    if(Array.isArray(ADMIN_DATA.media)){
+      var dataIdx = ADMIN_DATA.media.findIndex(function(x){ return x.id === id; });
+      if(dataIdx !== -1) ADMIN_DATA.media.splice(dataIdx, 1);
+    }
+    toast(tAdmin('toast.deleted') + ' "' + name + '"');
+    renderAdmin('media');
+  }catch(err){
+    console.error('Media delete failed:', err);
+    toast('Delete failed: ' + (err.message || 'Unknown error'));
   }
-  var idx = (ADMIN_DRAFT.media || []).findIndex(function(x){ return x.id === id; });
-  if(idx !== -1) ADMIN_DRAFT.media.splice(idx, 1);
-  if(Array.isArray(ADMIN_DATA.media)){
-    var dataIdx = ADMIN_DATA.media.findIndex(function(x){ return x.id === id; });
-    if(dataIdx !== -1) ADMIN_DATA.media.splice(dataIdx, 1);
-  }
-  toast(tAdmin('toast.deleted') + ' "' + name + '"');
-  renderAdmin('media');
 });
 });
 });
