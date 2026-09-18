@@ -3910,6 +3910,25 @@ window.CrabbiePortfolio = {
 getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
 apply: function(records){ records.forEach(function(record){ PROJECTS[record.slug] = record; if(PROJECT_ORDER.indexOf(record.slug) === -1) PROJECT_ORDER.push(record.slug); }); if(currentRoute.view === 'project-detail') renderProject(currentRoute.id); }
 };
+window.CrabbieAssets = {
+getPrototype: function(slug){ return clone(ASSETS[slug] || {}); },
+apply: function(records){
+  records.forEach(function(record){
+    ASSETS[record.slug] = record;
+    var card = document.querySelector('#faGrid [data-asset="' + record.slug + '"]');
+    if(card){
+      var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
+      var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
+      var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
+      var icoEl = card.querySelector('.icon'); if(icoEl) icoEl.textContent = record.icon;
+      var st = card.querySelector('.item-status');
+      if(st) st.textContent = record.availability === 'available' ? 'Demo · available in prototype' : 'Demo · file not available';
+      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '')).toLowerCase());
+    }
+  });
+  if(currentRoute.view === 'free-asset-detail') renderAsset(currentRoute.id);
+}
+};
 
 boot();
 
