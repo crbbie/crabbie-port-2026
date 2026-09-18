@@ -4277,25 +4277,69 @@ applyRoute(parseRoute(raw), { noFocus:true, noScroll:true });
 }
 window.CrabbiePortfolio = {
 getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
-apply: function(records){ records.forEach(function(record){ PROJECTS[record.slug] = record; if(PROJECT_ORDER.indexOf(record.slug) === -1) PROJECT_ORDER.push(record.slug); }); if(currentRoute.view === 'project-detail') renderProject(currentRoute.id); }
+apply: function(records){
+  if(!Array.isArray(records)) return;
+  var live = {};
+  records.forEach(function(record){
+    live[record.slug] = true;
+    PROJECTS[record.slug] = record;
+  });
+  Object.keys(PROJECTS).forEach(function(slug){ if(!live[slug]) delete PROJECTS[slug]; });
+  PROJECT_ORDER = records.map(function(record){ return record.slug; });
+
+  document.querySelectorAll('#pfGrid [data-project], #worksGrid [data-project]').forEach(function(card){
+    var slug = card.getAttribute('data-project');
+    var record = PROJECTS[slug];
+    var visible = !!record;
+    card.style.display = visible ? '' : 'none';
+    if(!visible) return;
+    var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
+    var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
+    card.setAttribute('href', '#project/' + slug);
+    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+    if(record.cat) card.setAttribute('data-cat', String(record.cat).toLowerCase());
+  });
+  if(typeof filterState !== 'undefined' && filterState.pf) applyFilter('pf');
+
+  if(currentRoute.view === 'project-detail'){
+    if(!live[currentRoute.id]) navigate('portfolio');
+    else renderProject(currentRoute.id);
+  }
+}
 };
 window.CrabbieAssets = {
 getPrototype: function(slug){ return clone(ASSETS[slug] || {}); },
 apply: function(records){
+  if(!Array.isArray(records)) return;
+  var live = {};
   records.forEach(function(record){
+    live[record.slug] = true;
     ASSETS[record.slug] = record;
-    var card = document.querySelector('#faGrid [data-asset="' + record.slug + '"]');
-    if(card){
-      var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
-      var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
-      var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
-      var icoEl = card.querySelector('.icon'); if(icoEl) icoEl.textContent = record.icon;
-      var st = card.querySelector('.item-status');
-      if(st) st.textContent = record.availability === 'available' ? 'Demo · available in prototype' : 'Demo · file not available';
-      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '')).toLowerCase());
-    }
   });
-  if(currentRoute.view === 'free-asset-detail') renderAsset(currentRoute.id);
+  Object.keys(ASSETS).forEach(function(slug){ if(!live[slug]) delete ASSETS[slug]; });
+
+  document.querySelectorAll('#faGrid [data-asset]').forEach(function(card){
+    var slug = card.getAttribute('data-asset');
+    var record = ASSETS[slug];
+    var visible = !!record;
+    card.style.display = visible ? '' : 'none';
+    if(!visible) return;
+    var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
+    var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
+    var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
+    var icoEl = card.querySelector('.icon'); if(icoEl) icoEl.textContent = record.icon;
+    var st = card.querySelector('.item-status');
+    if(st) st.textContent = record.availability === 'available' ? 'Available' : 'Currently unavailable';
+    card.setAttribute('href', '#asset/' + slug);
+    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+    if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
+  });
+  if(typeof filterState !== 'undefined' && filterState.fa) applyFilter('fa');
+
+  if(currentRoute.view === 'free-asset-detail'){
+    if(!live[currentRoute.id]) navigate('free-assets');
+    else renderAsset(currentRoute.id);
+  }
 }
 };
 window.CrabbieCommissions = {
