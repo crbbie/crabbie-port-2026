@@ -25,6 +25,7 @@ export async function loadAllAdminDataFromSupabase() {
     const [
       pRes,
       aRes,
+      categoriesRes,
       cRes,
       fRes,
       pagesRes,
@@ -35,6 +36,7 @@ export async function loadAllAdminDataFromSupabase() {
     ] = await Promise.all([
       supabase.from('portfolio_projects').select('*').order('sort_order', { ascending: true }),
       supabase.from('free_assets').select('*').order('sort_order', { ascending: true }),
+      supabase.from('cms_categories').select('*').order('kind', { ascending: true }).order('sort_order', { ascending: true }),
       supabase.from('commission_services').select('*').order('sort_order', { ascending: true }),
       supabase.from('commission_forms').select('*'),
       supabase.from('cms_pages').select('*'),
@@ -47,6 +49,7 @@ export async function loadAllAdminDataFromSupabase() {
     [
       [pRes, 'Portfolio load failed'],
       [aRes, 'Free Assets load failed'],
+      [categoriesRes, 'Categories load failed'],
       [cRes, 'Commission Services load failed'],
       [fRes, 'Commission Forms load failed'],
       [pagesRes, 'CMS Pages load failed'],
@@ -120,6 +123,24 @@ export async function loadAllAdminDataFromSupabase() {
           descriptionCopy: { en: row.description || '', vi: '', viOverride: false }
         };
       });
+    }
+
+    if (categoriesRes.data && categoriesRes.data.length) {
+      const mapCategory = (row) => ({
+        id: row.slug,
+        dbId: row.id,
+        slug: row.slug,
+        title: row.title,
+        published: !!row.published,
+        sortOrder: row.sort_order || 0,
+        titleCopy: { en: row.title, vi: '', viOverride: false }
+      });
+      result.portfolioCategories = categoriesRes.data
+        .filter((row) => row.kind === 'portfolio')
+        .map(mapCategory);
+      result.assetCategories = categoriesRes.data
+        .filter((row) => row.kind === 'asset')
+        .map(mapCategory);
     }
 
     if (cRes.data && cRes.data.length) {
@@ -236,16 +257,63 @@ export async function persistAdminDataToSupabase(draft) {
     throw new Error('Supabase is not configured.');
   }
 
+  const categoryIds = { portfolio: new Map(), asset: new Map() };
+  const persistCategoryList = async (kind, list) => {
+    if (!Array.isArray(list)) return;
+    for (let idx = 0; idx < list.length; idx++) {
+      const rec = list[idx];
+      const payload = {
+        kind,
+        slug: rec.slug || rec.id,
+        title: rec.title || 'Untitled category',
+        published: !!rec.published,
+        sort_order: idx
+      };
+      let categoryRes;
+      if (rec.dbId && String(rec.dbId).length > 30) {
+        categoryRes = await supabase
+          .from('cms_categories')
+          .update(payload)
+          .eq('id', rec.dbId)
+          .select('id,slug')
+          .single();
+      } else {
+        categoryRes = await supabase
+          .from('cms_categories')
+          .upsert(payload, { onConflict: 'kind,slug' })
+          .select('id,slug')
+          .single();
+      }
+      assertSupabaseResult(categoryRes, `${kind} category save failed`);
+      if (!categoryRes.data || !categoryRes.data.id) {
+        throw new Error(`${kind} category save failed: no id returned.`);
+      }
+      rec.dbId = categoryRes.data.id;
+      rec.slug = categoryRes.data.slug;
+      rec.id = categoryRes.data.slug;
+      categoryIds[kind].set(rec.slug, rec.dbId);
+    }
+  };
+
+  await persistCategoryList('portfolio', draft.portfolioCategories);
+  await persistCategoryList('asset', draft.assetCategories);
+
   // 1. Portfolio Projects
   if (Array.isArray(draft.portfolio)) {
-    const portfolioRows = draft.portfolio.map((p, idx) => formatPortfolioRow(p, idx));
+    const portfolioRows = draft.portfolio.map((p, idx) => ({
+      ...formatPortfolioRow(p, idx),
+      category_id: categoryIds.portfolio.get(p.category) || null
+    }));
     const { error: pErr } = await supabase.from('portfolio_projects').upsert(portfolioRows, { onConflict: 'slug' });
     if (pErr) throw new Error(`Portfolio save failed: ${pErr.message}`);
   }
 
   // 2. Free Assets
   if (Array.isArray(draft.assets)) {
-    const assetRows = draft.assets.map((a, idx) => formatAssetRow(a, idx));
+    const assetRows = draft.assets.map((a, idx) => ({
+      ...formatAssetRow(a, idx),
+      category_id: categoryIds.asset.get(a.category) || null
+    }));
     const { error: aErr } = await supabase.from('free_assets').upsert(assetRows, { onConflict: 'slug' });
     if (aErr) throw new Error(`Assets save failed: ${aErr.message}`);
   }
