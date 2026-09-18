@@ -9,7 +9,7 @@ export async function hydrateFreeAssets() {
   if (!window.CrabbieAssets) return;
   const { data, error } = await supabase
     .from('free_assets')
-    .select('slug,title,description,file_type,file_path,availability,featured,published,sort_order,metadata')
+    .select('slug,title,description,thumbnail_path,file_type,file_path,availability,featured,published,sort_order,metadata')
     .eq('published', true)
     .order('sort_order', { ascending: true });
 
