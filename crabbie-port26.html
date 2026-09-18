@@ -2636,7 +2636,7 @@ esc(s.previewLabel) +
 '<div class="osd-chips">' + (s.chips || []).map(function(c){ return '<span>' + esc(c) + '</span>'; }).join('') + '<span>' + esc(s.formLabel) + '</span></div>' +
 '<div class="osd-actions">' +
 '<button type="button" class="btn btn-primary"' + (disabled ? ' disabled aria-disabled="true"' : '') +
-' data-service="' + esc(s.name) + '" data-form="' + esc(s.formType) + '" data-avail="' + esc(s.availability) + '">Request this</button>' +
+' data-service="' + esc(s.name) + '" data-service-slug="' + esc(s.slug || s.id || '') + '" data-form="' + esc(s.formType) + '" data-avail="' + esc(s.availability) + '">Request this</button>' +
 '<button type="button" class="btn btn-ghost" id="osdCollapse">Close</button>' +
 '</div>' +
 '</div>' +
@@ -2670,6 +2670,7 @@ setTimeout(function(){ smoothScrollTo(otherServiceDetail); }, prefersReduced() ?
 }
 
 var selectedService = '';
+var selectedServiceSlug = '';
 var selectedServiceAvail = 'open';
 var serviceIndicator = document.getElementById('selectedService');
 function updateServiceIndicator(name, avail){
@@ -2683,10 +2684,11 @@ serviceIndicator.classList.add('show');
 function scrollToForm(){ var shell = document.getElementById('requestForm'); if(shell) smoothScrollTo(shell); }
 function selectService(el){
 var name = el.getAttribute('data-service') || '';
+var slug = el.getAttribute('data-service-slug') || '';
 var form = el.getAttribute('data-form') || 'illustration';
 var avail = el.getAttribute('data-avail') || 'open';
 if(avail === 'closed' || el.disabled) return;
-selectedService = name; selectedServiceAvail = avail;
+selectedService = name; selectedServiceSlug = slug; selectedServiceAvail = avail;
 setTab(form, false); updateServiceIndicator(name, avail); hideBrief();
 if(currentRoute.view !== 'commissions'){ navigate('commissions'); setTimeout(scrollToForm, 60); }
 else setTimeout(scrollToForm, 30);
@@ -2892,6 +2894,7 @@ try {
       email: clientEmail,
       contact: clientSocial,
       selectedService: selectedService || TAB_LABELS[activeTab] || 'Commission',
+      selectedServiceSlug: selectedServiceSlug,
       activeTab: activeTab,
       fields: fieldMap,
       termsAccepted: consentBox ? consentBox.checked : true
@@ -4300,6 +4303,7 @@ apply: function(services, forms){
       }
       if(cardBtn){
         cardBtn.setAttribute('data-avail', s.availability);
+        cardBtn.setAttribute('data-service-slug', s.slug || s.id || '');
         var card = cardBtn.closest('.comm-card');
         if(card){
           var tag = card.querySelector('.comm-thumb .avail');
