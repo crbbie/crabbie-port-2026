@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,7 +16,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm ci
       - name: Run unit tests
         run: npm test
       - name: Check foundation
         run: npm run check:foundation
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Check rendered routes
+        run: npm run test:router

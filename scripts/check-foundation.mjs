@@ -1,3 +1,4 @@
+import { Script } from 'node:vm';
 import { readFile } from 'node:fs/promises';
 const files = ['.env.example','vercel.json','api/public-config.js','src/supabase-client.js','supabase/migrations/202609180001_foundation.sql'];
 for (const file of files) await readFile(file, 'utf8');
@@ -11,11 +12,9 @@ if (!html.includes('id="adminLoginShell"') || !html.includes('id="adminLoginForm
 if (!html.includes('class="admin-entry-link"') || !html.includes('href="#admin"')) {
   throw new Error('Public admin entry link missing.');
 }
-if (!html.includes('id="admin-route-bootstrap"')) {
-  throw new Error('Admin route bootstrap missing.');
-}
-if (/([^$]|^)\$\([^\n;]+\)\.forEach/gm.test(html)) {
-  throw new Error('Single-element $() selector is incorrectly used with .forEach().');
+// Validate all inline JavaScript; runtime view activation is covered by test:router.
+for (const [, body] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
+  if (body.trim()) new Script(body, { filename: 'crabbie-port26.html' });
 }
 
 const vercelConfig = JSON.parse(await readFile('vercel.json', 'utf8'));

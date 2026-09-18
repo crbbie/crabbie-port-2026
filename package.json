@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "test": "node src/portfolio-cms-core.test.mjs && node src/free-assets-core.test.mjs && node src/commissions-core.test.mjs && node src/site-content-core.test.mjs && node src/admin-auth-core.test.mjs && node src/admin-crud-core.test.mjs && node src/admin-media-core.test.mjs && node src/commission-requests-core.test.mjs",
-    "check:foundation": "node scripts/check-foundation.mjs"
+    "check:foundation": "node scripts/check-foundation.mjs",
+    "test:router": "node scripts/router-smoke.mjs"
   },
-  "dependencies": { "@supabase/supabase-js": "2.57.4" }
+  "dependencies": {
+    "@supabase/supabase-js": "2.57.4"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
 }

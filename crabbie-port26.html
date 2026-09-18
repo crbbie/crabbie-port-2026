@@ -2317,34 +2317,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 </div>
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,application/pdf">
 
-<script id="admin-route-bootstrap">
-(function(){
-  function isAdminLocation(){
-    var path = (location.pathname || '').replace(/^\/+|\/+$/g, '');
-    var hash = (location.hash || '').replace(/^#/, '');
-    return path === 'admin' || path.indexOf('admin/') === 0 || hash === 'admin' || hash.indexOf('admin/') === 0;
-  }
-  function showAdminGate(){
-    if(!isAdminLocation()) return;
-    document.body.classList.add('admin-mode');
-    document.querySelectorAll('.view').forEach(function(view){
-      view.classList.toggle('is-active', view.getAttribute('data-view') === 'admin');
-    });
-    var loginShell = document.getElementById('adminLoginShell');
-    var realShell = document.getElementById('adminRealShell');
-    var adminUser = window.CrabbieAuthService && window.CrabbieAuthService.getAdmin
-      ? window.CrabbieAuthService.getAdmin()
-      : null;
-    if(loginShell) loginShell.style.display = adminUser ? 'none' : 'flex';
-    if(realShell) realShell.style.display = adminUser ? '' : 'none';
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showAdminGate);
-  else showAdminGate();
-  window.addEventListener('hashchange', showAdminGate);
-  window.CrabbieAdminRouteBootstrap = { sync: showAdminGate };
-})();
-</script>
-
 <script>
 (function(){
 'use strict';
@@ -2523,7 +2495,13 @@ if(!opts.noFocus) focusView(view);
 prevView = view;
 currentRoute = route;
 }
-function handleHash(){ applyRoute(parseRoute(location.hash.replace(/^#/, ''))); }
+function routeFromLocation(){
+var raw = location.hash.replace(/^#/, '');
+var path = location.pathname.replace(/^\/+|\/+$/g, '');
+if(!raw && (path === 'admin' || path.indexOf('admin/') === 0)) raw = path;
+return parseRoute(raw);
+}
+function handleHash(){ applyRoute(routeFromLocation()); }
 function navigate(path, opts){
 opts = opts || {};
 var hash = '#' + path;
@@ -3254,7 +3232,7 @@ var ADMIN_DATA = buildAdminData();
 var ADMIN_DRAFT = clone(ADMIN_DATA);
 var ADMIN_UI = {
 dirty: false,
-selection: { portfolio: ADMIN_DATA.portfolio[0] && ADMIN_DATA.portfolio[0].id, assets: ADMIN_DATA.assets[0] && ADMIN_DATA.assets[0].id, commissions: ADMIN_DATA.commissions[0].id, forms: ADMIN_DATA.forms[0].id, requests: ADMIN_DATA.requests[0].id },
+selection: { portfolio: ADMIN_DATA.portfolio[0] && ADMIN_DATA.portfolio[0].id, assets: ADMIN_DATA.assets[0] && ADMIN_DATA.assets[0].id, commissions: ADMIN_DATA.commissions[0] ? ADMIN_DATA.commissions[0].id : null, forms: ADMIN_DATA.forms[0] ? ADMIN_DATA.forms[0].id : null, requests: ADMIN_DATA.requests[0] ? ADMIN_DATA.requests[0].id : null },
 subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'settings' },
 settingsGroup: 'Branding'
 };
@@ -4259,22 +4237,10 @@ setTimeout(function(){ doSaveCommit(tAdmin('toast.saved')); }, prefersReduced() 
 }
 
 function boot(){
-var raw = location.hash.replace(/^#/, '');
-var cleanPath = location.pathname.replace(/^\/+|\/+$/g, '');
-if(!raw && cleanPath === 'admin') raw = 'admin';
-else if(!raw && cleanPath.indexOf('admin/') === 0) raw = cleanPath;
 syncPanelDisabled();
 wireAdminShell();
 applyAdminLangToDom(document);
-if(!raw){
-applyRoute({ view:'loading', id:null, adminModule:null }, { noFocus:true, noScroll:true });
-setTimeout(function(){
-try{ history.replaceState(null, '', '#home'); }catch(err){ location.hash = 'home'; }
-applyRoute({ view:'home', id:null, adminModule:null }, { noFocus:true, noScroll:true });
-}, prefersReduced() ? 250 : 1150);
-} else {
-applyRoute(parseRoute(raw), { noFocus:true, noScroll:true });
-}
+applyRoute(routeFromLocation(), { noFocus:true, noScroll:true });
 }
 function portfolioFilterGroup(record){
   var raw = String((record && (record.filterCat || record.categorySlug || record.cat)) || '').toLowerCase();
@@ -4828,9 +4794,6 @@ notify: async function(adminUser){
       if(liveData.requests) { ADMIN_DATA.requests = liveData.requests; ADMIN_DRAFT.requests = clone(liveData.requests); }
       if(liveData.media) { ADMIN_DATA.media = liveData.media; ADMIN_DRAFT.media = clone(liveData.media); }
     }
-  }
-  if(window.CrabbieAdminRouteBootstrap && window.CrabbieAdminRouteBootstrap.sync){
-    window.CrabbieAdminRouteBootstrap.sync();
   }
   if(currentRoute.view === 'admin'){
     var loginShell = document.getElementById('adminLoginShell');
