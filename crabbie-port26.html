@@ -3205,7 +3205,35 @@ var adminBurgerBtn = document.getElementById('adminBurger');
 var adminTopSave = document.getElementById('adminTopSave');
 function setAdminSaveStatus(state){ if(!adminSaveStat) return; adminSaveStat.className = 'admin-save-status ' + state; adminSaveStat.setAttribute('data-t', 'status.' + state); adminSaveStat.textContent = tAdmin('status.' + state); }
 function markDirty(){ if(!ADMIN_UI.dirty){ ADMIN_UI.dirty = true; setAdminSaveStatus('dirty'); refreshStickySaveBar(); } }
-function doSaveCommit(msg){ ADMIN_DATA = clone(ADMIN_DRAFT); ADMIN_UI.dirty = false; setAdminSaveStatus('saved'); refreshStickySaveBar(); if(msg) toast(msg); }
+async function doSaveCommit(msg){
+  setAdminSaveStatus('saving');
+  try {
+    if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData){
+      await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT);
+    }
+    ADMIN_DATA = clone(ADMIN_DRAFT);
+    ADMIN_UI.dirty = false;
+    setAdminSaveStatus('saved');
+    refreshStickySaveBar();
+    if(window.CrabbiePortfolio && ADMIN_DRAFT.portfolio) {
+      window.CrabbiePortfolio.apply(ADMIN_DRAFT.portfolio);
+    }
+    if(window.CrabbieAssets && ADMIN_DRAFT.assets) {
+      window.CrabbieAssets.apply(ADMIN_DRAFT.assets);
+    }
+    if(window.CrabbieCommissions && ADMIN_DRAFT.commissions) {
+      window.CrabbieCommissions.apply(ADMIN_DRAFT.commissions, ADMIN_DRAFT.forms);
+    }
+    if(window.CrabbieSiteContent && ADMIN_DRAFT.pages && ADMIN_DRAFT.settings) {
+      window.CrabbieSiteContent.apply([ADMIN_DRAFT.pages.about, ADMIN_DRAFT.pages.terms], ADMIN_DRAFT.navigation, ADMIN_DRAFT.settings);
+    }
+    toast(msg || tAdmin('toast.saved'));
+  } catch(err){
+    console.error('Save failed:', err);
+    setAdminSaveStatus('dirty');
+    toast('Save failed: ' + err.message);
+  }
+}
 function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); ADMIN_UI.dirty = false; setAdminSaveStatus('saved'); refreshStickySaveBar(); }
 function refreshStickySaveBar(){ var bar = document.getElementById('admStickySave'); if(!bar) return; if(ADMIN_UI.dirty) bar.classList.add('visible'); else bar.classList.remove('visible'); }
 function confirmDiscard(onOk){
@@ -3636,12 +3664,15 @@ btn.addEventListener('click', function(){
 var listKey = btn.getAttribute('data-adm-delete-list');
 var id = btn.getAttribute('data-adm-delete');
 var name = btn.getAttribute('data-adm-delete-name') || 'this item';
-confirmDelete(name, function(){
+confirmDelete(name, async function(){
 var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
-var i = list.findIndex(function(r){ return r.id === id; });
+var i = list.findIndex(function(r){ return r.id === id || r.slug === id; });
 if(i !== -1) list.splice(i, 1);
 if(ADMIN_UI.selection[listKey] === id) ADMIN_UI.selection[listKey] = list[0] ? list[0].id : null;
+if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord){
+  await window.CrabbieAdminCrud.deleteRecord(listKey, id);
+}
 markDirty(); toast(tAdmin('toast.deleted') + ' "' + name + '"'); renderAdmin(module);
 });
 });
@@ -4121,7 +4152,21 @@ apply: function(pages, nav, settings){
 }
 };
 window.CrabbieAdminAuth = {
-notify: function(adminUser){
+notify: async function(adminUser){
+  if(adminUser && window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData){
+    var liveData = await window.CrabbieAdminCrud.loadAllAdminData();
+    if(liveData){
+      if(liveData.portfolio) { ADMIN_DATA.portfolio = liveData.portfolio; ADMIN_DRAFT.portfolio = clone(liveData.portfolio); }
+      if(liveData.assets) { ADMIN_DATA.assets = liveData.assets; ADMIN_DRAFT.assets = clone(liveData.assets); }
+      if(liveData.commissions) { ADMIN_DATA.commissions = liveData.commissions; ADMIN_DRAFT.commissions = clone(liveData.commissions); }
+      if(liveData.forms) { ADMIN_DATA.forms = liveData.forms; ADMIN_DRAFT.forms = clone(liveData.forms); }
+      if(liveData.pages) { ADMIN_DATA.pages = liveData.pages; ADMIN_DRAFT.pages = clone(liveData.pages); }
+      if(liveData.navigation) { ADMIN_DATA.navigation = liveData.navigation; ADMIN_DRAFT.navigation = clone(liveData.navigation); }
+      if(liveData.settings) { ADMIN_DATA.settings = Object.assign(ADMIN_DATA.settings, liveData.settings); ADMIN_DRAFT.settings = clone(ADMIN_DATA.settings); }
+      if(liveData.requests) { ADMIN_DATA.requests = liveData.requests; ADMIN_DRAFT.requests = clone(liveData.requests); }
+      if(liveData.media) { ADMIN_DATA.media = liveData.media; ADMIN_DRAFT.media = clone(liveData.media); }
+    }
+  }
   if(currentRoute.view === 'admin'){
     var loginShell = document.getElementById('adminLoginShell');
     var realShell = document.getElementById('adminRealShell');
