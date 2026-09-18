@@ -3998,7 +3998,7 @@ if(dir === 'prev') reqFilter.page = Math.max(1, reqFilter.page - 1); else reqFil
 renderAdmin('requests');
 });
 });
-$('[data-adm-req-refresh]', adminContent).forEach(function(btn){
+$$('[data-adm-req-refresh]', adminContent).forEach(function(btn){
 btn.addEventListener('click', async function(){
   try{
     if(!(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.fetchAdminCommissionRequests)){
@@ -4332,7 +4332,7 @@ apply: function(records){
     card.setAttribute('data-cat', portfolioFilterGroup(record));
   });
   if(typeof filterState !== 'undefined' && filterState.pf){
-    filterState.pf.cards = $('#pfGrid [data-cat]');
+    filterState.pf.cards = $$('#pfGrid [data-cat]');
     applyFilter('pf');
   }
 
@@ -4394,7 +4394,7 @@ apply: function(records){
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
   });
   if(typeof filterState !== 'undefined' && filterState.fa){
-    filterState.fa.cards = $('#faGrid [data-cat]');
+    filterState.fa.cards = $$('#faGrid [data-cat]');
     applyFilter('fa');
   }
 
