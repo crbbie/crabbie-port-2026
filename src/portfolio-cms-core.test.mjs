@@ -3,6 +3,7 @@ import { mapPortfolioProject } from './portfolio-cms-core.js';
 
 const fallback = { title: 'Prototype title', desc: 'Prototype description', cat: 'Prototype', tags: ['OLD'], credits: '', year: '', cover: '', intro: '', sketch: '', process: '', body: '', quote: '', link: '', linkLabel: '' };
 const mapped = mapPortfolioProject({ slug: 'live-project', title: 'Live title', description: 'Live description', tags: ['CMS'], cover_path: 'covers/live.png', content: { cat: 'Illustration', year: '2026', link: 'https://example.com' } }, fallback);
+assert.equal(mapped.slug, 'live-project');
 assert.equal(mapped.title, 'Live title');
 assert.equal(mapped.desc, 'Live description');
 assert.equal(mapped.cat, 'Illustration');
