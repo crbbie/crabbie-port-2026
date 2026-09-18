@@ -23,6 +23,10 @@ create trigger free_assets_updated before update on public.free_assets for each 
 create trigger commission_services_updated before update on public.commission_services for each row execute function public.set_updated_at();
 create trigger commission_forms_updated before update on public.commission_forms for each row execute function public.set_updated_at();
 create trigger commission_requests_updated before update on public.commission_requests for each row execute function public.set_updated_at();
+create trigger cms_categories_updated before update on public.cms_categories for each row execute function public.set_updated_at();
+create trigger cms_pages_updated before update on public.cms_pages for each row execute function public.set_updated_at();
+create trigger cms_navigation_updated before update on public.cms_navigation for each row execute function public.set_updated_at();
+create trigger site_settings_updated before update on public.site_settings for each row execute function public.set_updated_at();
 
 alter table public.cms_categories enable row level security; alter table public.portfolio_projects enable row level security; alter table public.free_assets enable row level security; alter table public.commission_services enable row level security; alter table public.commission_forms enable row level security; alter table public.commission_requests enable row level security; alter table public.cms_pages enable row level security; alter table public.cms_navigation enable row level security; alter table public.site_settings enable row level security; alter table public.media enable row level security;
 create policy "public categories" on public.cms_categories for select to anon,authenticated using (published);
@@ -43,6 +47,8 @@ create policy "admin inserts media" on storage.objects for insert to authenticat
 create policy "admin updates media" on storage.objects for update to authenticated using(bucket_id='media' and (auth.jwt()->'app_metadata'->>'role')='admin') with check(bucket_id='media' and (auth.jwt()->'app_metadata'->>'role')='admin');
 create policy "admin deletes media" on storage.objects for delete to authenticated using(bucket_id='media' and (auth.jwt()->'app_metadata'->>'role')='admin');
 grant usage on schema public to anon,authenticated;
+-- Make Data API exposure explicit even on projects retaining legacy default grants.
+revoke all on public.cms_categories,public.portfolio_projects,public.free_assets,public.commission_services,public.commission_forms,public.commission_requests,public.cms_pages,public.cms_navigation,public.site_settings,public.media from anon;
 grant select on public.cms_categories,public.portfolio_projects,public.free_assets,public.commission_services,public.commission_forms,public.cms_pages,public.cms_navigation,public.site_settings,public.media to anon,authenticated;
 grant insert on public.commission_requests to anon,authenticated;
 grant all on public.cms_categories,public.portfolio_projects,public.free_assets,public.commission_services,public.commission_forms,public.commission_requests,public.cms_pages,public.cms_navigation,public.site_settings,public.media to authenticated;
