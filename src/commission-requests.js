@@ -19,19 +19,7 @@ export async function submitCommissionRequest(formData = {}) {
   }
 
   if (!isConfigured || !supabase) {
-    // Offline / unconfigured fallback
-    return {
-      success: true,
-      offline: true,
-      data: {
-        id: `local-${Date.now()}`,
-        client_name: formData.name,
-        client_email: formData.email,
-        contact: formData.contact,
-        answers: formData.fields || {},
-        created_at: new Date().toISOString()
-      }
-    };
+    throw new Error('Commission service is temporarily unavailable. Please try again later.');
   }
 
   // Look up matching service or form id by slug if possible
