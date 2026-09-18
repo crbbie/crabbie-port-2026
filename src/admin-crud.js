@@ -44,6 +44,18 @@ export async function loadAllAdminDataFromSupabase() {
       supabase.from('media').select('*').order('created_at', { ascending: false })
     ]);
 
+    [
+      [pRes, 'Portfolio load failed'],
+      [aRes, 'Free Assets load failed'],
+      [cRes, 'Commission Services load failed'],
+      [fRes, 'Commission Forms load failed'],
+      [pagesRes, 'CMS Pages load failed'],
+      [navRes, 'Navigation load failed'],
+      [settingsRes, 'Site Settings load failed'],
+      [reqRes, 'Commission Requests load failed'],
+      [mediaRes, 'Media load failed']
+    ].forEach(([res, label]) => assertSupabaseResult(res, label));
+
     const result = {};
 
     if (pRes.data && pRes.data.length) {
