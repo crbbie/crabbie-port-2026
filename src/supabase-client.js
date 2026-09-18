@@ -9,3 +9,4 @@ import('./commissions-cms.js');
 import('./site-content-cms.js');
 import('./admin-auth.js');
 import('./admin-crud.js');
+import('./admin-media.js');

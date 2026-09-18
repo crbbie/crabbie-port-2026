@@ -1,4 +1,4 @@
-﻿import { supabase, isConfigured } from './supabase-client.js';
+import { supabase, isConfigured } from './supabase-client.js';
 import {
   formatPortfolioRow,
   formatAssetRow,
@@ -7,6 +7,8 @@ import {
   formatPageRow,
   formatSettingRow
 } from './admin-crud-core.js';
+import { formatMediaItem } from './admin-media-core.js';
+import { deleteMediaFile } from './admin-media.js';
 
 export async function loadAllAdminDataFromSupabase() {
   if (!isConfigured || !supabase) return null;
@@ -208,17 +210,9 @@ export async function loadAllAdminDataFromSupabase() {
     }
 
     if (mediaRes.data) {
-      result.media = mediaRes.data.map((row) => {
-        const pubUrl = supabase.storage.from('media').getPublicUrl(row.storage_path).data.publicUrl;
-        return {
-          id: row.id,
-          storagePath: row.storage_path,
-          title: row.original_name || row.storage_path,
-          url: pubUrl,
-          type: (row.mime_type && row.mime_type.startsWith('video')) ? 'video' : 'image',
-          size: row.size_bytes ? `${Math.round(row.size_bytes / 1024)} KB` : ''
-        };
-      });
+      result.media = mediaRes.data.map((row) =>
+        formatMediaItem(row, (p) => supabase.storage.from('media').getPublicUrl(p).data.publicUrl)
+      );
     }
 
     return result;
@@ -332,6 +326,8 @@ export async function deleteAdminRecord(listKey, id) {
     } else if (listKey === 'navigation') {
       const q = isUUID ? supabase.from('cms_navigation').delete().eq('id', id) : supabase.from('cms_navigation').delete().eq('url', id);
       await q;
+    } else if (listKey === 'media') {
+      await deleteMediaFile(id);
     }
   } catch (err) {
     console.warn(`Failed to delete ${listKey} record ${id}:`, err.message);

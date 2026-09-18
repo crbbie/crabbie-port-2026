@@ -2322,10 +2322,12 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
     <p class="am-sub" data-t="media.subtitle">Selecting writes the URL into the originating field.</p>
     <div class="adm-media-grid" id="adminMediaPickerGrid"></div>
     <div class="adm-modal-actions">
+      <button type="button" class="adm-btn-sm primary" id="adminMediaModalUpload" data-t="btn.upload">Upload file</button>
       <button type="button" class="adm-btn-sm" id="adminMediaCancel" data-t="btn.cancel">Cancel</button>
     </div>
   </div>
 </div>
+<input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,application/pdf">
 
 <script>
 (function(){
@@ -3579,10 +3581,14 @@ return '<div class="adm-editor"><h2>Contact / Social</h2><div class="adm-section
 }
 
 function renderAdminMedia(){
-var cards = ADMIN_DRAFT.media.map(function(m){
-return '<div class="adm-media-card"><div class="adm-media-thumb">' + esc(m.type === 'image' ? '🖼' : '▶') + '</div><div class="adm-media-body"><div class="mb-title">' + esc(m.title) + '</div><div class="mb-meta"><span class="adm-badge published">' + esc(m.type) + '</span><span>' + esc(m.size) + '</span></div><div class="mb-actions"><button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button></div></div></div>';
+var cards = (ADMIN_DRAFT.media || []).map(function(m){
+  var thumb = (m.type === 'image' && m.url)
+    ? '<img src="' + esc(m.url) + '" alt="' + esc(m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+    : esc(m.type === 'image' ? '🖼' : '▶');
+  return '<div class="adm-media-card"><div class="adm-media-thumb">' + thumb + '</div><div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div><div class="mb-meta"><span class="adm-badge published">' + esc(m.type) + '</span><span>' + esc(m.size || '') + '</span></div><div class="mb-actions"><button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm danger" data-adm-media-del="' + esc(m.id) + '" data-adm-media-name="' + esc(m.title) + '">' + esc(tAdmin('btn.delete')) + '</button></div></div></div>';
 }).join('');
-return '<div class="adm-list" style="margin-bottom:16px; position:static; max-height:none;"><div class="adm-list-toolbar"><button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button><input type="search" data-adm-search="media"></div></div><div class="adm-media-grid">' + cards + '</div>';
+var content = cards || '<div style="grid-column:1/-1;padding:40px 20px;text-align:center;color:var(--berry-soft);font-weight:700;">No media uploaded yet. Click Upload to add your first file!</div>';
+return '<div class="adm-list" style="margin-bottom:16px; position:static; max-height:none;"><div class="adm-list-toolbar"><button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button><input type="search" data-adm-search="media"></div></div><div class="adm-media-grid">' + content + '</div>';
 }
 
 function renderAdminSettings(){
@@ -3899,25 +3905,39 @@ rec.email = 'sent'; rec.emailError = ''; toast(tAdmin('toast.emailResent')); ren
 $$('[data-adm-media-open]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var id = btn.getAttribute('data-adm-media-open');
-var m = ADMIN_DRAFT.media.filter(function(x){ return x.id === id; })[0];
-if(m) window.open(m.url, '_blank', 'noopener');
+var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
+if(m && m.url) window.open(m.url, '_blank', 'noopener');
 });
 });
 $$('[data-adm-media-upload]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
-var id = newId('media');
-ADMIN_DRAFT.media.unshift({ id:id, title:'upload-demo.png', url:'https://cdn.crabbie.example/upload-demo.png', type:'image', size:'—' });
-markDirty(); toast(tAdmin('toast.uploaded')); renderAdmin('media');
+triggerMediaUpload({ type: 'mediaTab' });
 });
 });
 $$('[data-adm-mediaupload]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var path = btn.getAttribute('data-adm-mediaupload');
-var id = newId('media');
-var item = { id:id, title:'uploaded-' + id + '.png', url:'https://cdn.crabbie.example/' + id + '.png', type:'image', size:'—' };
-ADMIN_DRAFT.media.unshift(item);
-setByPath(ADMIN_DRAFT, path, item.url);
-markDirty(); toast(tAdmin('toast.uploadedDemo') + item.title); renderAdmin(module);
+triggerMediaUpload({ type: 'field', path: path });
+});
+});
+$$('[data-adm-media-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var id = btn.getAttribute('data-adm-media-del');
+var name = btn.getAttribute('data-adm-media-name') || 'this media';
+var m = (ADMIN_DRAFT.media || []).find(function(x){ return x.id === id; });
+confirmDelete(name, async function(){
+  if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile){
+    await window.CrabbieAdminMedia.deleteMediaFile(id, m ? m.storagePath : null);
+  }
+  var idx = (ADMIN_DRAFT.media || []).findIndex(function(x){ return x.id === id; });
+  if(idx !== -1) ADMIN_DRAFT.media.splice(idx, 1);
+  if(Array.isArray(ADMIN_DATA.media)){
+    var dataIdx = ADMIN_DATA.media.findIndex(function(x){ return x.id === id; });
+    if(dataIdx !== -1) ADMIN_DATA.media.splice(dataIdx, 1);
+  }
+  toast(tAdmin('toast.deleted') + ' "' + name + '"');
+  renderAdmin('media');
+});
 });
 });
 $$('[data-adm-mediaopen]', adminContent).forEach(function(btn){
@@ -3946,14 +3966,92 @@ row.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
 });
 }
 
+var currentUploadContext = null;
+function triggerMediaUpload(context){
+  currentUploadContext = context;
+  var fileInput = document.getElementById('adminGlobalFileInput');
+  if(!fileInput){
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'adminGlobalFileInput';
+    fileInput.style.display = 'none';
+    fileInput.accept = 'image/*,video/*,application/pdf';
+    document.body.appendChild(fileInput);
+  }
+  fileInput.value = '';
+  fileInput.onchange = handleMediaUploadSelected;
+  fileInput.click();
+}
+
+async function handleMediaUploadSelected(e){
+  var file = e.target.files && e.target.files[0];
+  if(!file) return;
+  var context = currentUploadContext || { type: 'mediaTab' };
+  toast('Uploading ' + file.name + '…');
+  try {
+    var newMedia = null;
+    if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile){
+      newMedia = await window.CrabbieAdminMedia.uploadMediaFile(file);
+    } else {
+      var id = newId('media');
+      newMedia = {
+        id: id,
+        storagePath: 'uploads/' + file.name,
+        title: file.name,
+        url: URL.createObjectURL(file),
+        type: file.type.startsWith('video') ? 'video' : 'image',
+        size: Math.round(file.size / 1024) + ' KB'
+      };
+    }
+    if(!Array.isArray(ADMIN_DRAFT.media)) ADMIN_DRAFT.media = [];
+    ADMIN_DRAFT.media.unshift(newMedia);
+    if(Array.isArray(ADMIN_DATA.media)){
+      ADMIN_DATA.media.unshift(newMedia);
+    }
+    if(context.type === 'field'){
+      setByPath(ADMIN_DRAFT, context.path, newMedia.url);
+      markDirty();
+      toast(tAdmin('toast.uploadedDemo') + newMedia.title);
+      renderAdmin(currentRoute.adminModule || 'dashboard');
+    } else if(context.type === 'picker'){
+      if(activeMediaTarget){
+        setByPath(ADMIN_DRAFT, activeMediaTarget, newMedia.url);
+        markDirty();
+        toast(tAdmin('toast.selectedMedia') + newMedia.title);
+        var modal = document.getElementById('adminMediaModal');
+        if(modal) modal.classList.remove('open');
+        renderAdmin(currentRoute.adminModule || 'dashboard');
+      } else {
+        openMediaPicker(null);
+        toast(tAdmin('toast.uploaded') + ': ' + newMedia.title);
+      }
+    } else {
+      toast(tAdmin('toast.uploaded') + ': ' + newMedia.title);
+      renderAdmin('media');
+    }
+  } catch(err){
+    console.error('Media upload error:', err);
+    toast('Upload failed: ' + (err.message || 'Unknown error'));
+  } finally {
+    e.target.value = '';
+  }
+}
+
 var activeMediaTarget = null;
 function openMediaPicker(targetPath){
 var modal = document.getElementById('adminMediaModal');
 var grid = document.getElementById('adminMediaPickerGrid'); if(!modal || !grid) return;
 activeMediaTarget = targetPath || null;
-grid.innerHTML = ADMIN_DRAFT.media.map(function(m){
-return '<div class="adm-media-card"><div class="adm-media-thumb">🖼</div><div class="adm-media-body"><div class="mb-title">' + esc(m.title) + '</div><div class="mb-actions"><button type="button" class="adm-btn-sm primary" data-adm-pick="' + esc(m.id) + '">Use this</button></div></div></div>';
-}).join('');
+if(!ADMIN_DRAFT.media || !ADMIN_DRAFT.media.length){
+  grid.innerHTML = '<div style="grid-column:1/-1;padding:30px 10px;text-align:center;color:var(--berry-soft);font-weight:700;">No media available yet. Click "Upload file" below to upload an image!</div>';
+} else {
+  grid.innerHTML = ADMIN_DRAFT.media.map(function(m){
+    var thumb = (m.type === 'image' && m.url)
+      ? '<img src="' + esc(m.url) + '" alt="' + esc(m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+      : esc(m.type === 'image' ? '🖼' : '▶');
+    return '<div class="adm-media-card"><div class="adm-media-thumb">' + thumb + '</div><div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div><div class="mb-actions"><button type="button" class="adm-btn-sm primary" data-adm-pick="' + esc(m.id) + '">Use this</button></div></div></div>';
+  }).join('');
+}
 modal.classList.add('open');
 }
 function wireMediaPicker(){
@@ -3963,7 +4061,7 @@ if(!modal || !grid) return;
 grid.addEventListener('click', function(e){
 var t = e.target.closest('[data-adm-pick]'); if(!t) return;
 var id = t.getAttribute('data-adm-pick');
-var m = ADMIN_DRAFT.media.filter(function(x){ return x.id === id; })[0];
+var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
 if(m && activeMediaTarget){
 setByPath(ADMIN_DRAFT, activeMediaTarget, m.url);
 markDirty(); toast(tAdmin('toast.selectedMedia') + m.title);
@@ -3973,6 +4071,13 @@ modal.classList.remove('open'); renderAdmin(currentRoute.adminModule || 'dashboa
 var cancel = document.getElementById('adminMediaCancel');
 if(cancel) cancel.addEventListener('click', function(){ modal.classList.remove('open'); });
 modal.addEventListener('click', function(e){ if(e.target === modal) modal.classList.remove('open'); });
+
+var uploadBtn = document.getElementById('adminMediaModalUpload');
+if(uploadBtn){
+  uploadBtn.addEventListener('click', function(){
+    triggerMediaUpload({ type: 'picker', path: activeMediaTarget });
+  });
+}
 }
 wireMediaPicker();
 
