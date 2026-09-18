@@ -724,6 +724,56 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
    ADMIN SHELL v2
    ============================================================ */
 .admin-view{ min-height:100vh; }
+.admin-login-shell{
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at top right, #ffe6f0, #f8f4ff 50%, #eef5ff);
+}
+.admin-login-card{
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.95);
+  border: 2px solid #ffd1e4;
+  border-radius: 28px;
+  padding: 38px 32px;
+  box-shadow: 0 16px 40px rgba(180, 138, 255, 0.16);
+  text-align: center;
+}
+.al-brand .al-star{ font-size: 32px; color: #ff5c9a; display: inline-block; margin-bottom: 8px; }
+.al-brand h2{ font-family: 'Fredoka', sans-serif; font-size: 26px; color: #7a3d6e; margin-bottom: 6px; }
+.al-brand p{ font-size: 14px; color: #8e7d9b; margin-bottom: 24px; }
+.al-field{ text-align: left; margin-bottom: 16px; }
+.al-field label{ display: block; font-size: 13px; font-weight: 700; color: #6a4670; margin-bottom: 6px; }
+.al-field input{
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #e2d2ed;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  color: #4b3652;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  box-sizing: border-box;
+}
+.al-field input:focus{ border-color: #b48aff; box-shadow: 0 0 0 3px rgba(180,138,255,.2); }
+.al-error{
+  background: #fff0f3;
+  border: 1px solid #ffccd5;
+  color: #d32f2f;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.al-btn{ width: 100%; margin-top: 8px; padding: 13px 20px; font-size: 15px; }
+.al-back{ display: inline-block; margin-top: 18px; font-size: 13px; color: #8a5cff; text-decoration: none; font-weight: 600; }
+.al-back:hover{ text-decoration: underline; }
 .admin-shell{ display:grid; grid-template-columns: var(--adm-sidebar) 1fr; min-height:100vh; background:#fbf6ff; }
 
 .admin-sidebar{ background:#fff; border-right: 3px solid var(--purple-light); padding: 20px 14px 16px; display:flex; flex-direction:column; gap: 14px; position: sticky; top:0; height:100vh; overflow-y:auto;}
@@ -2144,7 +2194,29 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 
 <!-- VIEW 12 — ADMIN -->
 <section class="view admin-view" data-view="admin">
-  <div class="admin-shell">
+  <div class="admin-login-shell" id="adminLoginShell" style="display:none;">
+    <div class="admin-login-card">
+      <div class="al-brand">
+        <span class="al-star">✦</span>
+        <h2>Atelier Sign In</h2>
+        <p>Sign in with your administrator credentials.</p>
+      </div>
+      <form id="adminLoginForm" novalidate>
+        <div class="al-field">
+          <label for="adminEmail">Email</label>
+          <input type="email" id="adminEmail" required autocomplete="username" placeholder="crabbie.art@gmail.com">
+        </div>
+        <div class="al-field">
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div class="al-error" id="adminLoginError" role="alert" style="display:none;"></div>
+        <button type="submit" class="btn btn-primary al-btn" id="adminLoginBtn">Sign In</button>
+        <a href="#home" class="al-back" data-goto="home">← Back to website</a>
+      </form>
+    </div>
+  </div>
+  <div class="admin-shell" id="adminRealShell">
     <aside class="admin-sidebar" id="adminSidebar" aria-label="Admin modules">
       <div class="admin-brand">
         <div class="ab-mark">✧</div>
@@ -2398,7 +2470,19 @@ var view = route.view || '404';
 if(prevView !== null && prevView !== view) scrollMemory[prevView] = window.scrollY || 0;
 if(view === 'project-detail') renderProject(route.id);
 if(view === 'free-asset-detail') renderAsset(route.id);
-if(view === 'admin') renderAdmin(route.adminModule || 'dashboard');
+if(view === 'admin'){
+  var adminUser = window.CrabbieAuthService ? window.CrabbieAuthService.getAdmin() : null;
+  var loginShell = document.getElementById('adminLoginShell');
+  var realShell = document.getElementById('adminRealShell');
+  if(!adminUser){
+    if(loginShell) loginShell.style.display = 'flex';
+    if(realShell) realShell.style.display = 'none';
+  } else {
+    if(loginShell) loginShell.style.display = 'none';
+    if(realShell) realShell.style.display = '';
+    renderAdmin(route.adminModule || 'dashboard');
+  }
+}
 $$('.view').forEach(function(v){ v.classList.toggle('is-active', v.getAttribute('data-view') === view); });
 document.body.classList.toggle('is-loading', view === 'loading');
 document.body.classList.toggle('admin-mode', view === 'admin');
@@ -3873,9 +3957,39 @@ if(adminBurgerBtn) adminBurgerBtn.setAttribute('aria-expanded','false');
 });
 var so = document.getElementById('adminSignOut');
 if(so) so.addEventListener('click', function(){
-var goFn = function(){ navigate('home'); toast(tAdmin('toast.signedOut')); };
+var goFn = async function(){
+  if(window.CrabbieAuthService) await window.CrabbieAuthService.logout();
+  navigate('home');
+  toast(tAdmin('toast.signedOut'));
+};
 if(ADMIN_UI.dirty) confirmDiscard(goFn); else goFn();
 });
+var loginForm = document.getElementById('adminLoginForm');
+if(loginForm){
+  loginForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var emailEl = document.getElementById('adminEmail');
+    var passEl = document.getElementById('adminPassword');
+    var errEl = document.getElementById('adminLoginError');
+    var btn = document.getElementById('adminLoginBtn');
+    if(errEl){ errEl.style.display = 'none'; errEl.textContent = ''; }
+    if(btn){ btn.disabled = true; btn.textContent = 'Signing in…'; }
+    try {
+      if(!window.CrabbieAuthService) throw new Error('Auth service not ready yet.');
+      var res = await window.CrabbieAuthService.login(emailEl ? emailEl.value : '', passEl ? passEl.value : '');
+      if(!res.success){
+        if(errEl){ errEl.textContent = res.error || 'Login failed'; errEl.style.display = 'block'; }
+      } else {
+        if(passEl) passEl.value = '';
+        toast('Welcome back to Atelier!');
+      }
+    } catch(err){
+      if(errEl){ errEl.textContent = err.message || 'Login error'; errEl.style.display = 'block'; }
+    } finally {
+      if(btn){ btn.disabled = false; btn.textContent = 'Sign In'; }
+    }
+  });
+}
 if(adminBurgerBtn && adminSidebar){
 adminBurgerBtn.addEventListener('click', function(){
 var open = !adminSidebar.classList.contains('open');
@@ -4003,6 +4117,22 @@ apply: function(pages, nav, settings){
         if(linkMap[href].title) a.textContent = linkMap[href].title;
       }
     });
+  }
+}
+};
+window.CrabbieAdminAuth = {
+notify: function(adminUser){
+  if(currentRoute.view === 'admin'){
+    var loginShell = document.getElementById('adminLoginShell');
+    var realShell = document.getElementById('adminRealShell');
+    if(!adminUser){
+      if(loginShell) loginShell.style.display = 'flex';
+      if(realShell) realShell.style.display = 'none';
+    } else {
+      if(loginShell) loginShell.style.display = 'none';
+      if(realShell) realShell.style.display = '';
+      renderAdmin(currentRoute.adminModule || 'dashboard');
+    }
   }
 }
 };
