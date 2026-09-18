@@ -354,6 +354,10 @@ export async function deleteAdminRecord(listKey, id) {
     result = isUUID
       ? await supabase.from('commission_services').delete().eq('id', id)
       : await supabase.from('commission_services').delete().eq('slug', id);
+  } else if (listKey === 'forms') {
+    result = isUUID
+      ? await supabase.from('commission_forms').delete().eq('id', id)
+      : await supabase.from('commission_forms').delete().eq('slug', id);
   } else if (listKey === 'navigation') {
     result = isUUID
       ? await supabase.from('cms_navigation').delete().eq('id', id)
