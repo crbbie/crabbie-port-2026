@@ -79,11 +79,17 @@ export async function deleteMediaFile(id, storagePath) {
     }
 
     if (path) {
-      await supabase.storage.from('media').remove([path]);
+      const { error: storageErr } = await supabase.storage.from('media').remove([path]);
+      if (storageErr) {
+        throw new Error(`Storage delete failed: ${storageErr.message}`);
+      }
     }
 
     if (id) {
-      await supabase.from('media').delete().eq('id', id);
+      const { error: rowErr } = await supabase.from('media').delete().eq('id', id);
+      if (rowErr) {
+        throw new Error(`Media record delete failed: ${rowErr.message}`);
+      }
     }
 
     return { success: true };
@@ -102,7 +108,10 @@ export async function listMediaFiles() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error || !Array.isArray(data)) return [];
+    if (error) {
+      throw new Error(`Media list failed: ${error.message}`);
+    }
+    if (!Array.isArray(data)) return [];
 
     return data.map((row) =>
       formatMediaItem(row, (p) => supabase.storage.from('media').getPublicUrl(p).data.publicUrl)
