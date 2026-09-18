@@ -1,0 +1,8 @@
+{
+  "name": "crabbie-portfolio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "check:foundation": "node scripts/check-foundation.mjs" },
+  "dependencies": { "@supabase/supabase-js": "2.57.4" }
+}
