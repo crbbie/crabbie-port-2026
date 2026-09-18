@@ -3967,6 +3967,45 @@ apply: function(services, forms){
   }
 }
 };
+window.CrabbieSiteContent = {
+apply: function(pages, nav, settings){
+  if(settings){
+    if(settings.branding && settings.branding.tagline){
+      var tag = document.querySelector('.hero-tagline');
+      if(tag) tag.textContent = settings.branding.tagline;
+    }
+    if(settings.footer && settings.footer.footer){
+      var foot = document.querySelector('.foot-tag');
+      if(foot) foot.textContent = settings.footer.footer;
+    }
+    if(settings.contact && settings.contact.email){
+      var emailLinks = document.querySelectorAll('a[href^="mailto:"]');
+      emailLinks.forEach(function(a){ a.href = 'mailto:' + settings.contact.email; a.textContent = settings.contact.email; });
+    }
+  }
+  if(Array.isArray(pages)){
+    pages.forEach(function(p){
+      if(p.slug === 'about'){
+        var bioEl = document.querySelector('.about-hero .bio');
+        if(bioEl && p.bio) bioEl.textContent = p.bio;
+      }
+    });
+  }
+  if(Array.isArray(nav) && nav.length){
+    var linkMap = {};
+    nav.forEach(function(n){ linkMap[n.url] = n; });
+    document.querySelectorAll('#mainNav .nav-links a, #mobileNavPanel a').forEach(function(a){
+      var href = a.getAttribute('href');
+      if(linkMap[href] && !linkMap[href].published){
+        a.style.display = 'none';
+      } else if(linkMap[href]){
+        a.style.display = '';
+        if(linkMap[href].title) a.textContent = linkMap[href].title;
+      }
+    });
+  }
+}
+};
 
 boot();
 

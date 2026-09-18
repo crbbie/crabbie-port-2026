@@ -6,3 +6,4 @@ window.CrabbieSupabase = { supabase, isConfigured };
 import('./portfolio-cms.js');
 import('./free-assets-cms.js');
 import('./commissions-cms.js');
+import('./site-content-cms.js');
