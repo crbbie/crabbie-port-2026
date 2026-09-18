@@ -4287,6 +4287,29 @@ apply: function(records){
   Object.keys(PROJECTS).forEach(function(slug){ if(!live[slug]) delete PROJECTS[slug]; });
   PROJECT_ORDER = records.map(function(record){ return record.slug; });
 
+  var portfolioGrid = document.getElementById('pfGrid');
+  if(portfolioGrid){
+    records.forEach(function(record, index){
+      var exists = Array.prototype.some.call(portfolioGrid.querySelectorAll('[data-project]'), function(card){
+        return card.getAttribute('data-project') === record.slug;
+      });
+      if(exists) return;
+      var card = document.createElement('a');
+      card.className = 'work pf-s';
+      card.setAttribute('href', '#project/' + record.slug);
+      card.setAttribute('data-project', record.slug);
+      card.setAttribute('data-cat', String(record.categorySlug || record.cat || 'other').toLowerCase());
+      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+      var thumb = record.thumbnail
+        ? '<div class="thumb"><img src="' + esc(record.thumbnail) + '" alt="' + esc(record.title || '') + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy"></div>'
+        : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span></div>';
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc((record.tags && record.tags[0]) || 'PROJECT') + '</span></div>' +
+        thumb +
+        '<div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
+      portfolioGrid.appendChild(card);
+    });
+  }
+
   document.querySelectorAll('#pfGrid [data-project], #worksGrid [data-project]').forEach(function(card){
     var slug = card.getAttribute('data-project');
     var record = PROJECTS[slug];
@@ -4299,7 +4322,10 @@ apply: function(records){
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.cat) card.setAttribute('data-cat', String(record.cat).toLowerCase());
   });
-  if(typeof filterState !== 'undefined' && filterState.pf) applyFilter('pf');
+  if(typeof filterState !== 'undefined' && filterState.pf){
+    filterState.pf.cards = $('#pfGrid [data-cat]');
+    applyFilter('pf');
+  }
 
   if(currentRoute.view === 'project-detail'){
     if(!live[currentRoute.id]) navigate('portfolio');
@@ -4318,6 +4344,30 @@ apply: function(records){
   });
   Object.keys(ASSETS).forEach(function(slug){ if(!live[slug]) delete ASSETS[slug]; });
 
+  var assetGrid = document.getElementById('faGrid');
+  if(assetGrid){
+    records.forEach(function(record){
+      var exists = Array.prototype.some.call(assetGrid.querySelectorAll('[data-asset]'), function(card){
+        return card.getAttribute('data-asset') === record.slug;
+      });
+      if(exists) return;
+      var card = document.createElement('a');
+      card.className = 'item';
+      card.setAttribute('href', '#asset/' + record.slug);
+      card.setAttribute('data-asset', record.slug);
+      card.setAttribute('data-cat', String(record.filterCat || record.categorySlug || record.cat || 'other').toLowerCase());
+      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+      var preview = record.thumbnail
+        ? '<div class="item-preview"><img src="' + esc(record.thumbnail) + '" alt="' + esc(record.title || '') + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy"><span class="format">' + esc(record.format || '') + '</span></div>'
+        : '<div class="item-preview"><span class="icon">' + esc(record.icon || '★') + '</span><span class="format">' + esc(record.format || '') + '</span></div>';
+      card.innerHTML = preview +
+        '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
+        '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
+        '<div class="item-status">' + (record.availability === 'available' ? 'Available' : 'Currently unavailable') + '</div>';
+      assetGrid.appendChild(card);
+    });
+  }
+
   document.querySelectorAll('#faGrid [data-asset]').forEach(function(card){
     var slug = card.getAttribute('data-asset');
     var record = ASSETS[slug];
@@ -4334,7 +4384,10 @@ apply: function(records){
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
   });
-  if(typeof filterState !== 'undefined' && filterState.fa) applyFilter('fa');
+  if(typeof filterState !== 'undefined' && filterState.fa){
+    filterState.fa.cards = $('#faGrid [data-cat]');
+    applyFilter('fa');
+  }
 
   if(currentRoute.view === 'free-asset-detail'){
     if(!live[currentRoute.id]) navigate('free-assets');
@@ -4404,6 +4457,19 @@ apply: function(services, forms){
       if(!cardBtn && s.title){
         cardBtn = document.querySelector('.comm-grid button[data-service="' + s.title + '"]');
       }
+      if(!miniBtn && !cardBtn && slug){
+        var miniGrid = document.getElementById('miniServicesGrid');
+        if(miniGrid){
+          miniBtn = document.createElement('button');
+          miniBtn.type = 'button';
+          miniBtn.className = 'mini-card';
+          miniBtn.setAttribute('data-other-service', slug);
+          miniBtn.setAttribute('aria-pressed', 'false');
+          miniBtn.innerHTML = '<span class="mini-icon">✦</span><span><span class="mini-name">' + esc(s.name || s.title || slug) + '</span><span class="mini-note">' + esc(s.priceNote || '') + '</span></span><span class="mini-price">' + esc(s.price || '') + '</span>';
+          miniGrid.appendChild(miniBtn);
+        }
+      }
+
       if(cardBtn){
         cardBtn.setAttribute('data-avail', s.availability);
         cardBtn.setAttribute('data-service-slug', slug);
@@ -4465,6 +4531,36 @@ apply: function(services, forms){
       if(!slug) return;
       formMap[slug] = form;
       nextLabels[slug] = form.title || slug;
+
+      var tabsRoot = document.querySelector('.tabs');
+      var tabButton = Array.prototype.find.call(document.querySelectorAll('.tab-btn[data-tab]'), function(btn){
+        return btn.getAttribute('data-tab') === slug;
+      });
+      if(!tabButton && tabsRoot){
+        tabButton = document.createElement('button');
+        tabButton.type = 'button';
+        tabButton.className = 'tab-btn';
+        tabButton.setAttribute('data-tab', slug);
+        tabButton.setAttribute('role', 'tab');
+        tabButton.setAttribute('aria-selected', 'false');
+        tabButton.setAttribute('tabindex', '-1');
+        tabButton.addEventListener('click', function(){ setTab(slug, false); });
+        tabsRoot.appendChild(tabButton);
+      }
+
+      var panel = Array.prototype.find.call(document.querySelectorAll('.tab-panel[data-panel]'), function(el){
+        return el.getAttribute('data-panel') === slug;
+      });
+      if(!panel && commissionForm){
+        panel = document.createElement('div');
+        panel.className = 'tab-panel';
+        panel.setAttribute('data-panel', slug);
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('tabindex', '0');
+        panel.innerHTML = '<div class="form-grid"></div>';
+        var consent = document.getElementById('consentRow');
+        commissionForm.insertBefore(panel, consent || commissionForm.firstChild);
+      }
     });
     TAB_LABELS = nextLabels;
 
