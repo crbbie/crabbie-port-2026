@@ -17,9 +17,7 @@ export async function hydrateFreeAssets() {
     console.warn('Free Assets Supabase query failed:', error.message, '— Falling back to prototype data.');
     return;
   }
-  if (data && data.length) {
-    window.CrabbieAssets.apply(data.map((row) => mapFreeAsset(row, window.CrabbieAssets.getPrototype(row.slug))));
-  }
+  window.CrabbieAssets.apply((data || []).map((row) => mapFreeAsset(row, window.CrabbieAssets.getPrototype(row.slug))));
 }
 
 hydrateFreeAssets();
