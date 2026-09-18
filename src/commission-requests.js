@@ -70,21 +70,23 @@ export async function submitCommissionRequest(formData = {}) {
 }
 
 export async function fetchAdminCommissionRequests() {
-  if (!isConfigured || !supabase) return [];
-
-  try {
-    const { data, error } = await supabase
-      .from('commission_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error || !Array.isArray(data)) return [];
-
-    return data.map(formatRequestRowForAdmin);
-  } catch (err) {
-    console.warn('Failed to fetch commission requests:', err.message);
-    return [];
+  if (!isConfigured || !supabase) {
+    throw new Error('Supabase is not configured.');
   }
+
+  const { data, error } = await supabase
+    .from('commission_requests')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch commission requests: ${error.message}`);
+  }
+  if (!Array.isArray(data)) {
+    throw new Error('Failed to fetch commission requests: invalid response.');
+  }
+
+  return data.map(formatRequestRowForAdmin);
 }
 
 export async function updateCommissionRequestStatus(id, status, notes = '') {
