@@ -34,8 +34,8 @@ export async function loadAllAdminDataFromSupabase() {
       reqRes,
       mediaRes
     ] = await Promise.all([
-      supabase.from('portfolio_projects').select('*').order('sort_order', { ascending: true }),
-      supabase.from('free_assets').select('*').order('sort_order', { ascending: true }),
+      supabase.from('portfolio_projects').select('*, category:cms_categories(slug,title)').order('sort_order', { ascending: true }),
+      supabase.from('free_assets').select('*, category:cms_categories(slug,title)').order('sort_order', { ascending: true }),
       supabase.from('cms_categories').select('*').order('kind', { ascending: true }).order('sort_order', { ascending: true }),
       supabase.from('commission_services').select('*').order('sort_order', { ascending: true }),
       supabase.from('commission_forms').select('*'),
@@ -69,7 +69,7 @@ export async function loadAllAdminDataFromSupabase() {
           slug: row.slug,
           title: row.title,
           description: row.description || '',
-          category: content.cat || 'illustration',
+          category: content.categorySlug || (row.category && row.category.slug) || content.cat || 'illustration',
           tags: Array.isArray(row.tags) ? row.tags : [],
           thumbnail: row.thumbnail_path || '',
           cover: row.cover_path || '',
@@ -102,7 +102,7 @@ export async function loadAllAdminDataFromSupabase() {
           slug: row.slug,
           title: row.title,
           description: row.description || '',
-          category: (m.cat || 'other').toLowerCase(),
+          category: m.categorySlug || (row.category && row.category.slug) || (m.cat || 'other').toLowerCase(),
           tags: Array.isArray(m.tags) ? m.tags : [],
           assetType: (m.cat || 'other').toLowerCase(),
           thumbnail: row.thumbnail_path || '',
@@ -300,20 +300,26 @@ export async function persistAdminDataToSupabase(draft) {
 
   // 1. Portfolio Projects
   if (Array.isArray(draft.portfolio)) {
-    const portfolioRows = draft.portfolio.map((p, idx) => ({
-      ...formatPortfolioRow(p, idx),
-      category_id: categoryIds.portfolio.get(p.category) || null
-    }));
+    const portfolioRows = draft.portfolio.map((p, idx) => {
+      const category = (draft.portfolioCategories || []).find((cat) => (cat.slug || cat.id) === p.category);
+      const row = formatPortfolioRow({ ...p, category: category ? category.title : p.category }, idx);
+      row.category_id = categoryIds.portfolio.get(p.category) || null;
+      row.content = { ...(row.content || {}), categorySlug: p.category || '' };
+      return row;
+    });
     const { error: pErr } = await supabase.from('portfolio_projects').upsert(portfolioRows, { onConflict: 'slug' });
     if (pErr) throw new Error(`Portfolio save failed: ${pErr.message}`);
   }
 
   // 2. Free Assets
   if (Array.isArray(draft.assets)) {
-    const assetRows = draft.assets.map((a, idx) => ({
-      ...formatAssetRow(a, idx),
-      category_id: categoryIds.asset.get(a.category) || null
-    }));
+    const assetRows = draft.assets.map((a, idx) => {
+      const category = (draft.assetCategories || []).find((cat) => (cat.slug || cat.id) === a.category);
+      const row = formatAssetRow({ ...a, category: category ? category.title : a.category }, idx);
+      row.category_id = categoryIds.asset.get(a.category) || null;
+      row.metadata = { ...(row.metadata || {}), categorySlug: a.category || '' };
+      return row;
+    });
     const { error: aErr } = await supabase.from('free_assets').upsert(assetRows, { onConflict: 'slug' });
     if (aErr) throw new Error(`Assets save failed: ${aErr.message}`);
   }
