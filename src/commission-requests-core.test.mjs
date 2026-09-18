@@ -3,7 +3,8 @@ import {
   validateCommissionRequest,
   formatCommissionRequestPayload,
   formatRequestRowForAdmin,
-  mapAdminStatusToDbStatus
+  mapAdminStatusToDbStatus,
+  isConfirmedCommissionSubmission
 } from './commission-requests-core.js';
 
 // 1. validateCommissionRequest
@@ -90,6 +91,15 @@ import {
   assert.equal(mapAdminStatusToDbStatus('Reviewing'), 'reviewing');
   assert.equal(mapAdminStatusToDbStatus('new'), 'new');
   assert.equal(mapAdminStatusToDbStatus('invalid_status'), 'new');
+}
+
+// A missing service, offline response, or unsuccessful insert must not show success.
+{
+  assert.equal(isConfirmedCommissionSubmission(null), false);
+  assert.equal(isConfirmedCommissionSubmission(undefined), false);
+  assert.equal(isConfirmedCommissionSubmission({ success: false }), false);
+  assert.equal(isConfirmedCommissionSubmission({ success: true, offline: true }), false);
+  assert.equal(isConfirmedCommissionSubmission({ success: true }), true);
 }
 
 console.log('Commission requests core tests passed.');

@@ -225,7 +225,6 @@ button{font:inherit; color:inherit;}
 .item:nth-child(8) .item-preview{ background: linear-gradient(160deg, #d9a8ff 0%, #ff8db8 100%);}
 .item-name{font-family:'Fredoka'; font-weight:600; font-size:15px;color: var(--berry); margin-bottom: 4px;letter-spacing:-.005em;}
 .item-cat{font-size:10.5px; color: var(--berry-faint); font-weight:800;text-transform: uppercase; letter-spacing:.14em;}
-.demo-badge{position:absolute; bottom:10px; left:10px; z-index:4;font-family:'Fredoka'; font-weight:600; font-size:9px; letter-spacing:.12em;color:#fff; background: linear-gradient(180deg,#c9b6e8,#8a5cff);padding:3px 9px; border-radius:8px; border:2px solid #fff;box-shadow:0 3px 0 rgba(92,61,153,.4);}
 .item-tags{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:9px;}
 .item-tags span{font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;color:var(--berry-soft); background:var(--pink-soft);padding:3px 9px; border-radius:999px; border:1.5px solid var(--pink-light);}
 .item-status{font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;color:var(--berry-faint); margin-top:8px;}
@@ -356,7 +355,6 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .ad-grid{ display:grid; grid-template-columns: 1fr 1.05fr; gap: 46px; align-items:start; }
 .ad-preview{position:relative; aspect-ratio: 1/0.94;border-radius: 34px; display:grid; place-items:center;background: linear-gradient(160deg, #ff8db8 0%, #ff5c9a 100%);color:#fff; font-family:'Gochi Hand', cursive; font-size: 24px;border: 4px solid #fff;box-shadow: 0 0 0 4px var(--pink), 0 14px 0 -4px var(--pink-light), 0 32px 52px -22px rgba(217,74,128,.55);}
 .ad-preview .big-icon{font-size: 110px; line-height: 1;filter: drop-shadow(0 6px 10px rgba(120,40,90,.25));}
-.ad-preview .demo-badge{bottom: 18px; left: 18px; font-size: 11px; padding: 5px 14px;}
 .spec-list{ list-style:none; margin-bottom: 22px;}
 .spec{display:flex; justify-content:space-between; gap: 18px;padding: 13px 0;border-bottom: 2px dashed var(--pink-light);}
 .spec:last-child{ border-bottom:none; }
@@ -549,9 +547,6 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .loading-dots span:nth-child(3){ background: var(--blue-hot); }
 .loading-dots span:nth-child(4){ background: var(--yellow-hot); }
 
-.demo-dock{position: fixed; left: 16px; bottom: 16px; z-index: 90;display:flex; align-items:center; gap: 6px;padding: 6px 8px 6px 13px;border-radius: 999px;background: rgba(255,255,255,.94);backdrop-filter: blur(6px);border: 2px solid var(--purple);box-shadow: 0 6px 0 -2px var(--purple-light), 0 16px 26px -14px rgba(138,92,255,.7);font-family:'Fredoka'; font-weight:600; font-size: 10px;color: var(--purple-hot); letter-spacing:.14em;}
-.demo-dock button{border: none; background: var(--purple-light);color: var(--purple-hot);font-family:'Fredoka'; font-weight:600; font-size: 10px;padding: 5px 11px; border-radius: 999px; cursor: pointer;letter-spacing:.06em; transition: .25s;}
-.demo-dock button:hover{ background: var(--purple-hot); color:#fff; }
 .toast{position: fixed; left: 50%; bottom: 30px; z-index: 120;transform: translate(-50%, 24px);padding: 12px 26px; border-radius: 999px;background: #fff; border: 3px solid var(--pink);box-shadow: 0 8px 0 -3px var(--pink-light), 0 20px 34px -18px rgba(217,74,128,.7);font-family:'Fredoka'; font-weight:600; font-size: 13px; color: var(--berry);opacity: 0; pointer-events: none;transition: opacity .3s var(--ease), transform .3s var(--ease);white-space: nowrap;}
 .toast.show{ opacity: 1; transform: translate(-50%, 0); }
 
@@ -652,8 +647,6 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .chip{ padding: 8px 15px; font-size: 11.5px; }
   .pd-footnav{ justify-content: center; }
   .pd-footnav > *{ flex: 1 1 100%; text-align: center; justify-content: center; }
-  .demo-dock{ left: 10px; bottom: 10px; padding: 5px 7px 5px 11px; }
-  .demo-dock button{ padding: 4px 9px; font-size: 9px; }
   .toast{ font-size: 12px; padding: 10px 20px; bottom: 74px; }
   .tab-btn{ padding: 9px 16px; font-size: 11.5px; }
 }
@@ -674,7 +667,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 [tabindex="-1"]:focus{ outline:none; }
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
 body.is-loading .nav-shell, body.is-loading footer{ display:none !important; }
-body.admin-mode .nav-shell, body.admin-mode footer, body.admin-mode .demo-dock{ display:none !important; }
+body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 
 /* ---- Public lang toggle ---- */
 .lang button{padding:5px 11px; border-radius:999px; cursor:pointer;border:none; background:none;font-family:inherit; font-weight:inherit; font-size:inherit;color:var(--berry-soft); transition:.25s;}
@@ -1658,14 +1651,14 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
         <button class="chip" data-filter="other" aria-pressed="false">Other</button>
       </div>
       <div class="assets-grid" id="faGrid" style="padding-top:36px;">
-        <a class="item" href="#asset/petal-pack" data-asset="petal-pack" data-cat="brushes psd-png" data-search="petal pack brushes png"><div class="flower-tag"><span>NEW</span></div><div class="item-preview"><span class="icon">❀</span><span class="format">PNG</span><span class="demo-badge">DEMO</span></div><div class="item-name">Petal Pack</div><div class="item-cat">Brushes</div><div class="item-tags"><span>Brushes</span><span>PNG</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/sparkle-stars" data-asset="sparkle-stars" data-cat="icons other stream-assets" data-search="sparkle stars elements svg"><div class="item-preview"><span class="icon">★</span><span class="format">SVG</span><span class="demo-badge">DEMO</span></div><div class="item-name">Sparkle Stars</div><div class="item-cat">Elements</div><div class="item-tags"><span>Elements</span><span>SVG</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/candy-hearts" data-asset="candy-hearts" data-cat="emotes psd-png" data-search="candy hearts stickers psd"><div class="item-preview"><span class="icon">♡</span><span class="format">PSD</span><span class="demo-badge">DEMO</span></div><div class="item-name">Candy Hearts</div><div class="item-cat">Stickers</div><div class="item-tags"><span>Stickers</span><span>PSD</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/lilac-frames" data-asset="lilac-frames" data-cat="overlays psd-png" data-search="lilac frames frames png"><div class="flower-tag purple"><span>HOT</span></div><div class="item-preview"><span class="icon">❁</span><span class="format">PNG</span><span class="demo-badge">DEMO</span></div><div class="item-name">Lilac Frames</div><div class="item-cat">Frames</div><div class="item-tags"><span>Frames</span><span>PNG</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/cloud-ribbons" data-asset="cloud-ribbons" data-cat="stream-assets overlays other" data-search="cloud ribbons vectors ai"><div class="item-preview"><span class="icon">☁</span><span class="format">AI</span><span class="demo-badge">DEMO</span></div><div class="item-name">Cloud Ribbons</div><div class="item-cat">Vectors</div><div class="item-tags"><span>Vectors</span><span>AI</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/pastel-gradients" data-asset="pastel-gradients" data-cat="wallpapers psd-png" data-search="pastel gradients textures png"><div class="item-preview"><span class="icon">❖</span><span class="format">PNG</span><span class="demo-badge">DEMO</span></div><div class="item-name">Pastel Gradients</div><div class="item-cat">Textures</div><div class="item-tags"><span>Textures</span><span>PNG</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/cute-sfx" data-asset="cute-sfx" data-cat="other" data-search="cute sfx audio wav"><div class="item-preview"><span class="icon">♪</span><span class="format">WAV</span><span class="demo-badge">DEMO</span></div><div class="item-name">Cute SFX</div><div class="item-cat">Audio</div><div class="item-tags"><span>Audio</span><span>WAV</span></div><div class="item-status">Demo · file not available</div></a>
-        <a class="item" href="#asset/soft-liner" data-asset="soft-liner" data-cat="brushes" data-search="soft liner brushes brush"><div class="item-preview"><span class="icon">✎</span><span class="format">BRUSH</span><span class="demo-badge">DEMO</span></div><div class="item-name">Soft Liner</div><div class="item-cat">Brushes</div><div class="item-tags"><span>Brushes</span><span>BRUSH</span></div><div class="item-status">Demo · file not available</div></a>
+        <a class="item" href="#asset/petal-pack" data-asset="petal-pack" data-cat="brushes psd-png" data-search="petal pack brushes png"><div class="flower-tag"><span>NEW</span></div><div class="item-preview"><span class="icon">❀</span><span class="format">PNG</span></div><div class="item-name">Petal Pack</div><div class="item-cat">Brushes</div><div class="item-tags"><span>Brushes</span><span>PNG</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/sparkle-stars" data-asset="sparkle-stars" data-cat="icons other stream-assets" data-search="sparkle stars elements svg"><div class="item-preview"><span class="icon">★</span><span class="format">SVG</span></div><div class="item-name">Sparkle Stars</div><div class="item-cat">Elements</div><div class="item-tags"><span>Elements</span><span>SVG</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/candy-hearts" data-asset="candy-hearts" data-cat="emotes psd-png" data-search="candy hearts stickers psd"><div class="item-preview"><span class="icon">♡</span><span class="format">PSD</span></div><div class="item-name">Candy Hearts</div><div class="item-cat">Stickers</div><div class="item-tags"><span>Stickers</span><span>PSD</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/lilac-frames" data-asset="lilac-frames" data-cat="overlays psd-png" data-search="lilac frames frames png"><div class="flower-tag purple"><span>HOT</span></div><div class="item-preview"><span class="icon">❁</span><span class="format">PNG</span></div><div class="item-name">Lilac Frames</div><div class="item-cat">Frames</div><div class="item-tags"><span>Frames</span><span>PNG</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/cloud-ribbons" data-asset="cloud-ribbons" data-cat="stream-assets overlays other" data-search="cloud ribbons vectors ai"><div class="item-preview"><span class="icon">☁</span><span class="format">AI</span></div><div class="item-name">Cloud Ribbons</div><div class="item-cat">Vectors</div><div class="item-tags"><span>Vectors</span><span>AI</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/pastel-gradients" data-asset="pastel-gradients" data-cat="wallpapers psd-png" data-search="pastel gradients textures png"><div class="item-preview"><span class="icon">❖</span><span class="format">PNG</span></div><div class="item-name">Pastel Gradients</div><div class="item-cat">Textures</div><div class="item-tags"><span>Textures</span><span>PNG</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/cute-sfx" data-asset="cute-sfx" data-cat="other" data-search="cute sfx audio wav"><div class="item-preview"><span class="icon">♪</span><span class="format">WAV</span></div><div class="item-name">Cute SFX</div><div class="item-cat">Audio</div><div class="item-tags"><span>Audio</span><span>WAV</span></div><div class="item-status">File not available yet</div></a>
+        <a class="item" href="#asset/soft-liner" data-asset="soft-liner" data-cat="brushes" data-search="soft liner brushes brush"><div class="item-preview"><span class="icon">✎</span><span class="format">BRUSH</span></div><div class="item-name">Soft Liner</div><div class="item-cat">Brushes</div><div class="item-tags"><span>Brushes</span><span>BRUSH</span></div><div class="item-status">File not available yet</div></a>
       </div>
       <p class="sr-only" id="faStatus" role="status" aria-live="polite"></p>
       <div class="empty" id="faEmpty"><div class="empty-art">★</div><h3>Nothing here just yet</h3><button class="btn btn-primary" type="button" data-reset="fa">Reset filters</button></div>
@@ -1679,7 +1672,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
     <div class="wrap">
       <a class="back-link" href="#free-assets" data-goto="free-assets">← Back to collection</a>
       <div class="ad-grid">
-        <div class="ad-preview"><span class="big-icon" id="adIcon">❀</span><span class="demo-badge">DEMO</span></div>
+        <div class="ad-preview"><span class="big-icon" id="adIcon">❀</span></div>
         <div>
           <div class="eyebrow blue">THE FREE SHELF</div>
           <h2 class="page-title" id="adTitle">Petal Pack</h2>
@@ -1693,7 +1686,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <li class="spec"><span class="k">Usage &amp; license</span><span class="v cms-inline" id="adLicense">[LICENSE CONTENT FROM CMS]</span></li>
             <li class="spec"><span class="k">Update note</span><span class="v cms-inline" id="adUpdate">[UPDATE NOTE]</span></li>
           </ul>
-          <div class="unavailable" id="adUnavailable"><span class="u-icon">!</span><p>Files are not available yet. This is a clearly marked demo listing.</p></div>
+          <div class="unavailable" id="adUnavailable"><span class="u-icon">!</span><p>This file is not available for download yet.</p></div>
           <button class="btn btn-purple" type="button" id="adDownload">Download / open file</button>
         </div>
       </div>
@@ -1943,7 +1936,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 
         <div class="brief-result" id="briefResult" hidden>
           <h3>Your brief is ready ♡</h3>
-          <p class="brief-note">Prototype only — your brief was prepared locally. Nothing was sent anywhere.</p>
+          <p class="brief-note">Your commission request was saved. A copy of your brief is below.</p>
           <pre class="brief-text" id="briefText"></pre>
           <div class="brief-actions">
             <button type="button" class="btn btn-purple" id="briefCopy">Copy brief</button>
@@ -2296,13 +2289,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   </div>
 </footer>
 
-<div class="demo-dock" aria-label="Prototype preview shortcuts">
-  <span>DEMO</span>
-  <button type="button" data-goto="404">404</button>
-  <button type="button" data-goto="loading">Loading</button>
-  <button type="button" data-goto="admin">Admin</button>
-</div>
-
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="adm-modal" id="adminConfirmModal" role="dialog" aria-modal="true" aria-labelledby="adminConfirmTitle">
@@ -2441,7 +2427,7 @@ setText('adTitle', a.title); setText('adCat', a.cat); setText('adIcon', a.icon);
 setText('adFormat', a.format); setText('adDesc', a.description); setText('adVersion', a.version);
 setText('adDate', a.date); setText('adCredit', a.credit); setText('adLicense', a.license);
 setText('adUpdate', a.update);
-var available = a.availability === 'available';
+var available = a.availability === 'available' && !!a.downloadUrl;
 var notice = document.getElementById('adUnavailable'); var dl = document.getElementById('adDownload');
 if(notice) notice.style.display = available ? 'none' : '';
 if(dl){ dl.disabled = !available; dl.setAttribute('aria-disabled', available ? 'false' : 'true'); }
@@ -2590,7 +2576,7 @@ initFilter('fa', { grid:'#faGrid', chips:'#faChips', empty:'#faEmpty', search:'#
 $$('#faGrid [data-asset]').forEach(function(card){
 var a = ASSETS[card.getAttribute('data-asset')]; if(!a) return;
 var st = $('.item-status', card);
-if(st) st.textContent = a.availability === 'available' ? 'Demo · available in prototype' : 'Demo · file not available';
+if(st) st.textContent = a.availability === 'available' && a.downloadUrl ? 'Available' : 'File not available yet';
 });
 
 function wireAccordions(root){
@@ -2816,9 +2802,9 @@ rows.push({ label: labelForKey(el, key), value: v });
 });
 return rows;
 }
-function buildBrief(isReal){
+function buildBrief(){
 var panel = activePanel(); var lines = [];
-lines.push(isReal ? 'CRABBIE — Commission brief' : 'CRABBIE — Commission brief (prototype preview)'); lines.push('');
+lines.push('CRABBIE — Commission brief'); lines.push('');
 lines.push('Selected service: ' + (selectedService || '(not selected)'));
 lines.push('Form type: ' + (TAB_LABELS[activeTab] || activeTab));
 if(selectedServiceAvail === 'inquiry') lines.push('Availability: By inquiry');
@@ -2829,11 +2815,7 @@ if(rows.length) rows.forEach(function(r){ lines.push(r.label + ': ' + r.value); 
 else lines.push('(No extra details filled in yet.)');
 }
 lines.push(''); lines.push('Consent: client confirmed they have read and agree to the Terms of Service.'); lines.push('');
-if(isReal){
-lines.push('Your request has been saved and sent to Crabbie.');
-} else {
-lines.push('Prototype preview only — this brief was prepared locally.');
-}
+lines.push('Your request has been saved for Crabbie.');
 return lines.join('\n');
 }
 function mailtoFor(text){
@@ -2841,17 +2823,11 @@ var subject = 'Commission inquiry — ' + (selectedService || TAB_LABELS[activeT
 return 'mailto:' + MAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
 }
 function hideBrief(){ if(briefResult) briefResult.hidden = true; }
-function showBrief(isReal){
+function showBrief(){
 if(!briefResult || !briefText) return;
-var text = buildBrief(isReal); briefText.textContent = text;
+var text = buildBrief(); briefText.textContent = text;
 var note = briefResult.querySelector('.brief-note');
-if(note){
-  if(isReal){
-    note.textContent = 'Your commission request has been received by Crabbie! A copy of your brief is below for your records.';
-  } else {
-    note.textContent = 'Prototype only — your brief was prepared locally. Nothing was sent anywhere.';
-  }
-}
+if(note) note.textContent = 'Your commission request was saved. A copy of your brief is below.';
 briefResult.hidden = false;
 var href = mailtoFor(text);
 if(briefEmailLink) briefEmailLink.href = href;
@@ -2888,8 +2864,10 @@ fieldRows.forEach(function(r){ fieldMap[r.label] = r.value; });
 
 try {
   var submitResult = null;
-  if(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.submitCommissionRequest){
-    submitResult = await window.CrabbieCommissionRequests.submitCommissionRequest({
+  if(!window.CrabbieCommissionRequests || !window.CrabbieCommissionRequests.submitCommissionRequest){
+    throw new Error('Commission service is temporarily unavailable. Please try again later.');
+  }
+  submitResult = await window.CrabbieCommissionRequests.submitCommissionRequest({
       name: clientName,
       email: clientEmail,
       contact: clientSocial,
@@ -2899,17 +2877,19 @@ try {
       fields: fieldMap,
       termsAccepted: consentBox ? consentBox.checked : true
     });
+  if(!window.CrabbieCommissionRequests.isConfirmedCommissionSubmission(submitResult)){
+    throw new Error('Commission request was not saved. Please try again.');
   }
   setFormState('idle');
   isCommissionSubmitting = false;
-  showBrief(submitResult && !submitResult.offline);
-  toast('Commission request sent successfully ♡');
+  showBrief();
+  toast('Commission request saved successfully ♡');
 } catch(err){
   console.error('Commission submit error:', err);
   setFormState('idle');
   isCommissionSubmitting = false;
   toast('Could not send request: ' + (err.message || 'Please check the form'));
-  showBrief(false);
+  hideBrief();
 }
 });
 commissionForm.addEventListener('input', function(e){
@@ -2931,13 +2911,6 @@ hideBrief();
 var panel = activePanel(); var first = panel ? panel.querySelector('input, textarea, select') : null;
 if(first) first.focus(); else scrollToForm();
 });
-window.crabbieDemo = {
-simulateFormError: function(){
-var panel = activePanel(); var email = panel ? panel.querySelector('input[type="email"]') : null;
-if(email) markError(email, 'Prototype error state — please check this field.');
-},
-clearFormErrors: clearAllErrors
-};
 
 var copyBtn = document.getElementById('copyEmailBtn');
 if(copyBtn) copyBtn.addEventListener('click', function(){
@@ -2950,7 +2923,7 @@ function setLang(lang, announce){
 langButtons.forEach(function(b){ var on = b.getAttribute('data-lang') === lang; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
 document.documentElement.lang = (lang === 'VI') ? 'vi' : 'en';
 store('crabbie.lang', lang);
-if(announce) toast('Language: ' + lang + ' (visual only in this prototype)');
+if(announce) toast('Language: ' + lang);
 }
 langButtons.forEach(function(btn){ btn.addEventListener('click', function(){ setLang(btn.getAttribute('data-lang'), true); }); });
 var savedLang = readStore('crabbie.lang');
@@ -3032,7 +3005,18 @@ var pdPrev = document.getElementById('pdPrev'); var pdNext = document.getElement
 if(pdPrev) pdPrev.addEventListener('click', function(){ stepProject(-1); });
 if(pdNext) pdNext.addEventListener('click', function(){ stepProject(1); });
 var dlBtn = document.getElementById('adDownload');
-if(dlBtn) dlBtn.addEventListener('click', function(){ if(dlBtn.disabled) return; toast('Demo download action — production URL will come from CMS.'); });
+if(dlBtn) dlBtn.addEventListener('click', function(){
+  if(dlBtn.disabled) return;
+  var asset = ASSETS[currentRoute.id];
+  var path = asset && asset.downloadUrl ? String(asset.downloadUrl).trim() : '';
+  var url = '';
+  if(/^https:\/\//i.test(path)) url = path;
+  else if(path && !/^[a-z]+:/i.test(path) && path.charAt(0) !== '/' && window.CrabbieSupabase && window.CrabbieSupabase.supabase){
+    url = window.CrabbieSupabase.supabase.storage.from('media').getPublicUrl(path.replace(/^media\//, '')).data.publicUrl;
+  }
+  if(!url){ toast('This file is not available yet.'); return; }
+  window.open(url, '_blank', 'noopener,noreferrer');
+});
 
 /* ==========================================================
    ADMIN I18N
@@ -3042,28 +3026,28 @@ en: {
 'nav.dashboard': 'Dashboard','nav.portfolio': 'Portfolio / Projects','nav.assets': 'Free Assets','nav.commissions': 'Commissions','nav.requests': 'Commission Requests','nav.about': 'About','nav.terms': 'Terms of Service','nav.contact': 'Contact / Social','nav.media': 'Media Library','nav.settings': 'Site Settings','nav.preview': 'Preview website','nav.signout': 'Sign out',
 'top.eyebrow': 'YOUR SWEET LITTLE WORLD','top.eyebrowAdmin': 'THE ATELIER CMS','top.desc.dashboard': 'Overview of your atelier','top.desc.portfolio': 'Manage your portfolio projects','top.desc.assets': 'Manage your free assets','top.desc.commissions': 'Manage commission types and request forms','top.desc.requests': 'Read and process commission requests','top.desc.about': 'Edit your About page','top.desc.terms': 'Edit your Terms of Service','top.desc.contact': 'Contact email and social links','top.desc.media': 'Upload and manage media files','top.desc.settings': 'Branding, typography, colors, SEO, and more',
 'status.saved': 'Saved','status.dirty': 'Unsaved changes','status.saving': 'Saving…','status.error': 'Error saving',
-'btn.saveChanges': 'Save Changes','btn.save': 'Save','btn.discard': 'Discard changes','btn.keepEditing': 'Keep editing','btn.cancel': 'Cancel','btn.close': 'Close','btn.create': 'Create','btn.new': 'New','btn.duplicate': 'Duplicate','btn.delete': 'Delete','btn.discardShort': 'Discard','btn.previewSaved': 'Preview saved version ↗','btn.search': 'Search…','btn.refresh': 'Refresh','btn.upload': 'Upload file','btn.addSection': '+ Add section','btn.addLink': '+ Add link','btn.addAddon': '+ Add add-on','btn.addQuestion': '+ Add question','btn.addMedia': '+ Add media','btn.addNav': '+ Add navigation item','btn.chooseMedia': 'Choose existing media…','btn.uploadReplace': 'Upload / replace','btn.openFile': 'Open file ↗','btn.choose': 'Choose…','btn.previous': '← Previous','btn.next': 'Next →','btn.retryEmail': 'Retry email notification',
+'btn.saveChanges': 'Save Changes','btn.save': 'Save','btn.discard': 'Discard changes','btn.keepEditing': 'Keep editing','btn.cancel': 'Cancel','btn.close': 'Close','btn.create': 'Create','btn.new': 'New','btn.duplicate': 'Duplicate','btn.delete': 'Delete','btn.discardShort': 'Discard','btn.previewSaved': 'Preview saved version ↗','btn.search': 'Search…','btn.refresh': 'Refresh','btn.upload': 'Upload file','btn.addSection': '+ Add section','btn.addLink': '+ Add link','btn.addAddon': '+ Add add-on','btn.addQuestion': '+ Add question','btn.addMedia': '+ Add media','btn.addNav': '+ Add navigation item','btn.chooseMedia': 'Choose existing media…','btn.uploadReplace': 'Upload / replace','btn.openFile': 'Open file ↗','btn.choose': 'Choose…','btn.previous': '← Previous','btn.next': 'Next →',
 'badge.pub': 'Pub','badge.draft': 'Draft','badge.featured': 'Featured','badge.placeholder': 'PH','badge.vi': 'VI',
 'avail.open': 'Open','avail.inquiry': 'By inquiry','avail.closed': 'Closed',
 'label.title': 'Title','label.slug': 'Slug','label.description': 'Description','label.category': 'Category','label.tags': 'Tags','label.date': 'Date','label.thumbnail': 'Thumbnail','label.cover': 'Cover','label.media': 'Media','label.mediaType': 'Media Type','label.credits': 'Credits','label.externalLinks': 'External links','label.publishing': 'Publishing','label.featured': 'Featured','label.published': 'Published','label.placeholder': 'Placeholder','label.advanced': 'Advanced','label.sections': 'Project Blocks / Sections','label.notes': 'Notes','label.status': 'Status','label.search': 'Search',
-'dash.welcome': 'Welcome to the Atelier ✧','dash.intro': 'Edit in English. Vietnamese is generated and stored when you save; manual overrides are available under Advanced.','dash.openRequests': 'Open commission requests','dash.projects': 'Projects','dash.assets': 'Free Assets','dash.commissions': 'Commission types','dash.media': 'Uploaded files','dash.attention': 'Content needing attention','dash.placeholderCount': 'Items still using placeholders','dash.viPending': 'Items with pending Vietnamese translations','dash.drafts': 'Draft items','dash.failedEmail': 'Failed email notifications','dash.quickActions': 'Quick actions','dash.qaAddProject': 'Add project','dash.qaAddAsset': 'Add asset','dash.qaOpenRequests': 'Open requests','dash.qaUploadMedia': 'Upload media','dash.demoValues': 'demo values from prototype dataset',
+'dash.welcome': 'Welcome to the Atelier ✧','dash.intro': 'Edit content in English. Manual Vietnamese overrides are available under Advanced.','dash.openRequests': 'Open commission requests','dash.projects': 'Projects','dash.assets': 'Free Assets','dash.commissions': 'Commission types','dash.media': 'Uploaded files','dash.attention': 'Content needing attention','dash.placeholderCount': 'Items still using placeholders','dash.viPending': 'Items with pending Vietnamese translations','dash.drafts': 'Draft items','dash.failedEmail': 'Commission requests','dash.quickActions': 'Quick actions','dash.qaAddProject': 'Add project','dash.qaAddAsset': 'Add asset','dash.qaOpenRequests': 'Open requests','dash.qaUploadMedia': 'Upload media','dash.itemCount': 'Items in CMS',
 'media.title': 'Choose existing media…','media.subtitle': 'Selecting writes the URL into the originating field.',
 'advanced.viOverride': 'Advanced · Vietnamese override','advanced.viKeep': 'Keep this Vietnamese text instead of automatic translation','advanced.viText': 'Vietnamese text','advanced.viHint': 'Existing Vietnamese is preserved. Turn off override to translate future English changes.',
-'toast.saved': 'Saved. English saved. Vietnamese translation pending.','toast.deleted': 'Deleted','toast.emailResent': 'Email notification resent (demo).','toast.refreshed': 'Refreshed (demo)','toast.uploaded': 'Demo upload added.','toast.urlCopied': 'URL copied','toast.mediaSelected': 'Media selected (demo)','toast.uploadedDemo': 'Uploaded demo file → ','toast.noUrlYet': 'No URL set yet.','toast.saveRequestFirst': 'Save the request before retrying.','toast.signedOut': 'Signed out (demo).','toast.selectedMedia': 'Selected media → ',
+'toast.saved': 'Saved.','toast.deleted': 'Deleted','toast.refreshed': 'Refreshed','toast.uploaded': 'File uploaded','toast.urlCopied': 'URL copied','toast.mediaSelected': 'Media selected','toast.uploadedFile': 'Uploaded file → ','toast.noUrlYet': 'No URL set yet.','toast.signedOut': 'Signed out.','toast.selectedMedia': 'Selected media → ',
 'confirm.discardTitle': 'Discard unsaved edits?','confirm.discardBody': 'You have unsaved changes. If you continue, those edits will be lost.','confirm.deleteTitle': 'Delete','confirm.deleteBody': 'This action cannot be undone.','confirm.deleteConfirm': 'Delete permanently'
 },
 vi: {
 'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
 'top.eyebrow': 'THẾ GIỚI NHỎ XINH CỦA BẠN','top.eyebrowAdmin': 'ATELIER CMS','top.desc.dashboard': 'Tổng quan về atelier của bạn','top.desc.portfolio': 'Quản lý các dự án portfolio','top.desc.assets': 'Quản lý tài nguyên miễn phí','top.desc.commissions': 'Quản lý loại commission và form yêu cầu','top.desc.requests': 'Đọc và xử lý yêu cầu commission','top.desc.about': 'Chỉnh sửa trang Giới thiệu','top.desc.terms': 'Chỉnh sửa Điều khoản dịch vụ','top.desc.contact': 'Email liên hệ và mạng xã hội','top.desc.media': 'Tải lên và quản lý file media','top.desc.settings': 'Thương hiệu, kiểu chữ, màu sắc, SEO, v.v.',
 'status.saved': 'Đã lưu','status.dirty': 'Có thay đổi chưa lưu','status.saving': 'Đang lưu…','status.error': 'Lỗi khi lưu',
-'btn.saveChanges': 'Lưu thay đổi','btn.save': 'Lưu','btn.discard': 'Hủy thay đổi','btn.keepEditing': 'Tiếp tục chỉnh sửa','btn.cancel': 'Hủy','btn.close': 'Đóng','btn.create': 'Tạo mới','btn.new': 'Mới','btn.duplicate': 'Nhân bản','btn.delete': 'Xóa','btn.discardShort': 'Hủy','btn.previewSaved': 'Xem trước bản đã lưu ↗','btn.search': 'Tìm kiếm…','btn.refresh': 'Làm mới','btn.upload': 'Tải file lên','btn.addSection': '+ Thêm phần','btn.addLink': '+ Thêm liên kết','btn.addAddon': '+ Thêm add-on','btn.addQuestion': '+ Thêm câu hỏi','btn.addMedia': '+ Thêm media','btn.addNav': '+ Thêm mục điều hướng','btn.chooseMedia': 'Chọn media có sẵn…','btn.uploadReplace': 'Tải lên / thay thế','btn.openFile': 'Mở file ↗','btn.choose': 'Chọn…','btn.previous': '← Trước','btn.next': 'Tiếp →','btn.retryEmail': 'Gửi lại email thông báo',
+'btn.saveChanges': 'Lưu thay đổi','btn.save': 'Lưu','btn.discard': 'Hủy thay đổi','btn.keepEditing': 'Tiếp tục chỉnh sửa','btn.cancel': 'Hủy','btn.close': 'Đóng','btn.create': 'Tạo mới','btn.new': 'Mới','btn.duplicate': 'Nhân bản','btn.delete': 'Xóa','btn.discardShort': 'Hủy','btn.previewSaved': 'Xem trước bản đã lưu ↗','btn.search': 'Tìm kiếm…','btn.refresh': 'Làm mới','btn.upload': 'Tải file lên','btn.addSection': '+ Thêm phần','btn.addLink': '+ Thêm liên kết','btn.addAddon': '+ Thêm add-on','btn.addQuestion': '+ Thêm câu hỏi','btn.addMedia': '+ Thêm media','btn.addNav': '+ Thêm mục điều hướng','btn.chooseMedia': 'Chọn media có sẵn…','btn.uploadReplace': 'Tải lên / thay thế','btn.openFile': 'Mở file ↗','btn.choose': 'Chọn…','btn.previous': '← Trước','btn.next': 'Tiếp →',
 'badge.pub': 'Đã đăng','badge.draft': 'Nháp','badge.featured': 'Nổi bật','badge.placeholder': 'PH','badge.vi': 'VI',
 'avail.open': 'Đang mở','avail.inquiry': 'Liên hệ','avail.closed': 'Đã đóng',
 'label.title': 'Tiêu đề','label.slug': 'Đường dẫn','label.description': 'Mô tả','label.category': 'Danh mục','label.tags': 'Thẻ','label.date': 'Ngày','label.thumbnail': 'Ảnh thu nhỏ','label.cover': 'Ảnh bìa','label.media': 'Media','label.mediaType': 'Loại media','label.credits': 'Ghi công','label.externalLinks': 'Liên kết ngoài','label.publishing': 'Xuất bản','label.featured': 'Nổi bật','label.published': 'Đã xuất bản','label.placeholder': 'Đang giữ chỗ','label.advanced': 'Nâng cao','label.sections': 'Khối / Phần dự án','label.notes': 'Ghi chú','label.status': 'Trạng thái','label.search': 'Tìm kiếm',
-'dash.welcome': 'Chào mừng đến Atelier ✧','dash.intro': 'Chỉnh sửa bằng tiếng Anh. Tiếng Việt sẽ được tạo và lưu khi bạn Save; có thể chỉnh thủ công trong phần Nâng cao.','dash.openRequests': 'Mở yêu cầu commission','dash.projects': 'Dự án','dash.assets': 'Tài nguyên miễn phí','dash.commissions': 'Loại commission','dash.media': 'File đã tải lên','dash.attention': 'Nội dung cần chú ý','dash.placeholderCount': 'Mục còn dùng placeholder','dash.viPending': 'Mục đang chờ bản dịch tiếng Việt','dash.drafts': 'Mục nháp','dash.failedEmail': 'Email thông báo gửi lỗi','dash.quickActions': 'Thao tác nhanh','dash.qaAddProject': 'Thêm dự án','dash.qaAddAsset': 'Thêm tài nguyên','dash.qaOpenRequests': 'Mở yêu cầu','dash.qaUploadMedia': 'Tải media lên','dash.demoValues': 'giá trị demo từ prototype',
+'dash.welcome': 'Chào mừng đến Atelier ✧','dash.intro': 'Chỉnh sửa nội dung bằng tiếng Anh. Có thể chỉnh tiếng Việt thủ công trong phần Nâng cao.','dash.openRequests': 'Mở yêu cầu commission','dash.projects': 'Dự án','dash.assets': 'Tài nguyên miễn phí','dash.commissions': 'Loại commission','dash.media': 'File đã tải lên','dash.attention': 'Nội dung cần chú ý','dash.placeholderCount': 'Mục còn dùng placeholder','dash.viPending': 'Mục đang chờ bản dịch tiếng Việt','dash.drafts': 'Mục nháp','dash.failedEmail': 'Yêu cầu commission','dash.quickActions': 'Thao tác nhanh','dash.qaAddProject': 'Thêm dự án','dash.qaAddAsset': 'Thêm tài nguyên','dash.qaOpenRequests': 'Mở yêu cầu','dash.qaUploadMedia': 'Tải media lên','dash.itemCount': 'Mục trong CMS',
 'media.title': 'Chọn media có sẵn…','media.subtitle': 'Chọn sẽ ghi URL vào ô đang chỉnh.',
 'advanced.viOverride': 'Nâng cao · Ghi đè tiếng Việt','advanced.viKeep': 'Giữ nguyên tiếng Việt này thay vì dịch tự động','advanced.viText': 'Nội dung tiếng Việt','advanced.viHint': 'Tiếng Việt hiện có được giữ nguyên. Tắt ghi đè để dịch các thay đổi tiếng Anh trong tương lai.',
-'toast.saved': 'Đã lưu. Tiếng Anh đã lưu. Bản dịch tiếng Việt đang chờ.','toast.deleted': 'Đã xóa','toast.emailResent': 'Đã gửi lại email thông báo (demo).','toast.refreshed': 'Đã làm mới (demo)','toast.uploaded': 'Đã thêm file demo.','toast.urlCopied': 'Đã copy URL','toast.mediaSelected': 'Đã chọn media (demo)','toast.uploadedDemo': 'Đã tải file demo → ','toast.noUrlYet': 'Chưa có URL.','toast.saveRequestFirst': 'Lưu yêu cầu trước khi gửi lại.','toast.signedOut': 'Đã đăng xuất (demo).','toast.selectedMedia': 'Đã chọn media → ',
+'toast.saved': 'Đã lưu.','toast.deleted': 'Đã xóa','toast.refreshed': 'Đã làm mới','toast.uploaded': 'Đã tải file lên','toast.urlCopied': 'Đã copy URL','toast.mediaSelected': 'Đã chọn media','toast.uploadedFile': 'Đã tải file → ','toast.noUrlYet': 'Chưa có URL.','toast.signedOut': 'Đã đăng xuất.','toast.selectedMedia': 'Đã chọn media → ',
 'confirm.discardTitle': 'Hủy các chỉnh sửa chưa lưu?','confirm.discardBody': 'Bạn có thay đổi chưa lưu. Nếu tiếp tục, các thay đổi đó sẽ mất.','confirm.deleteTitle': 'Xóa','confirm.deleteBody': 'Thao tác này không thể hoàn tác.','confirm.deleteConfirm': 'Xóa vĩnh viễn'
 }
 };
@@ -3197,17 +3181,8 @@ assetCategories: [
 ],
 commissions: commissionRecords(),
 forms: formSchemas(),
-requests: [
-{ id:'REQ-2041', clientName:'A. Client', clientEmail:'client@example.com', contact:'@ac', received:'2026-01-12 10:14', commission:'Bust Up', status:'New', email:'sent', emailError:'', termsAccepted:true, sourceRevision:'v12', notes:'', answers:[['Name/Nickname','A. Client'],['Email','client@example.com']] },
-{ id:'REQ-2042', clientName:'B. Client', clientEmail:'b@example.com', contact:'@bc', received:'2026-01-13 15:02', commission:'Animated Alert', status:'Reviewing', email:'pending', emailError:'', termsAccepted:true, sourceRevision:'v12', notes:'', answers:[['Name/Nickname','B. Client'],['Email','b@example.com']] },
-{ id:'REQ-2043', clientName:'C. Client', clientEmail:'c@example.com', contact:'@cc', received:'2026-01-14 09:44', commission:'Chibi Panels', status:'Contacted', email:'failed', emailError:'SMTP error.', termsAccepted:true, sourceRevision:'v12', notes:'', answers:[['Name/Nickname','C. Client'],['Email','c@example.com']] }
-],
-media: [
-{ id:'m1', title:'petal-pack-cover.png', url:'https://cdn.crabbie.example/petal-pack-cover.png', type:'image', size:'320 KB' },
-{ id:'m2', title:'color-fiesta-hero.png', url:'https://cdn.crabbie.example/color-fiesta-hero.png', type:'image', size:'512 KB' },
-{ id:'m3', title:'alert-preview.mp4', url:'https://cdn.crabbie.example/alert-preview.mp4', type:'video', size:'1.2 MB' },
-{ id:'m4', title:'profile.png', url:'https://cdn.crabbie.example/profile.png', type:'image', size:'240 KB' }
-],
+requests: [],
+media: [],
 pages: {
 about: {
 title:'About', content: ABOUT_CONTENT, published:true, viState:'pending',
@@ -3432,19 +3407,19 @@ var counts = { projects: ADMIN_DRAFT.portfolio.length, assets: ADMIN_DRAFT.asset
 var placeholders = ADMIN_DRAFT.portfolio.filter(function(r){ return r.placeholder; }).length + ADMIN_DRAFT.assets.filter(function(r){ return r.placeholder; }).length;
 var viPending = ADMIN_DRAFT.portfolio.filter(function(r){ return r.viState === 'pending'; }).length + ADMIN_DRAFT.assets.filter(function(r){ return r.viState === 'pending'; }).length;
 var drafts = ADMIN_DRAFT.portfolio.filter(function(r){ return !r.published; }).length + ADMIN_DRAFT.assets.filter(function(r){ return !r.published; }).length;
-var failedEmail = ADMIN_DRAFT.requests.filter(function(r){ return r.email === 'failed'; }).length;
+var requestCount = ADMIN_DRAFT.requests.length;
 return '<div class="adm-panel" style="background:linear-gradient(160deg,#fff 0%, var(--pink-soft) 100%); border-color: var(--pink-light); box-shadow: 0 8px 0 -4px var(--pink-light);"><h3>' + esc(tAdmin('dash.welcome')) + '</h3><p style="font-size:12.5px; font-weight:700; color: var(--berry-soft);">' + esc(tAdmin('dash.intro')) + '</p><div style="margin-top:12px;"><button type="button" class="adm-btn-sm primary" data-admin-jump="requests">' + esc(tAdmin('dash.openRequests')) + '</button></div></div>' +
 '<div class="adm-dash-grid">' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.projects')) + '</div><div class="as-v">' + counts.projects + '</div><div class="as-sub">' + esc(tAdmin('dash.demoValues')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.assets')) + '</div><div class="as-v">' + counts.assets + '</div><div class="as-sub">' + esc(tAdmin('dash.demoValues')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.commissions')) + '</div><div class="as-v">' + counts.commissions + '</div><div class="as-sub">' + esc(tAdmin('dash.demoValues')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.media')) + '</div><div class="as-v">' + counts.media + '</div><div class="as-sub">' + esc(tAdmin('dash.demoValues')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.projects')) + '</div><div class="as-v">' + counts.projects + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.assets')) + '</div><div class="as-v">' + counts.assets + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.commissions')) + '</div><div class="as-v">' + counts.commissions + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.media')) + '</div><div class="as-v">' + counts.media + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
 '</div>' +
 '<div class="adm-dash-cols"><div class="adm-panel"><h3>' + esc(tAdmin('dash.attention')) + '</h3>' +
 '<div class="ap-row"><span>' + esc(tAdmin('dash.placeholderCount')) + '</span><span class="ap-count">' + placeholders + '</span></div>' +
 '<div class="ap-row"><span>' + esc(tAdmin('dash.viPending')) + '</span><span class="ap-count">' + viPending + '</span></div>' +
 '<div class="ap-row"><span>' + esc(tAdmin('dash.drafts')) + '</span><span class="ap-count">' + drafts + '</span></div>' +
-'<div class="ap-row"><span>' + esc(tAdmin('dash.failedEmail')) + '</span><span class="ap-count">' + failedEmail + '</span></div>' +
+'<div class="ap-row"><span>' + esc(tAdmin('dash.failedEmail')) + '</span><span class="ap-count">' + requestCount + '</span></div>' +
 '</div><div class="adm-panel"><h3>' + esc(tAdmin('dash.quickActions')) + '</h3>' +
 '<div class="adm-quick-actions">' +
 '<button type="button" data-admin-jump="portfolio"><span class="qa-ico">❀</span>' + esc(tAdmin('dash.qaAddProject')) + '</button>' +
@@ -3643,8 +3618,7 @@ return '<div class="adm-split"><div class="adm-list">' + toolbar + '<div>' + row
 }
 
 function renderRequestDetail(rec){
-var emailState = rec.email || 'pending';
-var emailPanel = '<div class="adm-email-panel" data-state="' + esc(emailState) + '"><h4>Email: ' + esc(emailState) + '</h4>' + (rec.emailError ? '<p style="color:var(--pink-hot);">' + esc(rec.emailError) + '</p>' : '') + (emailState !== 'sent' ? '<div style="margin-top:10px;"><button type="button" class="adm-btn-sm primary" data-adm-email-retry="1">' + esc(tAdmin('btn.retryEmail')) + '</button></div>' : '') + '</div>';
+var emailPanel = '<div class="adm-email-panel"><h4>Email notifications are not configured</h4><p>Use the client contact details to reply directly.</p></div>';
 var answers = (rec.answers || []).map(function(a){ return '<div class="ap-row"><span>' + esc(a[0]) + '</span><span>' + esc(a[1]) + '</span></div>'; }).join('');
 var base = 'requests.' + rec.id;
 return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + '</p>' + emailPanel +
@@ -4014,13 +3988,6 @@ btn.addEventListener('click', async function(){
   }
 });
 });
-$$('[data-adm-email-retry]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){
-var rec = ADMIN_DRAFT.requests.filter(function(r){ return r.id === ADMIN_UI.selection.requests; })[0]; if(!rec) return;
-if(ADMIN_UI.dirty){ toast(tAdmin('toast.saveRequestFirst')); return; }
-rec.email = 'sent'; rec.emailError = ''; toast(tAdmin('toast.emailResent')); renderAdmin('requests');
-});
-});
 $$('[data-adm-media-open]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var id = btn.getAttribute('data-adm-media-open');
@@ -4130,7 +4097,7 @@ async function handleMediaUploadSelected(e){
     if(context.type === 'field'){
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
       markDirty();
-      toast(tAdmin('toast.uploadedDemo') + newMedia.title);
+      toast(tAdmin('toast.uploadedFile') + newMedia.title);
       renderAdmin(currentRoute.adminModule || 'dashboard');
     } else if(context.type === 'picker'){
       if(activeMediaTarget){
@@ -4371,7 +4338,7 @@ apply: function(records){
       card.innerHTML = preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
         '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
-        '<div class="item-status">' + (record.availability === 'available' ? 'Available' : 'Currently unavailable') + '</div>';
+        '<div class="item-status">' + (record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet') + '</div>';
       assetGrid.appendChild(card);
     });
   }
@@ -4387,7 +4354,7 @@ apply: function(records){
     var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
     var icoEl = card.querySelector('.icon'); if(icoEl) icoEl.textContent = record.icon;
     var st = card.querySelector('.item-status');
-    if(st) st.textContent = record.availability === 'available' ? 'Available' : 'Currently unavailable';
+    if(st) st.textContent = record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet';
     card.setAttribute('href', '#asset/' + slug);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());

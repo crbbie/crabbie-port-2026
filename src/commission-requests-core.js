@@ -29,6 +29,10 @@ export function validateCommissionRequest(data = {}) {
   };
 }
 
+export function isConfirmedCommissionSubmission(result) {
+  return Boolean(result && result.success === true && result.offline !== true);
+}
+
 export function formatCommissionRequestPayload({
   name = '',
   email = '',

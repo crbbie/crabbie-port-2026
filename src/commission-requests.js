@@ -3,7 +3,8 @@ import {
   validateCommissionRequest,
   formatCommissionRequestPayload,
   formatRequestRowForAdmin,
-  mapAdminStatusToDbStatus
+  mapAdminStatusToDbStatus,
+  isConfirmedCommissionSubmission
 } from './commission-requests-core.js';
 
 export async function submitCommissionRequest(formData = {}) {
@@ -118,6 +119,7 @@ if (typeof window !== 'undefined') {
     validateCommissionRequest,
     formatCommissionRequestPayload,
     formatRequestRowForAdmin,
-    mapAdminStatusToDbStatus
+    mapAdminStatusToDbStatus,
+    isConfirmedCommissionSubmission
   };
 }
