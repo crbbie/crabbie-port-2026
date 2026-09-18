@@ -2774,11 +2774,16 @@ function validateActivePanel(){
 clearAllErrors();
 var panel = activePanel(); if(!panel) return true;
 var firstInvalid = null;
+var name = panel.querySelector('input[data-field-key="name"]');
+if(name){
+  var nv = (name.value || '').trim();
+  if(!nv){ markError(name, 'Please add your name so I know how to address you ♡'); firstInvalid = firstInvalid || name; }
+}
 var email = panel.querySelector('input[type="email"]');
 if(email){
-var v = (email.value || '').trim();
-if(!v){ markError(email, 'Please add your email so I can reply ♡'); firstInvalid = firstInvalid || email; }
-else if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){ markError(email, 'That email looks a little off — mind checking it?'); firstInvalid = firstInvalid || email; }
+  var v = (email.value || '').trim();
+  if(!v){ markError(email, 'Please add your email so I can reply ♡'); firstInvalid = firstInvalid || email; }
+  else if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){ markError(email, 'That email looks a little off — mind checking it?'); firstInvalid = firstInvalid || email; }
 }
 if(consentBox && !consentBox.checked){ markError(consentBox, 'Please agree to the Terms of Service before sending.'); firstInvalid = firstInvalid || consentBox; }
 if(firstInvalid){ firstInvalid.focus(); return false; }
@@ -2809,9 +2814,9 @@ rows.push({ label: labelForKey(el, key), value: v });
 });
 return rows;
 }
-function buildBrief(){
+function buildBrief(isReal){
 var panel = activePanel(); var lines = [];
-lines.push('CRABBIE — Commission brief (prototype)'); lines.push('');
+lines.push(isReal ? 'CRABBIE — Commission brief' : 'CRABBIE — Commission brief (prototype preview)'); lines.push('');
 lines.push('Selected service: ' + (selectedService || '(not selected)'));
 lines.push('Form type: ' + (TAB_LABELS[activeTab] || activeTab));
 if(selectedServiceAvail === 'inquiry') lines.push('Availability: By inquiry');
@@ -2822,7 +2827,11 @@ if(rows.length) rows.forEach(function(r){ lines.push(r.label + ': ' + r.value); 
 else lines.push('(No extra details filled in yet.)');
 }
 lines.push(''); lines.push('Consent: client confirmed they have read and agree to the Terms of Service.'); lines.push('');
-lines.push('Prototype only — this brief was prepared locally and was not sent anywhere.');
+if(isReal){
+lines.push('Your request has been saved and sent to Crabbie.');
+} else {
+lines.push('Prototype preview only — this brief was prepared locally.');
+}
 return lines.join('\n');
 }
 function mailtoFor(text){
@@ -2830,9 +2839,18 @@ var subject = 'Commission inquiry — ' + (selectedService || TAB_LABELS[activeT
 return 'mailto:' + MAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
 }
 function hideBrief(){ if(briefResult) briefResult.hidden = true; }
-function showBrief(){
+function showBrief(isReal){
 if(!briefResult || !briefText) return;
-var text = buildBrief(); briefText.textContent = text; briefResult.hidden = false;
+var text = buildBrief(isReal); briefText.textContent = text;
+var note = briefResult.querySelector('.brief-note');
+if(note){
+  if(isReal){
+    note.textContent = 'Your commission request has been received by Crabbie! A copy of your brief is below for your records.';
+  } else {
+    note.textContent = 'Prototype only — your brief was prepared locally. Nothing was sent anywhere.';
+  }
+}
+briefResult.hidden = false;
 var href = mailtoFor(text);
 if(briefEmailLink) briefEmailLink.href = href;
 if(directEmailLink) directEmailLink.href = href;
@@ -2840,15 +2858,56 @@ smoothScrollTo(briefResult);
 }
 function setFormState(state){
 if(!submitBtn) return;
-if(state === 'preparing'){ submitBtn.disabled = true; submitBtn.setAttribute('aria-busy','true'); submitBtn.textContent = 'Preparing your brief…'; }
+if(state === 'preparing'){ submitBtn.disabled = true; submitBtn.setAttribute('aria-busy','true'); submitBtn.textContent = 'Sending your brief…'; }
 else { submitBtn.disabled = false; submitBtn.removeAttribute('aria-busy'); submitBtn.textContent = submitLabel; }
 }
 if(commissionForm){
-commissionForm.addEventListener('submit', function(e){
+var isCommissionSubmitting = false;
+commissionForm.addEventListener('submit', async function(e){
 e.preventDefault(); hideBrief();
+if(isCommissionSubmitting) return;
 if(!validateActivePanel()) return;
+
+isCommissionSubmitting = true;
 setFormState('preparing');
-setTimeout(function(){ setFormState('idle'); showBrief(); }, prefersReduced() ? 0 : 550);
+
+var panel = activePanel();
+var nameEl = panel ? panel.querySelector('input[data-field-key="name"]') : null;
+var emailEl = panel ? panel.querySelector('input[type="email"]') : null;
+var socialEl = panel ? panel.querySelector('input[data-field-key="social"]') : null;
+
+var clientName = (nameEl ? nameEl.value : '').trim() || 'Client';
+var clientEmail = (emailEl ? emailEl.value : '').trim();
+var clientSocial = (socialEl ? socialEl.value : '').trim();
+
+var fieldRows = panel ? collectFields(panel) : [];
+var fieldMap = {};
+fieldRows.forEach(function(r){ fieldMap[r.label] = r.value; });
+
+try {
+  var submitResult = null;
+  if(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.submitCommissionRequest){
+    submitResult = await window.CrabbieCommissionRequests.submitCommissionRequest({
+      name: clientName,
+      email: clientEmail,
+      contact: clientSocial,
+      selectedService: selectedService || TAB_LABELS[activeTab] || 'Commission',
+      activeTab: activeTab,
+      fields: fieldMap,
+      termsAccepted: consentBox ? consentBox.checked : true
+    });
+  }
+  setFormState('idle');
+  isCommissionSubmitting = false;
+  showBrief(submitResult && !submitResult.offline);
+  toast('Commission request sent successfully ♡');
+} catch(err){
+  console.error('Commission submit error:', err);
+  setFormState('idle');
+  isCommissionSubmitting = false;
+  toast('Could not send request: ' + (err.message || 'Please check the form'));
+  showBrief(false);
+}
 });
 commissionForm.addEventListener('input', function(e){
 if(e.target && e.target.getAttribute && e.target.getAttribute('aria-invalid') === 'true') clearError(e.target);
@@ -3192,8 +3251,36 @@ subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'sett
 settingsGroup: 'Branding'
 };
 
-function getByPath(obj, path){ if(!obj || !path) return undefined; var parts = path.split('.'); var cur = obj; for(var i = 0; i < parts.length; i++){ if(cur == null) return undefined; cur = cur[parts[i]]; } return cur; }
-function setByPath(obj, path, value){ if(!obj || !path) return; var parts = path.split('.'); var cur = obj; for(var i = 0; i < parts.length - 1; i++){ var p = parts[i]; if(cur[p] == null || typeof cur[p] !== 'object') cur[p] = {}; cur = cur[p]; } cur[parts[parts.length - 1]] = value; }
+function getByPath(obj, path){
+  if(!obj || !path) return undefined;
+  var parts = path.split('.');
+  var cur = obj;
+  for(var i = 0; i < parts.length; i++){
+    if(cur == null) return undefined;
+    var p = parts[i];
+    if(Array.isArray(cur) && isNaN(p)){
+      var found = cur.find(function(x){ return x && (x.id === p || x.slug === p); });
+      if(found){ cur = found; continue; }
+    }
+    cur = cur[p];
+  }
+  return cur;
+}
+function setByPath(obj, path, value){
+  if(!obj || !path) return;
+  var parts = path.split('.');
+  var cur = obj;
+  for(var i = 0; i < parts.length - 1; i++){
+    var p = parts[i];
+    if(Array.isArray(cur) && isNaN(p)){
+      var found = cur.find(function(x){ return x && (x.id === p || x.slug === p); });
+      if(found){ cur = found; continue; }
+    }
+    if(cur[p] == null || typeof cur[p] !== 'object') cur[p] = {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
 function readControlValue(el){ if(!el) return undefined; if(el.type === 'checkbox') return !!el.checked; if(el.type === 'radio') return el.checked ? el.value : undefined; if(el.type === 'number' || el.type === 'range'){ var n = parseFloat(el.value); return isNaN(n) ? '' : n; } return el.value; }
 function applyPathToControl(el, path){ var v = getByPath(ADMIN_DRAFT, path); if(el.type === 'checkbox') el.checked = !!v; else if(el.type === 'radio') el.checked = (el.value === v); else if(v == null) el.value = ''; else el.value = v; }
 
@@ -3893,7 +3980,18 @@ renderAdmin('requests');
 });
 });
 $$('[data-adm-req-refresh]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){ toast(tAdmin('toast.refreshed')); renderAdmin('requests'); });
+btn.addEventListener('click', async function(){
+  if(window.CrabbieCommissionRequests && window.CrabbieCommissionRequests.fetchAdminCommissionRequests){
+    toast('Refreshing requests…');
+    var fresh = await window.CrabbieCommissionRequests.fetchAdminCommissionRequests();
+    if(Array.isArray(fresh)){
+      ADMIN_DRAFT.requests = fresh;
+      if(Array.isArray(ADMIN_DATA.requests)) ADMIN_DATA.requests = fresh.slice();
+    }
+  }
+  toast(tAdmin('toast.refreshed'));
+  renderAdmin('requests');
+});
 });
 $$('[data-adm-email-retry]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){

@@ -9,6 +9,7 @@ import {
 } from './admin-crud-core.js';
 import { formatMediaItem } from './admin-media-core.js';
 import { deleteMediaFile } from './admin-media.js';
+import { formatRequestRowForAdmin, mapAdminStatusToDbStatus } from './commission-requests-core.js';
 
 export async function loadAllAdminDataFromSupabase() {
   if (!isConfigured || !supabase) return null;
@@ -195,18 +196,7 @@ export async function loadAllAdminDataFromSupabase() {
     }
 
     if (reqRes.data) {
-      result.requests = reqRes.data.map((row) => ({
-        id: row.id,
-        clientName: row.client_name,
-        clientEmail: row.client_email,
-        contact: row.contact || '',
-        received: row.created_at ? new Date(row.created_at).toISOString().slice(0, 16).replace('T', ' ') : '',
-        commission: (row.answers && row.answers.service) || 'Commission',
-        status: (row.status || 'new').charAt(0).toUpperCase() + (row.status || 'new').slice(1),
-        notes: row.admin_notes || '',
-        termsAccepted: !!row.terms_accepted,
-        answers: row.answers && typeof row.answers === 'object' ? Object.entries(row.answers) : []
-      }));
+      result.requests = reqRes.data.map(formatRequestRowForAdmin);
     }
 
     if (mediaRes.data) {
@@ -300,7 +290,7 @@ export async function persistAdminDataToSupabase(draft) {
     for (const r of draft.requests) {
       if (r.id && r.id.length > 30) {
         await supabase.from('commission_requests').update({
-          status: (r.status || 'new').toLowerCase(),
+          status: mapAdminStatusToDbStatus(r.status),
           admin_notes: r.notes || ''
         }).eq('id', r.id);
       }
@@ -328,6 +318,8 @@ export async function deleteAdminRecord(listKey, id) {
       await q;
     } else if (listKey === 'media') {
       await deleteMediaFile(id);
+    } else if (listKey === 'requests') {
+      await supabase.from('commission_requests').delete().eq('id', id);
     }
   } catch (err) {
     console.warn(`Failed to delete ${listKey} record ${id}:`, err.message);
