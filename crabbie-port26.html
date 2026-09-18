@@ -3297,9 +3297,10 @@ function markDirty(){ if(!ADMIN_UI.dirty){ ADMIN_UI.dirty = true; setAdminSaveSt
 async function doSaveCommit(msg){
   setAdminSaveStatus('saving');
   try {
-    if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData){
-      await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT);
+    if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData)){
+      throw new Error('Admin persistence service is unavailable.');
     }
+    await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT);
     ADMIN_DATA = clone(ADMIN_DRAFT);
     ADMIN_UI.dirty = false;
     setAdminSaveStatus('saved');
@@ -3760,13 +3761,24 @@ var name = btn.getAttribute('data-adm-delete-name') || 'this item';
 confirmDelete(name, async function(){
 var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
-var i = list.findIndex(function(r){ return r.id === id || r.slug === id; });
-if(i !== -1) list.splice(i, 1);
-if(ADMIN_UI.selection[listKey] === id) ADMIN_UI.selection[listKey] = list[0] ? list[0].id : null;
-if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord){
+try{
+  if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord)){
+    throw new Error('Admin delete service is unavailable.');
+  }
   await window.CrabbieAdminCrud.deleteRecord(listKey, id);
+  var i = list.findIndex(function(r){ return r.id === id || r.slug === id; });
+  if(i !== -1) list.splice(i, 1);
+  if(Array.isArray(ADMIN_DATA[listKey])){
+    var dataIndex = ADMIN_DATA[listKey].findIndex(function(r){ return r.id === id || r.slug === id; });
+    if(dataIndex !== -1) ADMIN_DATA[listKey].splice(dataIndex, 1);
+  }
+  if(ADMIN_UI.selection[listKey] === id) ADMIN_UI.selection[listKey] = list[0] ? list[0].id : null;
+  toast(tAdmin('toast.deleted') + ' "' + name + '"');
+  renderAdmin(module);
+}catch(err){
+  console.error('Delete failed:', err);
+  toast('Delete failed: ' + (err.message || 'Unknown error'));
 }
-markDirty(); toast(tAdmin('toast.deleted') + ' "' + name + '"'); renderAdmin(module);
 });
 });
 });
@@ -4088,19 +4100,10 @@ async function handleMediaUploadSelected(e){
   toast('Uploading ' + file.name + '…');
   try {
     var newMedia = null;
-    if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile){
-      newMedia = await window.CrabbieAdminMedia.uploadMediaFile(file);
-    } else {
-      var id = newId('media');
-      newMedia = {
-        id: id,
-        storagePath: 'uploads/' + file.name,
-        title: file.name,
-        url: URL.createObjectURL(file),
-        type: file.type.startsWith('video') ? 'video' : 'image',
-        size: Math.round(file.size / 1024) + ' KB'
-      };
+    if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile)){
+      throw new Error('Media upload service is unavailable.');
     }
+    newMedia = await window.CrabbieAdminMedia.uploadMediaFile(file);
     if(!Array.isArray(ADMIN_DRAFT.media)) ADMIN_DRAFT.media = [];
     ADMIN_DRAFT.media.unshift(newMedia);
     if(Array.isArray(ADMIN_DATA.media)){
