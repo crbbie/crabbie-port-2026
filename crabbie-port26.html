@@ -4342,41 +4342,158 @@ apply: function(records){
   }
 }
 };
+function renderCmsCommissionField(formSlug, field, index){
+  field = field || {};
+  var key = field.id || ('field-' + index);
+  var safeKey = String(key).replace(/[^a-zA-Z0-9_-]/g, '-');
+  var id = 'cms-' + String(formSlug).replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + safeKey;
+  var name = formSlug + '.' + key;
+  var label = field.label || FALLBACK_LABELS[key] || key;
+  var required = !!field.required;
+  var req = required ? ' <span class="req">*</span>' : '';
+  var help = field.help ? '<div class="hint">' + esc(field.help) + '</div>' : '';
+  var placeholder = field.placeholder || '';
+  var type = String(field.type || 'text').toLowerCase();
+  var full = (key === 'name' || key === 'email') ? '' : ' full';
+  var control = '';
+
+  if(type === 'textarea'){
+    control = '<textarea id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '" placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '></textarea>';
+  } else if(type === 'select'){
+    var options = Array.isArray(field.options) ? field.options : [];
+    control = '<select id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '"' + (required ? ' required' : '') + '>' +
+      '<option value="">Choose…</option>' +
+      options.map(function(opt){ return '<option value="' + esc(opt) + '">' + esc(opt) + '</option>'; }).join('') +
+      '</select>';
+  } else if(type === 'radio'){
+    var radioOptions = Array.isArray(field.options) ? field.options : [];
+    control = '<div class="choice-row">' + radioOptions.map(function(opt, i){
+      return '<label class="choice"><input type="radio" name="' + esc(name) + '" data-field-key="' + esc(key) + '" value="' + esc(opt) + '"' + (required ? ' required' : '') + (i === 0 ? ' checked' : '') + '><span>' + esc(opt) + '</span></label>';
+    }).join('') + '</div>';
+  } else {
+    var inputType = ['email','number','url','tel','date'].indexOf(type) !== -1 ? type : 'text';
+    control = '<input type="' + inputType + '" id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '" placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '>';
+  }
+
+  return '<div class="field' + full + '"><label' + (type === 'radio' ? '' : ' for="' + esc(id) + '"') + '>' + esc(label) + req + '</label>' + help + control + '</div>';
+}
+
 window.CrabbieCommissions = {
 getPrototype: function(slug){ return clone(OTHER_SERVICES[slug] || {}); },
 apply: function(services, forms){
   if(Array.isArray(services)){
+    var liveServices = {};
+    var liveTitles = {};
+
     services.forEach(function(s){
-      if(OTHER_SERVICES[s.id]){
-        OTHER_SERVICES[s.id] = s;
-        var btn = document.querySelector('#miniServicesGrid [data-other-service="' + s.id + '"]');
-        if(btn){
-          var nameEl = btn.querySelector('.mini-name'); if(nameEl) nameEl.textContent = s.name;
-          var noteEl = btn.querySelector('.mini-note'); if(noteEl) noteEl.textContent = s.priceNote || '';
-          var priceEl = btn.querySelector('.mini-price'); if(priceEl) priceEl.textContent = s.price;
-        }
+      var slug = s.slug || s.id || '';
+      if(slug) liveServices[slug] = true;
+      if(s.title) liveTitles[s.title] = true;
+      if(s.name) liveTitles[s.name] = true;
+      if(slug) OTHER_SERVICES[slug] = s;
+
+      var miniBtn = slug ? document.querySelector('#miniServicesGrid [data-other-service="' + slug + '"]') : null;
+      if(miniBtn){
+        miniBtn.style.display = '';
+        var miniName = miniBtn.querySelector('.mini-name'); if(miniName) miniName.textContent = s.name || s.title || slug;
+        var miniNote = miniBtn.querySelector('.mini-note'); if(miniNote) miniNote.textContent = s.priceNote || '';
+        var miniPrice = miniBtn.querySelector('.mini-price'); if(miniPrice) miniPrice.textContent = s.price || '';
       }
-      var cardBtn = document.querySelector('.comm-grid button[data-service="' + s.name + '"]');
+
+      var cardBtn = document.querySelector('.comm-grid button[data-service="' + (s.name || '') + '"]');
       if(!cardBtn && s.title){
         cardBtn = document.querySelector('.comm-grid button[data-service="' + s.title + '"]');
       }
       if(cardBtn){
         cardBtn.setAttribute('data-avail', s.availability);
-        cardBtn.setAttribute('data-service-slug', s.slug || s.id || '');
+        cardBtn.setAttribute('data-service-slug', slug);
+        cardBtn.setAttribute('data-service', s.name || s.title || slug);
+        cardBtn.disabled = s.availability === 'closed';
+        cardBtn.setAttribute('aria-disabled', s.availability === 'closed' ? 'true' : 'false');
         var card = cardBtn.closest('.comm-card');
         if(card){
+          card.style.display = '';
           var tag = card.querySelector('.comm-thumb .avail');
           if(tag){
             tag.className = 'avail ' + availabilityClass(s.availability);
             tag.textContent = availabilityLabel(s.availability);
           }
-          var nameEl = card.querySelector('.comm-name'); if(nameEl) nameEl.textContent = s.title;
-          var descEl = card.querySelector('.comm-desc'); if(descEl) descEl.textContent = s.description;
+          var nameEl = card.querySelector('.comm-name'); if(nameEl) nameEl.textContent = s.title || s.name || slug;
+          var descEl = card.querySelector('.comm-desc'); if(descEl) descEl.textContent = s.description || '';
         }
       }
     });
-    if(currentOtherService && OTHER_SERVICES[currentOtherService]){
-      renderOtherServiceDetail(currentOtherService);
+
+    Object.keys(OTHER_SERVICES).forEach(function(slug){
+      if(!liveServices[slug]) delete OTHER_SERVICES[slug];
+    });
+
+    document.querySelectorAll('#miniServicesGrid [data-other-service]').forEach(function(btn){
+      var slug = btn.getAttribute('data-other-service');
+      btn.style.display = liveServices[slug] ? '' : 'none';
+    });
+
+    document.querySelectorAll('.comm-grid .comm-card').forEach(function(card){
+      var btn = card.querySelector('button[data-service]');
+      if(!btn) return;
+      var slug = btn.getAttribute('data-service-slug') || '';
+      var title = btn.getAttribute('data-service') || '';
+      card.style.display = (liveServices[slug] || liveTitles[title]) ? '' : 'none';
+    });
+
+    if(currentOtherService){
+      if(OTHER_SERVICES[currentOtherService]) renderOtherServiceDetail(currentOtherService);
+      else {
+        currentOtherService = null;
+        if(otherServiceDetail){ otherServiceDetail.classList.remove('show'); otherServiceDetail.innerHTML = ''; }
+      }
+    }
+
+    if(selectedServiceSlug && !liveServices[selectedServiceSlug]){
+      selectedService = '';
+      selectedServiceSlug = '';
+      selectedServiceAvail = 'open';
+      updateServiceIndicator('', 'open');
+    }
+  }
+
+  if(Array.isArray(forms)){
+    var formMap = {};
+    var nextLabels = {};
+    forms.forEach(function(form){
+      var slug = form.slug || form.id;
+      if(!slug) return;
+      formMap[slug] = form;
+      nextLabels[slug] = form.title || slug;
+    });
+    TAB_LABELS = nextLabels;
+
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn){
+      var slug = btn.getAttribute('data-tab');
+      var form = formMap[slug];
+      btn.style.display = form ? '' : 'none';
+      if(form) btn.textContent = form.title || slug;
+    });
+
+    document.querySelectorAll('.tab-panel[data-panel]').forEach(function(panel){
+      var slug = panel.getAttribute('data-panel');
+      var form = formMap[slug];
+      panel.style.display = form ? '' : 'none';
+      if(!form) return;
+      var grid = panel.querySelector('.form-grid');
+      if(grid){
+        grid.innerHTML = (form.fields || []).map(function(field, index){
+          return renderCmsCommissionField(slug, field, index);
+        }).join('');
+      }
+    });
+
+    if(forms.length){
+      if(!formMap[activeTab]) activeTab = forms[0].slug || forms[0].id;
+      setTab(activeTab, false);
+      if(submitBtn) submitBtn.disabled = false;
+    } else {
+      if(submitBtn) submitBtn.disabled = true;
     }
   }
 }
