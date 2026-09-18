@@ -32,9 +32,10 @@ export async function hydrateCommissions() {
   );
   const forms = (formsResult.data || []).map((row) => mapCommissionForm(row, {}));
 
-  if (services.length || forms.length) {
-    window.CrabbieCommissions.apply(services, forms);
-  }
+  window.CrabbieCommissions.apply(
+    servicesResult.error ? null : services,
+    formsResult.error ? null : forms
+  );
 }
 
 hydrateCommissions();
