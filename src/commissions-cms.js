@@ -1,0 +1,40 @@
+﻿import { supabase, isConfigured } from './supabase-client.js';
+import { mapCommissionService, mapCommissionForm } from './commissions-core.js';
+
+export async function hydrateCommissions() {
+  if (!isConfigured || !supabase) {
+    console.warn('Commissions CMS: Supabase client is not configured. Falling back to prototype data.');
+    return;
+  }
+  if (!window.CrabbieCommissions) return;
+
+  const [servicesResult, formsResult] = await Promise.all([
+    supabase
+      .from('commission_services')
+      .select('slug,title,description,price,currency,availability,form_slug,thumbnail_path,featured,published,sort_order,details')
+      .eq('published', true)
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('commission_forms')
+      .select('slug,title,description,fields,published')
+      .eq('published', true)
+  ]);
+
+  if (servicesResult.error) {
+    console.warn('Commission services Supabase query failed:', servicesResult.error.message, '— Falling back to prototype data.');
+  }
+  if (formsResult.error) {
+    console.warn('Commission forms Supabase query failed:', formsResult.error.message);
+  }
+
+  const services = (servicesResult.data || []).map((row) =>
+    mapCommissionService(row, window.CrabbieCommissions.getPrototype(row.slug))
+  );
+  const forms = (formsResult.data || []).map((row) => mapCommissionForm(row, {}));
+
+  if (services.length || forms.length) {
+    window.CrabbieCommissions.apply(services, forms);
+  }
+}
+
+hydrateCommissions();

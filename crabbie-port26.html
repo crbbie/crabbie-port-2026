@@ -3929,6 +3929,44 @@ apply: function(records){
   if(currentRoute.view === 'free-asset-detail') renderAsset(currentRoute.id);
 }
 };
+window.CrabbieCommissions = {
+getPrototype: function(slug){ return clone(OTHER_SERVICES[slug] || {}); },
+apply: function(services, forms){
+  if(Array.isArray(services)){
+    services.forEach(function(s){
+      if(OTHER_SERVICES[s.id]){
+        OTHER_SERVICES[s.id] = s;
+        var btn = document.querySelector('#miniServicesGrid [data-other-service="' + s.id + '"]');
+        if(btn){
+          var nameEl = btn.querySelector('.mini-name'); if(nameEl) nameEl.textContent = s.name;
+          var noteEl = btn.querySelector('.mini-note'); if(noteEl) noteEl.textContent = s.priceNote || '';
+          var priceEl = btn.querySelector('.mini-price'); if(priceEl) priceEl.textContent = s.price;
+        }
+      }
+      var cardBtn = document.querySelector('.comm-grid button[data-service="' + s.name + '"]');
+      if(!cardBtn && s.title){
+        cardBtn = document.querySelector('.comm-grid button[data-service="' + s.title + '"]');
+      }
+      if(cardBtn){
+        cardBtn.setAttribute('data-avail', s.availability);
+        var card = cardBtn.closest('.comm-card');
+        if(card){
+          var tag = card.querySelector('.comm-thumb .avail');
+          if(tag){
+            tag.className = 'avail ' + availabilityClass(s.availability);
+            tag.textContent = availabilityLabel(s.availability);
+          }
+          var nameEl = card.querySelector('.comm-name'); if(nameEl) nameEl.textContent = s.title;
+          var descEl = card.querySelector('.comm-desc'); if(descEl) descEl.textContent = s.description;
+        }
+      }
+    });
+    if(currentOtherService && OTHER_SERVICES[currentOtherService]){
+      renderOtherServiceDetail(currentOtherService);
+    }
+  }
+}
+};
 
 boot();
 

@@ -5,3 +5,4 @@ export const supabase = isConfigured ? createClient(config.url, config.key, { au
 window.CrabbieSupabase = { supabase, isConfigured };
 import('./portfolio-cms.js');
 import('./free-assets-cms.js');
+import('./commissions-cms.js');
