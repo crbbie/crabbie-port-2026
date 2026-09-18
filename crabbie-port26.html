@@ -256,6 +256,8 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .foot ul a{font-size:13.5px; font-weight:700; color:var(--berry-soft);padding:4px 0; transition:.25s; display:inline-block; cursor:pointer;}
 .foot ul a:hover{ color: var(--pink-hot); transform: translateX(4px);}
 .foot-bottom{border-top: 2px dashed rgba(255,92,154,.25);margin-top: 20px; padding-top: 22px;display:flex; justify-content:space-between; font-size:12px;color: var(--berry-faint); font-weight:700;}
+.admin-entry-link{color:var(--berry-faint);text-decoration:none;font-weight:800;transition:.2s;}
+.admin-entry-link:hover{color:var(--pink-hot);}
 
 /* VIEW SYSTEM */
 .view{display:none;}
@@ -2284,7 +2286,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
     </div>
     <div class="foot-bottom">
       <span>© 2026 Crabbie — with love, always ♡</span>
-      <span>EN · VI</span>
+      <span>EN · VI · <a class="admin-entry-link" href="#admin" aria-label="Admin sign in">Admin</a></span>
     </div>
   </div>
 </footer>
@@ -4229,6 +4231,9 @@ setTimeout(function(){ doSaveCommit(tAdmin('toast.saved')); }, prefersReduced() 
 
 function boot(){
 var raw = location.hash.replace(/^#/, '');
+var cleanPath = location.pathname.replace(/^\/+|\/+$/g, '');
+if(!raw && cleanPath === 'admin') raw = 'admin';
+else if(!raw && cleanPath.indexOf('admin/') === 0) raw = cleanPath;
 syncPanelDisabled();
 wireAdminShell();
 applyAdminLangToDom(document);
