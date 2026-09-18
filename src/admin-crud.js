@@ -11,6 +11,13 @@ import { formatMediaItem } from './admin-media-core.js';
 import { deleteMediaFile } from './admin-media.js';
 import { formatRequestRowForAdmin, mapAdminStatusToDbStatus } from './commission-requests-core.js';
 
+function assertSupabaseResult(result, label) {
+  if (result && result.error) {
+    throw new Error(`${label}: ${result.error.message}`);
+  }
+  return result;
+}
+
 export async function loadAllAdminDataFromSupabase() {
   if (!isConfigured || !supabase) return null;
 
@@ -269,10 +276,21 @@ export async function persistAdminDataToSupabase(draft) {
       const n = draft.navigation[idx];
       const isUUID = n.id && n.id.length > 30;
       if (isUUID) {
-        await supabase.from('cms_navigation').upsert([{ id: n.id, title: n.title, url: n.url, published: !!n.published, sort_order: idx }], { onConflict: 'id' });
+        const navRes = await supabase
+          .from('cms_navigation')
+          .upsert([{ id: n.id, title: n.title, url: n.url, published: !!n.published, sort_order: idx }], { onConflict: 'id' });
+        assertSupabaseResult(navRes, 'Navigation save failed');
       } else {
-        const { data: inserted } = await supabase.from('cms_navigation').insert([{ title: n.title, url: n.url, published: !!n.published, sort_order: idx }]).select('id');
-        if (inserted && inserted[0]) n.id = inserted[0].id;
+        const navRes = await supabase
+          .from('cms_navigation')
+          .insert([{ title: n.title, url: n.url, published: !!n.published, sort_order: idx }])
+          .select('id');
+        assertSupabaseResult(navRes, 'Navigation insert failed');
+        const inserted = navRes.data;
+        if (!inserted || !inserted[0] || !inserted[0].id) {
+          throw new Error('Navigation insert failed: no id returned.');
+        }
+        n.id = inserted[0].id;
       }
     }
   }
@@ -289,10 +307,11 @@ export async function persistAdminDataToSupabase(draft) {
   if (Array.isArray(draft.requests)) {
     for (const r of draft.requests) {
       if (r.id && r.id.length > 30) {
-        await supabase.from('commission_requests').update({
+        const requestRes = await supabase.from('commission_requests').update({
           status: mapAdminStatusToDbStatus(r.status),
           admin_notes: r.notes || ''
         }).eq('id', r.id);
+        assertSupabaseResult(requestRes, `Request save failed (${r.id})`);
       }
     }
   }
@@ -301,29 +320,46 @@ export async function persistAdminDataToSupabase(draft) {
 }
 
 export async function deleteAdminRecord(listKey, id) {
-  if (!isConfigured || !supabase || !id) return;
-  try {
-    const isUUID = id.length > 30;
-    if (listKey === 'portfolio') {
-      const q = isUUID ? supabase.from('portfolio_projects').delete().eq('id', id) : supabase.from('portfolio_projects').delete().eq('slug', id);
-      await q;
-    } else if (listKey === 'assets') {
-      const q = isUUID ? supabase.from('free_assets').delete().eq('id', id) : supabase.from('free_assets').delete().eq('slug', id);
-      await q;
-    } else if (listKey === 'commissions') {
-      const q = isUUID ? supabase.from('commission_services').delete().eq('id', id) : supabase.from('commission_services').delete().eq('slug', id);
-      await q;
-    } else if (listKey === 'navigation') {
-      const q = isUUID ? supabase.from('cms_navigation').delete().eq('id', id) : supabase.from('cms_navigation').delete().eq('url', id);
-      await q;
-    } else if (listKey === 'media') {
-      await deleteMediaFile(id);
-    } else if (listKey === 'requests') {
-      await supabase.from('commission_requests').delete().eq('id', id);
-    }
-  } catch (err) {
-    console.warn(`Failed to delete ${listKey} record ${id}:`, err.message);
+  if (!isConfigured || !supabase) {
+    throw new Error('Supabase is not configured.');
   }
+  if (!id) {
+    throw new Error('Cannot delete a record without an id.');
+  }
+
+  const isUUID = id.length > 30;
+  let result = null;
+
+  if (listKey === 'portfolio') {
+    result = isUUID
+      ? await supabase.from('portfolio_projects').delete().eq('id', id)
+      : await supabase.from('portfolio_projects').delete().eq('slug', id);
+  } else if (listKey === 'assets') {
+    result = isUUID
+      ? await supabase.from('free_assets').delete().eq('id', id)
+      : await supabase.from('free_assets').delete().eq('slug', id);
+  } else if (listKey === 'commissions') {
+    result = isUUID
+      ? await supabase.from('commission_services').delete().eq('id', id)
+      : await supabase.from('commission_services').delete().eq('slug', id);
+  } else if (listKey === 'navigation') {
+    result = isUUID
+      ? await supabase.from('cms_navigation').delete().eq('id', id)
+      : await supabase.from('cms_navigation').delete().eq('url', id);
+  } else if (listKey === 'media') {
+    const mediaResult = await deleteMediaFile(id);
+    if (!mediaResult || !mediaResult.success) {
+      throw new Error(mediaResult && mediaResult.error ? mediaResult.error : 'Media delete failed.');
+    }
+    return { success: true };
+  } else if (listKey === 'requests') {
+    result = await supabase.from('commission_requests').delete().eq('id', id);
+  } else {
+    throw new Error(`Unsupported delete target: ${listKey}`);
+  }
+
+  assertSupabaseResult(result, `Delete failed (${listKey})`);
+  return { success: true };
 }
 
 window.CrabbieAdminCrud = {
