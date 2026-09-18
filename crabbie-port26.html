@@ -4275,6 +4275,14 @@ applyRoute({ view:'home', id:null, adminModule:null }, { noFocus:true, noScroll:
 applyRoute(parseRoute(raw), { noFocus:true, noScroll:true });
 }
 }
+function portfolioFilterGroup(record){
+  var raw = String((record && (record.filterCat || record.categorySlug || record.cat)) || '').toLowerCase();
+  if(raw.indexOf('chibi') !== -1) return 'chibi';
+  if(raw.indexOf('vtuber') !== -1) return 'vtuber';
+  if(raw.indexOf('illustration') !== -1 || raw.indexOf('event') !== -1 || raw.indexOf('commercial') !== -1) return 'illustration';
+  return 'other';
+}
+
 window.CrabbiePortfolio = {
 getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
 apply: function(records){
@@ -4298,7 +4306,7 @@ apply: function(records){
       card.className = 'work pf-s';
       card.setAttribute('href', '#project/' + record.slug);
       card.setAttribute('data-project', record.slug);
-      card.setAttribute('data-cat', String(record.categorySlug || record.cat || 'other').toLowerCase());
+      card.setAttribute('data-cat', portfolioFilterGroup(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
       var thumb = record.thumbnail
         ? '<div class="thumb"><img src="' + esc(record.thumbnail) + '" alt="' + esc(record.title || '') + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy"></div>'
@@ -4320,7 +4328,7 @@ apply: function(records){
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
     card.setAttribute('href', '#project/' + slug);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
-    if(record.cat) card.setAttribute('data-cat', String(record.cat).toLowerCase());
+    card.setAttribute('data-cat', portfolioFilterGroup(record));
   });
   if(typeof filterState !== 'undefined' && filterState.pf){
     filterState.pf.cards = $('#pfGrid [data-cat]');
