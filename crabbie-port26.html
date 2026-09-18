@@ -3906,6 +3906,11 @@ applyRoute({ view:'home', id:null, adminModule:null }, { noFocus:true, noScroll:
 applyRoute(parseRoute(raw), { noFocus:true, noScroll:true });
 }
 }
+window.CrabbiePortfolio = {
+getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
+apply: function(records){ records.forEach(function(record){ PROJECTS[record.slug] = record; if(PROJECT_ORDER.indexOf(record.slug) === -1) PROJECT_ORDER.push(record.slug); }); if(currentRoute.view === 'project-detail') renderProject(currentRoute.id); }
+};
+
 boot();
 
 })();
