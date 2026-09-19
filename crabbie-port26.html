@@ -130,8 +130,17 @@ button{font:inherit; color:inherit;}
 .nav-cta{background:radial-gradient(ellipse 45% 34% at 24% 82%, rgba(255,255,255,.5), transparent 65%),linear-gradient(180deg, #ffe89a 0%, #ffd36b 50%, var(--yellow-hot) 100%);color:#fff;text-shadow: 0 1px 3px rgba(170,110,10,.45);box-shadow:0 9px 18px -9px rgba(255,190,46,.8),inset 0 2px 1px rgba(255,255,255,.75),inset 0 -7px 12px -10px rgba(190,130,20,.55);}
 .nav-cta:hover{ transform: translateY(-2px); }
 
-@keyframes jelly{0%{transform:scale(1,1);}22%{transform:scale(1.14,.84);}42%{transform:scale(.92,1.10);}60%{transform:scale(1.06,.95);}78%{transform:scale(.97,1.03);}100%{transform:scale(1,1);}}
-.is-jelly{ animation: jelly .55s var(--ease-jelly); }
+@keyframes jelly{
+  0%   { transform: scale(1, 1); }
+  25%  { transform: scale(1.2, 0.8); }
+  50%  { transform: scale(0.9, 1.1); }
+  75%  { transform: scale(1.05, 0.95); }
+  100% { transform: scale(1, 1); }
+}
+.is-jelly{
+  animation: jelly .6s cubic-bezier(.25,.46,.45,.94) both !important;
+  transform-origin: center bottom;
+}
 
 /* HERO */
 .hero{position:relative;min-height: calc(100vh - 96px);display: flex;align-items: center;padding: 40px 0 80px;}
@@ -145,7 +154,6 @@ button{font:inherit; color:inherit;}
 .hero-lede{font-size: 16px; color: var(--berry-soft); font-weight: 600;max-width: 480px; margin-bottom: 32px;cursor: default;}
 .hero-lede b{ color: var(--berry); font-weight:800;}
 .hero-ctas{display:flex; gap:16px; flex-wrap:wrap;}
-.hero-ctas .btn:hover{transform:translateZ(0);}
 .signature{display:inline-block;font-family:'Gochi Hand', cursive;font-size: 22px;color: var(--pink-hot);margin-top: 26px;transform: rotate(-3deg);opacity: .9;cursor: default;}
 
 .hero-art-wrap{position:relative; width:100%;}
@@ -1115,8 +1123,16 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .view[data-view="home"].is-active .hero-ctas     { --d: .62s; }
 .view[data-view="home"].is-active .signature     { --d: .80s; }
 
+@keyframes heroEntranceSway{
+  0%   { transform: translateY(30px) rotate(0deg); opacity: 0; }
+  30%  { transform: translateY(-10px) rotate(2deg); opacity: 1; }
+  60%  { transform: translateY(0) rotate(-1.5deg); }
+  80%  { transform: translateY(-5px) rotate(.5deg); }
+  100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+}
 .view[data-view="home"].is-active .hero-art-wrap{
-  animation: animFadeScale 1s var(--ease-out-soft) .22s both;
+  animation: heroEntranceSway 1.2s ease-out .18s both;
+  transform-origin: center bottom;
 }
 
 /* ---------- SIGNATURE viết chữ (một lần) ---------- */
@@ -1401,6 +1417,46 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   line-height: 1;
   will-change: transform, opacity;
   transition: transform .8s cubic-bezier(.22,1,.36,1), opacity .8s ease;
+}
+
+/* ============================================================
+   HOME INTERACTION MOTION
+   ============================================================ */
+@keyframes cardShake{
+  0%,100% { transform: translateX(0) rotate(0deg); }
+  25%     { transform: translateX(-5px) rotate(-2deg); }
+  75%     { transform: translateX(5px) rotate(2deg); }
+}
+.view[data-view="home"].is-active .work.is-shaking,
+.view[data-view="home"].is-active .item.is-shaking{
+  animation: cardShake .4s ease-in-out both !important;
+}
+
+@keyframes gentleRotate{
+  0%,100% { transform: rotate(9deg); }
+  50%     { transform: rotate(19deg); }
+}
+.view[data-view="home"].is-active .flower-tag{
+  animation: gentleRotate 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes gentleFloat{
+  0%,100% { transform: translateX(0); }
+  50%     { transform: translateX(15px); }
+}
+.view[data-view="home"].is-active .cloud-tag{
+  animation: gentleFloat 5s ease-in-out infinite;
+}
+
+@keyframes boardSway{
+  0%,100% { transform: rotate(2deg); }
+  25%     { transform: rotate(4deg); }
+  75%     { transform: rotate(0deg); }
+}
+.view[data-view="home"].is-active .cta-panel{
+  animation: boardSway 6s ease-in-out infinite;
+  transform-origin: center bottom;
 }
 
 /* ============================================================
@@ -2611,21 +2667,25 @@ el.classList.remove('is-jelly'); void el.offsetWidth;
 el.classList.add('is-jelly');
 setTimeout(function(){ el.classList.remove('is-jelly'); }, 620);
 }
-$$('.banner[data-wobble]').forEach(function(banner){
-var container = $(banner.getAttribute('data-wobble')); if(!container) return;
-var cards = $$('.work, .item', container); if(!cards.length) return;
-banner.addEventListener('click', function(){
+function triggerStaggeredShake(triggerSelector, cardSelector){
+var trigger = $(triggerSelector);
+if(!trigger) return;
+trigger.addEventListener('click', function(){
 if(prefersReduced()) return;
-banner.classList.remove('is-wobble'); void banner.offsetWidth; banner.classList.add('is-wobble');
-setTimeout(function(){ banner.classList.remove('is-wobble'); }, 700);
-cards.forEach(function(card, i){
+$(cardSelector).forEach(function(card, index){
 setTimeout(function(){
-card.classList.remove('is-wobble'); void card.offsetWidth; card.classList.add('is-wobble');
-setTimeout(function(){ card.classList.remove('is-wobble'); }, 620);
-}, 140 + i * 90);
+card.classList.remove('is-shaking');
+void card.offsetWidth;
+card.classList.add('is-shaking');
+card.addEventListener('animationend', function(){
+card.classList.remove('is-shaking');
+}, { once:true });
+}, index * 100);
 });
 });
-});
+}
+triggerStaggeredShake('.works .banner[data-wobble="#worksGrid"]', '#worksGrid .work');
+triggerStaggeredShake('.assets .banner[data-wobble="#assetsGrid"]', '#assetsGrid .item');
 var heroTargets = $('.hero-badge, .hero-intro, .hero h1, .hero-tagline, .hero-lede, .signature, .hero-art, .hero-art .season-badge');
 heroTargets.forEach(function(el){
 el.addEventListener('mouseenter', function(){
@@ -3096,21 +3156,14 @@ if(t){ e.preventDefault(); smoothScrollTo(document.getElementById(t.getAttribute
 t = e.target.closest('[data-goto]');
 if(t){
   e.preventDefault();
+  var gotoTarget = t.getAttribute('data-goto');
 
-  if(t.matches('.hero-ctas .btn')){
-    var heroGoto = t.getAttribute('data-goto');
-    t.classList.remove('is-jelly');
-    void t.offsetWidth;
-    t.classList.add('is-jelly');
-    setTimeout(function(){
-      t.classList.remove('is-jelly');
-      navigate(heroGoto);
-    }, 620);
+  if(t.matches('.btn, .nav-cta') && !prefersReduced()){
+    setTimeout(function(){ navigate(gotoTarget); }, 600);
     return;
   }
 
-  jelly(t);
-  navigate(t.getAttribute('data-goto'));
+  navigate(gotoTarget);
   return;
 }
 });
@@ -5360,6 +5413,20 @@ else { reinit(); }
 window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 
 })();
+</script>
+
+<script id="home-jelly-buttons">
+document.querySelectorAll('.btn, .nav-cta').forEach(button => {
+  button.addEventListener('click', function() {
+    this.classList.remove('is-jelly');
+    void this.offsetWidth;
+    this.classList.add('is-jelly');
+
+    this.addEventListener('animationend', () => {
+      this.classList.remove('is-jelly');
+    }, { once: true });
+  });
+});
 </script>
 </body>
 </html>
