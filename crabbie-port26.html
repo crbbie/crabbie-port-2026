@@ -868,6 +868,25 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-badge.vi-updated{ background: #5ac48a; }
 .adm-badge.vi-manual{ background: #b98600; }
 .adm-badge.placeholder{ background: var(--pink-hot); }
+.adm-badge.health-complete{ background: #5ac48a; }
+.adm-badge.health-warning{ background: var(--yellow-hot); color: var(--berry); }
+.adm-badge.health-incomplete{ background: #e46a6a; }
+.adm-badge.health-placeholder{ background: var(--purple-hot); }
+.adm-checklist{ background: var(--pink-soft); border: 1.5px dashed var(--pink-light); border-radius: 16px; padding: 12px 14px; margin: 10px 0 4px; }
+.adm-checklist h4{ margin: 0 0 8px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--berry-faint); }
+.cl-item{ display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 700; color: var(--berry); padding: 2px 0; }
+.cl-item.ok{ color: #3d9468; }
+.cl-item.miss{ color: #c94f4f; }
+.cl-item.warn{ color: #b98600; }
+.cl-item.crit{ color: #c94f4f; }
+.adm-pub-warning{ margin-top: 10px; background: var(--yellow-light); border: 1.5px solid var(--yellow-hot); color: #8a6200; border-radius: 14px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
+.adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 220px; }
+.adm-media-preview img{ display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
+.adm-media-preview.is-broken img{ opacity: .35; }
+.adm-media-preview .adm-media-broken{ display: none; position: absolute; inset: 0; place-items: center; text-align: center; padding: 8px; font-size: 10.5px; font-weight: 800; color: #c94f4f; }
+.adm-media-preview.is-broken .adm-media-broken{ display: grid; }
+.adm-media-preview .adm-file-chip{ display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #fff; border: 1.5px solid var(--pink-light); border-radius: 10px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: var(--berry); }
+.adm-modal-card .am-sub{ white-space: pre-line; }
 
 .adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 22px 24px 18px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: var(--adm-editor-max); width: 100%;}
 .adm-editor h2{font-family:'Fredoka'; font-weight:700; font-size:18px; color: var(--berry);margin-bottom: 4px;}
@@ -3042,7 +3061,12 @@ en: {
 'media.title': 'Choose existing media…','media.subtitle': 'Selecting writes the URL into the originating field.',
 'advanced.viOverride': 'Advanced · Vietnamese override','advanced.viKeep': 'Keep this Vietnamese text instead of automatic translation','advanced.viText': 'Vietnamese text','advanced.viHint': 'Existing Vietnamese is preserved. Turn off override to translate future English changes.',
 'toast.saved': 'Saved.','toast.deleted': 'Deleted','toast.refreshed': 'Refreshed','toast.uploaded': 'File uploaded','toast.urlCopied': 'URL copied','toast.mediaSelected': 'Media selected','toast.uploadedFile': 'Uploaded file → ','toast.noUrlYet': 'No URL set yet.','toast.signedOut': 'Signed out.','toast.selectedMedia': 'Selected media → ',
-'confirm.discardTitle': 'Discard unsaved edits?','confirm.discardBody': 'You have unsaved changes. If you continue, those edits will be lost.','confirm.deleteTitle': 'Delete','confirm.deleteBody': 'This action cannot be undone.','confirm.deleteConfirm': 'Delete permanently'
+'confirm.discardTitle': 'Discard unsaved edits?','confirm.discardBody': 'You have unsaved changes. If you continue, those edits will be lost.','confirm.deleteTitle': 'Delete','confirm.deleteBody': 'This action cannot be undone.','confirm.deleteConfirm': 'Delete permanently',
+'health.complete': 'Complete','health.attention': 'Needs attention','health.missing': 'Missing required fields','health.placeholder': 'Placeholder content','health.checklist': 'Content checklist','health.placeholderValue': 'still contains placeholder text','health.publishedMissing': 'Published, but missing required content:','health.publishGuardTitle': 'Publish incomplete item?','health.publishGuardBody': 'This item is missing:','health.publishAnyway': 'Publish anyway',
+'dash.dataHealth': 'Data health','dash.healthPublished': 'published','dash.healthNeedAttention': 'need attention','dash.healthMissingThumbs': 'missing thumbnails','dash.healthMissingFiles': 'published without download file','dash.healthMissingForms': 'no request form mapped','dash.healthAboutNeeds': 'About needs contact / profile image','dash.healthTermsReview': 'Terms review recommended','dash.healthLooks': 'looks complete',
+'btn.clearMedia': 'Clear','label.downloadFile': 'Download file','label.downloadFileHint': 'The actual downloadable asset (zip/png/pdf…) — not just an image.','media.previewBroken': 'Media URL may be broken or unreachable.',
+'auditf.title': 'Title','auditf.slug': 'Slug','auditf.category': 'Category','auditf.thumbnail': 'Thumbnail','auditf.cover': 'Cover','auditf.description': 'Description','auditf.media': 'Download file','auditf.fileFormat': 'File format','auditf.license': 'License','auditf.availability': 'Availability','auditf.price': 'Price','auditf.form': 'Request form','auditf.name': 'Name','auditf.bio': 'Bio','auditf.content': 'Content','auditf.profileImage': 'Profile image','auditf.contact.email': 'Contact email','auditf.credit': 'Credit requirement','auditf.version': 'Version','auditf.updateNote': 'Update note','auditf.dateAdded': 'Date added','auditf.tags': 'Tags','auditf.date': 'Date','auditf.year': 'Year','auditf.blocks': 'Project content blocks','auditf.chips': 'Chips','auditf.includedFiles': 'Included files','auditf.delivery': 'Delivery estimate','auditf.payment': 'Payment / refund','auditf.edits': 'Edits & feedback','auditf.turnaround': 'Turnaround & deadlines','auditf.formats': 'Files & formats','auditf.copyright': 'Copyright & usage','auditf.artist-rights': 'Artist rights','auditf.contact-method': 'Contact method','auditf.skills': 'Skills','auditf.experience': 'Experience',
+'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.'
 },
 vi: {
 'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
@@ -3056,7 +3080,12 @@ vi: {
 'media.title': 'Chọn media có sẵn…','media.subtitle': 'Chọn sẽ ghi URL vào ô đang chỉnh.',
 'advanced.viOverride': 'Nâng cao · Ghi đè tiếng Việt','advanced.viKeep': 'Giữ nguyên tiếng Việt này thay vì dịch tự động','advanced.viText': 'Nội dung tiếng Việt','advanced.viHint': 'Tiếng Việt hiện có được giữ nguyên. Tắt ghi đè để dịch các thay đổi tiếng Anh trong tương lai.',
 'toast.saved': 'Đã lưu.','toast.deleted': 'Đã xóa','toast.refreshed': 'Đã làm mới','toast.uploaded': 'Đã tải file lên','toast.urlCopied': 'Đã copy URL','toast.mediaSelected': 'Đã chọn media','toast.uploadedFile': 'Đã tải file → ','toast.noUrlYet': 'Chưa có URL.','toast.signedOut': 'Đã đăng xuất.','toast.selectedMedia': 'Đã chọn media → ',
-'confirm.discardTitle': 'Hủy các chỉnh sửa chưa lưu?','confirm.discardBody': 'Bạn có thay đổi chưa lưu. Nếu tiếp tục, các thay đổi đó sẽ mất.','confirm.deleteTitle': 'Xóa','confirm.deleteBody': 'Thao tác này không thể hoàn tác.','confirm.deleteConfirm': 'Xóa vĩnh viễn'
+'confirm.discardTitle': 'Hủy các chỉnh sửa chưa lưu?','confirm.discardBody': 'Bạn có thay đổi chưa lưu. Nếu tiếp tục, các thay đổi đó sẽ mất.','confirm.deleteTitle': 'Xóa','confirm.deleteBody': 'Thao tác này không thể hoàn tác.','confirm.deleteConfirm': 'Xóa vĩnh viễn',
+'health.complete': 'Hoàn chỉnh','health.attention': 'Cần kiểm tra','health.missing': 'Thiếu dữ liệu bắt buộc','health.placeholder': 'Còn nội dung mẫu','health.checklist': 'Kiểm tra nội dung','health.placeholderValue': 'vẫn còn nội dung mẫu','health.publishedMissing': 'Đang hiển thị công khai nhưng còn thiếu:','health.publishGuardTitle': 'Xuất bản mục chưa hoàn chỉnh?','health.publishGuardBody': 'Mục này còn thiếu:','health.publishAnyway': 'Vẫn xuất bản',
+'dash.dataHealth': 'Sức khỏe dữ liệu','dash.healthPublished': 'đã xuất bản','dash.healthNeedAttention': 'cần chú ý','dash.healthMissingThumbs': 'thiếu thumbnail','dash.healthMissingFiles': 'đã xuất bản nhưng chưa có file tải về','dash.healthMissingForms': 'chưa gắn form yêu cầu','dash.healthAboutNeeds': 'Giới thiệu thiếu liên hệ / ảnh đại diện','dash.healthTermsReview': 'Nên rà soát Điều khoản','dash.healthLooks': 'hoàn chỉnh',
+'btn.clearMedia': 'Xóa URL','label.downloadFile': 'Tệp tải về','label.downloadFileHint': 'Tệp tải về thực tế (zip/png/pdf…) — không chỉ là ảnh.','media.previewBroken': 'URL media có thể hỏng hoặc không truy cập được.',
+'auditf.title': 'Tiêu đề','auditf.slug': 'Đường dẫn','auditf.category': 'Danh mục','auditf.thumbnail': 'Ảnh thumbnail','auditf.cover': 'Ảnh bìa','auditf.description': 'Mô tả','auditf.media': 'Tệp tải về','auditf.fileFormat': 'Định dạng file','auditf.license': 'Giấy phép','auditf.availability': 'Tình trạng','auditf.price': 'Giá','auditf.form': 'Form yêu cầu','auditf.name': 'Tên','auditf.bio': 'Giới thiệu ngắn','auditf.content': 'Nội dung','auditf.profileImage': 'Ảnh đại diện','auditf.contact.email': 'Email liên hệ','auditf.credit': 'Yêu cầu ghi công','auditf.version': 'Phiên bản','auditf.updateNote': 'Ghi chú cập nhật','auditf.dateAdded': 'Ngày thêm','auditf.tags': 'Thẻ','auditf.date': 'Ngày','auditf.year': 'Năm','auditf.blocks': 'Khối nội dung dự án','auditf.chips': 'Thẻ nổi bật','auditf.includedFiles': 'File đi kèm','auditf.delivery': 'Thời gian giao','auditf.payment': 'Thanh toán / hoàn tiền','auditf.edits': 'Chỉnh sửa & phản hồi','auditf.turnaround': 'Thời gian & deadline','auditf.formats': 'File & định dạng','auditf.copyright': 'Bản quyền & sử dụng','auditf.artist-rights': 'Quyền nghệ sĩ','auditf.contact-method': 'Phương thức liên hệ','auditf.skills': 'Kỹ năng','auditf.experience': 'Kinh nghiệm',
+'auditw.no-tags': 'Chưa có thẻ (nên bổ sung).','auditw.no-date': 'Chưa có ngày/năm (nên bổ sung).','auditw.no-content-blocks': 'Chưa có khối nội dung dự án nào.','auditw.record-flagged-placeholder': 'Mục đang được đánh dấu là placeholder.','auditw.published-without-file': 'Đã xuất bản nhưng chưa có file tải về — khách không thể tải tài nguyên này.','auditw.no-form-mapping': 'Dịch vụ này chưa gắn form yêu cầu nào.','auditw.no-delivery': 'Chưa có thời gian giao dự kiến (nên bổ sung).','auditw.no-chips': 'Chưa có thẻ nổi bật (nên bổ sung).','auditw.no-included-files': 'Chưa có ghi chú file đi kèm (nên bổ sung).','auditw.no-contact-link': 'Không tìm thấy liên kết liên hệ nào (email/Twitter/links).','auditw.no-contact-method': 'Không có phương thức liên hệ nào được nêu.','auditw.raw-email-not-clickable': 'Có email dạng text thường — nên biến thành liên kết mailto để bấm được.','auditw.no-skills': 'Chưa liệt kê kỹ năng (nên bổ sung).','auditw.no-experience': 'Chưa có mục kinh nghiệm (nên bổ sung).','auditw.few-sections': 'Chỉ phát hiện vài mục nhỏ.','auditw.thin-content': 'Nội dung khá ngắn.','auditw.missing-section': 'Không tìm thấy mục:','auditw.no-contact-email': 'Chưa đặt email liên hệ.','auditw.bad-contact-email': 'Định dạng email liên hệ có vẻ không hợp lệ.','auditw.no-contact-twitter': 'Chưa đặt liên kết Twitter/X.','auditw.no-logo': 'Chưa đặt logo.','auditw.no-hero-media': 'Chưa đặt media cho hero.','auditw.no-seo-image': 'Chưa đặt ảnh chia sẻ mạng xã hội (SEO).'
 }
 };
 
@@ -3370,9 +3399,122 @@ var v = getByPath(ADMIN_DRAFT, path) || '#000000';
 var pairId = 'cp-' + Math.random().toString(36).slice(2,7);
 return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span><input type="color" data-adm-path="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '"><input type="text" data-adm-path="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '"></div>';
 }
-function mediaField(label, path){
+/* Content-health helpers (audit engine lives in src/admin-data-audit-core.js) */
+function fieldLabel(key){
+  var v = tAdmin('auditf.' + key);
+  if(v !== 'auditf.' + key) return v;
+  var tail = String(key).split('.').pop();
+  return tail.replace(/-/g, ' ').replace(/^./, function(c){ return c.toUpperCase(); });
+}
+function warnLabel(code){
+  var idx = String(code).indexOf(':');
+  if(idx !== -1){
+    var base = code.slice(0, idx); var arg = code.slice(idx + 1);
+    var t = tAdmin('auditw.' + base);
+    return (t !== 'auditw.' + base ? t : base) + ' ' + fieldLabel(arg);
+  }
+  var v = tAdmin('auditw.' + code);
+  return v !== 'auditw.' + code ? v : String(code).replace(/-/g, ' ').replace(/^./, function(c){ return c.toUpperCase(); });
+}
+function auditFor(listKey, rec){
+  var A = window.CrabbieAdminDataAudit; if(!A || !rec) return null;
+  if(listKey === 'portfolio') return A.auditPortfolioRecord(rec);
+  if(listKey === 'assets') return A.auditAssetRecord(rec);
+  if(listKey === 'commissions') return A.auditCommissionRecord(rec, { formIds: (ADMIN_DRAFT.forms || []).map(function(f){ return f.id; }) });
+  return null;
+}
+function healthBadge(audit){
+  if(!audit) return '';
+  var label, cls;
+  if(audit.missing.length){ label = tAdmin('health.missing'); cls = 'health-incomplete'; }
+  else if(audit.placeholders.length){ label = tAdmin('health.placeholder'); cls = 'health-placeholder'; }
+  else if(audit.warnings.length || audit.critical.length){ label = tAdmin('health.attention'); cls = 'health-warning'; }
+  else { label = tAdmin('health.complete'); cls = 'health-complete'; }
+  return '<span class="adm-badge ' + cls + '">' + esc(label) + '</span>';
+}
+function checklistPanel(audit){
+  if(!audit) return '';
+  var items = '';
+  (audit.required || []).forEach(function(k){
+    var miss = audit.missing.indexOf(k) !== -1;
+    items += '<div class="cl-item ' + (miss ? 'miss' : 'ok') + '">' + (miss ? '✕' : '✓') + ' <span>' + esc(fieldLabel(k)) + '</span></div>';
+  });
+  (audit.placeholders || []).forEach(function(k){
+    items += '<div class="cl-item warn">◐ <span>' + esc(fieldLabel(k)) + ' — ' + esc(tAdmin('health.placeholderValue')) + '</span></div>';
+  });
+  (audit.critical || []).forEach(function(code){
+    items += '<div class="cl-item crit">⚠ <span>' + esc(warnLabel(code)) + '</span></div>';
+  });
+  (audit.warnings || []).forEach(function(code){
+    items += '<div class="cl-item warn">! <span>' + esc(warnLabel(code)) + '</span></div>';
+  });
+  return '<div class="adm-checklist" id="admChecklist"><h4>' + esc(tAdmin('health.checklist')) + '</h4>' + items + '</div>';
+}
+function publishWarningHtml(audit, published){
+  if(!audit || !published || !audit.missing.length) return '';
+  var names = audit.missing.map(fieldLabel);
+  return '<div class="adm-pub-warning" id="admPublishWarning"><b>' + esc(tAdmin('health.publishedMissing')) + '</b> ' + esc(names.join(', ')) + '</div>';
+}
+function mediaPreviewHtml(path, v, kind){
+  var attrs = ' class="adm-media-preview" data-adm-media-preview="' + esc(path) + '" data-adm-media-kind="' + esc(kind || 'auto') + '"';
+  if(!v) return '<div' + attrs + ' hidden></div>';
+  var looksImage = /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i.test(v) || v.indexOf('/storage/v1/object/public/media/') !== -1;
+  if(kind !== 'file' && looksImage){
+    return '<div' + attrs + '><img src="' + esc(v) + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'is-broken\')" onload="this.parentElement.classList.remove(\'is-broken\')"><span class="adm-media-broken">' + esc(tAdmin('media.previewBroken')) + '</span></div>';
+  }
+  var name = String(v).split('/').pop() || v;
+  return '<div' + attrs + '><span class="adm-file-chip" title="' + esc(v) + '">📎 ' + esc(name) + '</span></div>';
+}
+function refreshMediaPreviewByPath(path){
+  var preview = document.querySelector('[data-adm-media-preview="' + path + '"]');
+  if(!preview) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = mediaPreviewHtml(path, getByPath(ADMIN_DRAFT, path) || '', preview.getAttribute('data-adm-media-kind'));
+  preview.replaceWith(tmp.firstChild);
+}
+function refreshAuditPanels(module){
+  var A = window.CrabbieAdminDataAudit; if(!A) return;
+  var audit = null; var published = false;
+  if(module === 'portfolio' || module === 'assets' || module === 'commissions'){
+    var sel = ADMIN_UI.selection[module] || (ADMIN_DRAFT[module][0] && ADMIN_DRAFT[module][0].id);
+    var rec = (ADMIN_DRAFT[module] || []).filter(function(r){ return r.id === sel; })[0];
+    if(rec){ audit = auditFor(module, rec); published = !!rec.published; }
+  } else if(module === 'about'){
+    audit = A.auditPageRecord(ADMIN_DRAFT.pages.about || {}, 'about', { settings: ADMIN_DRAFT.settings });
+  } else if(module === 'terms'){
+    audit = A.auditPageRecord(ADMIN_DRAFT.pages.terms || {}, 'terms', { settings: ADMIN_DRAFT.settings });
+  } else if(module === 'contact' || module === 'settings'){
+    audit = A.auditSettingsRecord(ADMIN_DRAFT.settings || {});
+  }
+  var panel = document.getElementById('admChecklist');
+  if(panel && audit){
+    var tmp = document.createElement('div');
+    tmp.innerHTML = checklistPanel(audit);
+    panel.replaceWith(tmp.firstChild);
+  }
+  var pubWrap = document.getElementById('admPublishWarningWrap');
+  if(pubWrap) pubWrap.innerHTML = publishWarningHtml(audit, published);
+}
+function confirmPublishGuard(audit, onConfirm){
+  var modal = document.getElementById('adminConfirmModal');
+  var bodyText = tAdmin('health.publishGuardBody') + '\n' + audit.missing.map(function(k){ return '• ' + fieldLabel(k); }).join('\n');
+  if(!modal){ if(window.confirm(bodyText.replace(/\n/g, ' '))) onConfirm(); return; }
+  var titleEl = document.getElementById('adminConfirmTitle'); var bodyEl = document.getElementById('adminConfirmBody');
+  var okBtn = document.getElementById('adminConfirmOk'); var cancelBtn = document.getElementById('adminConfirmCancel');
+  titleEl.textContent = tAdmin('health.publishGuardTitle'); bodyEl.textContent = bodyText;
+  okBtn.textContent = tAdmin('health.publishAnyway'); cancelBtn.textContent = tAdmin('btn.cancel');
+  function reset(){ modal.classList.remove('open'); okBtn.removeEventListener('click', onOkClick); cancelBtn.removeEventListener('click', onCancelClick); modal.removeEventListener('click', onBackdrop); }
+  function onOkClick(){ reset(); onConfirm && onConfirm(); }
+  function onCancelClick(){ reset(); }
+  function onBackdrop(e){ if(e.target === modal) reset(); }
+  modal.classList.add('open'); okBtn.addEventListener('click', onOkClick); cancelBtn.addEventListener('click', onCancelClick); modal.addEventListener('click', onBackdrop);
+  setTimeout(function(){ okBtn.focus(); }, 20);
+}
+function mediaField(label, path, opts){
+opts = opts || {};
 var v = getByPath(ADMIN_DRAFT, path) || '';
-return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span><input type="text" data-adm-path="' + esc(path) + '" value="' + esc(v) + '" placeholder="Paste HTTPS URL…"><div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button></div></div>';
+var hint = opts.hint ? '<span class="af-hint">' + esc(opts.hint) + '</span>' : '';
+return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span>' + hint + '<input type="text" data-adm-path="' + esc(path) + '" value="' + esc(v) + '" placeholder="Paste HTTPS URL…">' + mediaPreviewHtml(path, v, opts.kind) + '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaclear="' + esc(path) + '">' + esc(tAdmin('btn.clearMedia')) + '</button></div></div>';
 }
 function viOverrideBlock(path, state){
 var copyPath = path.replace(/\.en$/, '');
@@ -3416,6 +3558,24 @@ var placeholders = ADMIN_DRAFT.portfolio.filter(function(r){ return r.placeholde
 var viPending = ADMIN_DRAFT.portfolio.filter(function(r){ return r.viState === 'pending'; }).length + ADMIN_DRAFT.assets.filter(function(r){ return r.viState === 'pending'; }).length;
 var drafts = ADMIN_DRAFT.portfolio.filter(function(r){ return !r.published; }).length + ADMIN_DRAFT.assets.filter(function(r){ return !r.published; }).length;
 var requestCount = ADMIN_DRAFT.requests.length;
+var H = window.CrabbieAdminDataAudit ? window.CrabbieAdminDataAudit.auditSiteData(ADMIN_DRAFT) : null;
+var healthRows = '';
+if(H){
+  var healthLine = function(s){
+    var bits = [s.published + ' ' + tAdmin('dash.healthPublished'), s.needAttention + ' ' + tAdmin('dash.healthNeedAttention')];
+    if(s.missingThumbnails) bits.push(s.missingThumbnails + ' ' + tAdmin('dash.healthMissingThumbs'));
+    if(s.missingFiles) bits.push(s.missingFiles + ' ' + tAdmin('dash.healthMissingFiles'));
+    if(s.missingForms) bits.push(s.missingForms + ' ' + tAdmin('dash.healthMissingForms'));
+    return bits.join(' · ');
+  };
+  healthRows =
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.portfolio')) + '</span><span class="ap-count">' + esc(healthLine(H.portfolio)) + '</span></div>' +
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.assets')) + '</span><span class="ap-count">' + esc(healthLine(H.assets)) + '</span></div>' +
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.commissions')) + '</span><span class="ap-count">' + esc(healthLine(H.commissions)) + '</span></div>' +
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.about')) + '</span><span class="ap-count">' + esc(H.about.issues ? tAdmin('dash.healthAboutNeeds') + ' (' + H.about.issues + ')' : tAdmin('dash.healthLooks')) + '</span></div>' +
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.terms')) + '</span><span class="ap-count">' + esc(H.terms.issues ? tAdmin('dash.healthTermsReview') + ' (' + H.terms.issues + ')' : tAdmin('dash.healthLooks')) + '</span></div>' +
+    '<div class="ap-row"><span>' + esc(tAdmin('nav.media')) + '</span><span class="ap-count">' + H.media.total + '</span></div>';
+}
 return '<div class="adm-panel" style="background:linear-gradient(160deg,#fff 0%, var(--pink-soft) 100%); border-color: var(--pink-light); box-shadow: 0 8px 0 -4px var(--pink-light);"><h3>' + esc(tAdmin('dash.welcome')) + '</h3><p style="font-size:12.5px; font-weight:700; color: var(--berry-soft);">' + esc(tAdmin('dash.intro')) + '</p><div style="margin-top:12px;"><button type="button" class="adm-btn-sm primary" data-admin-jump="requests">' + esc(tAdmin('dash.openRequests')) + '</button></div></div>' +
 '<div class="adm-dash-grid">' +
 '<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.projects')) + '</div><div class="as-v">' + counts.projects + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
@@ -3423,6 +3583,7 @@ return '<div class="adm-panel" style="background:linear-gradient(160deg,#fff 0%,
 '<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.commissions')) + '</div><div class="as-v">' + counts.commissions + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
 '<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.media')) + '</div><div class="as-v">' + counts.media + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
 '</div>' +
+(healthRows ? '<div class="adm-panel" style="margin-top:14px;"><h3>' + esc(tAdmin('dash.dataHealth')) + '</h3>' + healthRows + '</div>' : '') +
 '<div class="adm-dash-cols"><div class="adm-panel"><h3>' + esc(tAdmin('dash.attention')) + '</h3>' +
 '<div class="ap-row"><span>' + esc(tAdmin('dash.placeholderCount')) + '</span><span class="ap-count">' + placeholders + '</span></div>' +
 '<div class="ap-row"><span>' + esc(tAdmin('dash.viPending')) + '</span><span class="ap-count">' + viPending + '</span></div>' +
@@ -3449,7 +3610,7 @@ var list = ADMIN_DRAFT.portfolio;
 var selected = ADMIN_UI.selection.portfolio || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
-var badges = '<span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>' + (r.featured ? '<span class="adm-badge featured">' + esc(tAdmin('badge.featured')) + '</span>' : '') + (r.viState === 'pending' ? '<span class="adm-badge vi-pending">' + esc(tAdmin('badge.vi')) + '</span>' : '');
+var badges = '<span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>' + (r.featured ? '<span class="adm-badge featured">' + esc(tAdmin('badge.featured')) + '</span>' : '') + (r.viState === 'pending' ? '<span class="adm-badge vi-pending">' + esc(tAdmin('badge.vi')) + '</span>' : '') + healthBadge(auditFor('portfolio', r));
 return '<div class="adm-record" role="option" data-adm-select="portfolio" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span style="display:flex;gap:4px;">' + badges + '</span><span class="ar-actions"><button type="button" data-adm-move="up" data-adm-list="portfolio" data-adm-id="' + esc(r.id) + '">↑</button><button type="button" data-adm-move="down" data-adm-list="portfolio" data-adm-id="' + esc(r.id) + '">↓</button></span></div>';
 }).join('');
 var editor = rec ? renderProjectEditor(rec) : '<div class="adm-editor"><h2>Select a project</h2></div>';
@@ -3458,13 +3619,15 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 
 function renderProjectEditor(rec){
 var base = 'portfolio.' + rec.id;
+var pAudit = auditFor('portfolio', rec);
 var blocksHtml = (rec.blocks || []).map(function(b, i){ return renderProjectBlock(rec.id, b, i); }).join('');
 var linksHtml = renderExternalLinks(rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b>' + esc(rec.slug) + '</b> · ' + (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft')) + '</p>' +
+checklistPanel(pAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 }) + '<div class="adm-row three" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', ADMIN_DRAFT.portfolioCategories.map(function(c){ return { value:c.slug || c.id, label:c.title }; })) + inputText(tAdmin('label.tags'), base + '.tags') + inputText(tAdmin('label.date'), base + '.date') + '</div>' + '<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.cover'), base + '.cover') + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
 viOverrideBlock(base + '.descriptionCopy.en', rec.viState) +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="portfolio" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm" data-adm-preview="project" data-adm-id="' + esc(rec.id) + '">' + esc(tAdmin('btn.previewSaved')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="portfolio">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -3520,7 +3683,7 @@ var list = ADMIN_DRAFT.assets;
 var selected = ADMIN_UI.selection.assets || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
-return '<div class="adm-record" role="option" data-adm-select="assets" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
+return '<div class="adm-record" role="option" data-adm-select="assets" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span style="display:flex;gap:4px;"><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>' + healthBadge(auditFor('assets', r)) + '</span></div>';
 }).join('');
 var editor = rec ? renderAssetEditor(rec) : '<div class="adm-editor"><h2>Select an asset</h2></div>';
 return tabs + '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="assets"><button type="button" class="adm-btn-sm primary" data-adm-new="assets">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
@@ -3528,10 +3691,12 @@ return tabs + '<div class="adm-split"><div class="adm-list"><div class="adm-list
 
 function renderAssetEditor(rec){
 var base = 'assets.' + rec.id;
+var aAudit = auditFor('assets', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b>' + esc(rec.slug) + '</b></p>' +
+checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '</div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.media'), base + '.media') + '</div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;"><label class="adm-field"><span class="af-label">' + esc(tAdmin('auditf.fileFormat')) + '</span><input type="text" data-adm-path="' + esc(base + '.fileFormat') + '" value="' + esc(rec.fileFormat || '') + '" placeholder="PNG / ZIP / PDF…"></label></div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 viOverrideBlock(base + '.descriptionCopy.en', rec.viState) +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -3558,7 +3723,7 @@ var selected = ADMIN_UI.selection.commissions || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
 var avail = r.availability === 'open' ? tAdmin('avail.open') : r.availability === 'inquiry' ? tAdmin('avail.inquiry') : tAdmin('avail.closed');
-return '<div class="adm-record" role="option" data-adm-select="commissions" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge published">' + esc(avail) + '</span></div>';
+return '<div class="adm-record" role="option" data-adm-select="commissions" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span style="display:flex;gap:4px;"><span class="adm-badge published">' + esc(avail) + '</span>' + healthBadge(auditFor('commissions', r)) + '</span></div>';
 }).join('');
 var editor = rec ? renderCommissionEditor(rec) : '<div class="adm-editor"><h2>Select a commission</h2></div>';
 return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="commissions"><button type="button" class="adm-btn-sm primary" data-adm-new="commissions">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
@@ -3567,11 +3732,13 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 function renderCommissionEditor(rec){
 var base = 'commissions.' + rec.id;
 var formOpts = ADMIN_DRAFT.forms.map(function(f){ return { value:f.id, label:f.title }; });
+var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
+checklistPanel(cAudit) +
 '<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
 '<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Alternate Price', base + '.alternatePrice') + '</div></div>' +
-'<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' +
+'<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + inputText(tAdmin('auditf.delivery'), base + '.delivery') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
 viOverrideBlock(base + '.descriptionCopy.en', 'pending') +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="commissions" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="commissions">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -3639,13 +3806,17 @@ return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae
 function renderAdminAbout(){
 var p = ADMIN_DRAFT.pages.about;
 var base = 'pages.about';
-return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2><div class="adm-section"><h4>Profile</h4><div class="adm-row">' + mediaField('Profile image', base + '.profileImage') + inputText('Name', base + '.name') + '</div>' + inputTextarea('Bio', base + '.bio', { minHeight:80, full:true }) + '</div><div class="adm-section"><h4>Page content</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:140 }) + '</div>' + viOverrideBlock(base + '.contentCopy.en', p.viState) + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.about">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+var A = window.CrabbieAdminDataAudit;
+var aboutAudit = A ? A.auditPageRecord(p, 'about', { settings: ADMIN_DRAFT.settings }) : null;
+return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(aboutAudit) + '<div class="adm-section"><h4>Profile</h4><div class="adm-row">' + mediaField('Profile image', base + '.profileImage') + inputText('Name', base + '.name') + '</div>' + inputTextarea('Bio', base + '.bio', { minHeight:80, full:true }) + '</div><div class="adm-section"><h4>Page content</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:140 }) + '</div>' + viOverrideBlock(base + '.contentCopy.en', p.viState) + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.about">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderAdminTerms(){
 var p = ADMIN_DRAFT.pages.terms;
 var base = 'pages.terms';
-return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2><div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + viOverrideBlock(base + '.contentCopy.en', p.viState) + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+var A = window.CrabbieAdminDataAudit;
+var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.settings }) : null;
+return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + viOverrideBlock(base + '.contentCopy.en', p.viState) + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderAdminContact(){
@@ -3806,17 +3977,53 @@ var path = el.getAttribute('data-adm-path');
 var arrSplit = el.getAttribute('data-adm-array-split');
 if(el.type !== 'radio') applyPathToControl(el, path);
 el.addEventListener('input', function(){
+if(el.type === 'checkbox') return;
 var v = readControlValue(el);
 if(arrSplit) v = String(v).split(arrSplit).map(function(s){ return s.trim(); }).filter(Boolean);
 setByPath(ADMIN_DRAFT, path, v);
 markDirty();
+refreshMediaPreviewByPath(path);
+refreshAuditPanels(module);
 });
 el.addEventListener('change', function(){
 var v = readControlValue(el);
 if(arrSplit) v = String(v).split(arrSplit).map(function(s){ return s.trim(); }).filter(Boolean);
+// Safe publish guard: confirm before newly toggling a record published while required fields are missing.
+if(el.type === 'checkbox' && v && /\.published$/.test(path) && !getByPath(ADMIN_DRAFT, path)){
+  var guardListKey = path.split('.')[0];
+  var guardMap = { portfolio:'portfolio', assets:'assets', commissions:'commissions', portfolioCategories:'portfolioCategories', assetCategories:'assetCategories', forms:'forms', navigation:'navigation' };
+  var audit = null;
+  if(guardMap[guardListKey] && guardMap[guardListKey] !== 'portfolioCategories' && guardMap[guardListKey] !== 'assetCategories' && guardMap[guardListKey] !== 'forms' && guardMap[guardListKey] !== 'navigation'){
+    var gid = path.slice(guardListKey.length + 1, -'.published'.length);
+    var grec = (ADMIN_DRAFT[guardListKey] || []).filter(function(r){ return r.id === gid; })[0];
+    audit = auditFor(guardListKey, grec);
+  }
+  if(audit && audit.missing.length){
+    el.checked = false;
+    confirmPublishGuard(audit, function(){
+      setByPath(ADMIN_DRAFT, path, true);
+      el.checked = true;
+      markDirty();
+      refreshAuditPanels(module);
+    });
+    return;
+  }
+}
 setByPath(ADMIN_DRAFT, path, v);
 markDirty();
+refreshAuditPanels(module);
 if(el.type === 'checkbox' && (path.indexOf('viOverride') !== -1)) renderAdmin(module);
+});
+});
+$$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var path = btn.getAttribute('data-adm-mediaclear');
+setByPath(ADMIN_DRAFT, path, '');
+var input = adminContent.querySelector('input[data-adm-path="' + path + '"]');
+if(input) input.value = '';
+refreshMediaPreviewByPath(path);
+markDirty();
+refreshAuditPanels(module);
 });
 });
 $$('[data-adm-path][type="radio"]', adminContent).forEach(function(el){
@@ -4878,6 +5085,14 @@ boot();
 if (window.CrabbieAuthService && window.CrabbieAuthService.getAdmin()) {
   window.CrabbieAdminAuth.notify(window.CrabbieAuthService.getAdmin());
 }
+// The audit engine loads as an ES module (src/admin-data-audit.js); once it is
+// ready, refresh the admin view so badges/checklists appear without a reload.
+window.__crabbieAuditReady = function(){
+  if(currentRoute && currentRoute.view === 'admin' && document.getElementById('adminRealShell') && document.getElementById('adminRealShell').style.display !== 'none'){
+    renderAdmin(currentRoute.adminModule || 'dashboard');
+  }
+};
+if(window.CrabbieAdminDataAudit) window.__crabbieAuditReady();
 
 })();
 </script>

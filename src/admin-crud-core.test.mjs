@@ -34,6 +34,7 @@ const a = formatAssetRow({
 assert.equal(a.slug, 'test-a');
 assert.equal(a.availability, 'available');
 assert.equal(a.metadata.cat, 'brushes');
+assert.equal(formatAssetRow({ id: 'cleared', media: 'stale.zip', downloadUrl: '' }).file_path, '', 'Clearing the editor download URL must persist');
 
 // 3. Commission
 const c = formatCommissionRow({

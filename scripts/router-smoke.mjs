@@ -146,6 +146,84 @@ try {
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
     assert.equal(await page.locator('.view.is-active').count(), 1);
     console.log('PASS failed login, metadata-only role denied, authorized login, single submit listener, logout and navigation (SDK fixture)');
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAdminDataAudit));
+    await page.locator('#adminEmail').fill('admin@example.test');
+    await page.locator('#adminPassword').fill('synthetic-router-test-password');
+    await page.locator('#adminLoginBtn').click();
+    await page.locator('#adminRealShell').waitFor({state: 'visible'});
+    await page.locator('[data-admin-lang="en"]').click();
+    const goAdmin = async module => {
+      await page.evaluate(module => { location.hash = '#admin/' + module; }, module);
+      await page.locator('#adminNav [data-admin-module="' + module + '"][aria-current="page"]').waitFor({state: 'visible'});
+    };
+    await goAdmin('dashboard');
+    await page.getByRole('heading', {name: 'Data health'}).waitFor({state: 'visible'});
+    const healthPanel = page.locator('.adm-panel').filter({has: page.getByRole('heading', {name: 'Data health'})});
+    const portfolioHealth = () => healthPanel.locator('.ap-row').filter({hasText: 'Portfolio'}).innerText();
+    const portfolioCount = Number((await portfolioHealth()).match(/(\d+) published/)?.[1]);
+    assert.ok(Number.isFinite(portfolioCount) && portfolioCount > 0, 'Dashboard must count published portfolio records');
+
+    await goAdmin('portfolio');
+    await page.locator('#admChecklist').waitFor({state: 'visible'});
+    const portfolioChecklist = await page.locator('#admChecklist').innerText();
+    assert.match(portfolioChecklist, /Thumbnail/);
+    assert.match(portfolioChecklist, /Cover/);
+    assert.equal(await page.locator('.adm-record .adm-badge.health-incomplete').count() > 0, true);
+    const published = page.locator('[data-adm-path$=".published"]').first();
+    assert.equal(await published.isChecked(), true);
+    await published.uncheck();
+    await goAdmin('dashboard');
+    const changedCount = Number((await portfolioHealth()).match(/(\d+) published/)?.[1]);
+    assert.equal(changedCount, portfolioCount - 1, 'Dashboard health must reflect unsaved draft');
+    await goAdmin('portfolio');
+    await published.click();
+    await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
+    assert.match(await page.locator('#adminConfirmTitle').innerText(), /Publish incomplete item/);
+    await page.locator('#adminConfirmCancel').click();
+    assert.equal(await published.isChecked(), false, 'Cancel must keep incomplete record unpublished');
+    await published.click();
+    await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
+    await page.locator('#adminConfirmOk').click();
+    assert.equal(await published.isChecked(), true, 'Publish anyway updates draft only');
+    assert.equal(await page.locator('#admPublishWarning').isVisible(), true);
+
+    await goAdmin('assets');
+    const assetChecklist = await page.locator('#admChecklist').innerText();
+    assert.match(assetChecklist, /Download file/);
+    assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Thumbnail'}).count() > 0, true);
+    assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Download file'}).count() > 0, true);
+    assert.match(assetChecklist, /placeholder/i);
+    const assetThumbnail = page.locator('[data-adm-path$=".thumbnail"]').first();
+    const thumbnailPath = await assetThumbnail.getAttribute('data-adm-path');
+    await assetThumbnail.fill('https://example.test/content-health-preview.png');
+    await page.locator('[data-adm-media-preview="' + thumbnailPath + '"] img').waitFor({state: 'attached'});
+    await page.locator('[data-adm-mediaclear="' + thumbnailPath + '"]').click();
+    assert.equal(await assetThumbnail.inputValue(), '');
+    const assetFile = page.locator('[data-adm-path$=".downloadUrl"]').first();
+    const filePath = await assetFile.getAttribute('data-adm-path');
+    await assetFile.fill('https://example.test/content-health-file.zip');
+    await page.locator('[data-adm-media-preview="' + filePath + '"] .adm-file-chip').waitFor({state: 'visible'});
+    await page.locator('[data-adm-mediaclear="' + filePath + '"]').click();
+    assert.equal(await assetFile.inputValue(), '');
+    assert.equal(await page.locator('[data-adm-mediabrowse="' + filePath + '"]').count(), 1);
+    assert.equal(await page.locator('[data-adm-mediaupload="' + filePath + '"]').count(), 1);
+    assert.equal(await page.locator('[data-adm-mediaopen="' + filePath + '"]').count(), 1);
+
+    await goAdmin('commissions');
+    assert.match(await page.locator('#admChecklist').innerText(), /Thumbnail/);
+    assert.equal(await page.locator('[data-adm-path$=".delivery"]').count(), 1);
+    for (const module of ['about', 'terms']) {
+      await goAdmin(module);
+      await page.locator('#admChecklist').waitFor({state: 'visible'});
+      assert.match(await page.locator('#admChecklist h4').innerText(), /Content checklist/i);
+    }
+    await page.locator('[data-admin-lang="vi"]').click();
+    assert.match(await page.locator('#admChecklist h4').innerText(), /Kiểm tra nội dung/i);
+    await goAdmin('dashboard');
+    await page.getByRole('heading', {name: 'Sức khỏe dữ liệu'}).waitFor({state: 'visible'});
+    assert.deepEqual(errors, [], 'Content Health UI must not throw');
+    console.log('PASS admin content health dashboard, checklist, publish guard, media preview/clear, EN/VI (SDK fixture, no writes)');
   }
 } finally {
   if (browser) await browser.close();

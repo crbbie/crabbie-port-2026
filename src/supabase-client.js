@@ -9,5 +9,8 @@ import('./commissions-cms.js');
 import('./site-content-cms.js');
 import('./admin-auth.js');
 import('./admin-crud.js');
+import('./admin-data-audit.js').then(() => {
+  if (typeof window !== 'undefined' && typeof window.__crabbieAuditReady === 'function') window.__crabbieAuditReady();
+});
 import('./admin-media.js');
 import('./commission-requests.js');

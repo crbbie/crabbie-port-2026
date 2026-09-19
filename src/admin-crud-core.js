@@ -48,7 +48,7 @@ export function formatAssetRow(rec, sort_order = 0) {
     title: rec.title || 'Untitled Asset',
     description: rec.description || '',
     file_type: rec.fileFormat || rec.format || 'PNG',
-    file_path: rec.downloadUrl || rec.media || '',
+    file_path: rec.downloadUrl ?? rec.media ?? '',
     thumbnail_path: rec.thumbnail || null,
     availability: rec.availability === 'available' ? 'available' : 'unavailable',
     featured: !!rec.featured,
