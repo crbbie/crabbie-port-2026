@@ -3093,7 +3093,17 @@ if(t){ e.preventDefault(); resetFilter(t.getAttribute('data-reset')); return; }
 t = e.target.closest('[data-jump]');
 if(t){ e.preventDefault(); smoothScrollTo(document.getElementById(t.getAttribute('data-jump'))); return; }
 t = e.target.closest('[data-goto]');
-if(t){ e.preventDefault(); jelly(t); navigate(t.getAttribute('data-goto')); return; }
+if(t){
+  e.preventDefault();
+  jelly(t);
+  var gotoTarget = t.getAttribute('data-goto');
+  if(t.matches('.hero-ctas .btn') && !prefersReduced()){
+    setTimeout(function(){ navigate(gotoTarget); }, 550);
+  } else {
+    navigate(gotoTarget);
+  }
+  return;
+}
 });
 
 function stepProject(dir){
@@ -5343,15 +5353,5 @@ window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 })();
 </script>
 
-<script>
-document.querySelectorAll('.hero-ctas .btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    this.classList.add('is-jelly');
-    this.addEventListener('animationend', () => {
-      this.classList.remove('is-jelly');
-    }, { once: true });
-  });
-});
-</script>
 </body>
 </html>
