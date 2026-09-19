@@ -723,145 +723,140 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 </style>
 <style id="custom-theme">body::before{background:radial-gradient(1100px 900px at 18% 8%, #ffecf4 0%, transparent 55%),radial-gradient(900px 750px at 88% 12%, #fff6d1 0%, transparent 55%),radial-gradient(950px 850px at 12% 88%, #ffe1ee 0%, transparent 55%),radial-gradient(1000px 900px at 88% 92%, #ece1ff 0%, transparent 55%),radial-gradient(700px 600px at 50% 50%, #fff6fa 0%, transparent 60%),linear-gradient(180deg,#fffafc 0%,#fff6fa 30%,#f9f6ff 60%,#f6f1ff 78%,#fffcf0 100%) !important}</style>
 <style id="reference-pastel-theme">
-/* Extra-light public palette sampled from the supplied bright CRABBIE reference.
+/* Brighter candy public palette sampled from the latest supplied reference.
+   Keeps the airy background, but adds fresher pink/purple contrast.
    Admin is intentionally excluded. */
 body:not(.admin-mode){
-  --pink:#f8b7d6;
-  --pink-hot:#f19ac3;
-  --pink-light:#fde0ec;
-  --pink-soft:#fff5fa;
+  --pink:#f6a3cf;
+  --pink-hot:#f57fba;
+  --pink-light:#ffd8e9;
+  --pink-soft:#fff1f8;
 
-  --purple:#d8b9f7;
-  --purple-hot:#c29bed;
-  --purple-light:#f2e8fd;
+  --purple:#ca9cf5;
+  --purple-hot:#b57ee9;
+  --purple-light:#eee0fb;
 
-  --blue:#dce8ff;
-  --blue-hot:#aec7f3;
-  --blue-light:#f0f5ff;
+  --blue:#d7e5ff;
+  --blue-hot:#a9c0ef;
+  --blue-light:#eef4ff;
 
-  --yellow:#ffe4bf;
-  --yellow-hot:#f8c995;
-  --yellow-light:#fff4e2;
+  --yellow:#ffe1b9;
+  --yellow-hot:#f7c48f;
+  --yellow-light:#fff2df;
 
-  --cream:#fffbfd;
-  --berry:#aa6f91;
-  --berry-soft:#bd88a6;
-  --berry-faint:#d9b6ca;
+  --cream:#fff9fc;
+  --berry:#a95c88;
+  --berry-soft:#ba729b;
+  --berry-faint:#d4a8c0;
 
-  background:#fff7fa !important;
+  background:#fff5f9 !important;
 }
 
 body:not(.admin-mode)::before{
   background:
-    radial-gradient(1100px 820px at 9% 5%, rgba(250,213,232,.66) 0%, transparent 58%),
-    radial-gradient(900px 720px at 92% 8%, rgba(255,236,207,.48) 0%, transparent 56%),
-    radial-gradient(1000px 850px at 10% 88%, rgba(253,224,237,.62) 0%, transparent 60%),
-    radial-gradient(980px 880px at 90% 88%, rgba(234,220,252,.72) 0%, transparent 60%),
-    radial-gradient(760px 640px at 52% 48%, rgba(255,252,254,.96) 0%, transparent 66%),
-    linear-gradient(180deg,#fffafd 0%,#fff6fa 34%,#fcf3fb 62%,#f8f2fd 84%,#fffaf4 100%) !important;
+    radial-gradient(1150px 850px at 8% 5%, rgba(250,204,228,.74) 0%, transparent 58%),
+    radial-gradient(900px 720px at 94% 7%, rgba(255,232,201,.44) 0%, transparent 55%),
+    radial-gradient(1020px 860px at 10% 90%, rgba(253,219,236,.68) 0%, transparent 60%),
+    radial-gradient(1000px 900px at 90% 88%, rgba(226,205,249,.78) 0%, transparent 60%),
+    radial-gradient(760px 640px at 52% 48%, rgba(255,252,254,.98) 0%, transparent 66%),
+    linear-gradient(180deg,#fff9fc 0%,#fff3f8 34%,#fdf0fa 62%,#f7effd 84%,#fff8f2 100%) !important;
 }
 
-/* Airier navigation */
+/* Fresher navigation and outlines */
 body:not(.admin-mode) .nav{
-  background:rgba(255,255,255,.94);
+  background:rgba(255,255,255,.96);
   box-shadow:
-    0 0 0 3px #f8b6d5,
-    0 7px 0 -3px #fde1ed,
-    0 18px 34px -18px rgba(229,151,190,.36);
+    0 0 0 3px #f6a2cd,
+    0 7px 0 -3px #ffd8e9,
+    0 18px 34px -18px rgba(235,126,182,.44);
 }
 body:not(.admin-mode) .nav::before{
-  background:linear-gradient(180deg,#fac7df 0%,#f19ac3 100%);
-  box-shadow:0 3px 0 rgba(211,126,166,.30);
+  background:linear-gradient(180deg,#ffc4df 0%,#f57fba 100%);
+  box-shadow:0 3px 0 rgba(213,105,161,.34);
 }
 body:not(.admin-mode) .nav-links a{
-  color:#bd86a5;
+  color:#b96e99;
 }
 body:not(.admin-mode) .nav-links a:hover{
-  color:#a96f90;
-  background:#fff3f8;
+  color:#a85886;
+  background:#fff0f7;
 }
 body:not(.admin-mode) .nav-links a.active{
-  background:linear-gradient(180deg,#fde4ef 0%,#f8bad7 100%);
-  box-shadow:inset 0 -3px 0 rgba(210,126,166,.14),inset 0 2px 0 rgba(255,255,255,.75);
+  background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
+  color:#fff;
+  box-shadow:inset 0 -3px 0 rgba(214,105,162,.17),inset 0 2px 0 rgba(255,255,255,.78);
 }
 
-/* Strawberry-milk primary */
+/* Strawberry-candy primary */
 body:not(.admin-mode) .btn-primary{
   background:
-    radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.64),transparent 65%),
-    linear-gradient(180deg,#ffe0ec 0%,#f8b7d6 48%,#f09ac3 100%);
-  text-shadow:0 1px 2px rgba(170,91,132,.20);
+    radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.62),transparent 65%),
+    linear-gradient(180deg,#ffd6e8 0%,#f7a2cf 48%,#f37fba 100%);
+  text-shadow:0 1px 2px rgba(177,74,128,.24);
   box-shadow:
-    0 12px 24px -12px rgba(230,149,190,.40),
-    0 4px 10px -4px rgba(230,149,190,.18),
-    inset 0 2px 1px rgba(255,255,255,.88),
-    inset 0 -9px 16px -12px rgba(188,101,145,.26);
+    0 12px 24px -12px rgba(235,125,181,.50),
+    0 4px 10px -4px rgba(235,125,181,.22),
+    inset 0 2px 1px rgba(255,255,255,.86),
+    inset 0 -9px 16px -12px rgba(190,76,132,.30);
 }
 
-/* Lilac-milk secondary */
+/* Clearer lilac secondary */
 body:not(.admin-mode) .btn-yellow,
 body:not(.admin-mode) .btn-purple{
   background:
-    radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.66),transparent 65%),
-    linear-gradient(180deg,#f0e4fd 0%,#d9bcf7 48%,#c49dec 100%);
-  text-shadow:0 1px 2px rgba(111,78,148,.20);
+    radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.63),transparent 65%),
+    linear-gradient(180deg,#eadbfb 0%,#ce9ff4 48%,#b77fe9 100%);
+  text-shadow:0 1px 2px rgba(102,69,144,.24);
   box-shadow:
-    0 12px 24px -12px rgba(190,155,229,.40),
-    0 4px 10px -4px rgba(190,155,229,.18),
-    inset 0 2px 1px rgba(255,255,255,.88),
-    inset 0 -9px 16px -12px rgba(128,94,163,.24);
+    0 12px 24px -12px rgba(183,127,229,.50),
+    0 4px 10px -4px rgba(183,127,229,.22),
+    inset 0 2px 1px rgba(255,255,255,.86),
+    inset 0 -9px 16px -12px rgba(117,76,157,.28);
 }
 
-/* Pink Commission CTA, matching the bright reference. */
+/* Pink Commission CTA */
 body:not(.admin-mode) .nav-cta,
 body:not(.admin-mode) .mobile-menu .mm-cta{
   background:
-    radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.64),transparent 65%),
-    linear-gradient(180deg,#ffe0ec 0%,#f8b5d4 50%,#f09ac2 100%);
+    radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.62),transparent 65%),
+    linear-gradient(180deg,#ffd7e8 0%,#f7a2cf 50%,#f27eba 100%);
   color:#fff;
-  text-shadow:0 1px 2px rgba(170,91,132,.20);
+  text-shadow:0 1px 2px rgba(177,74,128,.24);
   box-shadow:
-    0 9px 18px -9px rgba(230,149,190,.40),
-    inset 0 2px 1px rgba(255,255,255,.88),
-    inset 0 -7px 12px -10px rgba(188,101,145,.24);
+    0 9px 18px -9px rgba(235,125,181,.50),
+    inset 0 2px 1px rgba(255,255,255,.86),
+    inset 0 -7px 12px -10px rgba(190,76,132,.28);
 }
 
-/* White/pastel surfaces should feel lighter rather than gray. */
-body:not(.admin-mode) .hero-badge,
-body:not(.admin-mode) .eyebrow,
-body:not(.admin-mode) .panel,
-body:not(.admin-mode) .item,
-body:not(.admin-mode) .work,
-body:not(.admin-mode) .cta-inner,
-body:not(.admin-mode) .cta-panel,
-body:not(.admin-mode) .letter,
-body:not(.admin-mode) .direct-card,
-body:not(.admin-mode) .contact-row,
-body:not(.admin-mode) .tos-body,
-body:not(.admin-mode) .blk-body{
-  --surface-white:#fffdfd;
-}
-
-/* Soften the strongest title shadows to the milk-candy reference. */
+/* Brighter hero typography */
 body:not(.admin-mode) .hero h1{
   text-shadow:
     -3px -3px 0 #fff,3px -3px 0 #fff,-3px 3px 0 #fff,3px 3px 0 #fff,
     -3px 0 0 #fff,3px 0 0 #fff,0 -3px 0 #fff,0 3px 0 #fff,
-    0 7px 0 #edbdd3;
+    0 7px 0 #eba8ca;
 }
 body:not(.admin-mode) .hero h1 .accent{
   text-shadow:
     -3px -3px 0 #fff,3px -3px 0 #fff,-3px 3px 0 #fff,3px 3px 0 #fff,
     -3px 0 0 #fff,3px 0 0 #fff,0 -3px 0 #fff,0 3px 0 #fff,
-    0 7px 0 #e1cff5;
+    0 7px 0 #d5b7f2;
+}
+body:not(.admin-mode) .hero-intro{
+  color:#bc7ee9;
+}
+body:not(.admin-mode) .hero-tagline{
+  color:#f082ba;
+}
+body:not(.admin-mode) .hero-lede{
+  color:#b86f98;
 }
 
-/* Pastel peach accents instead of saturated yellow/orange. */
+/* Pastel peach accents stay light */
 body:not(.admin-mode) .hero-art .season-badge,
 body:not(.admin-mode) .eyebrow.yellow{
   background:linear-gradient(180deg,#fffdf8 0%,#fff0dc 100%);
-  border-color:#f8c995;
-  box-shadow:0 4px 0 rgba(246,201,149,.38);
+  border-color:#f7c48f;
+  box-shadow:0 4px 0 rgba(246,196,143,.40);
 }
 </style>
 
