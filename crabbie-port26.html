@@ -1123,16 +1123,21 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .view[data-view="home"].is-active .hero-ctas     { --d: .62s; }
 .view[data-view="home"].is-active .signature     { --d: .80s; }
 
-@keyframes heroEntranceSway{
-  0%   { transform: translateY(30px) rotate(0deg); opacity: 0; }
-  30%  { transform: translateY(-10px) rotate(2deg); opacity: 1; }
-  60%  { transform: translateY(0) rotate(-1.5deg); }
-  80%  { transform: translateY(-5px) rotate(.5deg); }
-  100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+@keyframes floatOrbitSmooth{
+  0%    { transform: translate(0px, 0px) rotate(0deg); }
+  12.5% { transform: translate(7px, -5px) rotate(.3deg); }
+  25%   { transform: translate(9px, -9px) rotate(.4deg); }
+  37.5% { transform: translate(5px, -12px) rotate(.3deg); }
+  50%   { transform: translate(0px, -13px) rotate(0deg); }
+  62.5% { transform: translate(-5px, -12px) rotate(-.3deg); }
+  75%   { transform: translate(-9px, -9px) rotate(-.4deg); }
+  87.5% { transform: translate(-7px, -5px) rotate(-.3deg); }
+  100%  { transform: translate(0px, 0px) rotate(0deg); }
 }
 .view[data-view="home"].is-active .hero-art-wrap{
-  animation: heroEntranceSway 1.2s ease-out .18s both;
-  transform-origin: center bottom;
+  animation: floatOrbitSmooth 10s ease-in-out infinite;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 /* ---------- SIGNATURE viết chữ (một lần) ---------- */
