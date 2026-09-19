@@ -199,63 +199,8 @@ body:not(.admin-mode) .assets .banner .banner-title{
 }
 
 /* HERO */
-.hero{position:relative;min-height:calc(100vh - 96px);display:flex;align-items:center;padding:40px 0 170px;overflow:hidden;background:#FFDEE7;}
+.hero{position:relative;min-height: calc(100vh - 96px);display: flex;align-items: center;padding: 40px 0 80px;}
 .hero-grid{display:grid; grid-template-columns: 1fr 0.95fr; gap: 76px; align-items:center; width: 100%;}
-
-/* Animated white wave divider between Home Hero and the white Works section.
-   The SVG is 200% wide and contains two identical 1440px wave cycles. */
-.hero-wave-divider{
-  position:absolute;
-  left:0;
-  bottom:-1px;
-  width:100%;
-  height:120px;
-  overflow:hidden;
-  line-height:0;
-  pointer-events:none;
-  z-index:2;
-}
-.hero-wave-divider svg{
-  position:absolute;
-  left:0;
-  bottom:0;
-  width:200%;
-  height:100%;
-  display:block;
-  will-change:transform;
-  animation:heroWaveMove 10s linear infinite;
-}
-@keyframes heroWaveMove{
-  from{transform:translateX(0);}
-  to{transform:translateX(-50%);}
-}
-
-.cta-wave-divider{
-  position:absolute;
-  left:0;
-  top:-1px;
-  width:100%;
-  height:120px;
-  overflow:hidden;
-  line-height:0;
-  pointer-events:none;
-  z-index:0;
-}
-.cta-wave-divider svg{
-  position:absolute;
-  left:0;
-  top:0;
-  width:200%;
-  height:100%;
-  display:block;
-  will-change:transform;
-  animation:heroWaveMove 10s linear infinite;
-}
-.cta > .wrap{
-  position:relative;
-  z-index:1;
-}
-
 .hero-badge{display:inline-flex; align-items:center; gap:8px;padding:7px 18px;background: linear-gradient(180deg, #fff 0%, var(--pink-soft) 100%);border:2px solid var(--pink-hot);border-radius:999px;font-family:'Fredoka'; font-weight:600; font-size:12.5px;color:var(--pink-hot); letter-spacing:.08em;box-shadow: 0 4px 0 var(--pink-light);margin-bottom: 18px;transform: rotate(-2deg);cursor: default;}
 .hero-badge .dot{width:8px; height:8px; border-radius:50%; background: var(--pink-hot);box-shadow: 0 0 0 3px var(--pink-light);}
 .hero-intro{display:block;font-family:'Gochi Hand', cursive;font-size: 21px;color: var(--purple-hot);margin-bottom: 4px;transform: rotate(-1deg);cursor: default;}
@@ -284,7 +229,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .banner .banner-title{font-family:'Fredoka'; font-weight:700;font-size: clamp(22px, 2.6vw, 30px);color:#fff;letter-spacing:.01em;text-shadow:-2px -2px 0 var(--pink-hot), 2px -2px 0 var(--pink-hot),-2px 2px 0 var(--pink-hot), 2px 2px 0 var(--pink-hot),0 4px 0 #d94a80;position:relative;}
 
 /* WORKS */
-.works{padding:24px 0 84px;background:transparent;position:relative;z-index:1;}
+.works{ padding: 24px 0 84px;}
 .works-grid{display:grid;grid-template-columns: 1.4fr 1fr 1fr;gap: 26px;}
 .work{position:relative;display:block;border-radius: 28px;background:#fff;border:3px solid #fff;overflow: visible;box-shadow:0 0 0 3px var(--pink-light),0 10px 0 -4px var(--pink-light),0 22px 34px -18px rgba(217,74,128,.4);transition: transform .4s var(--ease), box-shadow .4s var(--ease);cursor:pointer;}
 .work:hover{transform: translateY(-8px);box-shadow:0 0 0 3px var(--pink),0 12px 0 -4px var(--pink-light),0 30px 44px -18px rgba(217,74,128,.5);}
@@ -323,7 +268,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .flower-tag.purple span{ text-shadow: 0 1px 2px rgba(92,61,153,.65); }
 
 /* ASSETS */
-.assets{padding:24px 0 118px;background:transparent;position:relative;z-index:1;}
+.assets{ padding: 24px 0 118px;}
 .assets-grid{display:grid;grid-template-columns: repeat(4, 1fr);gap: 40px 30px;padding-top: 36px;}
 .item{position:relative;display:block;background:#fff;border:2px solid #ffd9e8;border-radius: 24px;padding: 46px 18px 24px;text-align:center;transition: transform .4s var(--ease), box-shadow .4s var(--ease);box-shadow:0 14px 28px -14px rgba(217,74,128,.3),0 3px 8px rgba(217,74,128,.06);cursor:pointer;}
 .item::before{content:"";position:absolute;top: -26px;left: 50%;width: 6px;height: 34px;transform: translateX(-50%) rotate(-6deg);transform-origin: bottom center;background: linear-gradient(180deg, #ff5c9a 0%, #ffa0c8 100%);border-radius: 4px;border: 2px solid #fff;box-shadow: 0 3px 6px -2px rgba(217,74,128,.4);z-index: 2;}
@@ -349,7 +294,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .item-status{font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;color:var(--berry-faint); margin-top:8px;}
 
 /* CTA */
-.cta{position:relative;padding:150px 0 118px;background:#fff;overflow:hidden;z-index:1;}
+.cta{ padding: 40px 0 118px;}
 .cta-inner{position:relative;padding: 60px 64px;border-radius: 44px;background: linear-gradient(160deg, #ffe0ee 0%, #f0e0ff 60%, #e0ecff 100%);border: 4px solid #fff;box-shadow:0 0 0 4px var(--pink),0 14px 0 -4px var(--pink-light),0 36px 56px -22px rgba(217,74,128,.5);overflow:hidden;}
 .cta-inner::before{content:""; position:absolute; inset:12px;border: 2px dashed rgba(255,92,154,.4);border-radius: 34px;pointer-events:none;}
 .cta-grid{display:grid; grid-template-columns: 1.2fr 1fr; gap:52px; align-items:center;position:relative;}
@@ -674,7 +619,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 /* RESPONSIVE (public site) */
 @media (max-width: 1180px){
   .wrap{ padding: 0 32px; }
-  .hero{ min-height:auto; padding:60px 0 150px;}
+  .hero{ min-height: auto; padding: 60px 0 80px;}
   .hero-grid{ grid-template-columns: 1fr; gap: 52px;}
   .hero-art-wrap{ max-width: 460px; margin: 0 auto;}
   .works-grid{ grid-template-columns: 1fr 1fr;}
@@ -732,7 +677,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .nav-links{ display:none;}
   .brand{ font-size:18px;}
   .nav::before{ left:22px; font-size:9px; padding:3px 12px;}
-  .hero{ padding:40px 0 140px;}
+  .hero{ padding: 40px 0 60px;}
   .hero h1{ font-size: clamp(56px, 18vw, 84px); text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff, 0 5px 0 #d94a80; }
   .hero-tagline{ font-size: 15px;}
   .hero-lede{ font-size:15px; margin-bottom: 26px;}
@@ -751,7 +696,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .assets-grid{ grid-template-columns: 1fr 1fr; gap: 34px 16px; padding-top: 30px;}
   .item{ padding: 38px 12px 18px; border-radius: 20px;}
   .item-preview .icon{ font-size: 32px;}
-  .cta{padding:130px 0 84px;}
+  .cta{ padding: 30px 0 84px;}
   .cta-inner{ padding: 36px 24px; border-radius: 32px;}
   .cta-panel{ padding: 18px; transform: none;}
   footer{ padding: 32px 0 26px;}
@@ -1982,15 +1927,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
         </div>
       </div>
     </div>
-
-    <div class="hero-wave-divider" aria-hidden="true">
-      <svg viewBox="0 0 2880 120" preserveAspectRatio="none" focusable="false">
-        <g fill="#FFDEE7">
-          <path d="M0,54 C120,18 240,18 360,54 C480,90 600,90 720,54 C840,18 960,18 1080,54 C1200,90 1320,90 1440,54 L1440,120 L0,120 Z"></path>
-          <path d="M1440,54 C1560,18 1680,18 1800,54 C1920,90 2040,90 2160,54 C2280,18 2400,18 2520,54 C2640,90 2760,90 2880,54 L2880,120 L1440,120 Z"></path>
-        </g>
-      </svg>
-    </div>
   </div>
 
   <div class="works">
@@ -2053,14 +1989,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   </div>
 
   <div class="cta">
-    <div class="cta-wave-divider" aria-hidden="true">
-      <svg viewBox="0 0 2880 120" preserveAspectRatio="none" focusable="false">
-        <g fill="#ffffff">
-          <path d="M0,54 C120,18 240,18 360,54 C480,90 600,90 720,54 C840,18 960,18 1080,54 C1200,90 1320,90 1440,54 L1440,120 L0,120 Z"></path>
-          <path d="M1440,54 C1560,18 1680,18 1800,54 C1920,90 2040,90 2160,54 C2280,18 2400,18 2520,54 C2640,90 2760,90 2880,54 L2880,120 L1440,120 Z"></path>
-        </g>
-      </svg>
-    </div>
     <div class="wrap">
       <div class="cta-inner">
         <div class="cta-grid">
