@@ -145,6 +145,12 @@ button{font:inherit; color:inherit;}
 .hero-lede{font-size: 16px; color: var(--berry-soft); font-weight: 600;max-width: 480px; margin-bottom: 32px;cursor: default;}
 .hero-lede b{ color: var(--berry); font-weight:800;}
 .hero-ctas{display:flex; gap:16px; flex-wrap:wrap;}
+.hero-ctas .btn:hover{transform:translateZ(0);}
+.hero-ctas .btn.is-jelly{
+  animation:jelly .55s var(--ease-jelly) !important;
+  transform-origin:center;
+  transition:none;
+}
 .signature{display:inline-block;font-family:'Gochi Hand', cursive;font-size: 22px;color: var(--pink-hot);margin-top: 26px;transform: rotate(-3deg);opacity: .9;cursor: default;}
 
 .hero-art-wrap{position:relative; width:100%;}
