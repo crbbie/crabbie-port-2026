@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRABBIE — Art made with candy, petals &amp; the sparkliest of hearts</title>
+<script>
+/* Always start a fresh load/reload at the top; the SPA manages its own in-session scroll memory. */
+if('scrollRestoration' in history){
+  history.scrollRestoration = 'manual';
+}
+window.scrollTo(0, 0);
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&amp;family=Nunito:wght@500;600;700;800&amp;family=Gochi+Hand&amp;display=swap" rel="stylesheet">
@@ -4872,7 +4879,7 @@ syncPanelDisabled();
 getAuthoritativeFileInput();
 wireAdminShell();
 applyAdminLangToDom(document);
-applyRoute(routeFromLocation(), { noFocus:true, noScroll:true });
+applyRoute(routeFromLocation(), { noFocus:true });
 }
 function portfolioFilterGroup(record){
   var raw = String((record && (record.filterCat || record.categorySlug || record.cat)) || '').toLowerCase();
