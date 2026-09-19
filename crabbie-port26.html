@@ -1059,6 +1059,115 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
   .adm-dash-grid{ grid-template-columns: repeat(2, 1fr); }
   .adm-editor{ max-width:100%; }
 }
+
+/* ============================================================
+   HOME LOAD BLOOM TRANSITION
+   Runs only on initial Home load / refresh.
+   Uses the website's existing background; no demo-page content.
+   ============================================================ */
+html.home-transition-pending,
+html.home-transition-pending body{
+  overflow:hidden;
+}
+
+#homeBloomTransition{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  overflow:hidden;
+  display:none;
+  place-items:center;
+  isolation:isolate;
+  pointer-events:auto;
+  opacity:1;
+  visibility:visible;
+  background:
+    radial-gradient(1200px 900px at 12% 5%, rgba(253,234,221,.55) 0%, transparent 55%),
+    radial-gradient(900px 800px at 88% 40%, rgba(253,234,221,.5) 0%, transparent 60%),
+    linear-gradient(180deg, #fdeadd 0%, #fdeadd 22%, #fde4da 45%, #ffd1f7 68%, #edd1ff 86%, #edd1ff 100%);
+}
+html.home-transition-pending #homeBloomTransition{display:grid;}
+#homeBloomTransition.is-hidden{
+  pointer-events:none;
+  visibility:hidden;
+  opacity:0;
+}
+
+.home-bloom-glow{
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.76) 0 9%, rgba(255,255,255,0) 42%),
+    radial-gradient(circle at 50% 72%, rgba(255,187,217,.20), transparent 38%);
+  transform:scale(1.08);
+  pointer-events:none;
+}
+
+.home-bloom-flower{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:clamp(72px,10vw,150px);
+  aspect-ratio:1;
+  opacity:0;
+  transform:translate(-50%,-50%) scale(.08) rotate(0deg);
+  transform-origin:center;
+  will-change:transform,opacity,filter;
+  filter:drop-shadow(0 10px 18px rgba(134,88,146,.08));
+}
+.home-bloom-flower.small{
+  width:clamp(30px,4.2vw,62px);
+  z-index:25;
+}
+.home-bloom-flower.mid{z-index:12;}
+.home-bloom-flower.big{z-index:8;}
+.home-bloom-flower::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  --g:/33.334% 33.334% radial-gradient(#000 calc(71% - 1px), #0000 71%) no-repeat;
+  -webkit-mask:
+    100% 50% var(--g),75% 93.301% var(--g),25% 93.301% var(--g),
+    0% 50% var(--g),25% 6.699% var(--g),75% 6.699% var(--g),
+    radial-gradient(100% 100%, #000 28.868%, #0000 calc(28.868% + 1px));
+  mask:
+    100% 50% var(--g),75% 93.301% var(--g),25% 93.301% var(--g),
+    0% 50% var(--g),25% 6.699% var(--g),75% 6.699% var(--g),
+    radial-gradient(100% 100%, #000 28.868%, #0000 calc(28.868% + 1px));
+  background:linear-gradient(160deg,#ffc4dd 0%,var(--pink-hot) 100%);
+}
+.home-bloom-flower.purple::before{
+  background:linear-gradient(160deg,#dccaff 0%,var(--purple-hot) 100%);
+}
+
+.home-bloom-sparkle{
+  position:absolute;
+  left:50%;
+  top:50%;
+  z-index:30;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:#fff;
+  box-shadow:0 0 18px rgba(255,255,255,.95);
+  opacity:0;
+  will-change:transform,opacity;
+}
+
+@keyframes homeBloomOverlayOut{
+  from{opacity:1;}
+  to{opacity:0;}
+}
+
+@media (max-width:700px){
+  .home-bloom-flower{width:clamp(58px,16vw,105px);}
+  .home-bloom-flower.small{width:clamp(26px,8vw,48px);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  #homeBloomTransition{display:none!important;}
+}
+
 </style>
 
 <!-- ============================================================
@@ -1483,6 +1592,22 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 <script type="module" src="/src/supabase-client.js"></script>
 </head>
 <body class="">
+<script>
+(function(){
+  var raw = location.hash.replace(/^#/, '');
+  var path = location.pathname.replace(/^\/+|\/+$/g, '');
+  var isHome = (raw === 'home') || (!raw && !path);
+  if(isHome && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    document.documentElement.classList.add('home-transition-pending');
+  }
+})();
+</script>
+
+<div id="homeBloomTransition" aria-hidden="true">
+  <div class="home-bloom-glow"></div>
+  <div id="homeBloomFlowerLayer"></div>
+  <div id="homeBloomSparkleLayer"></div>
+</div>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
@@ -5437,5 +5562,227 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
   });
 });
 </script>
+
+<script id="home-bloom-transition-script">
+(function(){
+  'use strict';
+
+  var root = document.documentElement;
+  var overlay = document.getElementById('homeBloomTransition');
+  var flowerLayer = document.getElementById('homeBloomFlowerLayer');
+  var sparkleLayer = document.getElementById('homeBloomSparkleLayer');
+
+  if(!overlay || !root.classList.contains('home-transition-pending')) return;
+
+  var timers = [];
+  function later(fn, ms){
+    var t = setTimeout(fn, ms);
+    timers.push(t);
+    return t;
+  }
+
+  var flowerSeeds = [
+    [50, 7, .74, -7, 'pink', 'big'],
+    [82, 18, .68, 13, 'purple', 'big'],
+    [95, 48, .72, 18, 'pink', 'big'],
+    [81, 83, .66, 7, 'purple', 'big'],
+    [51, 95, .70, -10, 'pink', 'big'],
+    [19, 83, .68, -15, 'purple', 'big'],
+    [6, 50, .70, -12, 'pink', 'big'],
+    [18, 19, .66, 10, 'purple', 'big'],
+    [50, 28, .42, 7, 'purple', 'mid'],
+    [72, 50, .40, -12, 'pink', 'mid'],
+    [50, 72, .40, 14, 'purple', 'mid'],
+    [28, 50, .42, -6, 'pink', 'mid']
+  ];
+
+  function buildFlowers(){
+    flowerLayer.innerHTML = '';
+    flowerSeeds.forEach(function(f){
+      var el = document.createElement('div');
+      el.className = 'home-bloom-flower ' + f[5] + (f[4] === 'purple' ? ' purple' : '');
+      el.dataset.x = f[0];
+      el.dataset.y = f[1];
+      el.dataset.rot = f[3];
+      el.dataset.scale = f[2];
+      flowerLayer.appendChild(el);
+    });
+
+    for(var i=0;i<12;i++){
+      var mini = document.createElement('div');
+      mini.className = 'home-bloom-flower small' + (i % 2 ? ' purple' : '');
+      mini.dataset.small = '1';
+      mini.dataset.angle = String((360 / 12) * i + (i % 2 ? 9 : -7));
+      flowerLayer.appendChild(mini);
+    }
+  }
+
+  function buildSparkles(){
+    sparkleLayer.innerHTML = '';
+    for(var i=0;i<12;i++){
+      var s = document.createElement('i');
+      s.className = 'home-bloom-sparkle';
+      s.dataset.angle = String((360 / 12) * i);
+      s.dataset.distance = String(100 + (i % 4) * 24);
+      var size = 4 + (i % 3) * 2;
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      sparkleLayer.appendChild(s);
+    }
+  }
+
+  function animateMainFlowers(){
+    Array.prototype.slice.call(flowerLayer.querySelectorAll('.home-bloom-flower:not(.small)')).forEach(function(el, i){
+      var x = +el.dataset.x;
+      var y = +el.dataset.y;
+      var rot = +el.dataset.rot;
+      var sc = +el.dataset.scale;
+      var fromX = (x - 50) * .14;
+      var fromY = (y - 50) * .14;
+      var toX = x - 50;
+      var toY = y - 50;
+
+      el.animate([
+        {
+          opacity:0,
+          transform:'translate(calc(-50% + ' + fromX + 'vw),calc(-50% + ' + fromY + 'vh)) scale(.10) rotate(' + (rot - 18) + 'deg)',
+          filter:'blur(5px)'
+        },
+        {
+          opacity:1,
+          offset:.68,
+          transform:'translate(calc(-50% + ' + (toX * .92) + 'vw),calc(-50% + ' + (toY * .92) + 'vh)) scale(' + (sc * 1.08) + ') rotate(' + (rot + 4) + 'deg)',
+          filter:'blur(0px)'
+        },
+        {
+          opacity:1,
+          transform:'translate(calc(-50% + ' + toX + 'vw),calc(-50% + ' + toY + 'vh)) scale(' + sc + ') rotate(' + rot + 'deg)',
+          filter:'blur(0px)'
+        }
+      ], {
+        duration:680 + (i % 4) * 55,
+        delay:i * 36,
+        easing:'cubic-bezier(.2,.9,.2,1)',
+        fill:'forwards'
+      });
+    });
+  }
+
+  function burstMainFlowers(){
+    Array.prototype.slice.call(flowerLayer.querySelectorAll('.home-bloom-flower:not(.small)')).forEach(function(el, i){
+      var x = (+el.dataset.x) - 50;
+      var y = (+el.dataset.y) - 50;
+      var len = Math.hypot(x, y) || 1;
+      var nx = x / len;
+      var ny = y / len;
+      var push = Math.max(innerWidth, innerHeight) * .28;
+      var rot = (+el.dataset.rot) + (i % 2 ? 120 : -120);
+      var sc = +el.dataset.scale;
+
+      el.animate([
+        {opacity:1},
+        {
+          opacity:1,
+          offset:.2,
+          transform:'translate(calc(-50% + ' + x + 'vw),calc(-50% + ' + y + 'vh)) scale(' + (sc * 1.08) + ') rotate(' + (rot * .25) + 'deg)'
+        },
+        {
+          opacity:0,
+          transform:'translate(calc(-50% + ' + x + 'vw + ' + (nx * push) + 'px),calc(-50% + ' + y + 'vh + ' + (ny * push) + 'px)) scale(' + (sc * .88) + ') rotate(' + rot + 'deg)',
+          filter:'blur(4px)'
+        }
+      ], {
+        duration:700,
+        easing:'cubic-bezier(.2,.8,.2,1)',
+        fill:'forwards'
+      });
+    });
+  }
+
+  function animateMiniBurst(){
+    Array.prototype.slice.call(flowerLayer.querySelectorAll('.home-bloom-flower.small')).forEach(function(el, i){
+      var angle = (+el.dataset.angle) * Math.PI / 180;
+      var dist = Math.max(innerWidth, innerHeight) * (.38 + (i % 3) * .055);
+      var x = Math.cos(angle) * dist;
+      var y = Math.sin(angle) * dist;
+      var rot = i % 2 ? 210 : -210;
+
+      el.animate([
+        {opacity:0, transform:'translate(-50%,-50%) scale(.08) rotate(0deg)'},
+        {
+          opacity:1,
+          offset:.16,
+          transform:'translate(calc(-50% + ' + (Math.cos(angle) * 28) + 'px),calc(-50% + ' + (Math.sin(angle) * 28) + 'px)) scale(.72) rotate(' + (rot * .08) + 'deg)'
+        },
+        {
+          opacity:1,
+          offset:.72,
+          transform:'translate(calc(-50% + ' + (x * .82) + 'px),calc(-50% + ' + (y * .82) + 'px)) scale(1.03) rotate(' + (rot * .72) + 'deg)'
+        },
+        {
+          opacity:0,
+          transform:'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + y + 'px)) scale(.9) rotate(' + rot + 'deg)'
+        }
+      ], {
+        duration:780,
+        delay:i * 22,
+        easing:'cubic-bezier(.2,.72,.2,1)',
+        fill:'forwards'
+      });
+    });
+  }
+
+  function animateSparkles(){
+    Array.prototype.slice.call(sparkleLayer.children).forEach(function(s, i){
+      var a = (+s.dataset.angle) * Math.PI / 180;
+      var d = +s.dataset.distance;
+      var x = Math.cos(a) * d;
+      var y = Math.sin(a) * d;
+
+      s.animate([
+        {opacity:0, transform:'translate(-50%,-50%) scale(.2)'},
+        {
+          opacity:1,
+          offset:.25,
+          transform:'translate(calc(-50% + ' + (x * .38) + 'px),calc(-50% + ' + (y * .38) + 'px)) scale(1.2)'
+        },
+        {
+          opacity:0,
+          transform:'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + y + 'px)) scale(.4)'
+        }
+      ], {
+        duration:650,
+        delay:i * 18,
+        easing:'ease-out',
+        fill:'forwards'
+      });
+    });
+  }
+
+  function finish(){
+    burstMainFlowers();
+    animateMiniBurst();
+    animateSparkles();
+
+    later(function(){
+      overlay.style.animation = 'homeBloomOverlayOut 420ms ease forwards';
+    }, 320);
+
+    later(function(){
+      overlay.classList.add('is-hidden');
+      root.classList.remove('home-transition-pending');
+    }, 780);
+  }
+
+  buildFlowers();
+  buildSparkles();
+
+  requestAnimationFrame(function(){
+    animateMainFlowers();
+    later(finish, 820);
+  });
+})();
+</script>
+
 </body>
 </html>
