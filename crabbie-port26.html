@@ -2672,7 +2672,7 @@ var trigger = $(triggerSelector);
 if(!trigger) return;
 trigger.addEventListener('click', function(){
 if(prefersReduced()) return;
-$(cardSelector).forEach(function(card, index){
+Array.prototype.slice.call(document.querySelectorAll(cardSelector)).forEach(function(card, index){
 setTimeout(function(){
 card.classList.remove('is-shaking');
 void card.offsetWidth;
@@ -2686,7 +2686,7 @@ card.classList.remove('is-shaking');
 }
 triggerStaggeredShake('.works .banner[data-wobble="#worksGrid"]', '#worksGrid .work');
 triggerStaggeredShake('.assets .banner[data-wobble="#assetsGrid"]', '#assetsGrid .item');
-var heroTargets = $('.hero-badge, .hero-intro, .hero h1, .hero-tagline, .hero-lede, .signature, .hero-art, .hero-art .season-badge');
+var heroTargets = Array.prototype.slice.call(document.querySelectorAll('.hero-badge, .hero-intro, .hero h1, .hero-tagline, .hero-lede, .signature, .hero-art, .hero-art .season-badge'));
 heroTargets.forEach(function(el){
 el.addEventListener('mouseenter', function(){
 if(prefersReduced()) return;
