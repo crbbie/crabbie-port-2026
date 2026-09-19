@@ -1181,6 +1181,58 @@ html.home-transition-pending #homeBloomTransition{display:grid;}
   100%{opacity:0;}
 }
 
+/* ---------- HOME POST-LOADING STAGGERED REVEAL ---------- */
+html.home-reveal-sequence .nav-shell,
+html.home-reveal-sequence .view[data-view="home"] .hero,
+html.home-reveal-sequence .view[data-view="home"] .works,
+html.home-reveal-sequence .view[data-view="home"] .assets,
+html.home-reveal-sequence .view[data-view="home"] .cta,
+html.home-reveal-sequence footer{
+  opacity:0;
+  translate:0 28px;
+  transition:
+    opacity .8s cubic-bezier(.25,.46,.45,.94),
+    translate .8s cubic-bezier(.25,.46,.45,.94);
+  will-change:opacity,translate;
+}
+
+/* The nav already has its own transform-based entrance animation.
+   Pause it during this one-time Home reveal so the two systems do not fight. */
+html.home-reveal-sequence .nav-shell{
+  animation:none!important;
+}
+
+html.home-reveal-sequence.home-reveal-active .nav-shell{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.04s;
+}
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .hero{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.14s;
+}
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .works{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.26s;
+}
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .assets{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.38s;
+}
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .cta{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.50s;
+}
+html.home-reveal-sequence.home-reveal-active footer{
+  opacity:1;
+  translate:0 0;
+  transition-delay:.62s;
+}
+
 @media (prefers-reduced-motion:reduce){
   #homeBloomTransition{display:none!important;}
   .home-transition-flower,
@@ -1619,6 +1671,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   var isHome = (raw === 'home') || (!raw && !path);
   if(isHome && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     document.documentElement.classList.add('home-transition-pending');
+    document.documentElement.classList.add('home-reveal-sequence');
   }
 })();
 </script>
@@ -5857,6 +5910,19 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
     later(function(){
       overlay.classList.add('is-hidden');
       root.classList.remove('home-transition-pending');
+
+      /* Reveal the real Home content only after the loading overlay is gone. */
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          root.classList.add('home-reveal-active');
+        });
+      });
+
+      /* Clean up one-time reveal classes after the stagger finishes. */
+      later(function(){
+        root.classList.remove('home-reveal-active');
+        root.classList.remove('home-reveal-sequence');
+      },1550);
     },760);
   }
 
