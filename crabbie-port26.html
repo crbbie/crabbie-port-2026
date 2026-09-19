@@ -158,7 +158,6 @@ button{font:inherit; color:inherit;}
 
 .hero-art-wrap{position:relative; width:100%;}
 .hero-art{position:relative;aspect-ratio: 5/5.3;border-radius: 40px;background: #fff;border: 4px solid #fff;box-shadow:0 0 0 4px var(--pink),0 12px 0 -4px var(--pink-light),0 26px 46px -20px rgba(217,74,128,.5);padding: 16px;transition: box-shadow .35s var(--ease);}
-.hero-art:hover{box-shadow:0 0 0 4px var(--pink),0 14px 0 -4px var(--pink-light),0 32px 56px -20px rgba(217,74,128,.55);}
 .hero-art-inner{position:relative; width:100%; height:100%;border-radius: 28px;background:radial-gradient(120% 100% at 30% 15%, #fff 0 20%, transparent 55%),linear-gradient(160deg, #ffe3ef 0%, #f7e0ff 50%, #c7c7ff 100%);display:flex; align-items:center; justify-content:center;overflow:hidden;border: 3px dashed rgba(255, 189, 214, 0.35);}
 .hero-art-inner .art-caption{position: relative;z-index: 1;font-family:'Gochi Hand', cursive;font-size: 24px;color: var(--berry-soft);opacity:.7;transform: rotate(-4deg);text-align:center;pointer-events:none;}
 .hero-art .season-badge{position:absolute; top:-14px; right:24px; z-index:7;padding: 5px 14px;background: linear-gradient(180deg, #fff 0%, var(--yellow-light) 100%);border:2px solid var(--yellow-hot);border-radius: 999px;font-family:'Fredoka'; font-weight:600; font-size:11px;color: var(--berry); letter-spacing:.08em;box-shadow: 0 4px 0 rgba(255, 207, 112, 0.7);transform: rotate(3deg);cursor: default;}
@@ -1150,23 +1149,25 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
              animSigReveal 1.1s var(--ease-out-soft) .95s both;
 }
 
-/* ---------- WORK & ASSET CARD entrance (chỉ vào trang, không hover) ---------- */
-.view[data-view="home"].is-active .works-grid  > .work,
+/* ---------- HOME CARD MOTION ---------- */
+/* Favorites cards are visible immediately; only hover lift + click shake remain. */
+.view[data-view="home"].is-active .works-grid > .work{
+  transition: translate .35s ease, box-shadow .35s ease;
+  translate: 0 0;
+}
+.view[data-view="home"].is-active .works-grid > .work:hover{
+  translate: 0 -8px;
+}
+
+/* Free Assets keeps its existing entrance animation. */
 .view[data-view="home"].is-active .assets-grid > .item{
   animation: animFloatIn .8s var(--ease-out-soft) both;
   transition: translate .35s ease, box-shadow .35s ease;
   translate: 0 0;
 }
-.view[data-view="home"].is-active .works-grid > .work:hover,
 .view[data-view="home"].is-active .assets-grid > .item:hover{
   translate: 0 -8px;
 }
-.view[data-view="home"].is-active .works-grid > .work:nth-child(1){ animation-delay: .10s; }
-.view[data-view="home"].is-active .works-grid > .work:nth-child(2){ animation-delay: .20s; }
-.view[data-view="home"].is-active .works-grid > .work:nth-child(3){ animation-delay: .30s; }
-.view[data-view="home"].is-active .works-grid > .work:nth-child(4){ animation-delay: .40s; }
-.view[data-view="home"].is-active .works-grid > .work:nth-child(5){ animation-delay: .50s; }
-
 .view[data-view="home"].is-active .assets-grid > .item:nth-child(1){ animation-delay: .10s; }
 .view[data-view="home"].is-active .assets-grid > .item:nth-child(2){ animation-delay: .18s; }
 .view[data-view="home"].is-active .assets-grid > .item:nth-child(3){ animation-delay: .26s; }
@@ -2700,7 +2701,7 @@ card.classList.remove('is-shaking');
 }
 triggerStaggeredShake('.works .banner[data-wobble="#worksGrid"]', '#worksGrid .work');
 triggerStaggeredShake('.assets .banner[data-wobble="#assetsGrid"]', '#assetsGrid .item');
-var heroTargets = Array.prototype.slice.call(document.querySelectorAll('.hero-badge, .hero-intro, .hero h1, .hero-tagline, .hero-lede, .signature, .hero-art, .hero-art .season-badge'));
+var heroTargets = Array.prototype.slice.call(document.querySelectorAll('.hero-badge, .hero-intro, .hero h1, .hero-tagline, .hero-lede, .signature, .hero-art .season-badge'));
 heroTargets.forEach(function(el){
 el.addEventListener('mouseenter', function(){
 if(prefersReduced()) return;
