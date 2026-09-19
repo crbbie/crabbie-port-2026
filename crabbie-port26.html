@@ -1159,23 +1159,17 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
   translate: 0 -8px;
 }
 
-/* Free Assets keeps its existing entrance animation. */
+/* Free Assets cards are also visible immediately; keep hover lift + click shake only. */
 .view[data-view="home"].is-active .assets-grid > .item{
-  animation: animFloatIn .8s var(--ease-out-soft) both;
+  animation: none;
+  opacity: 1;
+  transform: none;
   transition: translate .35s ease, box-shadow .35s ease;
   translate: 0 0;
 }
 .view[data-view="home"].is-active .assets-grid > .item:hover{
   translate: 0 -8px;
 }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(1){ animation-delay: .10s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(2){ animation-delay: .18s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(3){ animation-delay: .26s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(4){ animation-delay: .34s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(5){ animation-delay: .42s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(6){ animation-delay: .50s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(7){ animation-delay: .58s; }
-.view[data-view="home"].is-active .assets-grid > .item:nth-child(8){ animation-delay: .66s; }
 
 /* ============================================================
    CÁC TRANG KHÁC — entrance nhẹ
