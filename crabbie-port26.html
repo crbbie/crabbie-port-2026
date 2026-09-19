@@ -163,6 +163,41 @@ button{font:inherit; color:inherit;}
   transform-origin: center bottom;
 }
 
+/* Bright milk-pink section banners — matched to the supplied reference */
+body:not(.admin-mode) .works .banner,
+body:not(.admin-mode) .assets .banner{
+  background:linear-gradient(180deg,#fbc7dc 0%,#f8b8d2 52%,#f5a9c8 100%);
+  border:4px solid #fff;
+  box-shadow:
+    0 0 0 4px #fff0c9,
+    0 10px 0 -3px #f6a6c6,
+    0 20px 30px -18px rgba(228,145,184,.34);
+}
+
+body:not(.admin-mode) .works .banner::before,
+body:not(.admin-mode) .assets .banner::before{
+  border-color:rgba(255,255,255,.92);
+}
+
+body:not(.admin-mode) .works .banner .banner-badge,
+body:not(.admin-mode) .assets .banner .banner-badge{
+  background:linear-gradient(180deg,#fbc3d9 0%,#f3a4c4 100%);
+  border-color:#fff;
+  box-shadow:0 3px 0 #efa0bf;
+  color:#fff;
+}
+
+body:not(.admin-mode) .works .banner .banner-title,
+body:not(.admin-mode) .assets .banner .banner-title{
+  color:#fff;
+  text-shadow:
+    -2px -2px 0 #f5a7c6,
+     2px -2px 0 #f5a7c6,
+    -2px  2px 0 #f5a7c6,
+     2px  2px 0 #f5a7c6,
+     0 4px 0 #e991b3;
+}
+
 /* HERO */
 .hero{position:relative;min-height: calc(100vh - 96px);display: flex;align-items: center;padding: 40px 0 80px;}
 .hero-grid{display:grid; grid-template-columns: 1fr 0.95fr; gap: 76px; align-items:center; width: 100%;}
