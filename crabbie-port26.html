@@ -146,11 +146,6 @@ button{font:inherit; color:inherit;}
 .hero-lede b{ color: var(--berry); font-weight:800;}
 .hero-ctas{display:flex; gap:16px; flex-wrap:wrap;}
 .hero-ctas .btn:hover{transform:translateZ(0);}
-.hero-ctas .btn.is-jelly{
-  animation:jelly .55s var(--ease-jelly) !important;
-  transform-origin:center;
-  transition:none;
-}
 .signature{display:inline-block;font-family:'Gochi Hand', cursive;font-size: 22px;color: var(--pink-hot);margin-top: 26px;transform: rotate(-3deg);opacity: .9;cursor: default;}
 
 .hero-art-wrap{position:relative; width:100%;}
@@ -3101,34 +3096,21 @@ if(t){ e.preventDefault(); smoothScrollTo(document.getElementById(t.getAttribute
 t = e.target.closest('[data-goto]');
 if(t){
   e.preventDefault();
-  var gotoTarget = t.getAttribute('data-goto');
 
   if(t.matches('.hero-ctas .btn')){
-    if(prefersReduced() || typeof t.animate !== 'function'){
-      navigate(gotoTarget);
-      return;
-    }
-
-    var heroJelly = t.animate([
-      { transform:'translateZ(0) scale(1, 1)', offset:0 },
-      { transform:'translateZ(0) scale(1.14, .84)', offset:.22 },
-      { transform:'translateZ(0) scale(.92, 1.10)', offset:.42 },
-      { transform:'translateZ(0) scale(1.06, .95)', offset:.60 },
-      { transform:'translateZ(0) scale(.97, 1.03)', offset:.78 },
-      { transform:'translateZ(0) scale(1, 1)', offset:1 }
-    ], {
-      duration:550,
-      easing:'cubic-bezier(.36,.07,.19,.97)'
-    });
-
-    heroJelly.addEventListener('finish', function(){
-      navigate(gotoTarget);
-    }, { once:true });
+    var heroGoto = t.getAttribute('data-goto');
+    t.classList.remove('is-jelly');
+    void t.offsetWidth;
+    t.classList.add('is-jelly');
+    setTimeout(function(){
+      t.classList.remove('is-jelly');
+      navigate(heroGoto);
+    }, 620);
     return;
   }
 
   jelly(t);
-  navigate(gotoTarget);
+  navigate(t.getAttribute('data-goto'));
   return;
 }
 });
@@ -5379,6 +5361,5 @@ window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 
 })();
 </script>
-
 </body>
 </html>
