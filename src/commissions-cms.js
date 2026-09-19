@@ -1,12 +1,12 @@
-﻿import { supabase, isConfigured } from './supabase-client.js';
+import { supabase, isConfigured } from './supabase-client.js';
 import { mapCommissionService, mapCommissionForm } from './commissions-core.js';
 
 export async function hydrateCommissions() {
   if (!isConfigured || !supabase) {
     console.warn('Commissions CMS: Supabase client is not configured. Falling back to prototype data.');
-    return;
+    return false;
   }
-  if (!window.CrabbieCommissions) return;
+  if (!window.CrabbieCommissions) return false;
 
   const [servicesResult, formsResult] = await Promise.all([
     supabase
@@ -28,7 +28,7 @@ export async function hydrateCommissions() {
   }
 
   const services = (servicesResult.data || []).map((row) =>
-    mapCommissionService(row, window.CrabbieCommissions.getPrototype(row.slug))
+    mapCommissionService(row)
   );
   const forms = (formsResult.data || []).map((row) => mapCommissionForm(row, {}));
 
@@ -36,6 +36,7 @@ export async function hydrateCommissions() {
     servicesResult.error ? null : services,
     formsResult.error ? null : forms
   );
+  return !servicesResult.error && !formsResult.error;
 }
 
 hydrateCommissions();

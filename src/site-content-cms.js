@@ -1,12 +1,12 @@
-﻿import { supabase, isConfigured } from './supabase-client.js';
+import { supabase, isConfigured } from './supabase-client.js';
 import { mapCmsPage, mapNavigationItem, mapSiteSettings } from './site-content-core.js';
 
 export async function hydrateSiteContent() {
   if (!isConfigured || !supabase) {
     console.warn('Site Content CMS: Supabase client is not configured. Falling back to prototype data.');
-    return;
+    return false;
   }
-  if (!window.CrabbieSiteContent) return;
+  if (!window.CrabbieSiteContent) return false;
 
   const [pagesRes, navRes, settingsRes] = await Promise.all([
     supabase.from('cms_pages').select('slug,title,content,published,data').eq('published', true),
@@ -28,7 +28,8 @@ export async function hydrateSiteContent() {
   const nav = (navRes.data || []).map((row) => mapNavigationItem(row, {}));
   const settings = mapSiteSettings(settingsRes.data || [], {});
 
-  window.CrabbieSiteContent.apply(pages, nav, settings);
+  window.CrabbieSiteContent.apply(pagesRes.error ? null : pages, navRes.error ? null : nav, settingsRes.error ? null : settings);
+  return !pagesRes.error && !navRes.error && !settingsRes.error;
 }
 
 hydrateSiteContent();

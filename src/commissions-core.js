@@ -1,58 +1,53 @@
-﻿export function mapCommissionService(row, fallback = {}) {
+export function mapCommissionService(row, fallback = {}) {
+  if (!row) return { ...fallback };
   const details = row.details || {};
-  const avail = row.availability === 'waitlist' ? 'inquiry' : (row.availability || fallback.availability || 'open');
-  const priceFormatted = details.priceFormatted || (row.currency === 'VND' ? `${Number(row.price).toLocaleString()} VND` : `$${row.price}`);
-
+  const availability = row.availability === 'waitlist' ? 'inquiry' : (row.availability ?? '');
+  const price = details.priceFormatted || (row.price == null ? '' :
+    row.currency === 'VND' ? `${Number(row.price).toLocaleString()} VND` : `$${row.price}`);
   return {
-    ...fallback,
-    id: row.slug || fallback.id,
-    slug: row.slug || fallback.slug,
-    name: row.title || fallback.name || row.title,
-    title: row.title || fallback.title || row.title,
-    description: row.description ?? fallback.description ?? '',
-    thumbnail: row.thumbnail_path || fallback.thumbnail || '',
-    featured: row.featured !== undefined ? !!row.featured : !!fallback.featured,
-    published: row.published !== undefined ? !!row.published : (fallback.published ?? true),
-    sortOrder: row.sort_order !== undefined ? row.sort_order : (fallback.sortOrder || 0),
-    price: priceFormatted || fallback.price || '',
-    priceNumeric: row.price !== null ? Number(row.price) : fallback.priceNumeric,
-    currency: row.currency || fallback.currency || 'USD',
-    availability: avail,
-    formType: row.form_slug || details.formType || fallback.formType || 'illustration',
-    formLabel: details.formLabel || fallback.formLabel || '',
-    priceNote: details.priceNote !== undefined ? details.priceNote : (fallback.priceNote || ''),
-    previewLabel: details.previewLabel || fallback.previewLabel || '',
-    previewVariant: details.previewVariant !== undefined ? details.previewVariant : (fallback.previewVariant || ''),
-    chips: Array.isArray(details.chips) ? details.chips : (fallback.chips || []),
-    deliveryEstimate: details.deliveryEstimate || fallback.deliveryEstimate || '',
-    includedFiles: details.includedFiles || fallback.includedFiles || '',
-    canvas: details.canvas || fallback.canvas || '',
-    commercialRule: details.commercialRule || fallback.commercialRule || '',
-    extraCharacter: details.extraCharacter || fallback.extraCharacter || '',
-    backgroundRule: details.backgroundRule || fallback.backgroundRule || '',
-    tax: details.tax || fallback.tax || '5%',
-    rush: details.rush || fallback.rush || '+20%',
-    privateFee: details.privateFee || fallback.privateFee || '+20%',
-    extraNotes: details.extraNotes !== undefined ? details.extraNotes : (fallback.extraNotes || ''),
-    alternatePrice: details.alternatePrice || fallback.alternatePrice || '',
-    alternateCurrency: details.alternateCurrency || fallback.alternateCurrency || '',
-    isOtherService: details.isOtherService !== undefined ? details.isOtherService : (fallback.isOtherService ?? true),
-    ...details,
-    id: row.slug || fallback.id,
-    name: row.title || fallback.name,
-    title: row.title || fallback.title,
-    availability: avail
+    id: row.slug ?? '',
+    slug: row.slug ?? '',
+    name: row.title ?? '',
+    title: row.title ?? '',
+    description: row.description ?? '',
+    thumbnail: row.thumbnail_path ?? '',
+    featured: !!row.featured,
+    published: !!row.published,
+    sortOrder: row.sort_order ?? 0,
+    price,
+    priceNumeric: row.price == null ? null : Number(row.price),
+    currency: row.currency ?? '',
+    availability,
+    formType: row.form_slug ?? '',
+    formLabel: details.formLabel ?? '',
+    priceNote: details.priceNote ?? '',
+    previewLabel: details.previewLabel ?? '',
+    previewVariant: details.previewVariant ?? '',
+    chips: Array.isArray(details.chips) ? details.chips : [],
+    deliveryEstimate: details.deliveryEstimate ?? '',
+    includedFiles: details.includedFiles ?? '',
+    canvas: details.canvas ?? '',
+    commercialRule: details.commercialRule ?? '',
+    extraCharacter: details.extraCharacter ?? '',
+    backgroundRule: details.backgroundRule ?? '',
+    tax: details.tax ?? '',
+    rush: details.rush ?? '',
+    privateFee: details.privateFee ?? '',
+    extraNotes: details.extraNotes ?? '',
+    alternatePrice: details.alternatePrice ?? '',
+    alternateCurrency: details.alternateCurrency ?? '',
+    isOtherService: details.isOtherService ?? true
   };
 }
 
 export function mapCommissionForm(row, fallback = {}) {
+  if (!row) return { ...fallback };
   return {
-    ...fallback,
-    id: row.slug || fallback.id,
-    slug: row.slug || fallback.slug,
-    title: row.title || fallback.title,
-    description: row.description ?? fallback.description ?? '',
-    fields: Array.isArray(row.fields) ? row.fields : (fallback.fields || []),
-    published: row.published !== undefined ? row.published : (fallback.published ?? true)
+    id: row.slug ?? '',
+    slug: row.slug ?? '',
+    title: row.title ?? '',
+    description: row.description ?? '',
+    fields: Array.isArray(row.fields) ? row.fields : [],
+    published: !!row.published
   };
 }

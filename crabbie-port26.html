@@ -1622,18 +1622,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
         </div>
         <div class="pd-cover" id="pdCover">[PROJECT COVER]</div>
       </div>
-      <article class="blk"><div class="blk-head"><span class="blk-num">01</span><h3>Project Introduction</h3></div><div class="blk-body"><p class="cms" id="pdIntro">[PROJECT INTRODUCTION FROM CMS]</p></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">02</span><h3>Sketches</h3></div><div class="blk-body"><div class="ph-row"><div class="ph g2">SKETCH IMAGE</div><div class="ph g2">SKETCH IMAGE</div></div><p class="cms purple" id="pdSketch">[SKETCH CAPTION FROM CMS]</p></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">03</span><h3>Process</h3></div><div class="blk-body"><div class="ph g3" style="aspect-ratio:16/9;">WIP IMAGE</div><p class="cms yellow" id="pdProcess">[PROCESS TEXT FROM CMS]</p></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">04</span><h3>Image + Text</h3></div><div class="blk-body"><div class="ph g4" style="aspect-ratio:16/9;">PROJECT IMAGE</div><p class="cms blue" id="pdBody">[PROJECT TEXT FROM CMS]</p></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">05</span><h3>Gallery</h3></div><div class="blk-body"><div class="ph-gallery"><div class="ph g-a">ARTWORK</div><div class="ph g2 g-b">ARTWORK</div><div class="ph g3 g-c">ARTWORK</div><div class="ph g4 g-d">ARTWORK</div><div class="ph g5 g-e">ARTWORK</div></div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">06</span><h3>Before / After</h3></div><div class="blk-body"><div class="ba-grid"><div class="ba-item"><span class="ba-label">BEFORE</span><div class="ph g4">BEFORE</div></div><div class="ba-item"><span class="ba-label after">AFTER</span><div class="ph g2">AFTER</div></div></div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">07</span><h3>GIF</h3></div><div class="blk-body"><div class="ph g5" style="aspect-ratio:16/9;">GIF PLACEHOLDER<span class="ph-play">▶</span></div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">08</span><h3>Video</h3></div><div class="blk-body"><div class="ph soft" style="aspect-ratio:16/9;">VIDEO PLACEHOLDER<span class="ph-play">▶</span></div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">09</span><h3>YouTube</h3></div><div class="blk-body"><div class="ph soft" style="aspect-ratio:16/9;">YOUTUBE EMBED PLACEHOLDER<span class="ph-play">▶</span></div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">10</span><h3>Quote / Highlight</h3></div><div class="blk-body"><blockquote class="pd-quote" id="pdQuote">[PROJECT QUOTE FROM CMS]</blockquote></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">11</span><h3>Final Art</h3></div><div class="blk-body"><div class="ph g1" style="aspect-ratio:4/3;">FINAL ART</div></div></article>
-      <article class="blk"><div class="blk-head"><span class="blk-num">12</span><h3>External Links</h3></div><div class="blk-body"><a class="link-pill" id="pdLink" aria-disabled="true">[PROJECT LINK] ↗</a></div></article>
+      <div id="pdBlocks"></div>
       <div class="pd-footnav">
         <button class="btn btn-ghost" type="button" id="pdPrev">← Previous Project</button>
         <button class="mid" type="button" data-goto="portfolio">Back to Portfolio</button>
@@ -1744,7 +1733,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <p class="comm-desc">Normal / Anime style bust-up illustration.</p>
             <div class="comm-mini"><span>USD $70</span><span>VND 500,000</span></div>
           </div>
-          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Bust Up" data-form="illustration" data-avail="open">Request this</button></div>
+          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Bust Up" data-service-slug="bust-up" data-form="illustration" data-avail="open">Request this</button></div>
           <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
@@ -1769,7 +1758,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <p class="comm-desc">Normal / Anime style half-body illustration.</p>
             <div class="comm-mini"><span>USD $100</span><span>VND 750,000</span></div>
           </div>
-          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Half Body" data-form="illustration" data-avail="open">Request this</button></div>
+          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Half Body" data-service-slug="half-body" data-form="illustration" data-avail="open">Request this</button></div>
           <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
@@ -1794,7 +1783,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <p class="comm-desc">Normal / Anime style full-body illustration.</p>
             <div class="comm-mini"><span>USD $150</span><span>VND 1,100,000</span></div>
           </div>
-          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Full Body" data-form="illustration" data-avail="inquiry">Request this</button></div>
+          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Full Body" data-service-slug="full-body" data-form="illustration" data-avail="inquiry">Request this</button></div>
           <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
@@ -1819,7 +1808,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <p class="comm-desc">Chibi style full-body illustration.</p>
             <div class="comm-mini"><span>VND 380,000</span><span>Chibi</span></div>
           </div>
-          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Chibi Full Body" data-form="illustration" data-avail="open">Request this</button></div>
+          <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Chibi Full Body" data-service-slug="chibi-full-body" data-form="illustration" data-avail="open">Request this</button></div>
           <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
@@ -2430,28 +2419,112 @@ var prevView = null;
 var currentRoute = { view:'home', id:null, adminModule:null };
 var scrollMemory = {};
 
-function renderProject(id){
-var p = PROJECTS[id]; if(!p) return;
-setText('pdTitle', p.title); setText('pdDesc', p.desc); setText('pdCat', p.cat);
-setText('pdTags', p.tags.join(' · ')); setText('pdCredits', p.credits); setText('pdYear', p.year);
-setText('pdCover', p.cover); setText('pdIntro', p.intro); setText('pdSketch', p.sketch);
-setText('pdProcess', p.process); setText('pdBody', p.body); setText('pdQuote', p.quote);
-var link = document.getElementById('pdLink');
-if(link){
-if(p.link){ link.href = p.link; link.target = '_blank'; link.rel = 'noopener'; link.removeAttribute('aria-disabled'); link.textContent = p.linkLabel + ' ↗'; }
-else { link.removeAttribute('href'); link.removeAttribute('target'); link.removeAttribute('rel'); link.setAttribute('aria-disabled','true'); link.textContent = p.linkLabel + ' ↗'; }
+function visibleCmsValue(value){
+  var text = String(value == null ? '' : value).trim();
+  return text && !/\[[A-Z][A-Z0-9 /&+._-]*\]|^YEAR$/i.test(text) ? text : '';
 }
+function safePublicUrl(value, media){
+  var raw = visibleCmsValue(value);
+  if(!raw) return '';
+  if(!media && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return 'mailto:' + raw;
+  if(!media && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return raw;
+  if(!media && /^#[a-z0-9/_-]+$/i.test(raw)) return raw;
+  if(/^https:\/\//i.test(raw)){
+    try { var url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password ? url.href : ''; } catch(e){ return ''; }
+  }
+  if(media && /^[a-zA-Z0-9][a-zA-Z0-9/_ .-]*$/.test(raw) && raw.indexOf('..') === -1 && window.CrabbieSupabase && window.CrabbieSupabase.supabase){
+    return window.CrabbieSupabase.supabase.storage.from('media').getPublicUrl(raw.replace(/^media\//, '')).data.publicUrl || '';
+  }
+  return '';
+}
+function publicImage(url, alt){
+  var src = safePublicUrl(url, true);
+  return src ? '<img src="' + esc(src) + '" alt="' + esc(alt || '') + '" loading="lazy" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">' : '';
+}
+function publicLink(url, label){
+  var href = safePublicUrl(url, false);
+  if(!href) return '';
+  var external = /^https:\/\//i.test(href);
+  return '<a class="link-pill" href="' + esc(href) + '"' + (external ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(label || href) + (external ? ' ↗' : '') + '</a>';
+}
+function publicBlockBody(block){
+  var type = block && block.type;
+  var url = safePublicUrl(block && block.url, true);
+  var text = visibleCmsValue(block && block.text);
+  var caption = visibleCmsValue(block && block.caption);
+  var media = url ? publicImage(url, block.alt || caption) : '';
+  if(type === 'heading') return text ? '<h3>' + esc(text) + '</h3>' : '';
+  if(type === 'text' || type === 'caption') return text ? '<p class="cms">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '';
+  if(type === 'image' || type === 'gif') return media ? '<figure>' + media + (caption ? '<figcaption>' + esc(caption) + '</figcaption>' : '') + '</figure>' : '';
+  if(type === 'image-text') return media || text ? '<div class="pd-image-text" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;' + (block.layout === 'right' ? 'flex-direction:row-reverse;' : '') + '">' + (media ? '<div style="flex:1 1 240px;">' + media + '</div>' : '') + (text ? '<p class="cms" style="flex:1 1 240px;">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '') + '</div>' : '';
+  if(type === 'gallery' || type === 'grid'){
+    var items = Array.isArray(block.items) ? block.items : [];
+    var images = items.map(function(item){ var image = publicImage(typeof item === 'string' ? item : item.url, item.alt || ''); return image ? '<figure>' + image + '</figure>' : ''; }).join('');
+    return images ? '<div class="ph-gallery">' + images + '</div>' : '';
+  }
+  if(type === 'video') return url ? '<video src="' + esc(url) + '" controls preload="metadata" playsinline style="width:100%;max-height:70vh;border-radius:16px;"></video>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+  if(type === 'youtube'){
+    try{
+      var u = new URL(String(block.url || ''));
+      var host = u.hostname.toLowerCase();
+      var id = host === 'youtu.be' ? u.pathname.slice(1) : (host === 'youtube.com' || host === 'www.youtube.com' || host === 'www.youtube-nocookie.com' ? (u.searchParams.get('v') || u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]) : '');
+      if(/^[a-zA-Z0-9_-]{11}$/.test(id || '')) return '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '" title="' + esc(caption || 'YouTube video') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:16px;"></iframe>';
+    }catch(e){}
+    return '';
+  }
+  if(type === 'before-after'){
+    var before = publicImage(block.before, 'Before');
+    var after = publicImage(block.after, 'After');
+    return before || after ? '<div class="ba-grid">' + (before ? '<div class="ba-item"><span class="ba-label">BEFORE</span>' + before + '</div>' : '') + (after ? '<div class="ba-item"><span class="ba-label after">AFTER</span>' + after + '</div>' : '') + '</div>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+  }
+  if(type === 'quote') return text ? '<blockquote class="pd-quote">' + esc(text) + '</blockquote>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+  if(type === 'link') return publicLink(block.url, text);
+  if(type === 'divider') return '<hr>';
+  if(type === 'spacer') return '<div aria-hidden="true" style="height:' + (block.size === 'large' ? '64' : block.size === 'small' ? '16' : '32') + 'px;"></div>';
+  return '';
+}
+function renderProject(id){
+  var p = PROJECTS[id]; if(!p) return;
+  setText('pdTitle', visibleCmsValue(p.title));
+  setText('pdDesc', visibleCmsValue(p.desc));
+  var facts = {pdCat:p.cat, pdTags:Array.isArray(p.tags) ? p.tags.join(' · ') : '', pdCredits:p.credits, pdYear:p.year};
+  Object.keys(facts).forEach(function(key){
+    var el = document.getElementById(key); if(!el) return;
+    var value = visibleCmsValue(facts[key]); el.textContent = value; el.parentElement.style.display = value ? '' : 'none';
+  });
+  var cover = document.getElementById('pdCover');
+  if(cover) cover.innerHTML = publicImage(p.cover, p.title) || '';
+  var blocks = Array.isArray(p.blocks) && p.blocks.length ? p.blocks : [
+    {type:'text',text:p.intro},{type:'text',text:p.sketch},{type:'text',text:p.process},
+    {type:'text',text:p.body},{type:'quote',text:p.quote}
+  ];
+  var html = blocks.map(function(block, index){
+    var body = publicBlockBody(block);
+    if(!body) return '';
+    var heading = block.type === 'heading' ? '' : '<div class="blk-head"><span class="blk-num">' + String(index + 1).padStart(2, '0') + '</span><h3>' + esc(String(block.type || 'Content').replace(/-/g, ' ')) + '</h3></div>';
+    return '<article class="blk">' + heading + '<div class="blk-body">' + body + '</div></article>';
+  }).join('');
+  var links = Array.isArray(p.externalLinks) ? p.externalLinks : [];
+  if(p.link) links = [{title:p.linkLabel || 'Project link',url:p.link}].concat(links);
+  var linkHtml = links.map(function(link){ return publicLink(link.url, link.title || link.label); }).join('');
+  if(linkHtml) html += '<article class="blk"><div class="blk-head"><h3>External links</h3></div><div class="blk-body">' + linkHtml + '</div></article>';
+  var root = document.getElementById('pdBlocks'); if(root) root.innerHTML = html;
 }
 function renderAsset(id){
-var a = ASSETS[id]; if(!a) return;
-setText('adTitle', a.title); setText('adCat', a.cat); setText('adIcon', a.icon);
-setText('adFormat', a.format); setText('adDesc', a.description); setText('adVersion', a.version);
-setText('adDate', a.date); setText('adCredit', a.credit); setText('adLicense', a.license);
-setText('adUpdate', a.update);
-var available = a.availability === 'available' && !!a.downloadUrl;
-var notice = document.getElementById('adUnavailable'); var dl = document.getElementById('adDownload');
-if(notice) notice.style.display = available ? 'none' : '';
-if(dl){ dl.disabled = !available; dl.setAttribute('aria-disabled', available ? 'false' : 'true'); }
+  var a = ASSETS[id]; if(!a) return;
+  setText('adTitle', visibleCmsValue(a.title));
+  setText('adCat', visibleCmsValue(a.cat));
+  var preview = document.querySelector('[data-view="free-asset-detail"] .ad-preview');
+  if(preview) preview.innerHTML = publicImage(a.thumbnail, a.title) || '<span class="big-icon" id="adIcon">' + esc(a.icon || '★') + '</span>';
+  var fields = {adFormat:a.format,adDesc:a.description,adVersion:a.version,adDate:a.date,adCredit:a.credit,adLicense:a.license,adUpdate:a.update};
+  Object.keys(fields).forEach(function(key){
+    var el = document.getElementById(key); if(!el) return;
+    var value = visibleCmsValue(fields[key]); el.textContent = value; el.parentElement.style.display = value ? '' : 'none';
+  });
+  var available = a.availability === 'available' && !!safePublicUrl(a.downloadUrl, true);
+  var notice = document.getElementById('adUnavailable'); var dl = document.getElementById('adDownload');
+  if(notice) notice.style.display = available ? 'none' : '';
+  if(dl){ dl.disabled = !available; dl.setAttribute('aria-disabled', available ? 'false' : 'true'); }
 }
 function focusView(view){
 var el = null;
@@ -2640,7 +2713,7 @@ var html =
 '<article class="osd-card" aria-labelledby="osdTitle">' +
 '<div class="osd-preview ' + esc(s.previewVariant || '') + '">' +
 '<span class="osd-avail ' + availClass + '">' + availabilityLabel(s.availability) + '</span>' +
-esc(s.previewLabel) +
+(publicImage(s.thumbnail, s.name) || esc(s.previewLabel || '')) +
 '</div>' +
 '<div class="osd-info">' +
 '<h3 class="osd-name" id="osdTitle">' + esc(s.name) + '</h3>' +
@@ -3035,12 +3108,7 @@ var dlBtn = document.getElementById('adDownload');
 if(dlBtn) dlBtn.addEventListener('click', function(){
   if(dlBtn.disabled) return;
   var asset = ASSETS[currentRoute.id];
-  var path = asset && asset.downloadUrl ? String(asset.downloadUrl).trim() : '';
-  var url = '';
-  if(/^https:\/\//i.test(path)) url = path;
-  else if(path && !/^[a-z]+:/i.test(path) && path.charAt(0) !== '/' && window.CrabbieSupabase && window.CrabbieSupabase.supabase){
-    url = window.CrabbieSupabase.supabase.storage.from('media').getPublicUrl(path.replace(/^media\//, '')).data.publicUrl;
-  }
+  var url = safePublicUrl(asset && asset.downloadUrl, true);
   if(!url){ toast('This file is not available yet.'); return; }
   window.open(url, '_blank', 'noopener,noreferrer');
 });
@@ -3309,34 +3377,39 @@ var adminBurgerBtn = document.getElementById('adminBurger');
 var adminTopSave = document.getElementById('adminTopSave');
 function setAdminSaveStatus(state){ if(!adminSaveStat) return; adminSaveStat.className = 'admin-save-status ' + state; adminSaveStat.setAttribute('data-t', 'status.' + state); adminSaveStat.textContent = tAdmin('status.' + state); }
 function markDirty(){ if(!ADMIN_UI.dirty){ ADMIN_UI.dirty = true; setAdminSaveStatus('dirty'); refreshStickySaveBar(); } }
-async function doSaveCommit(msg){
+function currentAdminSaveScope(module){
+  if(module === 'portfolio') return ADMIN_UI.subtab.portfolio === 'categories' ? 'portfolioCategories' : 'portfolio';
+  if(module === 'assets') return ADMIN_UI.subtab.assets === 'categories' ? 'assetCategories' : 'assets';
+  if(module === 'commissions') return ADMIN_UI.subtab.commissions === 'forms' ? 'forms' : 'commissions';
+  if(module === 'about' || module === 'terms') return 'pages.' + module;
+  if(module === 'contact') return 'settings';
+  return module;
+}
+async function doSaveCommit(msg, scope){
   setAdminSaveStatus('saving');
   try {
     if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData)){
       throw new Error('Admin persistence service is unavailable.');
     }
-    await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT);
+    if(!scope || scope === 'dashboard' || scope === 'media') throw new Error('No editable module selected.');
+    await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT, scope);
     ADMIN_DATA = clone(ADMIN_DRAFT);
     ADMIN_UI.dirty = false;
     setAdminSaveStatus('saved');
     refreshStickySaveBar();
-    if(window.CrabbiePortfolio && ADMIN_DRAFT.portfolio) {
-      window.CrabbiePortfolio.apply(ADMIN_DRAFT.portfolio);
-    }
-    if(window.CrabbieAssets && ADMIN_DRAFT.assets) {
-      window.CrabbieAssets.apply(ADMIN_DRAFT.assets);
-    }
-    if(window.CrabbieCommissions && ADMIN_DRAFT.commissions) {
-      window.CrabbieCommissions.apply(ADMIN_DRAFT.commissions, ADMIN_DRAFT.forms);
-    }
-    if(window.CrabbieSiteContent && ADMIN_DRAFT.pages && ADMIN_DRAFT.settings) {
-      window.CrabbieSiteContent.apply([ADMIN_DRAFT.pages.about, ADMIN_DRAFT.pages.terms], ADMIN_DRAFT.navigation, ADMIN_DRAFT.settings);
-    }
-    toast(msg || tAdmin('toast.saved'));
   } catch(err){
     console.error('Save failed:', err);
     setAdminSaveStatus('dirty');
     toast('Save failed: ' + err.message);
+    return;
+  }
+  try {
+    var refreshModule = await import('./src/public-cms-refresh.js');
+    if(!(await refreshModule.refreshPublicCms(scope))) throw new Error('Public CMS query failed.');
+    toast(msg || tAdmin('toast.saved'));
+  } catch(err){
+    console.error('Saved, but public refresh failed:', err);
+    toast('Saved, but public refresh failed. Reload to retry.');
   }
 }
 function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); ADMIN_UI.dirty = false; setAdminSaveStatus('saved'); refreshStickySaveBar(); }
@@ -3956,7 +4029,7 @@ markDirty(); renderAdmin(module);
 $$('[data-adm-save]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 setAdminSaveStatus('saving');
-setTimeout(function(){ doSaveCommit(tAdmin('toast.saved')); }, prefersReduced() ? 0 : 380);
+setTimeout(function(){ doSaveCommit(tAdmin('toast.saved'), btn.getAttribute('data-adm-save') === 'sticky' ? currentAdminSaveScope(module) : btn.getAttribute('data-adm-save')); }, prefersReduced() ? 0 : 380);
 });
 });
 $$('[data-adm-discard]', adminContent).forEach(function(btn){
@@ -4501,7 +4574,7 @@ adminBurgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
 if(adminTopSave){
 adminTopSave.addEventListener('click', function(){
 setAdminSaveStatus('saving');
-setTimeout(function(){ doSaveCommit(tAdmin('toast.saved')); }, prefersReduced() ? 0 : 380);
+setTimeout(function(){ doSaveCommit(tAdmin('toast.saved'), currentAdminSaveScope(currentRoute.adminModule)); }, prefersReduced() ? 0 : 380);
 });
 }
 }
@@ -4546,8 +4619,9 @@ apply: function(records){
       card.setAttribute('data-project', record.slug);
       card.setAttribute('data-cat', portfolioFilterGroup(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
-      var thumb = record.thumbnail
-        ? '<div class="thumb"><img src="' + esc(record.thumbnail) + '" alt="' + esc(record.title || '') + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy"></div>'
+      var img = publicImage(record.thumbnail, record.title);
+      var thumb = img
+        ? '<div class="thumb">' + img + '</div>'
         : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span></div>';
       card.innerHTML = '<div class="cloud-tag"><span>' + esc((record.tags && record.tags[0]) || 'PROJECT') + '</span></div>' +
         thumb +
@@ -4564,6 +4638,7 @@ apply: function(records){
     if(!visible) return;
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
+    var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = publicImage(record.thumbnail, record.title) || '';
     card.setAttribute('href', '#project/' + slug);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', portfolioFilterGroup(record));
@@ -4603,8 +4678,9 @@ apply: function(records){
       card.setAttribute('data-asset', record.slug);
       card.setAttribute('data-cat', String(record.filterCat || record.categorySlug || record.cat || 'other').toLowerCase());
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
-      var preview = record.thumbnail
-        ? '<div class="item-preview"><img src="' + esc(record.thumbnail) + '" alt="' + esc(record.title || '') + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy"><span class="format">' + esc(record.format || '') + '</span></div>'
+      var img = publicImage(record.thumbnail, record.title);
+      var preview = img
+        ? '<div class="item-preview">' + img + '<span class="format">' + esc(record.format || '') + '</span></div>'
         : '<div class="item-preview"><span class="icon">' + esc(record.icon || '★') + '</span><span class="format">' + esc(record.format || '') + '</span></div>';
       card.innerHTML = preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
@@ -4623,7 +4699,7 @@ apply: function(records){
     var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
     var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
     var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
-    var icoEl = card.querySelector('.icon'); if(icoEl) icoEl.textContent = record.icon;
+    var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
     if(st) st.textContent = record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet';
     card.setAttribute('href', '#asset/' + slug);
@@ -4697,13 +4773,12 @@ apply: function(services, forms){
         var miniName = miniBtn.querySelector('.mini-name'); if(miniName) miniName.textContent = s.name || s.title || slug;
         var miniNote = miniBtn.querySelector('.mini-note'); if(miniNote) miniNote.textContent = s.priceNote || '';
         var miniPrice = miniBtn.querySelector('.mini-price'); if(miniPrice) miniPrice.textContent = s.price || '';
+        var miniIcon = miniBtn.querySelector('.mini-icon'); if(miniIcon) miniIcon.innerHTML = publicImage(s.thumbnail, s.name || s.title) || '✦';
       }
 
-      var cardBtn = document.querySelector('.comm-grid button[data-service="' + (s.name || '') + '"]');
-      if(!cardBtn && s.title){
-        cardBtn = document.querySelector('.comm-grid button[data-service="' + s.title + '"]');
-      }
-      if(!miniBtn && !cardBtn && slug){
+      var cardBtn = !s.isOtherService && slug ? document.querySelector('.comm-grid button[data-service-slug="' + slug + '"]') : null;
+      if(!cardBtn && !s.isOtherService) cardBtn = document.querySelector('.comm-grid button[data-service="' + (s.name || s.title || '') + '"]');
+      if(!miniBtn && !cardBtn && slug && s.isOtherService){
         var miniGrid = document.getElementById('miniServicesGrid');
         if(miniGrid){
           miniBtn = document.createElement('button');
@@ -4713,11 +4788,13 @@ apply: function(services, forms){
           miniBtn.setAttribute('aria-pressed', 'false');
           miniBtn.innerHTML = '<span class="mini-icon">✦</span><span><span class="mini-name">' + esc(s.name || s.title || slug) + '</span><span class="mini-note">' + esc(s.priceNote || '') + '</span></span><span class="mini-price">' + esc(s.price || '') + '</span>';
           miniGrid.appendChild(miniBtn);
+          var newMiniIcon = miniBtn.querySelector('.mini-icon'); if(newMiniIcon) newMiniIcon.innerHTML = publicImage(s.thumbnail, s.name || s.title) || '✦';
         }
       }
 
       if(cardBtn){
         cardBtn.setAttribute('data-avail', s.availability);
+        cardBtn.setAttribute('data-form', s.formType || '');
         cardBtn.setAttribute('data-service-slug', slug);
         cardBtn.setAttribute('data-service', s.name || s.title || slug);
         cardBtn.disabled = s.availability === 'closed';
@@ -4725,13 +4802,17 @@ apply: function(services, forms){
         var card = cardBtn.closest('.comm-card');
         if(card){
           card.style.display = '';
-          var tag = card.querySelector('.comm-thumb .avail');
-          if(tag){
-            tag.className = 'avail ' + availabilityClass(s.availability);
-            tag.textContent = availabilityLabel(s.availability);
+          var thumb = card.querySelector('.comm-thumb');
+          if(thumb){
+            if(!thumb.dataset.fallback) thumb.dataset.fallback = thumb.textContent.replace(/OPEN|CLOSED|BY INQUIRY/, '').trim();
+            thumb.innerHTML = '<span class="avail ' + availabilityClass(s.availability) + '">' + availabilityLabel(s.availability) + '</span>' + (publicImage(s.thumbnail, s.title || s.name) || esc(thumb.dataset.fallback));
           }
           var nameEl = card.querySelector('.comm-name'); if(nameEl) nameEl.textContent = s.title || s.name || slug;
           var descEl = card.querySelector('.comm-desc'); if(descEl) descEl.textContent = s.description || '';
+          var priceEl = card.querySelector('.comm-price'); if(priceEl) priceEl.textContent = s.price || '';
+          var mini = card.querySelector('.comm-mini'); if(mini) mini.innerHTML = '<span>' + esc(s.price || '') + '</span>' + (s.alternatePrice ? '<span>' + esc(s.alternatePrice + ' ' + (s.alternateCurrency || '')) + '</span>' : '');
+          var detailFields = [s.deliveryEstimate,s.includedFiles,s.canvas,s.commercialRule,s.extraCharacter,s.backgroundRule,s.tax,s.rush,s.privateFee];
+          card.querySelectorAll('.acc-line b').forEach(function(el, i){ if(i < detailFields.length) el.textContent = visibleCmsValue(detailFields[i]); });
         }
       }
     });
@@ -4742,7 +4823,7 @@ apply: function(services, forms){
 
     document.querySelectorAll('#miniServicesGrid [data-other-service]').forEach(function(btn){
       var slug = btn.getAttribute('data-other-service');
-      btn.style.display = liveServices[slug] ? '' : 'none';
+      btn.style.display = liveServices[slug] && OTHER_SERVICES[slug].isOtherService ? '' : 'none';
     });
 
     document.querySelectorAll('.comm-grid .comm-card').forEach(function(card){
@@ -4842,9 +4923,9 @@ apply: function(services, forms){
 };
 function renderCmsTermsContent(content){
   var layout = document.querySelector('[data-view="terms"] .tos-layout');
-  if(!layout || !content) return;
-  var normalized = String(content).replace(/\r\n/g, '\n').trim();
-  if(!normalized) return;
+  if(!layout) return;
+  var normalized = String(content || '').replace(/\r\n/g, '\n').trim();
+  if(!normalized){ layout.innerHTML = ''; return; }
   var chunks = normalized.split(/(?=^#\s+)/m).map(function(part){ return part.trim(); }).filter(Boolean);
   if(!chunks.length) return;
 
@@ -4882,18 +4963,15 @@ function applyCmsAboutPage(page){
   var view = document.querySelector('[data-view="about"]');
   if(!view || !page) return;
 
-  var name = page.name || 'Crabbie';
+  var name = visibleCmsValue(page.name);
   var title = view.querySelector('.about-hero .page-title');
-  if(title) title.innerHTML = "Hello, I'm <span class=\"hi\">" + esc(name) + "</span>.";
+  if(title) title.innerHTML = name ? "Hello, I'm <span class=\"hi\">" + esc(name) + "</span>." : 'About';
 
   var bio = view.querySelector('.about-hero .bio');
-  if(bio) bio.textContent = page.bio || page.content || '';
+  if(bio) bio.textContent = visibleCmsValue(page.bio || page.content);
 
-  if(page.profileImage){
-    var profile = view.querySelector('.profile-inner');
-    if(profile) profile.innerHTML = '<img src="' + esc(page.profileImage) + '" alt="' + esc(name) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
-  }
-
+  var profile = view.querySelector('.profile-inner');
+  if(profile) profile.innerHTML = publicImage(page.profileImage, name) || 'PROFILE IMAGE';
   if(Array.isArray(page.skills)){
     var cloud = view.querySelector('.chip-cloud');
     if(cloud) cloud.innerHTML = page.skills.map(function(skill){
@@ -4907,6 +4985,16 @@ function applyCmsAboutPage(page){
       return '<div class="exp-card"><span class="tag-year">' + esc(item.tag || '') + '</span><h4>' + esc(item.title || '') + '</h4><p>' + esc(item.body || '') + '</p></div>';
     }).join('');
   }
+  var linksRoot = view.querySelector('#aboutCmsLinks');
+  if(!linksRoot){
+    linksRoot = document.createElement('div');
+    linksRoot.id = 'aboutCmsLinks';
+    linksRoot.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;';
+    if(bio) bio.insertAdjacentElement('afterend', linksRoot);
+  }
+  if(linksRoot) linksRoot.innerHTML = (Array.isArray(page.links) ? page.links : []).map(function(link){
+    return publicLink(link.url, link.label || link.title);
+  }).join('');
 }
 
 function applyCmsSiteSettings(settings){
@@ -5032,6 +5120,8 @@ apply: function(pages, nav, settings){
   applyCmsSiteSettings(settings);
 
   if(Array.isArray(pages)){
+    if(!pages.some(function(page){ return page.slug === 'about'; })) applyCmsAboutPage({name:'',bio:'',profileImage:'',skills:[],experience:[],links:[]});
+    if(!pages.some(function(page){ return page.slug === 'terms'; })) renderCmsTermsContent('');
     pages.forEach(function(page){
       if(page.slug === 'about') applyCmsAboutPage(page);
       if(page.slug === 'terms'){
@@ -5040,7 +5130,7 @@ apply: function(pages, nav, settings){
           var title = view.querySelector('.page-title');
           if(title && page.title) title.textContent = page.title;
         }
-        if(page.content) renderCmsTermsContent(page.content);
+        renderCmsTermsContent(page.content);
       }
     });
   }

@@ -51,11 +51,17 @@ const sdkFixture = `
 export function createClient(){
   let session = null;
   const subscribers = [];
-  const query = new Proxy({}, { get: (_, key) => key === 'then'
-    ? (done) => Promise.resolve({data: [], error: null}).then(done)
-    : () => query });
+  const query = table => new Proxy({}, { get: (_, key) => key === 'then'
+    ? (done) => Promise.resolve({data: (window.__routerRows || {})[table] || [], error: null}).then(done)
+    : (...args) => {
+        if (['upsert', 'insert', 'update', 'delete'].includes(key)) {
+          (window.__routerWrites ||= []).push({table, operation: key});
+          if (key === 'upsert') (window.__routerRows ||= {})[table] = Array.isArray(args[0]) ? args[0] : [args[0]];
+        }
+        return query(table);
+      } });
   return {
-    from: () => query,
+    from: table => query(table),
     storage: {from: () => ({getPublicUrl: path => ({data: {publicUrl: 'https://router-test.supabase.co/' + path}})})},
     auth: {
       getSession: async () => ({data: {session}, error: null}),
@@ -113,6 +119,68 @@ try {
     console.log(`PASS ${path} -> ${expected} (one visible active view)`);
     if (path === '/') await page.screenshot({path: resolve(tmpdir(), 'crabbie-router-home.png')});
     if (path === '/admin') await page.screenshot({path: resolve(tmpdir(), 'crabbie-router-admin.png')});
+  }
+  if (!diagnose && livePublic) {
+    const readRows = async (table, select, filter = '') => {
+      const response = await fetch(publicConfig.url + '/rest/v1/' + table + '?select=' + encodeURIComponent(select) + filter, {headers: {apikey: publicConfig.key}});
+      const rows = await response.json();
+      assert.equal(response.ok, true, table + ' public read: ' + JSON.stringify(rows));
+      return rows;
+    };
+    const [portfolioRows, assetRows, serviceRows, pageRows, navRows, settingRows] = await Promise.all([
+      readRows('portfolio_projects', 'slug,title,thumbnail_path,cover_path,content', '&published=eq.true'),
+      readRows('free_assets', 'slug,title,thumbnail_path,file_path,availability,metadata', '&published=eq.true'),
+      readRows('commission_services', 'slug,title,thumbnail_path,details', '&published=eq.true'),
+      readRows('cms_pages', 'slug,title,content,data', '&published=eq.true'),
+      readRows('cms_navigation', 'title,url', '&published=eq.true'),
+      readRows('site_settings', 'key,value')
+    ]);
+    const colorFiesta = portfolioRows.find(row => row.slug === 'color-fiesta');
+    assert.ok(colorFiesta && colorFiesta.thumbnail_path, 'Published color-fiesta row with thumbnail required for read-only verification');
+    await page.goto(origin + '/#portfolio', {waitUntil:'load'});
+    await page.waitForFunction(title => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === title, colorFiesta.title);
+    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"] .thumb img').getAttribute('src'), new URL(colorFiesta.thumbnail_path).href);
+    await page.evaluate(() => { location.hash = '#project/color-fiesta'; });
+    await page.locator('#pdTitle').waitFor({state:'visible'});
+    assert.equal(await page.locator('#pdTitle').innerText(), colorFiesta.title);
+    if (colorFiesta.cover_path) assert.equal(await page.locator('#pdCover img').getAttribute('src'), new URL(colorFiesta.cover_path).href);
+    else assert.equal(await page.locator('#pdCover img').count(), 0);
+    assert.doesNotMatch(await page.locator('[data-view="project-detail"]').innerText(), /\[PROJECT |\bYEAR\b/);
+
+    if (assetRows.length) {
+      const asset = assetRows[0];
+      await page.waitForFunction(slug => !!document.querySelector('#faGrid [data-asset="' + slug + '"]'), asset.slug);
+      await page.evaluate(slug => { location.hash = '#asset/' + slug; }, asset.slug);
+      await page.locator('#adTitle').waitFor({state:'visible'});
+      assert.equal(await page.locator('#adTitle').innerText(), asset.title);
+      assert.equal(await page.locator('#adDownload').isEnabled(), asset.file_path != null && asset.file_path !== '' && asset.availability === 'available');
+      if (asset.thumbnail_path) assert.equal(await page.locator('.ad-preview img').getAttribute('src'), new URL(asset.thumbnail_path).href);
+      assert.doesNotMatch(await page.locator('[data-view="free-asset-detail"]').innerText(), /\[(?:DATE|VERSION|CREDIT REQUIREMENT|LICENSE CONTENT FROM CMS|UPDATE NOTE)\]/);
+    }
+    const about = pageRows.find(row => row.slug === 'about');
+    if (about) {
+      await page.evaluate(() => { location.hash = '#about'; });
+      await page.locator('[data-view="about"] .about-hero').waitFor({state:'visible'});
+      assert.match(await page.locator('[data-view="about"] .page-title').innerText(), new RegExp(about.data?.name || ''));
+    }
+    const terms = pageRows.find(row => row.slug === 'terms');
+    if (terms?.content) {
+      await page.evaluate(() => { location.hash = '#terms'; });
+      await page.locator('[data-view="terms"] .tos-layout').waitFor({state:'visible'});
+      assert.ok((await page.locator('[data-view="terms"] .tos-layout').innerText()).length > 30);
+    }
+    const normal = serviceRows.find(row => row.details?.isOtherService === false);
+    if (normal) {
+      await page.evaluate(() => { location.hash = '#commissions'; });
+      await page.locator('[data-view="commissions"].is-active').waitFor({state:'visible'});
+      assert.equal(await page.locator('.comm-grid button[data-service-slug="' + normal.slug + '"]').count(), 1);
+      assert.equal(await page.locator('.comm-grid button[data-service-slug="' + normal.slug + '"]').locator('xpath=../..').locator('.comm-name').innerText(), normal.title);
+    }
+    await page.waitForFunction(count => document.querySelectorAll('#mainNav .nav-links a').length === count, navRows.length);
+    const branding = settingRows.find(row => row.key === 'branding')?.value;
+    if (branding?.title) assert.equal(await page.locator('#mainNav .brand span').innerText(), branding.title);
+    assert.deepEqual(errors, [], 'Live public CMS navigation must not throw');
+    console.log('PASS read-only live Supabase public CMS DOM: Portfolio, asset, Commission, About, Terms, navigation, settings');
   }
   if (!diagnose && !livePublic) {
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -224,6 +292,108 @@ try {
     await page.getByRole('heading', {name: 'Sức khỏe dữ liệu'}).waitFor({state: 'visible'});
     assert.deepEqual(errors, [], 'Content Health UI must not throw');
     console.log('PASS admin content health dashboard, checklist, publish guard, media preview/clear, EN/VI (SDK fixture, no writes)');
+    const scopedWrites = await page.evaluate(async () => {
+      const draft = {
+        portfolio: [{id:'fixture-project',slug:'fixture-project',title:'Fixture',published:false}],
+        assets: [{id:'fixture-asset',slug:'fixture-asset',title:'Fixture',published:false}],
+        commissions: [{id:'fixture-service',slug:'fixture-service',title:'Fixture',published:false}],
+        forms: [{id:'fixture-form',slug:'fixture-form',title:'Fixture',published:false}],
+        pages: { about: {title:'About',bio:'Bio'}, terms: {title:'Terms',content:'Terms'} },
+        navigation: [{id:'00000000-0000-0000-0000-000000000001',title:'Nav',url:'#nav',published:true}],
+        settings: { branding: {title:'CRABBIE'} },
+        requests: [{id:'00000000-0000-0000-0000-000000000002',status:'NEW',notes:'Note'}]
+      };
+      const results = {};
+      for (const scope of ['portfolio', 'assets', 'commissions', 'forms', 'pages.about', 'pages.terms', 'navigation', 'settings', 'requests']) {
+        window.__routerWrites = [];
+        await window.CrabbieAdminCrud.persistAdminData(draft, scope);
+        results[scope] = window.__routerWrites.map(w => w.table);
+      }
+      return results;
+    });
+    assert.deepEqual(scopedWrites['portfolio'], ['portfolio_projects']);
+    assert.deepEqual(scopedWrites['assets'], ['free_assets']);
+    assert.deepEqual(scopedWrites['commissions'], ['commission_services']);
+    assert.deepEqual(scopedWrites['forms'], ['commission_forms']);
+    assert.deepEqual(scopedWrites['pages.about'], ['cms_pages']);
+    assert.deepEqual(scopedWrites['pages.terms'], ['cms_pages']);
+    assert.deepEqual(scopedWrites['navigation'], ['cms_navigation']);
+    assert.deepEqual(scopedWrites['settings'], ['site_settings']);
+    assert.deepEqual(scopedWrites['requests'], ['commission_requests']);
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{
+        slug:'color-fiesta',title:'DB title',desc:'DB description',cat:'Illustration',tags:[],
+        thumbnail:'',cover:'',blocks:[],credits:'',year:''
+      }]);
+      window.CrabbiePortfolio.apply([{
+        slug:'color-fiesta',title:'New DB title',desc:'New description',cat:'Illustration',tags:['ART'],
+        thumbnail:'https://example.test/project-thumb.png',cover:'https://example.test/project-cover.png',
+        blocks:[{type:'heading',text:'Process'},{type:'text',text:'<script>window.__unsafe=1</script>'},{type:'image',url:'https://example.test/process.png',alt:'Process image'}],
+        credits:'Artist',year:'2026',
+        externalLinks:[{title:'Source',url:'https://example.test/source'}]
+      }]);
+    });
+    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"] .thumb img').getAttribute('src'), 'https://example.test/project-thumb.png');
+    await page.evaluate(() => { location.hash = '#project/color-fiesta'; });
+    await page.locator('#pdTitle').waitFor({state:'visible'});
+    assert.equal(await page.locator('#pdTitle').innerText(), 'New DB title');
+    assert.equal(await page.locator('#pdCover img').getAttribute('src'), 'https://example.test/project-cover.png');
+    assert.match(await page.locator('#pdBlocks').innerText(), /Process/);
+    assert.equal(await page.locator('#pdBlocks script').count(), 0);
+    assert.equal(await page.evaluate(() => window.__unsafe || 0), 0);
+
+    await page.evaluate(() => {
+      window.CrabbieAssets.apply([{slug:'petal-pack',title:'DB asset',cat:'Brushes',format:'ZIP',icon:'★',thumbnail:'',availability:'available',downloadUrl:''}]);
+      window.CrabbieAssets.apply([{slug:'petal-pack',title:'DB asset',cat:'Brushes',format:'ZIP',icon:'★',thumbnail:'https://example.test/asset-thumb.png',availability:'available',downloadUrl:'media/asset.zip'}]);
+      location.hash = '#asset/petal-pack';
+    });
+    await page.locator('#adTitle').waitFor({state:'visible'});
+    assert.equal(await page.locator('#faGrid [data-asset="petal-pack"] .item-preview img').getAttribute('src'), 'https://example.test/asset-thumb.png');
+    assert.equal(await page.locator('.ad-preview img').getAttribute('src'), 'https://example.test/asset-thumb.png');
+    assert.equal(await page.locator('#adDownload').isEnabled(), true);
+    await page.evaluate(() => { window.__opened = ''; window.open = url => { window.__opened = url; }; });
+    await page.locator('#adDownload').click();
+    assert.match(await page.evaluate(() => window.__opened), /asset\.zip/);
+    await page.evaluate(() => {
+      window.CrabbieAssets.apply([{slug:'petal-pack',title:'DB asset',cat:'Brushes',format:'ZIP',icon:'★',thumbnail:'',availability:'available',downloadUrl:''}]);
+    });
+    assert.equal(await page.locator('.ad-preview img').count(), 0);
+    assert.equal(await page.locator('#adDownload').isEnabled(), false);
+
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply([{slug:'about',title:'About',name:'DB artist',bio:'DB bio',profileImage:'',skills:[],experience:[],links:[{label:'Email',url:'artist@example.test'},{label:'Web',url:'https://example.test'}]}], null, null);
+      location.hash = '#about';
+    });
+    await page.locator('[data-view="about"] .about-hero').waitFor({state:'visible'});
+    assert.equal(await page.locator('[data-view="about"] a[href="mailto:artist@example.test"]').count(), 1);
+    assert.equal(await page.locator('[data-view="about"] a[href="https://example.test/"]').count(), 1);
+
+    await page.evaluate(() => {
+      window.CrabbieCommissions.apply([
+        {slug:'bust-up',id:'bust-up',name:'Bust Up',title:'Bust Up',description:'DB normal',price:'$70',availability:'open',thumbnail:'https://example.test/normal.png',isOtherService:false},
+        {slug:'static-emote',id:'static-emote',name:'Static Emote / Badge',title:'Static Emote / Badge',description:'DB mini',price:'$25',availability:'open',thumbnail:'https://example.test/mini.png',isOtherService:true,chips:[]}
+      ], null);
+      location.hash = '#commissions';
+    });
+    await page.locator('[data-view="commissions"].is-active').waitFor({state:'visible'});
+    assert.equal(await page.locator('.comm-card [data-service-slug="bust-up"]').count(), 1);
+    assert.equal(await page.locator('.comm-card .comm-thumb img').first().getAttribute('src'), 'https://example.test/normal.png');
+    assert.equal(await page.locator('#miniServicesGrid [data-other-service="static-emote"] .mini-icon img').getAttribute('src'), 'https://example.test/mini.png');
+    console.log('PASS public CMS card/detail rendering, safe blocks, asset download, About links, Commission thumbnails (SDK fixture)');
+    await page.evaluate(() => {
+      window.__routerRows = {};
+      window.__routerWrites = [];
+      location.hash = '#admin/portfolio';
+    });
+    await page.locator('#adminNav [data-admin-module="portfolio"][aria-current="page"]').waitFor({state:'visible'});
+    await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Saved CMS title');
+    await page.locator('[data-adm-path="portfolio.color-fiesta.thumbnail"]').fill('https://example.test/saved-thumb.png');
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === 'Saved CMS title');
+    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"] .thumb img').getAttribute('src'), 'https://example.test/saved-thumb.png');
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
+    assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
+    console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
   }
 } finally {
   if (browser) await browser.close();

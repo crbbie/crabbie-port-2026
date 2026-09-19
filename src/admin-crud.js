@@ -265,12 +265,15 @@ export async function loadAllAdminDataFromSupabase() {
   }
 }
 
-export async function persistAdminDataToSupabase(draft) {
+export async function persistAdminDataToSupabase(draft, scope = 'all') {
   if (!isConfigured || !supabase) {
     throw new Error('Supabase is not configured.');
   }
 
+  const save = (name) => scope === 'all' || scope === name;
   const categoryIds = { portfolio: new Map(), asset: new Map() };
+  (draft.portfolioCategories || []).forEach((rec) => { if (rec.dbId) categoryIds.portfolio.set(rec.slug || rec.id, rec.dbId); });
+  (draft.assetCategories || []).forEach((rec) => { if (rec.dbId) categoryIds.asset.set(rec.slug || rec.id, rec.dbId); });
   const persistCategoryList = async (kind, list) => {
     if (!Array.isArray(list)) return;
     for (let idx = 0; idx < list.length; idx++) {
@@ -308,11 +311,11 @@ export async function persistAdminDataToSupabase(draft) {
     }
   };
 
-  await persistCategoryList('portfolio', draft.portfolioCategories);
-  await persistCategoryList('asset', draft.assetCategories);
+  if (save('portfolioCategories')) await persistCategoryList('portfolio', draft.portfolioCategories);
+  if (save('assetCategories')) await persistCategoryList('asset', draft.assetCategories);
 
   // 1. Portfolio Projects
-  if (Array.isArray(draft.portfolio)) {
+  if (save('portfolio') && Array.isArray(draft.portfolio)) {
     const portfolioRows = draft.portfolio.map((p, idx) => {
       const category = (draft.portfolioCategories || []).find((cat) => (cat.slug || cat.id) === p.category);
       const row = formatPortfolioRow({ ...p, category: category ? category.title : p.category }, idx);
@@ -325,7 +328,7 @@ export async function persistAdminDataToSupabase(draft) {
   }
 
   // 2. Free Assets
-  if (Array.isArray(draft.assets)) {
+  if (save('assets') && Array.isArray(draft.assets)) {
     const assetRows = draft.assets.map((a, idx) => {
       const category = (draft.assetCategories || []).find((cat) => (cat.slug || cat.id) === a.category);
       const row = formatAssetRow({ ...a, category: category ? category.title : a.category }, idx);
@@ -338,14 +341,14 @@ export async function persistAdminDataToSupabase(draft) {
   }
 
   // 3. Commission Services
-  if (Array.isArray(draft.commissions)) {
+  if (save('commissions') && Array.isArray(draft.commissions)) {
     const commRows = draft.commissions.map((c, idx) => formatCommissionRow(c, idx));
     const { error: cErr } = await supabase.from('commission_services').upsert(commRows, { onConflict: 'slug' });
     if (cErr) throw new Error(`Commissions save failed: ${cErr.message}`);
   }
 
   // 4. Commission Forms
-  if (Array.isArray(draft.forms)) {
+  if (save('forms') && Array.isArray(draft.forms)) {
     const formRows = draft.forms.map((f) => ({
       slug: f.slug || f.id,
       title: f.title,
@@ -358,19 +361,19 @@ export async function persistAdminDataToSupabase(draft) {
   }
 
   // 5. Pages
-  if (draft.pages) {
-    if (draft.pages.about) {
+  if (draft.pages && (save('pages.about') || save('pages.terms'))) {
+    if (save('pages.about') && draft.pages.about) {
       const { error: abErr } = await supabase.from('cms_pages').upsert([formatPageRow('about', draft.pages.about)], { onConflict: 'slug' });
       if (abErr) throw new Error(`About page save failed: ${abErr.message}`);
     }
-    if (draft.pages.terms) {
+    if (save('pages.terms') && draft.pages.terms) {
       const { error: tmErr } = await supabase.from('cms_pages').upsert([formatPageRow('terms', draft.pages.terms)], { onConflict: 'slug' });
       if (tmErr) throw new Error(`Terms page save failed: ${tmErr.message}`);
     }
   }
 
   // 6. Navigation
-  if (Array.isArray(draft.navigation)) {
+  if (save('navigation') && Array.isArray(draft.navigation)) {
     for (let idx = 0; idx < draft.navigation.length; idx++) {
       const n = draft.navigation[idx];
       const isUUID = n.id && n.id.length > 30;
@@ -395,7 +398,7 @@ export async function persistAdminDataToSupabase(draft) {
   }
 
   // 7. Settings
-  if (draft.settings) {
+  if (save('settings') && draft.settings) {
     const settingKeys = Object.keys(draft.settings);
     const settingRows = settingKeys.map((k) => formatSettingRow(k, draft.settings[k]));
     const { error: sErr } = await supabase.from('site_settings').upsert(settingRows, { onConflict: 'key' });
@@ -403,7 +406,7 @@ export async function persistAdminDataToSupabase(draft) {
   }
 
   // 8. Requests notes / status
-  if (Array.isArray(draft.requests)) {
+  if (save('requests') && Array.isArray(draft.requests)) {
     for (const r of draft.requests) {
       if (r.id && r.id.length > 30) {
         const requestRes = await supabase.from('commission_requests').update({

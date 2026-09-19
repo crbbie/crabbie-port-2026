@@ -1,26 +1,24 @@
-﻿export function mapCmsPage(row, fallback = {}) {
+export function mapCmsPage(row, fallback = {}) {
+  if (!row) return { ...fallback };
   const data = row.data || {};
   return {
-    ...fallback,
-    slug: row.slug || fallback.slug,
-    title: row.title || fallback.title || row.slug,
-    content: row.content ?? fallback.content ?? '',
-    published: row.published !== undefined ? row.published : (fallback.published ?? true),
     ...data,
-    data: data,
-    title: row.title || fallback.title || row.slug,
-    content: row.content ?? fallback.content ?? ''
+    slug: row.slug ?? '',
+    title: row.title ?? '',
+    content: row.content ?? '',
+    published: !!row.published,
+    data
   };
 }
 
 export function mapNavigationItem(row, fallback = {}) {
+  if (!row) return { ...fallback };
   return {
-    ...fallback,
-    id: row.id || fallback.id,
-    title: row.title || fallback.title || '',
-    url: row.url || fallback.url || '',
-    published: row.published !== undefined ? row.published : (fallback.published ?? true),
-    sort_order: row.sort_order !== undefined ? row.sort_order : (fallback.sort_order ?? 0)
+    id: row.id ?? '',
+    title: row.title ?? '',
+    url: row.url ?? '',
+    published: !!row.published,
+    sort_order: row.sort_order ?? 0
   };
 }
 
@@ -28,7 +26,7 @@ export function mapSiteSettings(rows, fallback = {}) {
   const settings = { ...fallback };
   if (Array.isArray(rows)) {
     rows.forEach((row) => {
-      if (row.key) settings[row.key] = row.value || {};
+      if (row.key) settings[row.key] = row.value ?? {};
     });
   }
   return settings;

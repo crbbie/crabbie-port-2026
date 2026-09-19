@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { mapFreeAsset } from './free-assets-core.js';
 
 const fallback = {
@@ -42,7 +42,7 @@ assert.equal(mapped.format, 'SVG');
 assert.equal(mapped.icon, '★');
 assert.equal(mapped.version, '2.0');
 assert.equal(mapped.downloadUrl, 'https://supabase.co/storage/asset.svg');
-assert.equal(mapped.credit, 'Credit Crabbie');
+assert.equal(mapped.credit, ''); // DB row is authoritative when metadata is absent.
 assert.deepEqual(mapped.tags, ['Elements', 'SVG']);
 
 console.log('Free Assets mapping test passed.');
