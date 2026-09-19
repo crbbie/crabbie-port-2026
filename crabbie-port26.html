@@ -3101,13 +3101,34 @@ if(t){ e.preventDefault(); smoothScrollTo(document.getElementById(t.getAttribute
 t = e.target.closest('[data-goto]');
 if(t){
   e.preventDefault();
-  jelly(t);
   var gotoTarget = t.getAttribute('data-goto');
-  if(t.matches('.hero-ctas .btn') && !prefersReduced()){
-    setTimeout(function(){ navigate(gotoTarget); }, 550);
-  } else {
-    navigate(gotoTarget);
+
+  if(t.matches('.hero-ctas .btn')){
+    if(prefersReduced() || typeof t.animate !== 'function'){
+      navigate(gotoTarget);
+      return;
+    }
+
+    var heroJelly = t.animate([
+      { transform:'translateZ(0) scale(1, 1)', offset:0 },
+      { transform:'translateZ(0) scale(1.14, .84)', offset:.22 },
+      { transform:'translateZ(0) scale(.92, 1.10)', offset:.42 },
+      { transform:'translateZ(0) scale(1.06, .95)', offset:.60 },
+      { transform:'translateZ(0) scale(.97, 1.03)', offset:.78 },
+      { transform:'translateZ(0) scale(1, 1)', offset:1 }
+    ], {
+      duration:550,
+      easing:'cubic-bezier(.36,.07,.19,.97)'
+    });
+
+    heroJelly.addEventListener('finish', function(){
+      navigate(gotoTarget);
+    }, { once:true });
+    return;
   }
+
+  jelly(t);
+  navigate(gotoTarget);
   return;
 }
 });
