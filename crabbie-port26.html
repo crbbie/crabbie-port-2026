@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="--pink: #ffcce1; --pink-hot: #ffa3c6; --purple: #cfb3ff; --berry: #a78696; --purple-hot: #f3b8ff; --blue-hot: #80bfff; --yellow: #ffeb99; --yellow-hot: #ffc17a; --yellow-light: #ffea8f;" class="">
+<html lang="en" style="--pink: #ffcce1; --pink-hot: #ffa3c6; --purple: #cfb3ff; --berry: #a78696; --purple-hot: #f3b8ff; --blue-hot: #80bfff; --yellow: #ffeb99; --yellow-hot: #ffc17a; --yellow-light: #ffea8f;" class="cms-content-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,6 +63,20 @@ body::before{
     radial-gradient(1200px 900px at 12% 5%, rgba(253, 234, 221, 0.55) 0%, transparent 55%),
     radial-gradient(900px 800px at 88% 40%, rgba(253, 234, 221, 0.5) 0%, transparent 60%),
     linear-gradient(180deg, #fdeadd 0%, #fdeadd 22%, #fde4da 45%, #ffd1f7 68%, #edd1ff 86%, #edd1ff 100%);
+}
+
+/* Prevent first-paint prototype content from flashing before CMS hydration. */
+html.cms-content-pending .nav-shell,
+html.cms-content-pending .view:not([data-view="admin"]),
+html.cms-content-pending footer{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+html.cms-content-ready .nav-shell,
+html.cms-content-ready .view:not([data-view="admin"]),
+html.cms-content-ready footer{
+  transition:opacity .35s ease;
 }
 
 a{color:inherit; text-decoration:none;}
@@ -5926,7 +5940,31 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
     later(function(){
       logo.style.animation = 'homeTransitionLogoIn 780ms cubic-bezier(.16,.9,.22,1.16) forwards';
     },240);
-    later(finish,1450);
+    later(function(){
+      if(window.__CRABBIE_SITE_CONTENT_HYDRATED__){
+        finish();
+        return;
+      }
+
+      var finished = false;
+      function continueAfterCms(){
+        if(finished) return;
+        finished = true;
+        window.removeEventListener('crabbie:site-content-ready', continueAfterCms);
+        finish();
+      }
+
+      window.addEventListener('crabbie:site-content-ready', continueAfterCms, { once:true });
+
+      /* Safety fallback: never trap the visitor behind the overlay forever. */
+      later(function(){
+        if(!finished){
+          document.documentElement.classList.remove('cms-content-pending');
+          document.documentElement.classList.add('cms-content-ready');
+          continueAfterCms();
+        }
+      },5000);
+    },1450);
   });
 })();
 </script>
