@@ -55,7 +55,6 @@ body{
   overflow-x:hidden;
   position:relative;
   min-height:100vh;
-  padding-top:34px;
 }
 
 body::before{
@@ -75,7 +74,7 @@ button{font:inherit; color:inherit;}
 /* ============================================================
    NAV
    ============================================================ */
-.nav-shell{position:sticky; top:0; z-index:60; padding:0 28px; margin-top:0;}
+.nav-shell{position:sticky; top:0; z-index:60; padding:18px 28px 0; margin-top:0;}
 .nav{
   max-width:1280px; margin:0 auto;
   display:flex; align-items:center; gap:14px;
@@ -617,7 +616,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 }
 @media (max-width: 720px){
   .wrap{ padding: 0 20px; }
-  .nav-shell{ padding:0 14px; margin-top:0; top:0;}
+  .nav-shell{ padding:12px 14px 0; margin-top:0; top:0;}
   .nav{ padding:8px 10px 8px 16px; gap:8px;}
   .nav-links{ display:none;}
   .brand{ font-size:18px;}
@@ -679,7 +678,6 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
 body.is-loading .nav-shell, body.is-loading footer{ display:none !important; }
 body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
-body.is-loading, body.admin-mode{ padding-top:0; }
 
 /* ---- Public lang toggle ---- */
 .lang button{padding:5px 11px; border-radius:999px; cursor:pointer;border:none; background:none;font-family:inherit; font-weight:inherit; font-size:inherit;color:var(--berry-soft); transition:.25s;}
@@ -1182,7 +1180,6 @@ html.home-transition-pending #homeBloomTransition{display:grid;}
 }
 
 /* ---------- HOME POST-LOADING STAGGERED REVEAL ---------- */
-html.home-reveal-sequence .nav-shell,
 html.home-reveal-sequence .view[data-view="home"] .hero,
 html.home-reveal-sequence .view[data-view="home"] .works,
 html.home-reveal-sequence .view[data-view="home"] .assets,
@@ -1196,17 +1193,6 @@ html.home-reveal-sequence footer{
   will-change:opacity,translate;
 }
 
-/* The nav already has its own transform-based entrance animation.
-   Pause it during this one-time Home reveal so the two systems do not fight. */
-html.home-reveal-sequence .nav-shell{
-  animation:none!important;
-}
-
-html.home-reveal-sequence.home-reveal-active .nav-shell{
-  opacity:1;
-  translate:0 0;
-  transition-delay:.04s;
-}
 html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .hero{
   opacity:1;
   translate:0 0;
