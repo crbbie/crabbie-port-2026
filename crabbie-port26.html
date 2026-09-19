@@ -1186,37 +1186,37 @@ html.home-reveal-sequence .view[data-view="home"] .assets,
 html.home-reveal-sequence .view[data-view="home"] .cta,
 html.home-reveal-sequence footer{
   opacity:0;
-  translate:0 28px;
+  translate:0 40px;
   transition:
-    opacity .8s cubic-bezier(.25,.46,.45,.94),
-    translate .8s cubic-bezier(.25,.46,.45,.94);
+    opacity 1s cubic-bezier(.25,.46,.45,.94),
+    translate 1s cubic-bezier(.25,.46,.45,.94);
   will-change:opacity,translate;
 }
 
 html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .hero{
   opacity:1;
   translate:0 0;
-  transition-delay:.14s;
+  transition-delay:.12s;
 }
 html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .works{
   opacity:1;
   translate:0 0;
-  transition-delay:.26s;
+  transition-delay:.24s;
 }
 html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .assets{
   opacity:1;
   translate:0 0;
-  transition-delay:.38s;
+  transition-delay:.36s;
 }
 html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .cta{
   opacity:1;
   translate:0 0;
-  transition-delay:.50s;
+  transition-delay:.48s;
 }
 html.home-reveal-sequence.home-reveal-active footer{
   opacity:1;
   translate:0 0;
-  transition-delay:.62s;
+  transition-delay:.60s;
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -5890,26 +5890,26 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
     animateSparkles();
 
     later(function(){
-      overlay.style.animation = 'homeTransitionOverlayOut 360ms ease forwards';
+      overlay.style.animation = 'homeTransitionOverlayOut 800ms ease forwards';
     },360);
 
+    /* Wait for the full 0.8s overlay fade before revealing Home content. */
     later(function(){
       overlay.classList.add('is-hidden');
       root.classList.remove('home-transition-pending');
 
-      /* Reveal the real Home content only after the loading overlay is gone. */
       requestAnimationFrame(function(){
         requestAnimationFrame(function(){
           root.classList.add('home-reveal-active');
         });
       });
 
-      /* Clean up one-time reveal classes after the stagger finishes. */
+      /* 1s reveal + staggered delays; clean up only after everything settles. */
       later(function(){
         root.classList.remove('home-reveal-active');
         root.classList.remove('home-reveal-sequence');
-      },1550);
-    },760);
+      },1800);
+    },1160);
   }
 
   reset();
