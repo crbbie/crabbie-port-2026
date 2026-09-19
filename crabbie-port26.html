@@ -5342,5 +5342,16 @@ window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 
 })();
 </script>
+
+<script>
+document.querySelectorAll('.hero-ctas .btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    this.classList.add('is-jelly');
+    this.addEventListener('animationend', () => {
+      this.classList.remove('is-jelly');
+    }, { once: true });
+  });
+});
+</script>
 </body>
 </html>
