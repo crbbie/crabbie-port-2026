@@ -1154,6 +1154,12 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .view[data-view="home"].is-active .works-grid  > .work,
 .view[data-view="home"].is-active .assets-grid > .item{
   animation: animFloatIn .8s var(--ease-out-soft) both;
+  transition: translate .35s ease, box-shadow .35s ease;
+  translate: 0 0;
+}
+.view[data-view="home"].is-active .works-grid > .work:hover,
+.view[data-view="home"].is-active .assets-grid > .item:hover{
+  translate: 0 -8px;
 }
 .view[data-view="home"].is-active .works-grid > .work:nth-child(1){ animation-delay: .10s; }
 .view[data-view="home"].is-active .works-grid > .work:nth-child(2){ animation-delay: .20s; }
@@ -1428,13 +1434,16 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
    HOME INTERACTION MOTION
    ============================================================ */
 @keyframes cardShake{
-  0%,100% { transform: translateX(0) rotate(0deg); }
-  25%     { transform: translateX(-5px) rotate(-2deg); }
-  75%     { transform: translateX(5px) rotate(2deg); }
+  0%   { transform: translateX(0) rotate(0deg); }
+  20%  { transform: translateX(-6px) rotate(-2deg); }
+  40%  { transform: translateX(6px) rotate(2deg); }
+  60%  { transform: translateX(-4px) rotate(-1deg); }
+  80%  { transform: translateX(4px) rotate(1deg); }
+  100% { transform: translateX(0) rotate(0deg); }
 }
 .view[data-view="home"].is-active .work.is-shaking,
 .view[data-view="home"].is-active .item.is-shaking{
-  animation: cardShake .4s ease-in-out both !important;
+  animation: cardShake .5s ease-in-out both !important;
 }
 
 @keyframes gentleRotate{
@@ -2685,7 +2694,7 @@ card.classList.add('is-shaking');
 card.addEventListener('animationend', function(){
 card.classList.remove('is-shaking');
 }, { once:true });
-}, index * 100);
+}, index * 120);
 });
 });
 }
