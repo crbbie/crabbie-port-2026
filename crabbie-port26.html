@@ -5127,7 +5127,26 @@ confirmDelete(name, async function(){
     if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile)){
       throw new Error('Media delete service is unavailable.');
     }
-    var deleteResult = await window.CrabbieAdminMedia.deleteMediaFile(id, m ? m.storagePath : null);
+    var deleteResult = await window.CrabbieAdminMedia.deleteMediaFile(id, m ? m.storagePath : null, { saved: ADMIN_DATA, draft: ADMIN_DRAFT });
+    if(deleteResult && deleteResult.blocked){
+      /* Referenced media is blocked outright: nothing was removed anywhere. */
+      var usedIn = (deleteResult.usages || []).slice(0, 3).map(function(u){ return u.label; }).join('; ');
+      var more = (deleteResult.usages || []).length > 3 ? ' …' : '';
+      toast(deleteResult.error + (usedIn ? ' Used in: ' + usedIn + more : ''));
+      return;
+    }
+    if(deleteResult && deleteResult.pending){
+      /* Cleanup is incomplete: keep the recoverable tombstone and refresh. */
+      toast('Deletion is incomplete: ' + (deleteResult.error || 'cleanup failed') + ' Retry the deletion to finish.');
+      if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.listMediaFiles){
+        try{
+          var pendingList = await window.CrabbieAdminMedia.listMediaFiles();
+          if(Array.isArray(pendingList)){ ADMIN_DATA.media = pendingList; ADMIN_DRAFT.media = pendingList.slice(); }
+        }catch(refreshErr){ console.warn('Media refresh after incomplete delete failed:', refreshErr); }
+      }
+      renderAdmin('media');
+      return;
+    }
     if(!deleteResult || !deleteResult.success){
       throw new Error(deleteResult && deleteResult.error ? deleteResult.error : 'Media delete failed.');
     }
@@ -5961,6 +5980,11 @@ apply: function(pages, nav, settings){
 
   applyCmsNavigation(nav);
 }
+};
+/* Prompt 3: media safety verifies references against the saved snapshot and the
+   current draft before any destructive Storage or database work. */
+window.CrabbieAdminUsageProvider = function(){
+  return { saved: ADMIN_DATA, draft: ADMIN_DRAFT };
 };
 window.CrabbieAdminAuth = {
 /* Unsaved admin work is owned here, so auth events can never clobber it. */

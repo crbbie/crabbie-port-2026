@@ -70,7 +70,7 @@ export async function loadAllAdminDataFromSupabase() {
       supabase.from('cms_navigation').select('*').order('sort_order', { ascending: true }),
       supabase.from('site_settings').select('*'),
       supabase.from('commission_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('media').select('*').order('created_at', { ascending: false })
+      supabase.from('media').select('*').eq('deletion_status', 'active').order('created_at', { ascending: false })
     ]);
 
     const snapshot = mapAdminHydrationResults({
@@ -223,10 +223,22 @@ export async function deleteAdminRecord(listKey, target) {
     const mediaId = typeof target === 'string' ? target : (target && target.id);
     if (!mediaId) throw new Error('Cannot delete a media item without an id.');
     const mediaResult = await deleteMediaFile(mediaId, target && typeof target === 'object' ? target.storagePath : null);
+    if (mediaResult && mediaResult.blocked) {
+      const blockedError = new Error(mediaResult.error || 'This media file is still used and cannot be deleted.');
+      blockedError.code = 'media_in_use';
+      blockedError.usages = mediaResult.usages || [];
+      throw blockedError;
+    }
+    if (mediaResult && mediaResult.pending) {
+      const pendingError = new Error(mediaResult.error || 'Media deletion is incomplete.');
+      pendingError.code = 'media_delete_pending';
+      pendingError.status = mediaResult.status;
+      throw pendingError;
+    }
     if (!mediaResult || !mediaResult.success) {
       throw new Error(mediaResult && mediaResult.error ? mediaResult.error : 'Media delete failed.');
     }
-    return { success: true, table: 'media' };
+    return { success: true, table: 'media', status: mediaResult.status || 'deleted' };
   }
 
   if (!DELETABLE_SCOPES.has(listKey)) throw new Error(`Unsupported delete target: ${listKey}`);
