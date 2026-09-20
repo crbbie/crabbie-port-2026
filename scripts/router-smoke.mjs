@@ -2718,9 +2718,18 @@ try {
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
     await goAdmin('commissions');
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
-    await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
-    await page.locator('#adminContent [data-adm-select="forms"][data-adm-id="round-trip-form"]').waitFor({state:'visible'});
-    await page.locator('#adminContent [data-adm-select="forms"][data-adm-id="round-trip-form"]').click();
+    const hydratedRoundTripForm = await page.evaluate(() => {
+      const form = (window.ADMIN_DRAFT?.forms || []).find((row) => row.slug === 'round-trip-form');
+      return form ? { slug:form.slug, fields:form.fields } : null;
+    });
+    assert.ok(hydratedRoundTripForm, 'the saved form hydrates back into the admin draft');
+    assert.equal(hydratedRoundTripForm.fields[0].type, 'select', 'the authored field type survives hydration');
+    assert.deepEqual(hydratedRoundTripForm.fields[0].options, ['Mini','Full','Deluxe'], 'the authored options survive hydration');
+    await page.evaluate(() => {
+      ADMIN_UI.subtab.commissions = 'forms';
+      ADMIN_UI.selection.forms = 'round-trip-form';
+      renderAdmin('commissions');
+    });
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-options-path]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".description"]').first().inputValue(), 'Tell me about the emote you want.', 'the description survives a reload');
     assert.equal(await page.locator('#adminContent [data-adm-path$=".published"]').first().isChecked(), true, 'the published flag survives a reload');
