@@ -17,6 +17,23 @@ export function mapAdminCollection(data, mapper) {
   return Array.isArray(data) ? data.map(mapper) : [];
 }
 
+// Prompt 2: every hydrated record keeps its DB uuid and the updated_at value it
+// was loaded with, so later saves can UPDATE by uuid and detect stale writes
+// without inventing an identity or a baseline that the database never returned.
+export function recordIdentityFromRow(row) {
+  return {
+    dbId: row && typeof row.id === 'string' && row.id ? row.id : null,
+    originalUpdatedAt: row && typeof row.updated_at === 'string' && row.updated_at ? row.updated_at : null
+  };
+}
+
+function withRecordIdentity(data, mapper) {
+  return mapAdminCollection(data, (row, index, rows) => ({
+    ...mapper(row, index, rows),
+    ...recordIdentityFromRow(row)
+  }));
+}
+
 function mapPortfolioRow(row) {
   const content = row.content || {};
   return {
@@ -163,6 +180,7 @@ export function mapAdminPages(data) {
     const d = row.data || {};
     if (row.slug === 'about') {
       pages.about = {
+        ...recordIdentityFromRow(row),
         title: row.title,
         content: row.content,
         published: !!row.published,
@@ -177,6 +195,7 @@ export function mapAdminPages(data) {
       };
     } else if (row.slug === 'terms') {
       pages.terms = {
+        ...recordIdentityFromRow(row),
         title: row.title,
         content: row.content,
         published: !!row.published,
@@ -212,16 +231,16 @@ export function mapAdminHydrationResults(results, getPublicUrl) {
   const urlFor = typeof getPublicUrl === 'function' ? getPublicUrl : () => '';
 
   return {
-    portfolio: mapAdminCollection(results?.portfolio?.data, mapPortfolioRow),
-    assets: mapAdminCollection(results?.assets?.data, mapAssetRow),
+    portfolio: withRecordIdentity(results?.portfolio?.data, mapPortfolioRow),
+    assets: withRecordIdentity(results?.assets?.data, mapAssetRow),
     portfolioCategories: categoryRows.filter((row) => row.kind === 'portfolio').map(mapCategoryRow),
     assetCategories: categoryRows.filter((row) => row.kind === 'asset').map(mapCategoryRow),
-    commissions: mapAdminCollection(results?.commissions?.data, mapCommissionRow),
-    forms: mapAdminCollection(results?.forms?.data, mapFormRow),
+    commissions: withRecordIdentity(results?.commissions?.data, mapCommissionRow),
+    forms: withRecordIdentity(results?.forms?.data, mapFormRow),
     pages: mapAdminPages(results?.pages?.data),
-    navigation: mapAdminCollection(results?.navigation?.data, mapNavigationRow),
+    navigation: withRecordIdentity(results?.navigation?.data, mapNavigationRow),
     settings: mapAdminSettings(results?.settings?.data),
-    requests: mapAdminCollection(results?.requests?.data, (row) => formatRequestRowForAdmin(row)),
+    requests: withRecordIdentity(results?.requests?.data, (row) => formatRequestRowForAdmin(row)),
     media: mapAdminCollection(results?.media?.data, (row) => formatMediaItem(row, urlFor))
   };
 }

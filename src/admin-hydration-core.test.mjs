@@ -70,4 +70,34 @@ assert.deepEqual(mapAdminPages([]), {});
 assert.deepEqual(mapAdminSettings([]), {});
 assert.deepEqual(mapAdminSettings([{ key: 'x', value: null }]), { x: {} });
 
+// --- Prompt 2: stable DB identity + stale-save baseline survive hydration ---
+const identity = mapAdminHydrationResults({
+  ...empty,
+  portfolio: { data: [{ id: 'uuid-p', slug: 'color-fiesta', title: 'T', updated_at: '2026-01-01T00:00:00Z', content: {} }] },
+  assets: { data: [{ id: 'uuid-a', slug: 'petal-pack', title: 'A', updated_at: '2026-01-02T00:00:00Z', metadata: {} }] },
+  commissions: { data: [{ id: 'uuid-c', slug: 'bust-up', title: 'C', updated_at: '2026-01-03T00:00:00Z' }] },
+  forms: { data: [{ id: 'uuid-f', slug: 'emails', title: 'F', updated_at: '2026-01-04T00:00:00Z' }] },
+  navigation: { data: [{ id: 'uuid-n', title: 'N', url: '#n', updated_at: '2026-01-05T00:00:00Z' }] },
+  requests: { data: [{ id: 'uuid-r', client_name: 'X', status: 'new', created_at: '2026-01-06T00:00:00Z', updated_at: '2026-01-07T00:00:00Z', answers: {} }] },
+  pages: { data: [{ id: 'uuid-pg', slug: 'about', title: 'About', content: '', published: true, updated_at: '2026-01-08T00:00:00Z', data: {} }] }
+}, () => '');
+assert.equal(identity.portfolio[0].dbId, 'uuid-p');
+assert.equal(identity.portfolio[0].originalUpdatedAt, '2026-01-01T00:00:00Z');
+assert.equal(identity.portfolio[0].id, 'color-fiesta', 'the local UI identity stays slug based');
+assert.equal(identity.assets[0].dbId, 'uuid-a');
+assert.equal(identity.assets[0].originalUpdatedAt, '2026-01-02T00:00:00Z');
+assert.equal(identity.commissions[0].dbId, 'uuid-c');
+assert.equal(identity.forms[0].dbId, 'uuid-f');
+assert.equal(identity.navigation[0].dbId, 'uuid-n');
+assert.equal(identity.navigation[0].originalUpdatedAt, '2026-01-05T00:00:00Z');
+assert.equal(identity.requests[0].dbId, 'uuid-r');
+assert.equal(identity.requests[0].originalUpdatedAt, '2026-01-07T00:00:00Z');
+assert.equal(identity.pages.about.dbId, 'uuid-pg');
+assert.equal(identity.pages.about.originalUpdatedAt, '2026-01-08T00:00:00Z');
+
+// A row without a uuid must stay insertable and must never invent a baseline.
+const noUuid = mapAdminHydrationResults({ ...empty, portfolio: { data: [{ slug: 'x', title: 'X', content: {} }] } }, () => '');
+assert.equal(noUuid.portfolio[0].dbId, null);
+assert.equal(noUuid.portfolio[0].originalUpdatedAt, null);
+
 console.log('Admin hydration safety tests passed.');

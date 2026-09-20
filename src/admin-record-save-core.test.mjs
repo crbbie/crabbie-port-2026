@@ -1,0 +1,157 @@
+import assert from 'node:assert/strict';
+import {
+  adminTableForScope,
+  recordDbId,
+  isNewAdminRecord,
+  buildAdminWritePlan,
+  planCategoryOrderWrites,
+  planNavigationOrderWrites,
+  planSettingsWrites,
+  classifyAdminWriteError,
+  adminWriteError,
+  concurrencyConflictError,
+  missingRecordError,
+  isConcurrencyConflictResponse,
+  applySuccessfulSave,
+  normalizeSlug
+} from './admin-record-save-core.js';
+
+// --- scope -> table mapping -------------------------------------------------
+assert.equal(adminTableForScope('portfolio'), 'portfolio_projects');
+assert.equal(adminTableForScope('assets'), 'free_assets');
+assert.equal(adminTableForScope('commissions'), 'commission_services');
+assert.equal(adminTableForScope('forms'), 'commission_forms');
+assert.equal(adminTableForScope('navigation'), 'cms_navigation');
+assert.equal(adminTableForScope('requests'), 'commission_requests');
+assert.equal(adminTableForScope('pages.about'), 'cms_pages');
+assert.equal(adminTableForScope('nope'), null);
+
+// --- identity --------------------------------------------------------------
+assert.equal(recordDbId({ dbId: '00000000-0000-0000-0000-000000000001' }), '00000000-0000-0000-0000-000000000001');
+assert.equal(recordDbId({ dbId: null }), null);
+assert.equal(recordDbId({ id: 'color-fiesta', slug: 'color-fiesta' }), null, 'a slug is not a DB identity');
+assert.equal(isNewAdminRecord({ id: 'client-1', dbId: null, slug: '' }), true);
+assert.equal(isNewAdminRecord({ id: 'color-fiesta', dbId: 'uuid-1' }), false);
+assert.equal(normalizeSlug('  my-slug  '), 'my-slug');
+assert.equal(normalizeSlug(null), '');
+
+// --- Test 4/5: INSERT for new records, UPDATE by stable DB ID for existing --
+const newProject = buildAdminWritePlan('portfolio', { id: 'client-1', dbId: null, slug: 'brand-new', title: 'New', category: 'illustration', tags: [] }, { sortOrder: 3 });
+assert.equal(newProject.mode, 'insert');
+assert.equal(newProject.table, 'portfolio_projects');
+assert.equal(newProject.payload.slug, 'brand-new');
+assert.equal(newProject.payload.sort_order, 3);
+assert.equal('id' in newProject.payload, false, 'an insert must not send a DB id');
+
+const existingProject = buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'color-fiesta', title: 'Fixture', category: 'illustration', tags: [] });
+assert.equal(existingProject.mode, 'update');
+assert.equal(existingProject.dbId, 'uuid-9');
+assert.equal(existingProject.originalUpdatedAt, '2026-01-01T00:00:00Z');
+assert.equal(existingProject.payload.slug, 'color-fiesta');
+assert.equal('id' in existingProject.payload, false, 'the id belongs in the filter, not the payload');
+assert.equal(existingProject.table, 'portfolio_projects');
+
+const existingAsset = buildAdminWritePlan('assets', { id: 'petal-pack', dbId: 'uuid-10', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'petal-pack', title: 'Asset', downloadUrl: 'https://x/y.zip' });
+assert.equal(existingAsset.table, 'free_assets');
+assert.equal(existingAsset.mode, 'update');
+assert.equal(existingAsset.payload.file_path, 'https://x/y.zip');
+
+const existingCommission = buildAdminWritePlan('commissions', { id: 'bust-up', dbId: 'uuid-11', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'bust-up', title: 'Service', price: '70' });
+assert.equal(existingCommission.table, 'commission_services');
+assert.equal(existingCommission.payload.slug, 'bust-up');
+
+const existingForm = buildAdminWritePlan('forms', { id: 'emails', dbId: 'uuid-12', slug: 'emails', title: 'Form', fields: [] });
+assert.equal(existingForm.table, 'commission_forms');
+assert.equal(existingForm.mode, 'update');
+assert.equal(existingForm.originalUpdatedAt, null, 'a missing baseline stays null rather than invented');
+
+// --- Test 3: a new record must never reuse another record's slug -----------
+assert.throws(() => buildAdminWritePlan('portfolio', { id: 'client-2', dbId: null, slug: '' }, {}), /slug/i);
+assert.throws(() => buildAdminWritePlan('assets', { id: 'client-3', dbId: null, slug: '   ' }, {}), /slug/i);
+assert.throws(() => buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', slug: '' }, {}), /slug/i, 'an existing record must keep a slug');
+
+// --- Test 2: saving one request touches only that request ------------------
+const requestPlan = buildAdminWritePlan('requests', { id: 'req-uuid', dbId: 'req-uuid', originalUpdatedAt: '2026-02-02T00:00:00Z', status: 'Completed', notes: 'Done' });
+assert.equal(requestPlan.mode, 'update');
+assert.equal(requestPlan.table, 'commission_requests');
+assert.deepEqual(Object.keys(requestPlan.payload).sort(), ['admin_notes', 'status']);
+assert.equal(requestPlan.payload.status, 'closed');
+assert.equal(requestPlan.payload.admin_notes, 'Done');
+assert.throws(() => buildAdminWritePlan('requests', { id: 'local-only', dbId: null, status: 'New' }, {}), /database/i);
+
+// --- unsupported scope ------------------------------------------------------
+assert.throws(() => buildAdminWritePlan('dashboard', { id: 'x' }, {}), /Unsupported/);
+
+// --- Test 10: order writes are bounded and partial --------------------------
+const categories = [
+  { id: 'one', dbId: 'uuid-a', kind: 'portfolio', slug: 'one', title: 'One', published: true },
+  { id: 'two', dbId: null, slug: 'two', title: 'Two', published: false },
+  { id: 'three', dbId: 'uuid-c', slug: 'three', title: 'Three', published: true }
+];
+assert.deepEqual(planCategoryOrderWrites('portfolio', categories), [{ id: 'uuid-a', sort_order: 0 }, { id: 'uuid-c', sort_order: 2 }], 'only saved rows, real list positions, order-only payload');
+
+const navigation = [
+  { id: 'uuid-1', dbId: 'uuid-1', title: 'A', url: '#a' },
+  { id: 'local-2', dbId: null, title: 'B', url: '#b' },
+  { id: 'uuid-3', dbId: 'uuid-3', title: 'C', url: '#c' }
+];
+assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_order: 0 }, { id: 'uuid-3', sort_order: 2 }]);
+assert.deepEqual(planCategoryOrderWrites('asset', []), []);
+assert.deepEqual(planNavigationOrderWrites(null), []);
+
+// --- settings singletons ----------------------------------------------------
+assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' }, seo: { title: 'x' } }, ['branding']), [{ key: 'branding', value: { title: 'CRABBIE' } }]);
+assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' } }, []), []);
+assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' } }, null), [{ key: 'branding', value: { title: 'CRABBIE' } }]);
+
+// --- error classification ---------------------------------------------------
+const duplicate = classifyAdminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "portfolio_projects_slug_key"' });
+assert.equal(duplicate.code, 'duplicate_slug');
+assert.match(duplicate.message, /slug/i);
+assert.match(duplicate.detail, /unique constraint/);
+assert.equal(classifyAdminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "cms_categories_kind_slug_key"' }).code, 'duplicate_slug');
+assert.equal(classifyAdminWriteError({ message: 'row-level security policy violated' }).code, 'permission_denied');
+assert.equal(classifyAdminWriteError({ code: '42501', message: 'permission denied' }).code, 'permission_denied');
+assert.equal(classifyAdminWriteError({ code: '23502', message: 'null value in column "slug"' }).code, 'missing_field');
+assert.equal(classifyAdminWriteError({ message: 'fetch failed' }).code, 'unknown');
+assert.match(classifyAdminWriteError({ message: 'fetch failed' }).message, /fetch failed/);
+const wrapped = adminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "x"' });
+assert.ok(wrapped instanceof Error);
+assert.equal(wrapped.code, 'duplicate_slug');
+
+// --- concurrency ------------------------------------------------------------
+assert.equal(isConcurrencyConflictResponse({ data: null, error: null }), true, '0 rows updated on a guarded update is a conflict');
+assert.equal(isConcurrencyConflictResponse({ data: [], error: null }), true);
+assert.equal(isConcurrencyConflictResponse({ data: { id: 'x' }, error: null }), false);
+assert.equal(isConcurrencyConflictResponse({ data: null, error: { message: 'boom' } }), false, 'errors are not conflicts');
+assert.equal(concurrencyConflictError('portfolio').code, 'stale_save');
+assert.match(concurrencyConflictError('portfolio').message, /another session|reload/i);
+assert.equal(missingRecordError('portfolio').code, 'missing_record');
+assert.match(missingRecordError('portfolio').message, /no longer exists/i);
+
+// --- Test 7: baseline update only after DB success --------------------------
+const saved = { id: 'color-fiesta', dbId: 'uuid-9', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'color-fiesta' };
+applySuccessfulSave(saved, { id: 'uuid-9', slug: 'color-fiesta', updated_at: '2026-03-03T00:00:00Z' });
+assert.equal(saved.originalUpdatedAt, '2026-03-03T00:00:00Z', 'baseline must advance after a successful save');
+const untouched = { id: 'x', dbId: 'uuid-x', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'x' };
+applySuccessfulSave(untouched, { id: 'uuid-x' });
+assert.equal(untouched.originalUpdatedAt, '2026-01-01T00:00:00Z', 'a response without updated_at must not invent a baseline');
+const inserted = { id: 'client-1', dbId: null, slug: 'brand-new' };
+applySuccessfulSave(inserted, { id: 'uuid-new', slug: 'brand-new', updated_at: '2026-04-04T00:00:00Z' });
+assert.equal(inserted.dbId, 'uuid-new', 'a newly inserted record becomes an existing record');
+assert.equal(inserted.originalUpdatedAt, '2026-04-04T00:00:00Z');
+
+// --- categories use the composite (kind, slug) DB identity safely ----------
+assert.equal(adminTableForScope('portfolioCategories'), 'cms_categories');
+assert.equal(adminTableForScope('assetCategories'), 'cms_categories');
+const categoryUpdate = buildAdminWritePlan('portfolioCategories', { id: 'chibi', dbId: 'uuid-cat', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'chibi', title: 'Chibi', published: true });
+assert.equal(categoryUpdate.mode, 'update');
+assert.equal(categoryUpdate.table, 'cms_categories');
+assert.deepEqual(categoryUpdate.payload, { kind: 'portfolio', slug: 'chibi', title: 'Chibi', published: true, sort_order: 0 });
+const categoryInsert = buildAdminWritePlan('assetCategories', { id: 'client-9', dbId: null, slug: 'brushes', title: 'Brushes' }, { sortOrder: 2 });
+assert.equal(categoryInsert.mode, 'insert');
+assert.equal(categoryInsert.payload.kind, 'asset');
+assert.equal(categoryInsert.payload.sort_order, 2);
+assert.throws(() => buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '' }, {}), /slug/i);
+
+console.log('Admin record save core tests passed.');
