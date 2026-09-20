@@ -288,8 +288,10 @@ export function isConcurrencyConflictResponse(response) {
 export function applySuccessfulSave(record, row) {
   if (!record || !row) return record;
   if (typeof row.id === 'string' && row.id) record.dbId = row.id;
-  const slug = normalizeSlug(row.slug);
-  if (slug) record.slug = slug;
+  // Do not copy row.slug back into the live draft. The user can edit the title
+  // (and therefore the auto-generated slug) while a save is in flight; the
+  // confirmed version-N slug belongs in ADMIN_DATA via reconcileSavedTarget,
+  // while the live draft must keep its newer version N+1 slug.
   if (typeof row.updated_at === 'string' && row.updated_at) record.originalUpdatedAt = row.updated_at;
   return record;
 }
