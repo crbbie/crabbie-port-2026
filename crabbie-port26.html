@@ -2870,13 +2870,18 @@ var BADGES = { 'home':'HOME','portfolio':'PORTFOLIO','project-detail':'PORTFOLIO
 var NAVKEY = { 'project-detail':'portfolio', 'free-asset-detail':'free-assets' };
 var ADMIN_MODULES = ['dashboard','portfolio','assets','commissions','requests','about','terms','contact','media','settings'];
 
+function decodeRouteId(value){
+try { return decodeURIComponent(value || ''); } catch(e){ return value || ''; }
+}
 function parseRoute(raw){
 raw = (raw || '').replace(/^#/, '').trim();
 if(!raw) return { view:'home', id:null, adminModule:null };
 var parts = raw.split('/').filter(Boolean);
 var head = parts[0];
-if(head === 'project'){ var pid = parts[1]; if(pid && Object.prototype.hasOwnProperty.call(PROJECTS, pid)) return { view:'project-detail', id:pid, adminModule:null }; return { view:'404', id:null, adminModule:null }; }
-if(head === 'asset'){ var aid = parts[1]; if(aid && Object.prototype.hasOwnProperty.call(ASSETS, aid)) return { view:'free-asset-detail', id:aid, adminModule:null }; return { view:'404', id:null, adminModule:null }; }
+/* Browser hashes percent-encode spaces/non-ASCII characters. Decode the slug
+   before looking it up, and let CMS hydration decide whether it exists. */
+if(head === 'project'){ var pid = decodeRouteId(parts[1]); if(pid) return { view:'project-detail', id:pid, adminModule:null }; return { view:'404', id:null, adminModule:null }; }
+if(head === 'asset'){ var aid = decodeRouteId(parts[1]); if(aid) return { view:'free-asset-detail', id:aid, adminModule:null }; return { view:'404', id:null, adminModule:null }; }
 if(head === 'admin'){ var m = parts[1] || 'dashboard'; if(ADMIN_MODULES.indexOf(m) === -1) m = 'dashboard'; return { view:'admin', id:null, adminModule:m }; }
 if(SIMPLE_VIEWS.indexOf(head) !== -1) return { view:head, id:null, adminModule:null };
 return { view:'404', id:null, adminModule:null };
@@ -3601,9 +3606,9 @@ if(t){ e.preventDefault(); jelly(t); openOtherServiceDetail(t.getAttribute('data
 t = e.target.closest('[data-service]');
 if(t){ e.preventDefault(); jelly(t); selectService(t); return; }
 t = e.target.closest('[data-project]');
-if(t){ e.preventDefault(); navigate('project/' + t.getAttribute('data-project')); return; }
+if(t){ e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return; }
 t = e.target.closest('[data-asset]');
-if(t){ e.preventDefault(); navigate('asset/' + t.getAttribute('data-asset')); return; }
+if(t){ e.preventDefault(); navigate('asset/' + encodeURIComponent(t.getAttribute('data-asset'))); return; }
 t = e.target.closest('[data-reset]');
 if(t){ e.preventDefault(); resetFilter(t.getAttribute('data-reset')); return; }
 t = e.target.closest('[data-jump]');
@@ -3626,7 +3631,7 @@ if(t){
 function stepProject(dir){
 var i = PROJECT_ORDER.indexOf(currentRoute.id); if(i === -1) i = 0;
 var n = (i + dir + PROJECT_ORDER.length) % PROJECT_ORDER.length;
-navigate('project/' + PROJECT_ORDER[n]);
+navigate('project/' + encodeURIComponent(PROJECT_ORDER[n]));
 }
 var pdPrev = document.getElementById('pdPrev'); var pdNext = document.getElementById('pdNext');
 if(pdPrev) pdPrev.addEventListener('click', function(){ stepProject(-1); });
@@ -6299,7 +6304,7 @@ apply: function(records){
       if(exists) return;
       var card = document.createElement('a');
       card.className = 'work pf-s';
-      card.setAttribute('href', '#project/' + record.slug);
+      card.setAttribute('href', '#project/' + encodeURIComponent(record.slug));
       card.setAttribute('data-project', record.slug);
       card.setAttribute('data-cat', portfolioFilterGroup(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
@@ -6323,7 +6328,7 @@ apply: function(records){
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
     var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = publicImage(record.thumbnail, record.title) || '';
-    card.setAttribute('href', '#project/' + slug);
+    card.setAttribute('href', '#project/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', portfolioFilterGroup(record));
   });
@@ -6358,7 +6363,7 @@ apply: function(records){
       if(exists) return;
       var card = document.createElement('a');
       card.className = 'item';
-      card.setAttribute('href', '#asset/' + record.slug);
+      card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug));
       card.setAttribute('data-asset', record.slug);
       card.setAttribute('data-cat', String(record.filterCat || record.categorySlug || record.cat || 'other').toLowerCase());
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
@@ -6386,7 +6391,7 @@ apply: function(records){
     var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
     if(st) st.textContent = record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet';
-    card.setAttribute('href', '#asset/' + slug);
+    card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
   });
