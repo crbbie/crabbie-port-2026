@@ -883,6 +883,30 @@ try {
     assert.equal(secondWrites[0].filters[1][1], insertedRow.updated_at, 'the local baseline advanced to the returned updated_at');
     console.log('PASS a new record INSERTs once, stores the DB id and UPDATEs afterwards (SDK fixture)');
 
+    // Bug fix: an edit that lands after a save begins is never marked saved.
+    // The click and the follow-up edit run in one task, so the edit is
+    // guaranteed to land while the version N write is still in flight.
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Mid-save base');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await clearToast();
+    await page.evaluate((base) => {
+      document.querySelector('[data-adm-save="portfolio"]').click();
+      const input = document.querySelector('[data-adm-path="' + base + '.title"]');
+      input.value = 'Edited mid-save';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, newRecordPath);
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Mid-save base', 'the database keeps version N, not the mid-save edit');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
+    assert.match(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft stays dirty after a mid-save edit');
+    assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1');
+    assert.doesNotMatch(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft is clean once the latest revision is saved');
+    console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
+
     // Test 3: a duplicate slug is rejected without touching the other row.
     await goToAdminModule('portfolio');
     await page.locator('[data-adm-new="portfolio"]').click();
@@ -1553,6 +1577,54 @@ try {
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     console.log('PASS desktop, tablet and mobile admin media views have no horizontal overflow (SDK fixture)');
+
+    // Bug fix: intrinsic image dimensions must never resize a thumbnail box.
+    // Real app markup + classes with offline SVG data URLs of known sizes.
+    await page.evaluate(() => {
+      const svg = (w, h) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '"><rect width="' + w + '" height="' + h + '" fill="#ff5c9a"/></svg>');
+      const shots = [
+        { label: 'portrait', src: svg(10, 100) },
+        { label: 'landscape', src: svg(100, 10) },
+        { label: 'square', src: svg(40, 40) },
+        { label: 'extreme-portrait', src: svg(4, 120) },
+        { label: 'broken', src: 'data:image/png;base64,NOT-AN-IMAGE' }
+      ];
+      const host = document.createElement('div');
+      host.id = 'thumbRatioProbe';
+      host.setAttribute('style', 'position:fixed;left:-9999px;top:0;width:1200px;');
+      host.innerHTML = '<div class="adm-media-grid">' + shots.map((shot) =>
+        '<div class="adm-media-card"><div class="adm-media-thumb"><img src="' + shot.src + '" data-probe="' + shot.label + '" alt="' + shot.label + '"></div></div>'
+      ).join('') + '</div>';
+      document.body.appendChild(host);
+    });
+    await page.waitForFunction(() => {
+      const imgs = Array.prototype.slice.call(document.querySelectorAll('#thumbRatioProbe img'));
+      return imgs.length === 5 && imgs.every((img) => img.complete);
+    });
+    const thumbProbe = await page.evaluate(() => {
+      const boxes = Array.prototype.map.call(document.querySelectorAll('#thumbRatioProbe .adm-media-thumb'), (box) => {
+        const img = box.querySelector('img');
+        const style = img ? getComputedStyle(img) : null;
+        // The thumb keeps a 2px bottom border under border-box sizing.
+        return {
+          height: box.clientHeight,
+          expected: (box.clientWidth * 10) / 16 - 2,
+          imgPosition: style ? style.position : '',
+          imgFit: style ? style.objectFit : ''
+        };
+      });
+      document.getElementById('thumbRatioProbe').remove();
+      return boxes;
+    });
+    assert.equal(thumbProbe.length, 5, 'portrait, landscape, square, extreme portrait and broken thumbnails are all probed');
+    const thumbHeights = thumbProbe.map((box) => box.height);
+    assert.ok(Math.max.apply(null, thumbHeights) - Math.min.apply(null, thumbHeights) <= 2, 'intrinsic dimensions never resize the grid row');
+    thumbProbe.forEach((box, index) => {
+      assert.ok(Math.abs(box.height - box.expected) <= 2, 'thumbnail box ' + index + ' keeps the 16/10 ratio (' + box.height + 'px vs ' + box.expected.toFixed(1) + 'px)');
+      assert.equal(box.imgPosition, 'absolute', 'thumbnail image ' + index + ' is removed from grid sizing');
+      assert.equal(box.imgFit, 'cover', 'thumbnail image ' + index + ' crops with cover');
+    });
+    console.log('PASS media thumbnails keep a stable ratio for portrait, landscape, square, extreme and broken images (SDK fixture)');
 
     // ---- Batch 5 Group 3: media query shape, one scoped server query ------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -2415,6 +2487,11 @@ try {
     const p4AssetWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
     assert.equal(p4AssetWrite.payload.availability, 'unavailable', 'the saved Asset keeps the chosen availability');
     assert.equal(await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0].availability), 'unavailable', 'the database row stores the explicit availability');
+    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.placeholder"]').check();
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="assets"]').click();
+    await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'free_assets').length >= 2);
+    const p4AssetFlagWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
+    assert.equal(p4AssetFlagWrite.payload.metadata.placeholder, true, 'a checked placeholder is persisted under asset metadata');
     const p4SavedAssetRow = await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0]);
     const p4SavedServicesB = await page.evaluate(() => window.__routerRows.commission_services);
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -2437,6 +2514,7 @@ try {
     });
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-path$=".availability"]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".availability"]').first().inputValue(), 'unavailable', 'a reload keeps the stored availability');
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".placeholder"]').first().isChecked(), true, 'a reload keeps the stored placeholder flag');
     console.log('PASS a new Asset keeps an explicit availability across save and reload (SDK fixture)');
 
     // ---- Patch 4 C: a new Form is selectable by slug without a reload ----

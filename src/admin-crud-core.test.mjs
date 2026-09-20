@@ -64,4 +64,10 @@ const st = formatSettingRow('branding', { title: 'CRABBIE' });
 assert.equal(st.key, 'branding');
 assert.equal(st.value.title, 'CRABBIE');
 
+// 7. Asset placeholder round-trips through metadata, never a column.
+const phOn = formatAssetRow({ id: 'test-ph', title: 'PH', placeholder: true }, 0);
+assert.equal(phOn.metadata.placeholder, true, 'a checked placeholder is persisted under metadata');
+const phOff = formatAssetRow({ id: 'test-ph', title: 'PH', placeholder: false }, 0);
+assert.equal(phOff.metadata.placeholder, false, 'an unchecked placeholder persists as false, not absent');
+
 console.log('Admin CRUD core formatting tests passed.');

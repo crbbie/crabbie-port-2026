@@ -1178,7 +1178,11 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-upload-status{margin:10px 0 0; padding:10px 12px; border-radius:12px; background:#fff; border:2px solid var(--pink-light); font-weight:700; color:var(--berry); display:flex; gap:12px; align-items:center; justify-content:space-between;}
 .adm-upload-status.failed{color:#b3261e;}
 .adm-media-card{background:#fff; border: 2px solid var(--pink-light);border-radius: 16px; overflow:hidden;box-shadow: 0 5px 0 -3px var(--pink-light);}
-.adm-media-thumb{aspect-ratio: 16/10;background: linear-gradient(160deg, var(--purple-light) 0%, #d9efff 100%);display:grid; place-items:center;font-family:'Gochi Hand', cursive; font-size:15px; color: var(--purple-hot);border-bottom: 2px solid var(--pink-light);}
+.adm-media-thumb{position:relative; width:100%; aspect-ratio: 16/10;background: linear-gradient(160deg, var(--purple-light) 0%, #d9efff 100%);display:grid; place-items:center;font-family:'Gochi Hand', cursive; font-size:15px; color: var(--purple-hot);border-bottom: 2px solid var(--pink-light);overflow:hidden; min-width:0; min-height:0;}
+/* Intrinsic image dimensions must never resize the thumbnail box: the image
+   is removed from grid sizing and cropped, while icon/text fallbacks keep
+   their centered grid placement. */
+.adm-media-thumb > img{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover;}
 .adm-media-body{ padding: 10px 12px; }
 .adm-media-body .mb-title{font-family:'Fredoka'; font-weight:700; font-size:12px; color: var(--berry);white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .adm-media-body .mb-meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap;margin-top:6px; font-size:10.5px; font-weight:700; color: var(--berry-faint);}
@@ -3655,7 +3659,7 @@ en: {
 'dash.welcome': 'Welcome to the Atelier ✧','dash.intro': 'Edit content in English. Manual Vietnamese overrides are available under Advanced.','dash.openRequests': 'Open commission requests','dash.projects': 'Projects','dash.assets': 'Free Assets','dash.commissions': 'Commission types','dash.media': 'Uploaded files','dash.attention': 'Content needing attention','dash.placeholderCount': 'Items still using placeholders','dash.viPending': 'Items with pending Vietnamese translations','dash.drafts': 'Draft items','dash.failedEmail': 'Commission requests','dash.quickActions': 'Quick actions','dash.qaAddProject': 'Add project','dash.qaAddAsset': 'Add asset','dash.qaOpenRequests': 'Open requests','dash.qaUploadMedia': 'Upload media','dash.itemCount': 'Items in CMS',
 'media.title': 'Choose existing media…','media.subtitle': 'Selecting writes the URL into the originating field.',
 'advanced.viOverride': 'Advanced · Vietnamese override','advanced.viKeep': 'Keep this Vietnamese text instead of automatic translation','advanced.viText': 'Vietnamese text','advanced.viHint': 'Existing Vietnamese is preserved. Turn off override to translate future English changes.',
-'toast.saved': 'Saved.','toast.deleted': 'Deleted','toast.refreshed': 'Refreshed','toast.uploaded': 'File uploaded','toast.urlCopied': 'URL copied','toast.mediaSelected': 'Media selected','toast.uploadedFile': 'Uploaded file → ','toast.noUrlYet': 'No URL set yet.','toast.signedOut': 'Signed out.','toast.selectedMedia': 'Selected media → ',
+'toast.saved': 'Saved.','toast.savedPending': 'Saved. Newer edits are still unsaved.','toast.deleted': 'Deleted','toast.refreshed': 'Refreshed','toast.uploaded': 'File uploaded','toast.urlCopied': 'URL copied','toast.mediaSelected': 'Media selected','toast.uploadedFile': 'Uploaded file → ','toast.noUrlYet': 'No URL set yet.','toast.signedOut': 'Signed out.','toast.selectedMedia': 'Selected media → ',
 'confirm.discardTitle': 'Discard unsaved edits?','confirm.discardBody': 'You have unsaved changes. If you continue, those edits will be lost.','confirm.deleteTitle': 'Delete','confirm.deleteBody': 'This action cannot be undone.','confirm.deleteConfirm': 'Delete permanently',
 'health.complete': 'Complete','health.attention': 'Needs attention','health.missing': 'Missing required fields','health.placeholder': 'Placeholder content','health.checklist': 'Content checklist','health.placeholderValue': 'still contains placeholder text','health.publishedMissing': 'Published, but missing required content:','health.publishGuardTitle': 'Publish incomplete item?','health.publishGuardBody': 'This item is missing:','health.publishAnyway': 'Publish anyway',
 'dash.dataHealth': 'Data health','dash.healthPublished': 'published','dash.healthNeedAttention': 'need attention','dash.healthMissingThumbs': 'missing thumbnails','dash.healthMissingFiles': 'published without download file','dash.healthMissingForms': 'no request form mapped','dash.healthAboutNeeds': 'About needs contact / profile image','dash.healthTermsReview': 'Terms review recommended','dash.healthLooks': 'looks complete',
@@ -3674,7 +3678,7 @@ vi: {
 'dash.welcome': 'Chào mừng đến Atelier ✧','dash.intro': 'Chỉnh sửa nội dung bằng tiếng Anh. Có thể chỉnh tiếng Việt thủ công trong phần Nâng cao.','dash.openRequests': 'Mở yêu cầu commission','dash.projects': 'Dự án','dash.assets': 'Tài nguyên miễn phí','dash.commissions': 'Loại commission','dash.media': 'File đã tải lên','dash.attention': 'Nội dung cần chú ý','dash.placeholderCount': 'Mục còn dùng placeholder','dash.viPending': 'Mục đang chờ bản dịch tiếng Việt','dash.drafts': 'Mục nháp','dash.failedEmail': 'Yêu cầu commission','dash.quickActions': 'Thao tác nhanh','dash.qaAddProject': 'Thêm dự án','dash.qaAddAsset': 'Thêm tài nguyên','dash.qaOpenRequests': 'Mở yêu cầu','dash.qaUploadMedia': 'Tải media lên','dash.itemCount': 'Mục trong CMS',
 'media.title': 'Chọn media có sẵn…','media.subtitle': 'Chọn sẽ ghi URL vào ô đang chỉnh.',
 'advanced.viOverride': 'Nâng cao · Ghi đè tiếng Việt','advanced.viKeep': 'Giữ nguyên tiếng Việt này thay vì dịch tự động','advanced.viText': 'Nội dung tiếng Việt','advanced.viHint': 'Tiếng Việt hiện có được giữ nguyên. Tắt ghi đè để dịch các thay đổi tiếng Anh trong tương lai.',
-'toast.saved': 'Đã lưu.','toast.deleted': 'Đã xóa','toast.refreshed': 'Đã làm mới','toast.uploaded': 'Đã tải file lên','toast.urlCopied': 'Đã copy URL','toast.mediaSelected': 'Đã chọn media','toast.uploadedFile': 'Đã tải file → ','toast.noUrlYet': 'Chưa có URL.','toast.signedOut': 'Đã đăng xuất.','toast.selectedMedia': 'Đã chọn media → ',
+'toast.saved': 'Đã lưu.','toast.savedPending': 'Đã lưu. Vẫn còn thay đổi chưa lưu.','toast.deleted': 'Đã xóa','toast.refreshed': 'Đã làm mới','toast.uploaded': 'Đã tải file lên','toast.urlCopied': 'Đã copy URL','toast.mediaSelected': 'Đã chọn media','toast.uploadedFile': 'Đã tải file → ','toast.noUrlYet': 'Chưa có URL.','toast.signedOut': 'Đã đăng xuất.','toast.selectedMedia': 'Đã chọn media → ',
 'confirm.discardTitle': 'Hủy các chỉnh sửa chưa lưu?','confirm.discardBody': 'Bạn có thay đổi chưa lưu. Nếu tiếp tục, các thay đổi đó sẽ mất.','confirm.deleteTitle': 'Xóa','confirm.deleteBody': 'Thao tác này không thể hoàn tác.','confirm.deleteConfirm': 'Xóa vĩnh viễn',
 'health.complete': 'Hoàn chỉnh','health.attention': 'Cần kiểm tra','health.missing': 'Thiếu dữ liệu bắt buộc','health.placeholder': 'Còn nội dung mẫu','health.checklist': 'Kiểm tra nội dung','health.placeholderValue': 'vẫn còn nội dung mẫu','health.publishedMissing': 'Đang hiển thị công khai nhưng còn thiếu:','health.publishGuardTitle': 'Xuất bản mục chưa hoàn chỉnh?','health.publishGuardBody': 'Mục này còn thiếu:','health.publishAnyway': 'Vẫn xuất bản',
 'dash.dataHealth': 'Sức khỏe dữ liệu','dash.healthPublished': 'đã xuất bản','dash.healthNeedAttention': 'cần chú ý','dash.healthMissingThumbs': 'thiếu thumbnail','dash.healthMissingFiles': 'đã xuất bản nhưng chưa có file tải về','dash.healthMissingForms': 'chưa gắn form yêu cầu','dash.healthAboutNeeds': 'Giới thiệu thiếu liên hệ / ảnh đại diện','dash.healthTermsReview': 'Nên rà soát Điều khoản','dash.healthLooks': 'hoàn chỉnh',
@@ -3876,6 +3880,10 @@ loadError: '',
 /* Prompt 2: per-target dirty tracking so one edited record writes one row. */
 dirtyTargets: {},
 structuralScopes: {},
+/* Save revision token: every dirty marking bumps it, so an edit that lands
+   after a save begins can never be silently marked as saved. Monotonic;
+   never reset except by a fresh page state. */
+draftRevision: 0,
 selection: initialAdminSelection(ADMIN_DATA),
 subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'settings' },
 settingsGroup: 'Branding'
@@ -3951,6 +3959,7 @@ return null;
 }
 function markAdminTarget(target){
 if(!target) return;
+ADMIN_UI.draftRevision += 1;
 var key = adminTargetKey(target);
 if(target.kind === 'settings'){
 var existing = ADMIN_UI.dirtyTargets[key];
@@ -3966,6 +3975,7 @@ ADMIN_UI.dirtyTargets[key] = { kind: target.kind, scope: target.scope, recordId:
 function markAdminStructuralDirty(scope){
 var resolved = scope || currentAdminSaveScope(currentRoute && currentRoute.adminModule);
 if(resolved) ADMIN_UI.structuralScopes[resolved] = true;
+ADMIN_UI.draftRevision += 1;
 }
 function markAdminOrderDirty(listKey){
 if(listKey === 'portfolio' || listKey === 'assets' || listKey === 'commissions' || listKey === 'forms' || listKey === 'navigation' || listKey === 'portfolioCategories' || listKey === 'assetCategories'){
@@ -3983,6 +3993,8 @@ setAdminDirtyFlag();
 function resetAdminDirtyState(){
 ADMIN_UI.dirtyTargets = {};
 ADMIN_UI.structuralScopes = {};
+/* Bump so an in-flight save cannot finalize against a replaced draft. */
+ADMIN_UI.draftRevision += 1;
 ADMIN_UI.dirty = false;
 }
 function clearAdminDirtyTargetsFor(scope, recordId){
@@ -4104,6 +4116,13 @@ function adminSaveTransactionActive(){
 var flight = window.CrabbieAdminSaveFlight;
 return Boolean(flight && flight.active);
 }
+/* Revision gate for save completion: only a draft untouched since the save
+   started may be marked clean. Falls back to a direct comparison if the
+   revision helper module is unavailable. */
+function saveRevisionUnchanged(startRevision){
+if(window.CrabbieSaveRevision && typeof window.CrabbieSaveRevision.shouldFinalizeSave === 'function') return window.CrabbieSaveRevision.shouldFinalizeSave(startRevision, ADMIN_UI.draftRevision);
+return startRevision === ADMIN_UI.draftRevision;
+}
 function syncAdminSaveControlAvailability(){
 var available = ADMIN_UI.loadState === 'ready' && !adminSaveTransactionActive();
 if(adminTopSave) adminTopSave.disabled = !available;
@@ -4134,6 +4153,9 @@ async function doSaveCommit(msg, scope){
     /* One save writes only the targets the user actually touched. */
     var targets = adminSaveTargetsForScope(scope);
     if(!targets.length) throw new Error('Nothing to save.');
+    /* Revision token: edits made after this point must stay dirty even
+       though the in-flight write succeeds. */
+    var saveStartRevision = ADMIN_UI.draftRevision;
     for(var i = 0; i < targets.length; i++){
       var target = targets[i];
       if(target.kind === 'order'){
@@ -4150,13 +4172,18 @@ async function doSaveCommit(msg, scope){
         });
       }
     }
-    /* Only the written targets are cleared: other pending edits stay dirty. */
+    /* Only the written targets are cleared: other pending edits stay dirty.
+       When the draft changed mid-save, nothing is cleared and the saved
+       baseline is left alone, so version N+1 can never pass as persisted. */
+    var saveChangedMidFlight = !saveRevisionUnchanged(saveStartRevision);
+    if(!saveChangedMidFlight){
     targets.forEach(function(target){
       clearAdminDirtyTargetsFor(target.scope, target.kind === 'record' ? target.recordId : null);
       if(target.scope && ADMIN_UI.structuralScopes[target.scope]) delete ADMIN_UI.structuralScopes[target.scope];
     });
     syncSavedTargetsIntoAdminData(targets);
-    ADMIN_UI.dirty = Object.keys(ADMIN_UI.dirtyTargets).length > 0 || Object.keys(ADMIN_UI.structuralScopes).length > 0;
+    }
+    ADMIN_UI.dirty = saveChangedMidFlight ? true : Object.keys(ADMIN_UI.dirtyTargets).length > 0 || Object.keys(ADMIN_UI.structuralScopes).length > 0;
     setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
     refreshStickySaveBar();
   } catch(err){
@@ -4170,7 +4197,7 @@ async function doSaveCommit(msg, scope){
   try {
     var refreshModule = await import('./src/public-cms-refresh.js');
     if(!(await refreshModule.refreshPublicCms(scope))) throw new Error('Public CMS query failed.');
-    toast(msg || tAdmin('toast.saved'));
+    toast(saveChangedMidFlight ? tAdmin('toast.savedPending') : (msg || tAdmin('toast.saved')));
   } catch(err){
     console.error('Saved, but public refresh failed:', err);
     toast('Saved, but public refresh failed. Reload to retry.');
@@ -4213,12 +4240,23 @@ if(retryBtn) retryBtn.addEventListener('click', retryAdminHydration);
 }
 async function hydrateAdminSnapshot(){
 if(adminSaveTransactionActive()) return false;
-if(ADMIN_UI.loadState === 'loading') return false;
 if(ADMIN_UI.dirty) return false;
+/* A hydration already in flight must not restart; but a pass deferred only
+   because the CRUD module had not arrived yet resumes when it does. */
+if(ADMIN_UI.loadState === 'loading' && !ADMIN_UI.hydrationPendingCrud) return false;
+ADMIN_UI.hydrationPendingCrud = false;
 if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData)){
+if(window.__crabbieCrudLoadError){
 setAdminLoadState('error', 'Admin data service is unavailable.');
 renderAdminRoute();
 return false;
+}
+/* Load order, not failure: stay in loading and let the CRUD-ready retry
+   start hydration instead of reporting a false error. */
+ADMIN_UI.hydrationPendingCrud = true;
+setAdminLoadState('loading');
+renderAdminRoute();
+return 'pending';
 }
 setAdminLoadState('loading');
 renderAdminRoute();

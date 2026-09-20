@@ -154,4 +154,18 @@ assert.equal('settingsMeta' in mapAdminHydrationResults(empty, () => ''), true, 
 assert.deepEqual(mapAdminHydrationResults(empty, () => '').settingsMeta, {});
 assert.deepEqual(mapSettingsMeta([]), {});
 
+// Asset placeholder hydrates from stored metadata, never hard-coded: legacy
+// rows without the key resolve to false, matching new drafts and portfolio.
+const placeholderSnapshot = mapAdminHydrationResults({
+  ...empty,
+  assets: { data: [
+    { id: 'p1', slug: 'flagged', title: 'Flagged', metadata: { placeholder: true }, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p2', slug: 'clear', title: 'Clear', metadata: { placeholder: false }, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p3', slug: 'legacy', title: 'Legacy', metadata: {}, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p4', slug: 'nometa', title: 'NoMeta', updated_at: '2026-09-20T00:00:00Z' }
+  ] }
+}, () => '');
+const flags = Object.fromEntries(placeholderSnapshot.assets.map((asset) => [asset.slug, asset.placeholder]));
+assert.deepEqual(flags, { flagged: true, clear: false, legacy: false, nometa: false }, 'placeholder survives save and reload without inventing flags');
+
 console.log('Admin hydration safety tests passed.');

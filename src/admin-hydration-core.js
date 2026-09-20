@@ -91,7 +91,9 @@ function mapAssetRow(row) {
     dateAdded: m.date || '[DATE]',
     featured: !!row.featured,
     published: !!row.published,
-    placeholder: true,
+    /* Absent legacy metadata resolves to false: new drafts and portfolio
+       rows already default placeholder off, so hydration must not invent it. */
+    placeholder: !!m.placeholder,
     availability: row.availability || 'available',
     titleCopy: { en: row.title, vi: '', viOverride: false },
     descriptionCopy: { en: row.description || '', vi: '', viOverride: false }

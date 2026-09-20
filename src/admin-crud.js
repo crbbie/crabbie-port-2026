@@ -341,3 +341,17 @@ window.CrabbieAdminCrud = {
   resetAdminReadiness,
   assertAdminReadyForMutation
 };
+
+/* First-load race: session restoration may have run before this module
+   arrived, deferring hydration. If an admin is already waiting, start the
+   deferred pass exactly once; the hydration guards still apply. */
+try {
+  const authService = typeof window !== 'undefined' ? window.CrabbieAuthService : null;
+  const bridge = typeof window !== 'undefined' ? window.CrabbieAdminAuth : null;
+  const waiter = authService && typeof authService.getAdmin === 'function' ? authService.getAdmin() : null;
+  if (waiter && bridge && typeof bridge.notify === 'function' && getAdminLoadState() !== 'ready') {
+    bridge.notify({ event: 'CRUD_READY', adminUser: waiter, hydrate: true });
+  }
+} catch (err) {
+  /* The manual reload control remains available as the fallback path. */
+}

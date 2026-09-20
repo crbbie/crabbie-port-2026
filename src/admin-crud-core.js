@@ -40,6 +40,7 @@ export function formatAssetRow(rec, sort_order = 0) {
     license: rec.license || '[LICENSE CONTENT FROM CMS]',
     update: rec.updateNote || rec.update || '[UPDATE NOTE]',
     downloadUrl: rec.downloadUrl || '',
+    placeholder: !!rec.placeholder,
     tags: Array.isArray(rec.tags) ? rec.tags : [],
     flowerTag: rec.flowerTag || null,
     filterCat: rec.filterCat || ''

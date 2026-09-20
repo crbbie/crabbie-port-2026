@@ -16,7 +16,7 @@ import {
 } from './admin-query-core.js';
 import {
   mediaQuerySpec,
-  mediaTypeRules,
+  mediaTypeServerClauses,
   mediaLabelPayload,
   bulkMediaSummary
 } from './admin-media-manager-core.js';
@@ -371,13 +371,8 @@ export async function loadMediaPage(options = {}) {
 
   if (spec.search) query = query.ilike('original_name', '%' + spec.search + '%');
 
-  const rules = mediaTypeRules(spec.type);
-  if (rules) {
-    const clauses = [];
-    rules.prefixes.forEach((prefix) => clauses.push('mime_type.like.' + prefix + '%'));
-    rules.extensions.forEach((extension) => clauses.push('original_name.ilike.%25.' + extension));
-    query = query.or(clauses.join(','));
-  }
+  const clauses = mediaTypeServerClauses(spec.type);
+  if (clauses.length) query = query.or(clauses.join(','));
 
   if (spec.from) query = query.gte('created_at', spec.from + 'T00:00:00.000Z');
   if (spec.to) query = query.lte('created_at', spec.to + 'T23:59:59.999Z');
