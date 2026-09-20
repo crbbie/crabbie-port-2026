@@ -4785,7 +4785,15 @@ async function loadMediaPage(options){
   mediaPage.state = 'loading'; mediaPage.error = '';
   refreshAdminPanel('media');
   try{
-    var page = await media.loadMediaPage({ page: opts.page || mediaPage.page, pageSize: mediaPage.perPage, search: mediaPage.search });
+    var page = await media.loadMediaPage({
+      page: opts.page || mediaPage.page,
+      pageSize: mediaPage.perPage,
+      search: mediaPage.search,
+      type: mediaPage.type,
+      sort: mediaPage.sort,
+      from: mediaPage.from,
+      to: mediaPage.to
+    });
     if(token !== mediaRequestId) return;
     mergePagedIntoDraft('media', Array.isArray(page.items) ? page.items : []);
     mediaPage.page = page.page; mediaPage.total = page.total; mediaPage.pageCount = page.pageCount;

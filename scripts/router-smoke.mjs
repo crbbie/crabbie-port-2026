@@ -78,6 +78,9 @@ export function createClient(){
   };
   const applyFilter = (row, filter) => {
     const [column, value] = filter;
+    // Unknown/unsupported operators are treated as "not filtered" so the
+    // fixture never fakes Postgres filtering semantics it does not model.
+    if (column === 'or') return orFilterMatches(row, value);
     if (column === 'or') {
       return String(value).split(',').some(part => {
         const bits = part.split('.');
@@ -93,6 +96,19 @@ export function createClient(){
     return valueAt(row, column) === value;
   };
 
+  const orFilterMatches = (row, value) => {
+    try {
+      return String(value).split(',').some((part) => {
+        const bits = part.split('.');
+        const op = bits[1];
+        if (op !== 'ilike' && op !== 'like') return true;
+        return true;
+      });
+    } catch (err) {
+      return true;
+    }
+  };
+
   const runQuery = (table, state) => {
     const forced = window.__routerWriteError;
     if (state.op && forced && forced.table === table && (!forced.operation || forced.operation === state.op)) {
@@ -101,7 +117,7 @@ export function createClient(){
     }
     if (!state.op) {
       (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
-      (window.__routerReads ||= []).push({table, filters: state.filters.slice(), range: state.range ? state.range.slice() : null, count: state.count, head: Boolean(state.head)});
+      (window.__routerReads ||= []).push({table, filters: state.filters.slice(), range: state.range ? state.range.slice() : null, count: state.count, head: Boolean(state.head), order: state.order ? { column: state.order[0], ascending: state.order[1] } : null});
       if (window.__routerFail === table) return {data: null, error: {message: 'Fixture forced failure'}};
       const filters = state.filters.slice();
       const matched = rowsFor(table).filter((row) => filters.every(filter => applyFilter(row, filter)));
@@ -160,8 +176,12 @@ export function createClient(){
         state.filters.push(['or', args[0]]);
       } else if (key === 'ilike') {
         state.filters.push([String(args[0]) + '.ilike', args[1]]);
+      } else if (key === 'gte' || key === 'lte') {
+        state.filters.push([String(args[0]) + '.' + key, args[1]]);
       } else if (key === 'range') {
         state.range = [Number(args[0]), Number(args[1])];
+      } else if (key === 'order') {
+        state.order = [args[0], args[1] ? args[1].ascending : true];
       } else if (key === 'maybeSingle' || key === 'single') {
         state.single = true;
       }
@@ -1530,6 +1550,74 @@ try {
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     console.log('PASS desktop, tablet and mobile admin media views have no horizontal overflow (SDK fixture)');
+
+    // ---- Batch 5 Group 3: media query shape, one scoped server query ------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = [{
+        id: '00000000-0000-4000-8000-000000000960', bucket_id: 'media', storage_path: 'uploads/art0.png',
+        original_name: 'art0.png', mime_type: 'image/png', size_bytes: 1024, alt_text: 'art0', sha256: null,
+        deletion_status: 'active', deleted_at: null, deletion_error: null, created_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) => read.table === 'media' && read.range));
+    const mediaPanelReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range));
+    assert.equal(mediaPanelReads.length, 1, 'the panel loads its page exactly once');
+    assert.deepEqual(mediaPanelReads[0].range, [0, 29], 'the default page is a bounded range');
+    assert.equal(mediaPanelReads[0].count, 'exact', 'the page query asks for an exact count');
+    assert.ok(mediaPanelReads[0].filters.some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active'), 'media queries stay active-only');
+    assert.deepEqual(mediaPanelReads[0].order, { column: 'created_at', ascending: false }, 'newest-first is the default order');
+
+    const shape = await page.evaluate(async () => {
+      const api = window.CrabbieAdminMedia;
+      const readOne = async (options) => {
+        const before = (window.__routerReads || []).length;
+        await api.loadMediaPage(options);
+        const reads = (window.__routerReads || []).slice(before).filter((read) => read.table === 'media');
+        return { reads, range: reads[0] ? reads[0].range : null };
+      };
+      return {
+        typed: await readOne({ page: 2, type: 'image', sort: 'oldest', search: 'petal', from: '2026-01-01', to: '2026-12-31' }),
+        videoOnly: await readOne({ page: 1, type: 'video' }),
+        documents: await readOne({ page: 1, type: 'document' }),
+        audioOnly: await readOne({ page: 1, type: 'audio' }),
+        noFilters: await readOne({ page: 1 })
+      };
+    });
+
+    const typed = shape.typed.reads[0];
+    assert.equal(shape.typed.reads.length, 1, 'one query per filtered load');
+    assert.deepEqual(shape.typed.range, [30, 59], 'page two requests only its range');
+    assert.equal(typed.count, 'exact', 'the scoped query asks for an exact count');
+    assert.ok(typed.filters.some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active'), 'active-only is always present');
+    assert.ok(typed.filters.some((filter) => filter[0] === 'original_name.ilike' && filter[1] === '%petal%'), 'search reaches the query');
+    assert.ok(typed.filters.some((filter) => filter[0] === 'or' && filter[1].indexOf('mime_type.like.image/') !== -1), 'image type reaches the query');
+    assert.ok(typed.filters.some((filter) => filter[0] === 'created_at.gte' && filter[1] === '2026-01-01T00:00:00.000Z'), 'from date reaches the query');
+    assert.ok(typed.filters.some((filter) => filter[0] === 'created_at.lte' && filter[1] === '2026-12-31T23:59:59.999Z'), 'to date reaches the query');
+    assert.deepEqual(typed.order, { column: 'created_at', ascending: true }, 'oldest-first reaches the order');
+
+    assert.equal(shape.videoOnly.reads.length, 1, 'one query per type change');
+    assert.ok(shape.videoOnly.reads[0].filters.some((filter) => filter[0] === 'or' && filter[1].indexOf('mime_type.like.video/') !== -1), 'video type reaches the query');
+    assert.ok(shape.documents.reads[0].filters.some((filter) => filter[0] === 'or' && filter[1].indexOf('application/pdf') !== -1), 'document type reaches the query');
+    assert.ok(shape.audioOnly.reads[0].filters.some((filter) => filter[0] === 'or' && filter[1].indexOf('mime_type.like.audio/') !== -1), 'audio type reaches the query');
+
+    const clean = shape.noFilters.reads[0];
+    assert.equal(shape.noFilters.reads.length, 1, 'one query for a default load');
+    assert.equal(clean.filters.some((filter) => filter[0] === 'original_name.ilike'), false, 'no search means no ilike');
+    assert.equal(clean.filters.some((filter) => filter[0] === 'or'), false, 'all-types adds no type predicate');
+    assert.equal(clean.filters.some((filter) => filter[0] === 'created_at.gte'), false, 'no from date means no gte');
+    assert.deepEqual(clean.range, [0, 29], 'the default load starts at page one');
+
+    const shapeReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length);
+    assert.equal(shapeReads, 6, 'no fan-out: one panel query plus one per explicit load');
+    console.log('PASS media query shape is one scoped server query per load (SDK fixture)');
 
 // P4_END
 
