@@ -34,7 +34,8 @@ const roundTrip = mapAdminHydrationResults({
   ...empty,
   assets: { data: [{
     id: 'a1', slug: 'petal-pack', title: 'Petal Pack', description: '', availability: 'unavailable',
-    file_path: 'uploads/petal.zip', file_type: 'ZIP', thumbnail_path: null, metadata: {},
+    file_path: 'uploads/petal.zip', file_type: 'ZIP', thumbnail_path: null,
+    metadata: { driveUrl:'https://drive.google.com/file/d/example/view', showDirectDownload:false, showDriveDownload:true },
     published: true, sort_order: 1, updated_at: '2026-09-20T00:00:00Z'
   }, {
     id: 'a2', slug: 'free-pack', title: 'Free Pack', description: '', file_path: '', file_type: 'PNG',
@@ -56,6 +57,9 @@ const roundTrip = mapAdminHydrationResults({
 }, (path) => `https://cdn.test/${path}`);
 
 assert.equal(roundTrip.assets[0].availability, 'unavailable', 'a hydrated unavailable asset stays unavailable');
+assert.equal(roundTrip.assets[0].driveUrl, 'https://drive.google.com/file/d/example/view');
+assert.equal(roundTrip.assets[0].showDirectDownload, false);
+assert.equal(roundTrip.assets[0].showDriveDownload, true);
 assert.equal(roundTrip.assets[1].availability, 'available', 'a missing asset availability resolves explicitly');
 assert.equal(roundTrip.commissions[0].price, '75', 'the canonical price column outranks a legacy formatted detail');
 assert.equal(roundTrip.commissions[0].priceFormatted, '$75', 'hydration derives fresh display text from the canonical price');
