@@ -2201,7 +2201,10 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
             <li class="spec"><span class="k">Update note</span><span class="v cms-inline" id="adUpdate">[UPDATE NOTE]</span></li>
           </ul>
           <div class="unavailable" id="adUnavailable"><span class="u-icon">!</span><p>This file is not available for download yet.</p></div>
-          <button class="btn btn-purple" type="button" id="adDownload">Download / open file</button>
+          <div class="row" id="adDownloadActions" style="justify-content:flex-start;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-purple" type="button" id="adDownload">Download file</button>
+            <button class="btn btn-ghost" type="button" id="adDriveDownload">Open in Google Drive ↗</button>
+          </div>
         </div>
       </div>
       <div class="ad-cta">
@@ -3116,10 +3119,22 @@ function renderAsset(id){
     var el = document.getElementById(key); if(!el) return;
     var value = visibleCmsValue(fields[key]); el.textContent = value; el.parentElement.style.display = value ? '' : 'none';
   });
-  var available = a.availability === 'available' && !!safePublicUrl(a.downloadUrl, true);
-  var notice = document.getElementById('adUnavailable'); var dl = document.getElementById('adDownload');
+  var urls = assetPublicDownloadUrls(a);
+  var available = a.availability === 'available' && !!(urls.direct || urls.drive);
+  var notice = document.getElementById('adUnavailable');
+  var dl = document.getElementById('adDownload');
+  var drive = document.getElementById('adDriveDownload');
   if(notice) notice.style.display = available ? 'none' : '';
-  if(dl){ dl.disabled = !available; dl.setAttribute('aria-disabled', available ? 'false' : 'true'); }
+  if(dl){
+    dl.style.display = urls.direct && a.availability === 'available' ? '' : 'none';
+    dl.disabled = !(urls.direct && a.availability === 'available');
+    dl.setAttribute('aria-disabled', dl.disabled ? 'true' : 'false');
+  }
+  if(drive){
+    drive.style.display = urls.drive && a.availability === 'available' ? '' : 'none';
+    drive.disabled = !(urls.drive && a.availability === 'available');
+    drive.setAttribute('aria-disabled', drive.disabled ? 'true' : 'false');
+  }
 }
 function focusView(view){
 var el = null;
@@ -3308,7 +3323,7 @@ initFilter('fa', { grid:'#faGrid', chips:'#faChips', empty:'#faEmpty', search:'#
 $$('#faGrid [data-asset]').forEach(function(card){
 var a = ASSETS[card.getAttribute('data-asset')]; if(!a) return;
 var st = $('.item-status', card);
-if(st) st.textContent = a.availability === 'available' && a.downloadUrl ? 'Available' : 'File not available yet';
+if(st) st.textContent = assetHasPublicDownload(a) ? 'Available' : 'File not available yet';
 });
 
 function wireAccordions(root){
@@ -3774,8 +3789,16 @@ var dlBtn = document.getElementById('adDownload');
 if(dlBtn) dlBtn.addEventListener('click', function(){
   if(dlBtn.disabled) return;
   var asset = ASSETS[currentRoute.id];
-  var url = safePublicUrl(asset && asset.downloadUrl, true);
+  var url = assetPublicDownloadUrls(asset).direct;
   if(!url){ toast('This file is not available yet.'); return; }
+  window.open(url, '_blank', 'noopener,noreferrer');
+});
+var driveBtn = document.getElementById('adDriveDownload');
+if(driveBtn) driveBtn.addEventListener('click', function(){
+  if(driveBtn.disabled) return;
+  var asset = ASSETS[currentRoute.id];
+  var url = assetPublicDownloadUrls(asset).drive;
+  if(!url){ toast('Google Drive link is not available yet.'); return; }
   window.open(url, '_blank', 'noopener,noreferrer');
 });
 
@@ -4885,7 +4908,7 @@ var aAudit = auditFor('assets', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="assets.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b></p>' +
 checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div></div>' +
 '<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
@@ -5525,7 +5548,7 @@ var listKey = btn.getAttribute('data-adm-new');
    the user, and the row is INSERTed (never upserted over another record). */
 var id = newAdminClientId();
 if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', tags:[], thumbnail:'', media:'', mediaType:'image', downloadUrl:'', fileFormat:'', license:'', credit:'', version:'', updateNote:'', dateAdded:'', flowerTag:'', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', tags:[], thumbnail:'', media:'', mediaType:'image', downloadUrl:'', driveUrl:'', showDirectDownload:true, showDriveDownload:false, fileFormat:'', license:'', credit:'', version:'', updateNote:'', dateAdded:'', flowerTag:'', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
@@ -6628,6 +6651,15 @@ if(!cloud){ cloud = document.createElement('div'); cloud.className = 'cloud-tag'
 var span = cloud.querySelector('span'); if(span) span.textContent = portfolioBadgeLabel(record);
 card.classList.toggle('is-cms-featured', !!record.featured);
 }
+function assetPublicDownloadUrls(record){
+var direct = record && record.showDirectDownload !== false ? safePublicUrl(record.downloadUrl, true) : '';
+var drive = record && record.showDriveDownload ? safePublicUrl(record.driveUrl, true) : '';
+return { direct: direct || '', drive: drive || '' };
+}
+function assetHasPublicDownload(record){
+var urls = assetPublicDownloadUrls(record);
+return !!(record && record.availability === 'available' && (urls.direct || urls.drive));
+}
 function assetBadgeLabel(record){
 return String((record && record.flowerTag) || (record && record.featured ? 'FEATURED' : '') || '').trim().toUpperCase();
 }
@@ -6754,7 +6786,7 @@ apply: function(records){
       card.innerHTML = assetBadgeMarkup(record) + preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
         '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
-        '<div class="item-status">' + (record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet') + '</div>';
+        '<div class="item-status">' + (assetHasPublicDownload(record) ? 'Available' : 'File not available yet') + '</div>';
       assetGrid.appendChild(card);
     });
   }
@@ -6770,7 +6802,7 @@ apply: function(records){
     var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
     var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
-    if(st) st.textContent = record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet';
+    if(st) st.textContent = assetHasPublicDownload(record) ? 'Available' : 'File not available yet';
     syncAssetBadge(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
