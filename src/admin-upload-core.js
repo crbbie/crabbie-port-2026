@@ -166,8 +166,8 @@ export function dedupeDecision(existingRow) {
   return { reuse: true, mediaId: existingRow.id, storagePath: existingRow.storage_path || '' };
 }
 
-export function mediaRowPayload({ storagePath, fileName, mimeType, sizeBytes, altText, sha256 } = {}) {
-  return {
+export function mediaRowPayload({ storagePath, fileName, mimeType, sizeBytes, altText, sha256, width, height } = {}) {
+  const payload = {
     bucket_id: 'media',
     storage_path: storagePath,
     original_name: fileName,
@@ -176,6 +176,12 @@ export function mediaRowPayload({ storagePath, fileName, mimeType, sizeBytes, al
     alt_text: altText || fileName,
     sha256: sha256 || null
   };
+  // Dimensions are only stored when a NEW raster upload could report them.
+  if (Number.isFinite(Number(width)) && Number(width) > 0 && Number.isFinite(Number(height)) && Number(height) > 0) {
+    payload.width = Math.round(Number(width));
+    payload.height = Math.round(Number(height));
+  }
+  return payload;
 }
 
 /** Standards-based SHA-256 (Web Crypto). Never MD5. */

@@ -14,8 +14,34 @@ import {
   mediaFilterSpec,
   MEDIA_PAGE_SIZE
 } from './admin-query-core.js';
+import {
+  mediaQuerySpec,
+  mediaTypeRules,
+  mediaLabelPayload,
+  bulkMediaSummary
+} from './admin-media-manager-core.js';
 import { uploadMediaWithPipeline, toMediaItem } from './admin-media-upload.js';
 import { uploadTaskLabel, classifyUploadFailure } from './admin-upload-core.js';
+import {
+  mediaMetadataRows,
+  mediaFilterSummary,
+  normalizeMediaView,
+  MEDIA_VIEWS,
+  MEDIA_TYPE_FILTERS,
+  MEDIA_SORTS,
+  previewDescriptor,
+  previewKindFor,
+  toggleSelection,
+  selectionState,
+  pickerResultFor,
+  blockMediaFields,
+  blockAcceptsMultiple,
+  galleryItemsFor,
+  acceptedDropFiles,
+  dropMessage,
+  bulkSummaryMessage,
+  keyboardSaveDecision
+} from './admin-media-manager-core.js';
 import {
   MEDIA_DELETION_STATUS,
   MEDIA_DELETED_STATE,
@@ -249,6 +275,59 @@ export async function retryMediaDeletion(mediaId) {
   }
 }
 
+/**
+ * Display label (alt text) editing. The storage path stays immutable so CMS
+ * URLs never break; media has no updated_at, so this is a scoped
+ * last-write-wins update of the label only.
+ */
+export async function updateMediaAltText(id, altText) {
+  assertMediaMutationReady();
+  if (!isConfigured || !supabase) return { success: false, error: 'Not configured' };
+  if (!id) return { success: false, error: 'A media id is required.' };
+
+  try {
+    await requireAdminUser();
+    const { data, error } = await supabase
+      .from('media')
+      .update(mediaLabelPayload(altText))
+      .eq('id', id)
+      .eq('deletion_status', MEDIA_DELETION_STATUS.ACTIVE)
+      .select(selectList('media'))
+      .maybeSingle();
+    if (error) return { success: false, error: 'Media label update failed: ' + error.message };
+    if (!data) return { success: false, error: 'That media record is no longer active.' };
+    return { success: true, item: toMediaItem(data) };
+  } catch (err) {
+    return { success: false, error: (err && err.message) || 'Media label update failed.' };
+  }
+}
+
+/**
+ * Bulk delete: every item goes through the Batch 3 lifecycle individually, so a
+ * referenced file is blocked instead of silently destroyed. No raw storage
+ * bulk-remove shortcut exists here on purpose.
+ */
+export async function bulkDeleteMedia(items, hooks = {}) {
+  assertMediaMutationReady();
+  const list = Array.isArray(items) ? items : [];
+  const results = [];
+
+  for (const entry of list) {
+    const id = typeof entry === 'string' ? entry : (entry && entry.id);
+    const title = (entry && entry.title) || id;
+    let result;
+    try {
+      result = await deleteMediaFile(id, entry && entry.storagePath, hooks.usageState);
+    } catch (err) {
+      result = { success: false, error: (err && err.message) || 'Media delete failed.' };
+    }
+    results.push({ id, title, result });
+    if (typeof hooks.onProgress === 'function') hooks.onProgress(results.slice(), bulkMediaSummary(results));
+  }
+
+  return { results, summary: bulkMediaSummary(results) };
+}
+
 /** Read-only integrity report. Never deletes or repairs anything. */
 export async function diagnoseMediaIntegrity() {
   const empty = { missingObjects: [], orphanObjects: [], pendingCleanup: [] };
@@ -273,21 +352,46 @@ export async function diagnoseMediaIntegrity() {
 
 /** Normal library listing: only active media (tombstones stay hidden). */
 /** One page of active media (never the whole library). */
+/** One server-scoped page: filters, ordering and range all travel to Postgres. */
 export async function loadMediaPage(options = {}) {
-  const range = paginationRange(options.page, options.pageSize || MEDIA_PAGE_SIZE, MEDIA_PAGE_SIZE);
-  const spec = mediaFilterSpec({ search: options.search });
+  const spec = mediaQuerySpec(options);
+  const range = paginationRange(spec.page, spec.pageSize, MEDIA_PAGE_SIZE);
+  const filter = mediaFilterSpec({ search: spec.search });
 
   let query = supabase
     .from('media')
     .select(selectList('media'), { count: 'exact' })
-    .eq('deletion_status', spec.deletionStatus);
+    .eq('deletion_status', filter.deletionStatus);
+
   if (spec.search) query = query.ilike('original_name', '%' + spec.search + '%');
 
-  const { data, error, count } = await query.order('created_at', { ascending: false }).range(range.from, range.to);
+  const rules = mediaTypeRules(spec.type);
+  if (rules) {
+    const clauses = [];
+    rules.prefixes.forEach((prefix) => clauses.push('mime_type.like.' + prefix + '%'));
+    rules.extensions.forEach((extension) => clauses.push('original_name.ilike.%25.' + extension));
+    query = query.or(clauses.join(','));
+  }
+
+  if (spec.from) query = query.gte('created_at', spec.from + 'T00:00:00.000Z');
+  if (spec.to) query = query.lte('created_at', spec.to + 'T23:59:59.999Z');
+
+  const order = spec.sort === 'name'
+    ? { column: 'original_name', ascending: true }
+    : { column: 'created_at', ascending: spec.sort === 'oldest' };
+
+  const { data, error, count } = await query.order(order.column, { ascending: order.ascending }).range(range.from, range.to);
   if (error) throw new Error('Media load failed: ' + error.message);
 
   const items = (Array.isArray(data) ? data : []).map((row) => toMediaItem(row));
-  return { dataset: 'media', items, count, filters: spec, ...pagedSummary({ count, page: range.page, pageSize: range.pageSize }) };
+  return {
+    dataset: 'media',
+    items,
+    count,
+    spec,
+    filters: filter,
+    ...pagedSummary({ count, page: range.page, pageSize: range.pageSize })
+  };
 }
 
 /** Convenience wrapper used by panels that only need the first page. */
@@ -310,6 +414,28 @@ if (typeof window !== 'undefined') {
     diagnoseMediaIntegrity,
     listMediaFiles,
     loadMediaPage,
+    updateMediaAltText,
+    bulkDeleteMedia,
+    mediaQuerySpec,
+    mediaMetadataRows,
+    mediaFilterSummary,
+    normalizeMediaView,
+    MEDIA_VIEWS,
+    MEDIA_TYPE_FILTERS,
+    MEDIA_SORTS,
+    previewDescriptor,
+    previewKindFor,
+    toggleSelection,
+    selectionState,
+    pickerResultFor,
+    blockMediaFields,
+    blockAcceptsMultiple,
+    galleryItemsFor,
+    acceptedDropFiles,
+    dropMessage,
+    bulkMediaSummary,
+    bulkSummaryMessage,
+    keyboardSaveDecision,
     uploadTaskLabel,
     classifyUploadFailure,
     findMediaUsage,
