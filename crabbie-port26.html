@@ -1423,6 +1423,30 @@ html.home-reveal-sequence.home-reveal-active footer{
   .home-transition-sparkle{animation:none!important;}
 }
 
+.adm-media-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.adm-view-toggle{display:flex;gap:4px;margin-left:auto;}
+.adm-view-toggle button[aria-pressed="true"]{background:var(--berry);color:#fff;}
+.adm-bulk-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0;padding:10px 12px;border-radius:12px;background:#fff;border:2px solid var(--pink-light);font-weight:700;color:var(--berry);}
+.adm-media-grid.view-list{display:block;}
+.adm-media-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border:2px solid var(--pink-light);border-radius:14px;background:#fff;margin-bottom:8px;}
+.adm-media-row.selected{border-color:var(--berry);}
+.adm-media-row-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#fbeef5;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.adm-media-row-main{flex:1;min-width:0;}
+.adm-media-pickbox{position:absolute;top:8px;right:8px;z-index:2;background:#fff;border-radius:8px;}
+.adm-preview-host{display:none;}
+.adm-preview-host.open{display:flex;align-items:center;justify-content:center;}
+.adm-preview{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;width:min(1100px,94vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;padding:16px;}
+.adm-preview-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.adm-preview-body{min-height:220px;display:flex;align-items:center;justify-content:center;background:#fbeef5;border-radius:14px;}
+.adm-preview-visual{max-width:100%;max-height:62vh;object-fit:contain;}
+.adm-preview-frame{width:100%;height:62vh;border:0;}
+.adm-preview-side{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.adm-preview-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;}
+.adm-preview-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.adm-dropzone-active{outline:3px dashed var(--berry);outline-offset:-6px;}
+@media (max-width:900px){.adm-preview{grid-template-columns:1fr;}}
+@media (max-width:640px){.adm-media-toolbar{flex-direction:column;align-items:stretch;}.adm-view-toggle{margin-left:0;}.adm-media-row{flex-wrap:wrap;}.adm-pagination{flex-wrap:wrap;gap:8px;}.adm-preview{padding:10px;}}
+
 </style>
 
 <!-- ============================================================

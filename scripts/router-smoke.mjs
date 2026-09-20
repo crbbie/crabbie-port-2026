@@ -1476,6 +1476,45 @@ try {
     assert.equal(await page.locator('[data-adm-upload-status]').count() <= 1, true, 'the upload status strip is never duplicated');
     console.log('PASS token refresh reloads nothing and reopened panels do not duplicate requests (SDK fixture)');
 
+    // ---- Batch 5 Group 1: Media Manager styles (CSS only) ------------------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    const served = await (await fetch(origin + '/')).text();
+    const styleBlocks = Array.from(served.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)).map((match) => match[1]);
+    assert.ok(styleBlocks.length > 0, 'the page ships inline styles');
+    const styleText = styleBlocks.join('\n');
+    let depth = 0;
+    let malformed = false;
+    for (const char of styleText) {
+      if (char === '{') depth += 1;
+      else if (char === '}') depth -= 1;
+      if (depth < 0) { malformed = true; break; }
+    }
+    assert.equal(malformed, false, 'stylesheet braces never underflow');
+    assert.equal(depth, 0, 'stylesheet braces are balanced (no swallowed markup)');
+    ['.adm-media-toolbar', '.adm-view-toggle', '.adm-bulk-bar', '.adm-media-row', '.adm-preview-host', '.adm-preview-visual', '.adm-dropzone-active', '.adm-media-pickbox'].forEach((selector) => {
+      assert.ok(styleText.indexOf(selector) !== -1, 'the stylesheet ships ' + selector);
+    });
+    console.log('PASS the media manager stylesheet is present and parsed (SDK fixture)');
+
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForTimeout(300);
+    const viewports = [
+      { width: 1440, height: 900, label: 'desktop' },
+      { width: 820, height: 1180, label: 'tablet' },
+      { width: 390, height: 844, label: 'mobile' }
+    ];
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.waitForTimeout(150);
+      const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+      assert.ok(box.scrollWidth <= box.clientWidth + 4, viewport.label + ' admin media view has no horizontal overflow (' + box.scrollWidth + '/' + box.clientWidth + ')');
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    console.log('PASS desktop, tablet and mobile admin media views have no horizontal overflow (SDK fixture)');
+
 // P4_END
 
   }
