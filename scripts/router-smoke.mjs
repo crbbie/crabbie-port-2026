@@ -53,21 +53,76 @@ export function createClient(){
   const subscribers = [];
   // Tests can drive auth events directly (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, ...).
   window.__routerEmit = (event, withSession) => subscribers.forEach(fn => fn(event, withSession === false ? null : session));
-  const query = table => new Proxy({}, { get: (_, key) => key === 'then'
-    ? (done) => {
-        (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
-        const failed = window.__routerFail === table;
-        return Promise.resolve(failed
-          ? {data: null, error: {message: 'Fixture forced failure'}}
-          : {data: (window.__routerRows || {})[table] || [], error: null}).then(done);
+  const rowsFor = (table) => ((window.__routerRows ||= {})[table] ||= []);
+  const sluggedTables = ['portfolio_projects', 'free_assets', 'commission_services', 'commission_forms', 'cms_categories', 'cms_pages'];
+  let idSeq = 100;
+  const nextId = () => '00000000-0000-4000-8000-' + String(idSeq++).padStart(12, '0');
+  const stamp = () => new Date(Date.now() + ((window.__routerClock = (window.__routerClock || 0) + 1)) * 1000).toISOString();
+  const duplicateSlug = (table, payload) => rowsFor(table).some(row =>
+    row.id !== payload.id &&
+    row.slug === payload.slug &&
+    (table !== 'cms_categories' || row.kind === payload.kind));
+  const slugConflict = (table) => ({code: '23505', message: 'duplicate key value violates unique constraint "' + table + '_slug_key"'});
+  const runQuery = (table, state) => {
+    const forced = window.__routerWriteError;
+    if (state.op && forced && forced.table === table && (!forced.operation || forced.operation === state.op)) {
+      window.__routerWriteError = null;
+      return {data: null, error: {message: forced.message, code: forced.code || ''}};
+    }
+    if (!state.op) {
+      (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
+      if (window.__routerFail === table) return {data: null, error: {message: 'Fixture forced failure'}};
+      const rows = rowsFor(table).slice();
+      return state.single ? {data: rows[0] || null, error: null} : {data: rows, error: null};
+    }
+    const matches = (row) => state.filters.every(([column, value]) => row[column] === value);
+    const incoming = Array.isArray(state.payload) ? state.payload : [state.payload];
+    let affected = [];
+    if (state.op === 'insert') {
+      for (const payload of incoming) {
+        if (sluggedTables.includes(table) && payload.slug && duplicateSlug(table, payload)) return {data: null, error: slugConflict(table)};
+        const row = Object.assign({id: nextId(), created_at: stamp(), updated_at: stamp()}, payload);
+        rowsFor(table).push(row);
+        affected.push(row);
       }
-    : (...args) => {
-        if (['upsert', 'insert', 'update', 'delete'].includes(key)) {
-          (window.__routerWrites ||= []).push({table, operation: key});
-          if (key === 'upsert') (window.__routerRows ||= {})[table] = Array.isArray(args[0]) ? args[0] : [args[0]];
-        }
-        return query(table);
-      } });
+    } else if (state.op === 'update') {
+      affected = rowsFor(table).filter(matches);
+      affected.forEach(row => Object.assign(row, incoming[0], {updated_at: stamp()}));
+    } else if (state.op === 'upsert') {
+      const matchColumn = table === 'site_settings' ? 'key' : 'id';
+      for (const payload of incoming) {
+        const existing = payload[matchColumn] ? rowsFor(table).find(row => row[matchColumn] === payload[matchColumn]) : null;
+        if (existing) { Object.assign(existing, payload, {updated_at: stamp()}); affected.push(existing); continue; }
+        if (sluggedTables.includes(table) && payload.slug && duplicateSlug(table, payload)) return {data: null, error: slugConflict(table)};
+        const row = Object.assign({id: payload.id || nextId(), created_at: stamp(), updated_at: stamp()}, payload);
+        rowsFor(table).push(row);
+        affected.push(row);
+      }
+    } else if (state.op === 'delete') {
+      const rows = rowsFor(table);
+      affected = rows.filter(matches);
+      window.__routerRows[table] = rows.filter(row => !matches(row));
+    }
+    if (!state.select) return {data: null, error: null};
+    return state.single ? {data: affected[0] || null, error: null} : {data: affected, error: null};
+  };
+  const query = (table, state = {op: null, filters: [], payload: null, select: '', single: false}) => new Proxy({}, { get: (_, key) => {
+    if (key === 'then') return (done) => Promise.resolve(runQuery(table, state)).then(done);
+    return (...args) => {
+      if (['insert', 'update', 'upsert', 'delete'].includes(key)) {
+        state.op = key;
+        state.payload = args[0];
+        (window.__routerWrites ||= []).push({table, operation: key, filters: state.filters, payload: args[0]});
+      } else if (key === 'select') {
+        state.select = String(args[0] || '');
+      } else if (key === 'eq') {
+        state.filters.push([args[0], args[1]]);
+      } else if (key === 'maybeSingle' || key === 'single') {
+        state.single = true;
+      }
+      return query(table, state);
+    };
+  } });
   return {
     from: table => query(table),
     storage: {from: () => ({getPublicUrl: path => ({data: {publicUrl: 'https://router-test.supabase.co/' + path}})})},
@@ -231,16 +286,16 @@ try {
     // instead of relying on prototype fallback (which is exactly the bug fixed).
     await page.evaluate(() => {
       window.__routerRows = {
-        portfolio_projects: [{slug:'color-fiesta',title:'Color Fiesta',description:'Fixture description',tags:['ART'],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:0}],
-        free_assets: [{slug:'petal-pack',title:'Petal pack',description:'Fixture asset description',tags:['brush'],thumbnail_path:'',file_path:'https://example.test/seed.zip',file_type:'ZIP',availability:'available',metadata:{},featured:false,published:true,sort_order:0}],
-        commission_services: [{slug:'bust-up',title:'Bust up',description:'Fixture service description',price:70,currency:'USD',availability:'open',form_slug:'emails',thumbnail_path:'',featured:false,published:true,details:{deliveryEstimate:'2 weeks',isOtherService:false},sort_order:0}],
-        commission_forms: [{slug:'emails',title:'Fixture form',description:'Fixture form',published:true,fields:[]}],
+        portfolio_projects: [{id:'00000000-0000-4000-8000-000000000001',slug:'color-fiesta',title:'Color Fiesta',description:'Fixture description',tags:['ART'],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:0,updated_at:'2026-01-01T00:00:00Z'}],
+        free_assets: [{id:'00000000-0000-4000-8000-000000000002',slug:'petal-pack',title:'Petal pack',description:'Fixture asset description',tags:['brush'],thumbnail_path:'',file_path:'https://example.test/seed.zip',file_type:'ZIP',availability:'available',metadata:{},featured:false,published:true,sort_order:0,updated_at:'2026-01-02T00:00:00Z'}],
+        commission_services: [{id:'00000000-0000-4000-8000-000000000003',slug:'bust-up',title:'Bust up',description:'Fixture service description',price:70,currency:'USD',availability:'open',form_slug:'emails',thumbnail_path:'',featured:false,published:true,details:{deliveryEstimate:'2 weeks',isOtherService:false},sort_order:0,updated_at:'2026-01-03T00:00:00Z'}],
+        commission_forms: [{id:'00000000-0000-4000-8000-000000000004',slug:'emails',title:'Fixture form',description:'Fixture form',published:true,fields:[],updated_at:'2026-01-04T00:00:00Z'}],
         cms_categories: [],
         cms_pages: [
-          {slug:'about',title:'About fixture',content:'Fixture about content',published:true,data:{name:'Fixture artist',bio:'Fixture bio',skills:[],experience:[],links:[]}},
-          {slug:'terms',title:'Terms fixture',content:'# 1. Contact\n\nFixture terms content long enough to render.',published:true,data:{}}
+          {id:'00000000-0000-4000-8000-000000000005',slug:'about',title:'About fixture',content:'Fixture about content',published:true,data:{name:'Fixture artist',bio:'Fixture bio',skills:[],experience:[],links:[]},updated_at:'2026-01-05T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000006',slug:'terms',title:'Terms fixture',content:'# 1. Contact\n\nFixture terms content long enough to render.',published:true,data:{},updated_at:'2026-01-06T00:00:00Z'}
         ],
-        cms_navigation: [{id:'00000000-0000-0000-0000-0000000000aa',title:'Portfolio',url:'#portfolio',published:true,sort_order:0}],
+        cms_navigation: [{id:'00000000-0000-4000-8000-0000000000aa',title:'Portfolio',url:'#portfolio',published:true,sort_order:0,updated_at:'2026-01-07T00:00:00Z'}],
         site_settings: [{key:'branding',value:{title:'CRABBIE'}}],
         commission_requests: [],
         media: []
@@ -325,33 +380,34 @@ try {
     assert.deepEqual(errors, [], 'Content Health UI must not throw');
     console.log('PASS admin content health dashboard, checklist, publish guard, media preview/clear, EN/VI (SDK fixture, no writes)');
     const scopedWrites = await page.evaluate(async () => {
-      const draft = {
-        portfolio: [{id:'fixture-project',slug:'fixture-project',title:'Fixture',published:false}],
-        assets: [{id:'fixture-asset',slug:'fixture-asset',title:'Fixture',published:false}],
-        commissions: [{id:'fixture-service',slug:'fixture-service',title:'Fixture',published:false}],
-        forms: [{id:'fixture-form',slug:'fixture-form',title:'Fixture',published:false}],
-        pages: { about: {title:'About',bio:'Bio'}, terms: {title:'Terms',content:'Terms'} },
-        navigation: [{id:'00000000-0000-0000-0000-000000000001',title:'Nav',url:'#nav',published:true}],
-        settings: { branding: {title:'CRABBIE'} },
-        requests: [{id:'00000000-0000-0000-0000-000000000002',status:'NEW',notes:'Note'}]
+      const calls = {
+        portfolio: () => window.CrabbieAdminCrud.saveRecord('portfolio', { id:'client-p', dbId:null, slug:'fixture-project', title:'Fixture', category:'illustration', tags:[] }),
+        assets: () => window.CrabbieAdminCrud.saveRecord('assets', { id:'client-a', dbId:null, slug:'fixture-asset', title:'Fixture' }),
+        commissions: () => window.CrabbieAdminCrud.saveRecord('commissions', { id:'client-c', dbId:null, slug:'fixture-service', title:'Fixture', price:'70' }),
+        forms: () => window.CrabbieAdminCrud.saveRecord('forms', { id:'client-f', dbId:null, slug:'fixture-form', title:'Fixture', fields:[] }),
+        'pages.about': () => window.CrabbieAdminCrud.saveRecord('pages.about', { id:'about', dbId:'00000000-0000-4000-8000-000000000005', originalUpdatedAt:'2026-01-05T00:00:00Z', title:'About', content:'About' }),
+        'pages.terms': () => window.CrabbieAdminCrud.saveRecord('pages.terms', { id:'terms', dbId:'00000000-0000-4000-8000-000000000006', originalUpdatedAt:'2026-01-06T00:00:00Z', title:'Terms', content:'Terms' }),
+        navigation: () => window.CrabbieAdminCrud.saveRecord('navigation', { id:'client-n', dbId:null, title:'Nav', url:'#nav', published:true }),
+        settings: () => window.CrabbieAdminCrud.saveSettings({ branding: { title:'CRABBIE' } }, ['branding']),
+        portfolioCategories: () => window.CrabbieAdminCrud.saveRecord('portfolioCategories', { id:'client-cat', dbId:null, slug:'chibi', title:'Chibi', published:true })
       };
       const results = {};
-      for (const scope of ['portfolio', 'assets', 'commissions', 'forms', 'pages.about', 'pages.terms', 'navigation', 'settings', 'requests']) {
+      for (const scope of Object.keys(calls)) {
         window.__routerWrites = [];
-        await window.CrabbieAdminCrud.persistAdminData(draft, scope);
-        results[scope] = window.__routerWrites.map(w => w.table);
+        await calls[scope]();
+        results[scope] = window.__routerWrites.map(w => w.table + ':' + w.operation);
       }
       return results;
     });
-    assert.deepEqual(scopedWrites['portfolio'], ['portfolio_projects']);
-    assert.deepEqual(scopedWrites['assets'], ['free_assets']);
-    assert.deepEqual(scopedWrites['commissions'], ['commission_services']);
-    assert.deepEqual(scopedWrites['forms'], ['commission_forms']);
-    assert.deepEqual(scopedWrites['pages.about'], ['cms_pages']);
-    assert.deepEqual(scopedWrites['pages.terms'], ['cms_pages']);
-    assert.deepEqual(scopedWrites['navigation'], ['cms_navigation']);
-    assert.deepEqual(scopedWrites['settings'], ['site_settings']);
-    assert.deepEqual(scopedWrites['requests'], ['commission_requests']);
+    assert.deepEqual(scopedWrites['portfolio'], ['portfolio_projects:insert']);
+    assert.deepEqual(scopedWrites['assets'], ['free_assets:insert']);
+    assert.deepEqual(scopedWrites['commissions'], ['commission_services:insert']);
+    assert.deepEqual(scopedWrites['forms'], ['commission_forms:insert']);
+    assert.deepEqual(scopedWrites['pages.about'], ['cms_pages:update']);
+    assert.deepEqual(scopedWrites['pages.terms'], ['cms_pages:update']);
+    assert.deepEqual(scopedWrites['navigation'], ['cms_navigation:insert']);
+    assert.deepEqual(scopedWrites['settings'], ['site_settings:upsert']);
+    assert.deepEqual(scopedWrites['portfolioCategories'], ['cms_categories:insert']);
     // Leaving the admin area with unsaved edits is now guarded: discard the
     // draft explicitly through the sticky bar before public CMS rendering.
     await page.locator('#admStickySave [data-adm-discard]').click();
@@ -418,8 +474,8 @@ try {
     assert.equal(await page.locator('.comm-card .comm-thumb img').first().getAttribute('src'), 'https://example.test/normal.png');
     assert.equal(await page.locator('#miniServicesGrid [data-other-service="static-emote"] .mini-icon img').getAttribute('src'), 'https://example.test/mini.png');
     console.log('PASS public CMS card/detail rendering, safe blocks, asset download, About links, Commission thumbnails (SDK fixture)');
+    // The saved row must still exist so the editor save is an UPDATE of it.
     await page.evaluate(() => {
-      window.__routerRows = {};
       window.__routerWrites = [];
       location.hash = '#admin/portfolio';
     });
@@ -467,12 +523,12 @@ try {
     assert.equal(await page.locator('[data-adm-path]').count(), 0, 'Failed hydration must not render editors over prototype data');
     assert.equal(await page.locator('#adminTopSave').isVisible(), false, 'Failed hydration must hide the top Save button');
     const blockedSave = await page.evaluate(async () => {
-      try { await window.CrabbieAdminCrud.persistAdminData({ portfolio: [] }, 'portfolio'); return 'written'; }
+      try { await window.CrabbieAdminCrud.saveRecord('portfolio', { id: 'local-1', dbId: null, slug: 'gate-check', title: 'X', category: 'illustration', tags: [] }); return 'written'; }
       catch (err) { return err.message; }
     });
     assert.equal(blockedSave, 'Admin data is not ready for mutation.');
     const blockedDelete = await page.evaluate(async () => {
-      try { await window.CrabbieAdminCrud.deleteRecord('portfolio', 'color-fiesta'); return 'deleted'; }
+      try { await window.CrabbieAdminCrud.deleteRecord('portfolio', { id: 'color-fiesta', dbId: '00000000-0000-4000-8000-000000000001' }); return 'deleted'; }
       catch (err) { return err.message; }
     });
     assert.equal(blockedDelete, 'Admin data is not ready for mutation.');
@@ -557,6 +613,206 @@ try {
     await goToAdminModule('settings');
     assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), '', 'Prototype settings must not survive an empty snapshot');
     console.log('PASS empty Supabase tables clear portfolio, assets, commissions, requests, media, pages and settings (SDK fixture)');
+
+    // ---- Prompt 2: record-scoped saves, concurrency, duplicates, deletes -----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminCrud && window.CrabbieAdminCrud.saveRecord));
+    await page.evaluate(() => {
+      window.__routerRows = {
+        portfolio_projects: [
+          {id:'00000000-0000-4000-8000-000000000101',slug:'color-fiesta',title:'Color Fiesta',description:'D',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:0,updated_at:'2026-01-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000102',slug:'second-project',title:'Second project',description:'D',tags:[],thumbnail_path:'',cover_path:'',content:{},featured:false,published:false,sort_order:1,updated_at:'2026-01-02T00:00:00Z'}
+        ],
+        free_assets: [{id:'00000000-0000-4000-8000-000000000103',slug:'petal-pack',title:'Petal pack',description:'D',tags:[],thumbnail_path:'',file_path:'https://example.test/petal.zip',file_type:'ZIP',availability:'available',metadata:{},featured:false,published:true,sort_order:0,updated_at:'2026-01-03T00:00:00Z'}],
+        commission_services: [{id:'00000000-0000-4000-8000-000000000104',slug:'bust-up',title:'Bust up',description:'D',price:70,currency:'USD',availability:'open',form_slug:'emails',thumbnail_path:'',featured:false,published:true,details:{deliveryEstimate:'2 weeks'},sort_order:0,updated_at:'2026-01-04T00:00:00Z'}],
+        commission_forms: [{id:'00000000-0000-4000-8000-000000000105',slug:'emails',title:'Emails form',description:'D',published:true,fields:[],updated_at:'2026-01-05T00:00:00Z'}],
+        cms_categories: [],
+        cms_pages: [{id:'00000000-0000-4000-8000-000000000106',slug:'about',title:'About fixture',content:'About body',published:true,data:{name:'Fixture artist',bio:'Bio',skills:[],experience:[],links:[]},updated_at:'2026-01-06T00:00:00Z'}],
+        cms_navigation: [{id:'00000000-0000-4000-8000-000000000107',title:'Portfolio',url:'#portfolio',published:true,sort_order:0,updated_at:'2026-01-07T00:00:00Z'}],
+        site_settings: [],
+        commission_requests: [
+          {id:'00000000-0000-4000-8000-000000000108',client_name:'Client One',client_email:'one@example.test',answers:{service:'Bust up'},status:'new',admin_notes:'',created_at:'2026-01-08T00:00:00Z',updated_at:'2026-01-08T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000109',client_name:'Client Two',client_email:'two@example.test',answers:{service:'Bust up'},status:'new',admin_notes:'',created_at:'2026-01-09T00:00:00Z',updated_at:'2026-01-09T00:00:00Z'}
+        ],
+        media: []
+      };
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+      window.__routerWriteError = null;
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+
+    // Test 1 + Test 5: one portfolio edit updates only that row, by DB id.
+    await goToAdminModule('portfolio');
+    await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Edited once');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const portfolioWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters})));
+    assert.equal(portfolioWrites.length, 1, 'one record edit must write exactly one row');
+    assert.equal(portfolioWrites[0].table, 'portfolio_projects');
+    assert.equal(portfolioWrites[0].op, 'update', 'an existing record is UPDATEd, never re-upserted');
+    assert.deepEqual(portfolioWrites[0].filters, [['id', '00000000-0000-4000-8000-000000000101'], ['updated_at', '2026-01-01T00:00:00Z']], 'the write is scoped by DB id and the hydrated baseline');
+    const portfolioRowsAfter = await page.evaluate(() => window.__routerRows.portfolio_projects.map(r => ({slug: r.slug, title: r.title, updated_at: r.updated_at})));
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'color-fiesta').title, 'Edited once');
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').title, 'Second project', 'an untouched record must not be rewritten');
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').updated_at, '2026-01-02T00:00:00Z', 'an untouched record keeps its timestamp');
+    console.log('PASS one portfolio edit sends one UPDATE scoped by DB id + baseline (SDK fixture)');
+
+    // Test 4 + Test 7: a new draft is INSERTed, remembers the DB id, then UPDATEs.
+    await page.locator('[data-adm-new="portfolio"]').click();
+    const newRecordPath = await page.evaluate(() => {
+      const input = document.querySelector('[data-adm-path$=".slug"]');
+      return input ? input.getAttribute('data-adm-path').replace(/\.slug$/, '') : '';
+    });
+    assert.match(newRecordPath, /^portfolio\.client-/, 'a new draft gets a unique client identity instead of a fixed slug');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), '', 'a new draft starts with an empty slug');
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Brand new project');
+    await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').fill('brand-new-project');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const insertWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, payload: w.payload})));
+    assert.equal(insertWrites.length, 1, 'a new record is one INSERT');
+    assert.equal(insertWrites[0].op, 'insert', 'a new record must be INSERTed');
+    assert.equal('id' in insertWrites[0].payload, false, 'an insert must not send a DB id');
+    const insertedRow = await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'brand-new-project'));
+    assert.ok(insertedRow && insertedRow.id, 'the database returned a real id');
+    assert.equal(await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()), 'ready');
+
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Renamed new project');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const secondWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
+    assert.equal(secondWrites.length, 1);
+    assert.equal(secondWrites[0].op, 'update', 'the inserted record is treated as existing afterwards');
+    assert.equal(secondWrites[0].filters[0][0], 'id');
+    assert.equal(secondWrites[0].filters[0][1], insertedRow.id, 'the UPDATE targets the returned DB id');
+    assert.equal(secondWrites[0].filters[1][1], insertedRow.updated_at, 'the local baseline advanced to the returned updated_at');
+    console.log('PASS a new record INSERTs once, stores the DB id and UPDATEs afterwards (SDK fixture)');
+
+    // Test 3: a duplicate slug is rejected without touching the other row.
+    await goToAdminModule('portfolio');
+    await page.locator('[data-adm-new="portfolio"]').click();
+    const duplicatePath = await page.evaluate(() => {
+      const input = document.querySelector('[data-adm-path$=".slug"]');
+      return input ? input.getAttribute('data-adm-path').replace(/\.slug$/, '') : '';
+    });
+    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Duplicate attempt');
+    await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').fill('color-fiesta');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.waitForFunction(() => document.querySelector('#toast').classList.contains('show'));
+    assert.match(await page.locator('#toast').innerText(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
+    assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'color-fiesta', 'the draft slug is preserved');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
+    assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').map(r => r.title)), ['Edited once'], 'the existing row is untouched');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.some(r => r.title === 'Duplicate attempt')), false, 'no partial row was created');
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['insert'], 'only the rejected INSERT was attempted');
+    console.log('PASS a duplicate slug is rejected without touching the other row or the draft (SDK fixture)');
+
+    // Test 2: editing one commission request updates only that request.
+    await goToAdminModule('requests');
+    await page.locator('[data-adm-path="requests.00000000-0000-4000-8000-000000000108.status"]').selectOption('Completed');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="requests"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const requestWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
+    assert.equal(requestWrites.length, 1, 'one request edit must write one row, never every loaded request');
+    assert.equal(requestWrites[0].table, 'commission_requests');
+    assert.equal(requestWrites[0].op, 'update');
+    assert.deepEqual(requestWrites[0].filters, [['id', '00000000-0000-4000-8000-000000000108'], ['updated_at', '2026-01-08T00:00:00Z']]);
+    assert.deepEqual(Object.keys(requestWrites[0].payload).sort(), ['admin_notes', 'status']);
+    const requestRows = await page.evaluate(() => window.__routerRows.commission_requests.map(r => ({id: r.id, status: r.status, updated_at: r.updated_at})));
+    assert.equal(requestRows.find(r => r.id.endsWith('108')).status, 'closed');
+    assert.equal(requestRows.find(r => r.id.endsWith('109')).updated_at, '2026-01-09T00:00:00Z', 'the other request must not be rewritten');
+    console.log('PASS one commission request edit updates only that request (SDK fixture)');
+
+    // Test 6: a stale save from a second tab is rejected as a conflict.
+    const staleAttempt = await page.evaluate(async () => {
+      const staleRecord = { id:'color-fiesta', dbId:'00000000-0000-4000-8000-000000000101', originalUpdatedAt:'2020-01-01T00:00:00Z', slug:'color-fiesta', title:'Stale title', description:'D', tags:[], category:'illustration' };
+      try {
+        await window.CrabbieAdminCrud.saveRecord('portfolio', staleRecord);
+        return { status:'saved' };
+      } catch (err) {
+        return { status:'error', code: err.code, message: err.message, draftTitle: staleRecord.title, baseline: staleRecord.originalUpdatedAt };
+      }
+    });
+    assert.equal(staleAttempt.status, 'error', 'a stale save must not succeed');
+    assert.equal(staleAttempt.code, 'stale_save');
+    assert.match(staleAttempt.message, /another session|reload/i);
+    assert.equal(staleAttempt.draftTitle, 'Stale title', 'the local draft survives a conflict');
+    assert.equal(staleAttempt.baseline, '2020-01-01T00:00:00Z', 'a failed save must not advance the baseline');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'color-fiesta').title), 'Edited once', 'newer database data is not overwritten');
+    console.log('PASS a stale save is rejected as a conflict and never overwrites newer data (SDK fixture)');
+
+    // Test 10: a reorder is one bounded order-only write, not one write per row.
+    await goToAdminModule('portfolio');
+    await page.evaluate(() => {
+      const bar = document.getElementById('admStickySave');
+      if (bar && bar.classList.contains('visible')) bar.querySelector('[data-adm-discard]').click();
+    });
+    if (await page.locator('#adminConfirmModal.open').count()) {
+      await page.locator('#adminConfirmOk').click();
+      await page.waitForFunction(() => !document.getElementById('adminConfirmModal').classList.contains('open'));
+    }
+    await page.locator('.adm-record[data-adm-id="color-fiesta"] [data-adm-move="down"]').click();
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#admStickySave [data-adm-save="sticky"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const orderWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, payload: w.payload})));
+    assert.equal(orderWrites.length, 1, 'a reorder must not become a sequential write per row');
+    assert.equal(orderWrites[0].table, 'portfolio_projects');
+    assert.equal(orderWrites[0].op, 'upsert');
+    assert.equal(orderWrites[0].payload.length, 3, 'one bounded order write covers every saved row');
+    for (const entry of orderWrites[0].payload) assert.deepEqual(Object.keys(entry).sort(), ['id', 'sort_order'], 'order writes only touch ordering');
+    console.log('PASS a reorder is a single bounded order-only write (SDK fixture)');
+
+    // Test 8: a failed delete keeps the record in local state and reports it.
+    const adminRecordCount = () => page.locator('#adminContent .adm-record').count();
+    const countBeforeDelete = await adminRecordCount();
+    await page.locator('.adm-record[data-adm-id="second-project"]').click();
+    await page.evaluate(() => { window.__routerWriteError = { table:'portfolio_projects', operation:'delete', message:'Network request failed' }; });
+    await page.locator('[data-adm-delete-list="portfolio"]').click();
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => document.querySelector('#toast').classList.contains('show'));
+    assert.match(await page.locator('#toast').innerText(), /Delete failed/i, 'a failed delete is reported to the user');
+    assert.equal(await adminRecordCount(), countBeforeDelete, 'the record stays in the admin list after a failed delete');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.some(r => r.slug === 'second-project')), true, 'the row is still in the database');
+    assert.equal(await page.locator('.adm-record[data-adm-id="second-project"]').getAttribute('aria-selected'), 'true', 'selection stays coherent after a failed delete');
+    console.log('PASS a failed database delete keeps the record and reports the error (SDK fixture)');
+
+    // Test 9: a successful delete removes the row from the DB first, then locally.
+    await page.locator('[data-adm-delete-list="portfolio"]').click();
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => !window.__routerRows.portfolio_projects.some(r => r.slug === 'second-project'));
+    assert.equal(await page.locator('.adm-record[data-adm-id="second-project"]').count(), 0, 'the deleted record leaves the admin list only after DB success');
+    assert.equal(await adminRecordCount(), countBeforeDelete - 1);
+    assert.equal(await page.locator('.adm-record[aria-selected="true"]').count(), 1, 'a remaining record stays selected');
+    console.log('PASS a successful delete removes the row from the database and then the list (SDK fixture)');
+
+    // Test 11: every Prompt 2 mutation respects the Batch 1 readiness gate.
+    const gateResults = await page.evaluate(async () => {
+      window.CrabbieAdminCrud.setAdminLoadState('idle');
+      const attempt = async (fn) => {
+        try { await fn(); return 'allowed'; } catch (err) { return err.message; }
+      };
+      const results = {
+        save: await attempt(() => window.CrabbieAdminCrud.saveRecord('portfolio', { id:'x', dbId:null, slug:'x', title:'X', category:'illustration', tags:[] })),
+        order: await attempt(() => window.CrabbieAdminCrud.saveOrder('portfolio', [])),
+        settings: await attempt(() => window.CrabbieAdminCrud.saveSettings({ branding: { title:'X' } }, ['branding'])),
+        remove: await attempt(() => window.CrabbieAdminCrud.deleteRecord('portfolio', { id:'x', dbId:'00000000-0000-4000-8000-000000000101' }))
+      };
+      window.CrabbieAdminCrud.setAdminLoadState('ready');
+      return results;
+    });
+    for (const name of Object.keys(gateResults)) {
+      assert.equal(gateResults[name], 'Admin data is not ready for mutation.', name + ' must respect the load-state gate');
+    }
+    console.log('PASS record, order, settings and delete mutations all refuse to run while not ready (SDK fixture)');
   }
 } finally {
   if (browser) await browser.close();
