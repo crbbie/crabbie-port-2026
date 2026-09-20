@@ -193,6 +193,7 @@ export function mapAdminPages(data) {
         bio: d.bio || '',
         experience: d.experience || [],
         skills: d.skills || [],
+        values: Array.isArray(d.values) ? d.values : null,
         links: d.links || [],
         titleCopy: { en: row.title, vi: '', viOverride: false },
         contentCopy: { en: row.content, vi: '', viOverride: false }

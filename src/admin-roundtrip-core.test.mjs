@@ -6,11 +6,12 @@ import {
   formattedCommissionPrice,
   CONTACT_ROLES
 } from './admin-roundtrip-core.js';
-import { formatAssetRow, formatCommissionRow } from './admin-crud-core.js';
+import { formatAssetRow, formatCommissionRow, formatPageRow, formatPortfolioRow } from './admin-crud-core.js';
 import { buildAdminWritePlan } from './admin-record-save-core.js';
 import { mediaRowPayload } from './admin-upload-core.js';
 import { formatMediaItem } from './admin-media-core.js';
 import { mapCommissionService } from './commissions-core.js';
+import { mapAdminHydrationResults } from './admin-hydration-core.js';
 
 // A missing explicit default used to serialize a new asset as unavailable.
 assert.equal(createAssetDraft({ id: 'client-asset', slug: 'new-asset' }).availability, 'available');
@@ -111,5 +112,95 @@ assert.equal(mappedItem.height, 480, 'a mapped item exposes a numeric height');
 const undimensioned = formatMediaItem({ storage_path: 'uploads/clip.mp4' }, () => 'https://cdn.test/clip.mp4');
 assert.equal(undimensioned.width, null, 'existing null dimensions stay safe');
 assert.equal(undimensioned.height, null, 'existing null dimensions stay safe');
+
+// --- Commission price blanks stay null, never NaN ---
+assert.equal(formatCommissionRow({ slug: 'no-price', price: '' }).price, null, 'a blank price is written as null, not NaN');
+assert.equal(formatCommissionRow({ slug: 'no-price', price: 'By inquiry' }).price, null, 'a non-numeric price is written as null, not NaN');
+
+// --- A new commission service round-trips every editable field ---
+const newService = {
+  id: 'client-svc', dbId: null, originalUpdatedAt: null,
+  slug: 'chibi-badge-set', title: 'Chibi Badge Set', description: 'Matching chibi badges.',
+  thumbnail: 'https://cdn.test/badge.png', price: '45', currency: 'USD', alternatePrice: '1100000',
+  includedFiles: 'PNG x3 + PSD', canvas: '1000x1000px each', delivery: '2 weeks',
+  availability: 'inquiry', form: 'emotes', featured: true, published: true
+};
+const serviceRow = formatCommissionRow(newService, 3);
+assert.equal(serviceRow.slug, 'chibi-badge-set');
+assert.equal(serviceRow.title, 'Chibi Badge Set');
+assert.equal(serviceRow.description, 'Matching chibi badges.');
+assert.equal(serviceRow.thumbnail_path, 'https://cdn.test/badge.png');
+assert.equal(serviceRow.price, 45);
+assert.equal(serviceRow.currency, 'USD');
+assert.equal(serviceRow.availability, 'waitlist', 'inquiry availability maps to the DB waitlist value');
+assert.equal(serviceRow.form_slug, 'emotes', 'the Request button maps to the authored form');
+assert.equal(serviceRow.featured, true);
+assert.equal(serviceRow.published, true);
+assert.equal(serviceRow.sort_order, 3);
+assert.equal(serviceRow.details.includedFiles, 'PNG x3 + PSD');
+assert.equal(serviceRow.details.canvas, '1000x1000px each');
+assert.equal(serviceRow.details.deliveryEstimate, '2 weeks');
+assert.equal(serviceRow.details.alternatePrice, '1100000');
+assert.equal(serviceRow.details.formType, 'emotes');
+const serviceBack = mapCommissionService({ ...serviceRow, details: serviceRow.details });
+assert.equal(serviceBack.title, 'Chibi Badge Set');
+assert.equal(serviceBack.description, 'Matching chibi badges.');
+assert.equal(serviceBack.thumbnail, 'https://cdn.test/badge.png');
+assert.equal(serviceBack.price, '$45');
+assert.equal(serviceBack.currency, 'USD');
+assert.equal(serviceBack.availability, 'inquiry', 'waitlist maps back to the editable inquiry value');
+assert.equal(serviceBack.formType, 'emotes');
+assert.equal(serviceBack.includedFiles, 'PNG x3 + PSD');
+assert.equal(serviceBack.canvas, '1000x1000px each');
+assert.equal(serviceBack.deliveryEstimate, '2 weeks');
+assert.equal(serviceBack.alternatePrice, '1100000');
+assert.equal(serviceBack.featured, true);
+assert.equal(serviceBack.published, true);
+
+// --- Portfolio block section titles survive the write boundary ---
+const blockRow = formatPortfolioRow({
+  slug: 'gif-gallery', blocks: [
+    { id: 'b1', type: 'text', text: 'Intro', sectionTitle: 'Concept' },
+    { id: 'b2', type: 'gallery', sectionTitle: 'Sketches', items: [
+      { url: 'https://cdn.test/a.png', alt: 'A', caption: '' },
+      { url: 'https://cdn.test/b.gif', alt: 'B', caption: 'animated' }
+    ]}
+  ]
+}, 0);
+assert.equal(blockRow.content.blocks[0].sectionTitle, 'Concept', 'block section titles are persisted in the block JSON');
+assert.equal(blockRow.content.blocks[1].sectionTitle, 'Sketches');
+// --- About page: skills / experience / values round-trip the full boundary ---
+const aboutDraft = {
+  title: 'About', content: 'Hello.', published: true,
+  name: 'Crabbie', bio: 'Illustrator.', profileImage: 'https://cdn.test/me.png',
+  skills: ['Illustration', 'Merch'],
+  experience: [{ tag: 'EVENT', title: 'Amelodious', body: '4koma comics.' }],
+  values: [{ title: 'Color', body: 'Bright palettes.' }],
+  links: [{ label: 'Email', url: 'crabbie.art@gmail.com' }]
+};
+const aboutRow = formatPageRow('about', aboutDraft);
+assert.deepEqual(aboutRow.data.skills, ['Illustration', 'Merch']);
+assert.deepEqual(aboutRow.data.experience, [{ tag: 'EVENT', title: 'Amelodious', body: '4koma comics.' }]);
+assert.deepEqual(aboutRow.data.values, [{ title: 'Color', body: 'Bright palettes.' }], 'creative values persist in the About page JSON');
+
+const emptyResults = {
+  portfolio: { data: [], error: null }, assets: { data: [], error: null },
+  categories: { data: [], error: null }, commissions: { data: [], error: null },
+  forms: { data: [], error: null }, navigation: { data: [], error: null },
+  settings: { data: [], error: null }, requests: { data: [], error: null }, media: { data: [], error: null }
+};
+const hydration = mapAdminHydrationResults({ ...emptyResults, pages: { data: [aboutRow], error: null } });
+assert.deepEqual(hydration.pages.about.values, [{ title: 'Color', body: 'Bright palettes.' }], 'hydration preserves stored creative values');
+assert.deepEqual(hydration.pages.about.skills, ['Illustration', 'Merch']);
+assert.deepEqual(hydration.pages.about.experience, [{ tag: 'EVENT', title: 'Amelodious', body: '4koma comics.' }]);
+
+// A legacy record without values hydrates with null (never restored defaults);
+// an explicitly stored empty array stays authoritative.
+const legacyRow = formatPageRow('about', { title: 'About', content: 'x', published: true });
+delete legacyRow.data.values;
+const legacyHydration = mapAdminHydrationResults({ ...emptyResults, pages: { data: [legacyRow], error: null } });
+assert.equal(legacyHydration.pages.about.values, null, 'legacy records surface values as absent, not as defaults');
+const emptyHydration = mapAdminHydrationResults({ ...emptyResults, pages: { data: [formatPageRow('about', { title: 'About', content: 'x', published: true, values: [] })], error: null } });
+assert.deepEqual(emptyHydration.pages.about.values, [], 'an explicitly empty values array stays authoritative');
 
 console.log('Admin round-trip core tests passed.');

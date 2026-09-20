@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -162,7 +162,13 @@ export function createClient(){
     return state.single ? {data: affected[0] || null, error: null} : {data: affected, error: null};
   };
   const query = (table, state = {op: null, filters: [], payload: null, select: '', single: false}) => new Proxy({}, { get: (_, key) => {
-    if (key === 'then') return (done) => Promise.resolve(runQuery(table, state)).then(done);
+    if (key === 'then') return async (done) => {
+      // Optional deterministic gate: lets the router tests hold the
+      // authoritative CMS snapshot open instead of racing a fast fixture.
+      if (window.__routerGate && !window.__routerGateOpen) await window.__routerGate;
+      const result = runQuery(table, state);
+      return done ? done(result) : result;
+    };
     return (...args) => {
       if (['insert', 'update', 'upsert', 'delete'].includes(key)) {
         state.op = key;
@@ -524,21 +530,15 @@ try {
     assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Thumbnail'}).count() > 0, true);
     assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Download file'}).count() > 0, true);
     assert.match(assetChecklist, /placeholder/i);
-    const assetThumbnail = page.locator('[data-adm-path$=".thumbnail"]').first();
-    const thumbnailPath = await assetThumbnail.getAttribute('data-adm-path');
-    await assetThumbnail.fill('https://example.test/content-health-preview.png');
-    await page.locator('[data-adm-media-preview="' + thumbnailPath + '"] img').waitFor({state: 'attached'});
-    await page.locator('[data-adm-mediaclear="' + thumbnailPath + '"]').click();
-    assert.equal(await assetThumbnail.inputValue(), '');
-    const assetFile = page.locator('[data-adm-path$=".downloadUrl"]').first();
-    const filePath = await assetFile.getAttribute('data-adm-path');
-    await assetFile.fill('https://example.test/content-health-file.zip');
-    await page.locator('[data-adm-media-preview="' + filePath + '"] .adm-file-chip').waitFor({state: 'visible'});
-    await page.locator('[data-adm-mediaclear="' + filePath + '"]').click();
-    assert.equal(await assetFile.inputValue(), '');
-    assert.equal(await page.locator('[data-adm-mediabrowse="' + filePath + '"]').count(), 1);
-    assert.equal(await page.locator('[data-adm-mediaupload="' + filePath + '"]').count(), 1);
-    assert.equal(await page.locator('[data-adm-mediaopen="' + filePath + '"]').count(), 1);
+    await page.locator('[data-adm-mediabrowse$=".thumbnail"]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    const downloadUrlBrowse = '[data-adm-mediabrowse$=".downloadUrl"]';
+    const downloadUrlPath = await page.locator(downloadUrlBrowse).first().getAttribute('data-adm-mediabrowse');
+    assert.equal(await page.locator('[data-adm-mediabrowse="' + downloadUrlPath + '"]').count(), 1);
+    assert.equal(await page.locator('[data-adm-mediaupload="' + downloadUrlPath + '"]').count(), 1);
+    assert.equal(await page.locator('input[data-adm-path="' + downloadUrlPath + '"]').count(), 0, 'the download URL field is picker-driven, never a raw textbox');
 
     await goAdmin('commissions');
     assert.match(await page.locator('#admChecklist').innerText(), /Thumbnail/);
@@ -656,10 +656,8 @@ try {
     });
     await page.locator('#adminNav [data-admin-module="portfolio"][aria-current="page"]').waitFor({state:'visible'});
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Saved CMS title');
-    await page.locator('[data-adm-path="portfolio.color-fiesta.thumbnail"]').fill('https://example.test/saved-thumb.png');
     await page.locator('[data-adm-save="portfolio"]').click();
     await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === 'Saved CMS title');
-    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"] .thumb img').getAttribute('src'), 'https://example.test/saved-thumb.png');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
     console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
@@ -1997,7 +1995,9 @@ try {
     // ---- Batch 5 Group 6: drag/drop reuses the uploader, picker multi ------
     const ixSeed = (index) => '00000000-0000-4000-8000-0000000009' + String(70 + index);
     const ixMediaReads = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').length);
-    const ixItemUrls = () => page.$$eval('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]', (els) => els.map((el) => el.value));
+    const ixItemUrls = () => page.evaluate(() => Array.prototype.map.call(
+      document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img'),
+      (img) => img.getAttribute('src')));
 
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -2087,14 +2087,14 @@ try {
     assert.equal(await page.locator('#adminMediaModal [data-adm-media-card][aria-selected="true"]').count(), 2, 'selected picker cards announce aria-selected');
     await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img').length === 2);
     const ixGalleryUrls = await ixItemUrls();
     assert.equal(ixGalleryUrls.length, 2, 'multi-select appends one gallery row per selected item');
     assert.ok(ixGalleryUrls.every((url) => url.indexOf('/uploads/') !== -1), 'gallery rows carry canonical URLs');
 
     const ixThumbPath = await page.evaluate(() => {
-      const input = document.querySelector('#adminContent [data-adm-path$=".thumbnail"]');
-      return input ? input.getAttribute('data-adm-path') : null;
+      const btn = document.querySelector('#adminContent [data-adm-mediabrowse$=".thumbnail"]');
+      return btn ? btn.getAttribute('data-adm-mediabrowse') : null;
     });
     assert.ok(ixThumbPath, 'the project thumbnail field exists');
     await page.locator('#adminContent [data-adm-mediabrowse="' + ixThumbPath + '"]').click();
@@ -2102,8 +2102,11 @@ try {
     assert.equal(await page.locator('#adminMediaModal [data-adm-pick-toggle]').count(), 0, 'a single-value field offers no multi-select');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    const ixThumbValue = await page.locator('#adminContent [data-adm-path="' + ixThumbPath + '"]').inputValue();
-    assert.ok(ixThumbValue.indexOf('/uploads/') !== -1, 'a single-value field receives exactly one canonical URL');
+    const ixThumbValue = await page.evaluate((target) => {
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + target + '"] img');
+      return preview ? preview.getAttribute('src') : '';
+    }, ixThumbPath);
+    assert.ok(ixThumbValue.indexOf('/uploads/') !== -1, 'a single-value field previews exactly one canonical URL');
     assert.equal((await ixItemUrls()).length, 2, 'a single-value pick never touches the gallery rows');
 
     for (let ixRound = 0; ixRound < 3; ixRound += 1) {
@@ -2118,7 +2121,7 @@ try {
     await ixTogglePick(ixToggleIds[1]);
     await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 3);
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img').length === 3);
     const ixStressUrls = await ixItemUrls();
     assert.equal(new Set(ixStressUrls).size, 3, 'three open/close cycles still append exactly one row for one action');
     const ixReadsAfterStress = await ixMediaReads();
@@ -2221,9 +2224,10 @@ try {
     });
     const blkBlockPath = (target) => target.slice(0, target.lastIndexOf('.'));
     const blkFieldValue = (target) => page.evaluate((path) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
-      return input ? input.value : null;
-    }, blkBlockPath(target));
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + path + '"] img');
+      const chip = document.querySelector('#adminContent [data-adm-media-preview="' + path + '"] .adm-file-chip');
+      return (preview && preview.getAttribute('src')) || (chip && chip.title) || null;
+    }, target);
 
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -2282,7 +2286,7 @@ try {
     const blkImageValue = await blkFieldValue(blkImageTarget);
     assert.ok(blkImageValue && blkImageValue.indexOf('/uploads/') !== -1, 'an image block stores one canonical URL');
     assert.equal(await page.locator('#adminContent [data-adm-mi-path]').count(), 0, 'a single-value block never becomes an array');
-    assert.equal(await page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]').length, blkBlockPath(blkImageTarget)), 1, 'the manual URL input stays in place');
+    assert.equal(await page.locator('#adminContent [data-adm-media-preview="' + blkImageTarget + '"] img').count(), 1, 'the picked image shows a preview instead of a raw URL input');
 
     for (const itemsTarget of blkTargets.filter((target) => target.endsWith('.items'))) {
       await blkBrowse(itemsTarget);
@@ -2296,15 +2300,23 @@ try {
       assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (2)', 'Picker count matches the two records being applied');
       await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
       const blockPath = blkBlockPath(itemsTarget);
-      await page.waitForFunction((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]').length === 2, blockPath);
-      const rows = await page.evaluate((path) => Array.prototype.slice.call(document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]')).map((input) => input.value), blockPath);
+      await page.waitForFunction((path) => Array.prototype.filter.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + path + '"]'),
+        (btn) => Boolean(btn.closest('.adm-media-item').querySelector('.mi-thumb img'))
+      ).length >= 2, blockPath);
+      const rows = await page.evaluate((path) => Array.prototype.map.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + path + '"]'),
+        (btn) => btn.closest('.adm-media-item').querySelector('.mi-thumb img')?.getAttribute('src') || '').filter(Boolean), blockPath);
       assert.equal(rows.length, 2, 'a media-list block receives every selected item');
       assert.ok(rows.every((url) => url.indexOf('/uploads/') !== -1), 'media-list rows carry canonical URLs');
     }
 
     const blkReadField = (blockPath, field) => page.evaluate((args) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="' + args.field + '"]');
-      return input ? input.value : null;
+      const pick = document.querySelector('#adminContent [data-adm-mediabrowse="' + args.path + '.' + args.field + '"]');
+      if (!pick) return null;
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + args.path + '.' + args.field + '"] img');
+      const chip = document.querySelector('#adminContent [data-adm-media-preview="' + args.path + '.' + args.field + '"] .adm-file-chip');
+      return (preview && preview.getAttribute('src')) || (chip && chip.textContent) || '';
     }, { path: blockPath, field });
     const blkBeforeTarget = blkTargets.filter((entry) => entry.endsWith('.before'))[0];
     const blkAfterTarget = blkTargets.filter((entry) => entry.endsWith('.after'))[0];
@@ -2328,18 +2340,24 @@ try {
     assert.ok(blkBeforeValue.indexOf('/uploads/') !== -1 && blkAfterValue.indexOf('/uploads/') !== -1, 'both before and after hold library URLs');
 
     const blkGifPath = blkBlockPath(blkTargets.filter((target) => target.endsWith('.url'))[2]);
+    const blkVideoPath = blkBlockPath(blkTargets.filter((target) => target.endsWith('.url'))[3]);
     await page.evaluate((path) => {
       const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
-      input.value = 'https://example.test/manual.gif';
+      input.value = 'https://youtu.be/dQw4w9WgXcQ';
       input.dispatchEvent(new Event('input', { bubbles: true }));
-    }, blkGifPath);
-    await page.evaluate(() => { document.querySelectorAll('#adminContent [data-adm-block-toggle]')[4].click(); });
-    await page.waitForFunction((args) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="url"]');
-      return Boolean(input) && input.value === args.value;
-    }, { path: blkGifPath, value: 'https://example.test/manual.gif' });
-    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse="' + blkGifPath + '.url"]').count(), 1, 'the library button sits next to the manual URL input');
-    console.log('PASS manual block URLs still work beside the media library buttons (SDK fixture)');
+    }, blkVideoPath);
+    const blkVideoPreview = await page.evaluate((path) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
+      const host = input ? input.closest('.adm-block-body') : null;
+      return host ? host.querySelector('.adm-video-preview img')?.getAttribute('src') || '' : '';
+    }, blkVideoPath);
+    assert.ok(blkVideoPreview.indexOf('i.ytimg.com/vi/dQw4w9WgXcQ/') !== -1, 'an authored YouTube URL shows its local video preview');
+    // Library-backed blocks (image / image-text / gif / before-after) expose a
+    // preview + picker only: the canonical URL never becomes a raw textbox.
+    assert.equal(await page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]').length, blkGifPath), 0, 'the gif block URL is picker-driven, never a raw textbox');
+    assert.equal(await page.locator('#adminContent [data-adm-media-preview="' + blkGifPath + '.url"]').count(), 1, 'the gif block keeps a media preview surface');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse="' + blkGifPath + '.url"]').count(), 1, 'the gif block keeps its library action');
+    console.log('PASS block video URLs keep working and library blocks stay picker-driven (SDK fixture)');
 
     await page.evaluate((target) => {
       const button = document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]');
@@ -2383,7 +2401,13 @@ try {
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse$=".items"]')));
     const p3GalleryTarget = blkTargets.find((target) => target.includes('.blocks.2.items'));
     const p3GridTarget = blkTargets.find((target) => target.includes('.blocks.3.items'));
-    const p3RowCount = (target) => page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path.slice(0, -6) + '"][data-adm-mi-key="url"]').length, target);
+    const p3RowCount = (target) => page.evaluate((path) => {
+      const blockPath = path.slice(0, -6);
+      return Array.prototype.filter.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + blockPath + '"]'),
+        (btn) => Boolean(btn.closest('.adm-media-item'))
+      ).length;
+    }, target);
     const p3GalleryBefore = await p3RowCount(p3GalleryTarget);
     await page.locator('#adminContent [data-adm-mi-key="alt"]').first().fill('Existing artwork');
     await blkBrowse(p3GalleryTarget);
@@ -2426,7 +2450,7 @@ try {
     const [p3GalleryChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
     await p3GalleryChooser.setFiles({ name: 'picker-gallery-new.png', mimeType: 'image/png', buffer: Buffer.from([41, 42, 43, 44, 45]) });
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction((expected) => document.querySelectorAll('#adminContent [data-adm-mi-key="url"]').length >= expected, p3GalleryBefore + 3);
+    await page.waitForFunction((expected) => document.querySelectorAll('#adminContent .adm-media-item').length >= expected, p3GalleryBefore + 3);
     assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore + 1, 'direct Picker upload appends one Gallery row');
     const p3GalleryShape = await page.evaluate((path) => {
       const draft = window.CrabbieAdminUsageProvider().draft;
@@ -2479,12 +2503,15 @@ try {
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
     assert.equal(await p3RowCount(p3GridTarget), p3GridBefore + 1, 'Picker drag/drop appends one structured Grid row');
     assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker drag/drop does not auto-save');
-    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-path$=".thumbnail"]').first().getAttribute('data-adm-path');
+    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-mediabrowse$=".thumbnail"]').first().getAttribute('data-adm-mediabrowse');
     await blkBrowse(p3ThumbnailTarget);
     const [p3SingleChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
     await p3SingleChooser.setFiles({ name: 'picker-single.png', mimeType: 'image/png', buffer: Buffer.from([61, 62, 63, 64, 65]) });
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    const p3SingleValue = await page.locator('#adminContent [data-adm-path="' + p3ThumbnailTarget + '"]').inputValue();
+    const p3SingleValue = await page.evaluate((target) => {
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + target + '"] img');
+      return preview ? preview.getAttribute('src') : '';
+    }, p3ThumbnailTarget);
     assert.equal(typeof p3SingleValue, 'string', 'direct Picker upload keeps a single-value target a string');
     assert.ok(p3SingleValue.includes('/uploads/'), 'single-value direct upload uses the canonical URL');
     await page.evaluate(() => { location.hash = '#admin/media'; });
@@ -2794,6 +2821,244 @@ try {
     assert.equal(await requestHeadReads(), settledReads, 'simultaneous renders never duplicate count queries');
     assert.equal(await mediaHeadReads(), 1, 'media count stays a single query');
     console.log('PASS a failed badge count retries on the next dashboard render instead of sticking at "–" (SDK fixture)');
+
+    // ---- Patch 5 A: CMS-only detail slugs never get a false 404 ----
+    // One deterministic gate holds the authoritative snapshot open, so the
+    // pre-hydration phase is exercised instead of raced against the fixture.
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('routerGateUsed') === '1') return;
+      sessionStorage.setItem('routerGateUsed', '1');
+      window.__routerGateOpen = false;
+      window.__routerGate = new Promise((resolve) => { window.__routerGateOpen_ = resolve; });
+    });
+    await page.goto(origin + '/#project/cms-only-slug', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    // While the CMS snapshot is still pending the route waits, never 404s.
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'loading');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'loading', 'a CMS-only project slug waits instead of 404');
+    // Seeding + opening the gate lets the real hydration apply the snapshot.
+    await page.evaluate(() => {
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000051', slug: 'cms-only-slug', title: 'CMS only',
+        description: 'Fresh CMS record', tags: [], thumbnail_path: '', cover_path: '', content: {},
+        featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.free_assets = [{
+        id: '00000000-0000-4000-8000-000000000052', slug: 'cms-only-asset', title: 'CMS asset',
+        description: 'Fresh asset', thumbnail_path: '', file_type: 'ZIP', file_path: 'https://example.test/cms-only.zip',
+        availability: 'available', featured: false, published: true, sort_order: 0, metadata: {}, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerGateOpen_();
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.locator('#pdTitle').innerText(), 'CMS only', 'the pending CMS-only route renders once the snapshot arrives');
+    // Fresh direct routes for CMS-only slugs resolve after hydration too.
+    await page.evaluate(() => { location.hash = '#asset/cms-only-asset'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.equal(await page.locator('#adTitle').innerText(), 'CMS asset', 'a CMS-only asset renders from a direct route');
+    await page.evaluate(() => { location.hash = '#asset/no-such-asset-anywhere'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'an unknown asset slug is a real 404');
+    await page.evaluate(() => { location.hash = '#project/no-such-project-anywhere'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'an unknown project slug is a real 404');
+    // Renaming a slug drops the old route: the old slug 404s, the new one works.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{
+        slug: 'cms-only-slug-renamed', title: 'CMS only', desc: '', cat: 'Illustration', tags: [],
+        thumbnail: '', cover: '', blocks: [], credits: '', year: ''
+      }]);
+      location.hash = '#project/cms-only-slug';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'a renamed slug makes the old route a real 404');
+    await page.evaluate(() => { location.hash = '#project/cms-only-slug-renamed'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    console.log('PASS CMS-only detail slugs wait, render after refresh, and unknown/renamed slugs 404 (SDK fixture)');
+    // ---- Patch 5 B2: a new CMS commission service appears, opens, and requests ----
+    await page.goto(origin + '/#commissions', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.waitForFunction(() => document.querySelector('[data-view="commissions"]').classList.contains('is-active'));
+    await page.evaluate(() => {
+      window.CrabbieCommissions.apply([{
+        slug: 'chibi-badge-set', name: 'Chibi Badge Set', title: 'Chibi Badge Set',
+        description: 'Matching chibi badges.', price: '$45', priceNumeric: 45, currency: 'USD',
+        availability: 'open', formType: 'emotes', formLabel: 'Emotes form',
+        thumbnail: '', featured: false, published: true,
+        includedFiles: 'PNG x3 + PSD', canvas: '1000x1000px each', deliveryEstimate: '2 weeks',
+        alternatePrice: '1100000', chips: [], priceNote: '',
+        isOtherService: true
+      }], null);
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#miniServicesGrid [data-other-service="chibi-badge-set"]')));
+    await page.locator('#miniServicesGrid [data-other-service="chibi-badge-set"]').click();
+    await page.waitForFunction(() => (document.getElementById('otherServiceDetail') || {}).innerText.indexOf('Chibi Badge Set') !== -1);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /Chibi Badge Set/);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /\$45/);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /PNG x3 \+ PSD/);
+    assert.equal(await page.locator('#otherServiceDetail [data-service-slug="chibi-badge-set"]').count(), 1, 'the detail Request button carries the service slug');
+    assert.equal(await page.locator('#otherServiceDetail [data-service-slug="chibi-badge-set"]').getAttribute('data-form'), 'emotes', 'the Request button maps to the authored form');
+    console.log('PASS a new CMS commission service appears, opens, and requests the right form (SDK fixture)');
+
+    // ---- Patch 5 B: project blocks render author section titles only ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'titled-blocks',title:'Titled',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[
+          {id:'b1',type:'text',text:'Hello',sectionTitle:'Concept'},
+          {id:'b2',type:'quote',text:'Nice words',sectionTitle:''},
+          {id:'b3',type:'image-text',text:'More',url:'',sectionTitle:'Final thoughts'}
+        ],credits:'',year:''}]);
+      location.hash = '#project/titled-blocks';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    const blockHeadings = await page.locator('[data-view="project-detail"] .blk-head').allInnerTexts();
+    assert.ok(blockHeadings.some((text) => text.includes('Concept')), 'the author section title renders');
+    assert.ok(blockHeadings.some((text) => text.includes('Final thoughts')), 'the author section title renders');
+    const detailText = await page.locator('[data-view="project-detail"]').innerText();
+    assert.doesNotMatch(detailText, /\b01 text\b|\b02 image\b|\b03 quote\b|\bimage-text\b|\bbefore-after\b/i, 'no raw internal block type leaks publicly');
+    console.log('PASS block section titles render and raw block type names never leak (SDK fixture)');
+
+    // ---- Patch 5 C: YouTube / TikTok links render visual previews ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'video-links',title:'Videos',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[{id:'vb1',type:'text',text:'Watch:',sectionTitle:'Videos'}],credits:'',year:'',
+        externalLinks:[
+          {title:'Process video',url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'},
+          {title:'Timelapse',url:'https://www.tiktok.com/@crabbie/video/7301234567890123456'},
+          {title:'My site',url:'https://example.test/gallery'}
+        ]}]);
+      location.hash = '#project/video-links';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.waitForFunction(() => document.querySelectorAll('[data-view="project-detail"] .video-link-card').length === 2);
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card img[src*="i.ytimg.com"]').count(), 1, 'a YouTube link renders a real derived thumbnail');
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card.vlc-tiktok').count(), 1, 'a TikTok link renders a branded preview card');
+    assert.equal(await page.locator('[data-view="project-detail"] .link-pill[href="https://example.test/gallery"]').count(), 1, 'an ordinary link still renders as an ordinary link');
+    console.log('PASS YouTube/TikTok links render visual previews and ordinary links keep working (SDK fixture)');
+
+    // ---- Patch 5 D: GIF gallery renders animated, Vietnamese UI is gone ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'gif-gallery',title:'GIFs',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[{id:'g1',type:'gallery',sectionTitle:'Mixed',items:[
+          {url:'https://example.test/a.png',alt:'A',caption:''},
+          {url:'https://example.test/b.gif',alt:'B',caption:'animated'}
+        ]}],credits:'',year:''}]);
+      location.hash = '#project/gif-gallery';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.locator('[data-view="project-detail"] .ph-gallery img[src$=".gif"]').count(), 1, 'the GIF gallery item renders its animated source');
+    assert.equal(await page.locator('[data-view="project-detail"] .ph-gallery img').count(), 2, 'mixed PNG/GIF galleries render every item');
+    assert.equal(await page.locator('.lang button[data-lang="VI"]:not([hidden])').count(), 0, 'no visible public VI switch is presented');
+    console.log('PASS GIF galleries render animated and the fake public VI switch is gone (SDK fixture)');
+
+    // ---- Patch 5 E: footer follows CMS contact settings ----
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{email:'artist@example.test',twitter:'https://x.com/example'}});
+    });
+    assert.equal(await page.locator('#footEmail').innerText(), 'artist@example.test', 'the footer email follows CMS settings');
+    assert.equal(await page.locator('#footEmail').getAttribute('href'), 'mailto:artist@example.test');
+    assert.equal(await page.locator('#footTwitter').getAttribute('href'), 'https://x.com/example', 'the footer Twitter follows CMS settings');
+    assert.doesNotMatch(await page.locator('footer').innerText(), /Find me/, 'no useless Find me section remains');
+    const footHeads = await page.locator('footer .foot h5').allInnerTexts();
+    assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer has Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
+    console.log('PASS the footer follows CMS contact settings with no Find me section (SDK fixture)');
+
+    // ---- Patch 5 F: expanded commission detail clears the sticky navbar ----
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.locator('[data-view="commissions"].is-active').waitFor({state: 'visible'});
+    const stickyOffset = await page.evaluate(() => {
+      const detail = document.getElementById('otherServiceDetail');
+      return detail ? getComputedStyle(detail).scrollMarginTop : '';
+    });
+    assert.ok(/^\d+px$/.test(stickyOffset) && parseInt(stickyOffset, 10) >= 90, 'the detail reserves a sticky-navbar offset (got ' + stickyOffset + ')');
+    const belowNav = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      const detail = document.getElementById('otherServiceDetail');
+      return nav && detail ? nav.getBoundingClientRect().height + 16 <= parseInt(getComputedStyle(detail).scrollMarginTop, 10) : false;
+    });
+    assert.equal(belowNav, true, 'the scroll offset exceeds the real nav height plus a visual gap');
+    console.log('PASS the commission detail scrolls below the sticky navbar with a real offset (SDK fixture)');
+
+    // ---- Patch 5 G: simplified media fields, no raw library URL inputs ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000601', slug: 'media-ui-project', title: 'Media UI project',
+        description: 'D', tags: [], thumbnail_path: '', cover_path: '',
+        content: { blocks: [{ type: 'image', open: true, url: '', alt: '', caption: '' }], externalLinks: [{ title: 'Ref', url: 'https://example.test/ref' }] },
+        featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.cms_pages = [{
+        id: '00000000-0000-4000-8000-000000000602', slug: 'about', title: 'About', content: '', published: true, data: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.site_settings = [];
+      window.__routerRows.media = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('portfolio');
+    assert.equal(await page.locator('#adminContent input[data-adm-path$=".thumbnail"]').count(), 0, 'media library fields never expose a raw URL textbox');
+    assert.equal(await page.locator('#adminContent input[data-adm-path$=".cover"]').count(), 0, 'media library fields never expose a raw URL textbox');
+    assert.ok(await page.locator('#adminContent [data-adm-mediabrowse]').count() > 0, 'choose-media actions remain (content: ' + (await page.locator('#adminContent').innerText()).slice(0, 160).replace(/\s+/g, ' ') + ' | loadState: ' + await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()) + ')');
+    assert.equal((await page.locator('#adminContent input[data-adm-block-field="sectionTitle"]').count()) > 0, true, 'every block exposes a Section title field');
+    assert.equal(await page.locator('#adminContent input[data-adm-mi-key="url"]').count(), 0, 'gallery rows never show a URL textbox');
+    assert.equal((await page.locator('#adminContent input[data-adm-array-key="url"]').count()) > 0, true, 'authored external URLs keep their editable input');
+    assert.doesNotMatch(await page.locator('#adminContent').innerText(), /Vietnamese override|Vietnamese text|instead of automatic translation/, 'no manual Vietnamese override UI remains');
+    console.log('PASS simplified media fields, section titles, and no Vietnamese override UI (SDK fixture)');
+
+    // ---- Patch 5 H: About CMS (skills / experience / values) add-edit-save ----
+    await goAdmin('about');
+    const aboutSkillCount = () => page.locator('#adminContent input[data-adm-about-edit="skills"]').count();
+    const aboutExpCount = () => page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').count();
+    const startSkills = await aboutSkillCount();
+    await page.locator('#adminContent [data-adm-about-add="skills"]').click();
+    assert.equal(await aboutSkillCount(), startSkills + 1, 'a skill can be added');
+    await page.locator('#adminContent input[data-adm-about-edit="skills"]').last().fill('Test Skill');
+    await page.locator('#adminContent [data-adm-about-add="values"]').click();
+    await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"]').last().fill('Test Value');
+    await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="body"]').last().fill('Test value body.');
+    const startExp = await aboutExpCount();
+    await page.locator('#adminContent [data-adm-about-add="experience"]').click();
+    assert.equal(await aboutExpCount(), startExp + 1, 'an experience entry can be added');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="tag"]').last().fill('TEST');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').last().fill('Test Experience');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().fill('Test experience body.');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="pages.about"]').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'cms_pages'));
+    const aboutWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'cms_pages').slice(-1)[0]);
+    assert.ok((aboutWrite.payload.data.skills || []).includes('Test Skill'), 'the new skill is in the DB payload');
+    assert.ok((aboutWrite.payload.data.values || []).some((v) => v.title === 'Test Value' && v.body === 'Test value body.'), 'the new value is in the DB payload');
+    assert.ok((aboutWrite.payload.data.experience || []).some((e) => e.title === 'Test Experience'), 'the new experience is in the DB payload');
+    // Reload the admin page: the full round-trip must survive hydration.
+    // The SDK fixture lives in page memory, so re-seed the saved row first.
+    const p5SavedAboutRow = await page.evaluate(() => (window.__routerRows.cms_pages || []).slice(-1)[0]);
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.cms_pages = row ? [row] : [];
+    }, p5SavedAboutRow);
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('about');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="skills"][value="Test Skill"]').count()) >= 1, 'the saved skill survives an admin reload');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"][value="Test Value"]').count()) >= 1, 'the saved value survives an admin reload');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"][value="Test Experience"]').count()) >= 1, 'the saved experience survives an admin reload');
+    // The public modules hydrate at boot, so seed before load like P4-E.
+    await page.addInitScript((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.cms_pages = row ? [row] : [];
+    }, p5SavedAboutRow);
+    await page.goto(origin + '/#about', { waitUntil: 'load' });
+    await page.locator('[data-view="about"].is-active').waitFor({state: 'visible'});
+    assert.match(await page.locator('[data-view="about"] .chip-cloud').innerText(), /Test Skill/, 'the new skill reaches the public page');
+    assert.match(await page.locator('[data-view="about"] .exp-grid').innerText(), /Test Experience/, 'the new experience reaches the public page');
+    assert.match(await page.locator('[data-view="about"] .values-grid').innerText(), /Test Value/, 'the new creative value reaches the public page');
+    console.log('PASS About CMS groups add, save, reload, and render publicly (SDK fixture)');
 
 // P4_END
 

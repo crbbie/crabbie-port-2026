@@ -123,6 +123,7 @@ export function formatPageRow(slug, pageData) {
         bio: pageData.bio || '',
         experience: pageData.experience || [],
         skills: pageData.skills || [],
+        values: pageData.values || [],
         links: pageData.links || []
       }
     };
