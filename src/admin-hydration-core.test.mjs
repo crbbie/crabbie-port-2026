@@ -114,7 +114,7 @@ assert.deepEqual(mapAdminSettings([{ key: 'x', value: null }]), { x: {} });
 // --- Prompt 2: stable DB identity + stale-save baseline survive hydration ---
 const identity = mapAdminHydrationResults({
   ...empty,
-  portfolio: { data: [{ id: 'uuid-p', slug: 'color-fiesta', title: 'T', updated_at: '2026-01-01T00:00:00Z', content: {} }] },
+  portfolio: { data: [{ id: 'uuid-p', slug: 'color-fiesta', title: 'T', updated_at: '2026-01-01T00:00:00Z', content: { cardMode:'image' } }] },
   assets: { data: [{ id: 'uuid-a', slug: 'petal-pack', title: 'A', updated_at: '2026-01-02T00:00:00Z', metadata: {} }] },
   commissions: { data: [{ id: 'uuid-c', slug: 'bust-up', title: 'C', updated_at: '2026-01-03T00:00:00Z' }] },
   forms: { data: [{ id: 'uuid-f', slug: 'emails', title: 'F', updated_at: '2026-01-04T00:00:00Z' }] },
@@ -125,6 +125,7 @@ const identity = mapAdminHydrationResults({
 assert.equal(identity.portfolio[0].dbId, 'uuid-p');
 assert.equal(identity.portfolio[0].originalUpdatedAt, '2026-01-01T00:00:00Z');
 assert.equal(identity.portfolio[0].id, 'color-fiesta', 'the local UI identity stays slug based');
+assert.equal(identity.portfolio[0].cardMode, 'image');
 assert.equal(identity.assets[0].dbId, 'uuid-a');
 assert.equal(identity.assets[0].originalUpdatedAt, '2026-01-02T00:00:00Z');
 assert.equal(identity.commissions[0].dbId, 'uuid-c');
