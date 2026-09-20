@@ -11,6 +11,7 @@ import {
   sanitizeSearchTerm,
   requestFilterSpec,
   mediaFilterSpec,
+  pendingCountDatasets,
   isSelectAll
 } from './admin-query-core.js';
 
@@ -85,5 +86,15 @@ const incomplete = missingMappedColumns({ media: ['id'] });
 assert.equal(incomplete.length, 1, 'an incomplete column list is reported');
 assert.equal(incomplete[0].table, 'media');
 assert.ok(incomplete[0].columns.includes('storage_path'));
+
+// Badge-count planning: cached counts stay, in-flight datasets are skipped,
+// and an unknown (failed or never loaded) count stays eligible for retry.
+assert.deepEqual(pendingCountDatasets({ requests: null, media: null }, {}), ['requests', 'media'], 'first attempt queries both datasets');
+assert.deepEqual(pendingCountDatasets({ requests: null, media: 12 }, {}), ['requests'], 'a failed requests count is retried while media stays cached');
+assert.deepEqual(pendingCountDatasets({ requests: 7, media: 12 }, {}), [], 'two known counts need no query');
+assert.deepEqual(pendingCountDatasets({ requests: null, media: null }, { requests: true }), ['media'], 'a concurrent duplicate call never fans out');
+assert.deepEqual(pendingCountDatasets({ requests: 7, media: null }, { media: true }), [], 'an in-flight unknown count is not duplicated');
+assert.deepEqual(pendingCountDatasets(null, null), ['requests', 'media'], 'missing state still plans both datasets');
+assert.deepEqual(pendingCountDatasets({ requests: 0, media: 0 }, {}), [], 'zero is a known count, not a reason to retry');
 
 console.log('Admin query core tests passed.');

@@ -4072,39 +4072,30 @@ push(adminOrderTargetForScope(scope));
 if(!targets.length) push(selectedAdminTargetForScope(scope));
 return targets;
 }
-function syncSavedTargetsIntoAdminData(targets){
-targets.forEach(function(target){
-if(target.kind === 'order'){
-if(Array.isArray(ADMIN_DRAFT[target.scope])) ADMIN_DATA[target.scope] = clone(ADMIN_DRAFT[target.scope]);
-return;
-}
+/* Version-N snapshot for one save target, taken before its write runs. The
+   persisted baseline is later reconciled from this snapshot plus the
+   confirmed server response, never from the live (possibly newer) draft. */
+function snapshotTargetForSave(target){
+if(!target) return null;
+if(target.kind === 'order') return clone(adminListForScope(target.scope));
 if(target.kind === 'settings'){
-ADMIN_DATA.settings = ADMIN_DATA.settings || {};
-ADMIN_DATA.settingsMeta = ADMIN_DATA.settingsMeta || {};
-var draftMeta = ADMIN_DRAFT.settingsMeta || {};
-var keys = target.keys || Object.keys(ADMIN_DRAFT.settings || {});
+var source = ADMIN_DRAFT.settings || {};
+var keys = target.keys || Object.keys(source);
+var snap = {};
 keys.forEach(function(key){
-if(ADMIN_DRAFT.settings) ADMIN_DATA.settings[key] = clone(ADMIN_DRAFT.settings[key]);
-if(draftMeta[key]) ADMIN_DATA.settingsMeta[key] = clone(draftMeta[key]);
+if(typeof key === 'string' && Object.prototype.hasOwnProperty.call(source, key)) snap[key] = clone(source[key]);
 });
-return;
+return snap;
 }
-var record = adminRecordForTarget(target);
-if(!record) return;
-if(target.scope === 'pages.about' || target.scope === 'pages.terms'){
-var pageKey = target.scope.split('.')[1];
-ADMIN_DATA.pages = ADMIN_DATA.pages || {};
-ADMIN_DATA.pages[pageKey] = clone(record);
-return;
+var subject = adminRecordForTarget(target);
+return subject ? clone(subject) : null;
 }
-if(!Array.isArray(ADMIN_DATA[target.scope])) ADMIN_DATA[target.scope] = [];
-var list = ADMIN_DATA[target.scope];
-var index = list.findIndex(function(r){
-if(record.dbId && r.dbId) return r.dbId === record.dbId;
-return r.id === record.id;
-});
-if(index === -1) list.push(clone(record)); else list[index] = clone(record);
-});
+/* Advances ADMIN_DATA for one confirmed write. Fail-closed when the
+   reconcile helper module is unavailable. */
+function reconcilePersistedTarget(target, captured, result){
+var api = window.CrabbiePersistedBaseline;
+if(!(api && typeof api.reconcileSavedTarget === 'function')) throw new Error('Admin persistence service is unavailable.');
+return api.reconcileSavedTarget(ADMIN_DATA, target, captured, result);
 }
 function adminSaveErrorMessage(err){
 var code = err && err.code;
@@ -4158,30 +4149,43 @@ async function doSaveCommit(msg, scope){
     var saveStartRevision = ADMIN_UI.draftRevision;
     for(var i = 0; i < targets.length; i++){
       var target = targets[i];
+      /* Capture version N before this target's write: the persisted baseline
+         advances from the capture plus the confirmed response, so a later
+         target that fails cannot erase what an earlier target saved. */
+      var captured = snapshotTargetForSave(target);
       if(target.kind === 'order'){
         await crud.saveOrder(target.scope, adminListForScope(target.scope));
+        reconcilePersistedTarget(target, captured, null);
       } else if(target.kind === 'settings'){
         if(!ADMIN_DRAFT.settingsMeta) ADMIN_DRAFT.settingsMeta = {};
-        await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys, ADMIN_DRAFT.settingsMeta);
+        var settingsResult = await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys, ADMIN_DRAFT.settingsMeta);
+        reconcilePersistedTarget(target, captured, settingsResult);
+        /* Baselines the database confirmed travel with the values. */
+        if(settingsResult && Array.isArray(settingsResult.savedKeys)){
+          ADMIN_DATA.settingsMeta = ADMIN_DATA.settingsMeta || {};
+          var confirmedMeta = ADMIN_DRAFT.settingsMeta || {};
+          settingsResult.savedKeys.forEach(function(key){
+            if(confirmedMeta[key]) ADMIN_DATA.settingsMeta[key] = clone(confirmedMeta[key]);
+          });
+        }
       } else {
         var record = adminRecordForTarget(target);
         if(!record) continue;
-        await crud.saveRecord(target.scope, record, {
+        var saveResult = await crud.saveRecord(target.scope, record, {
           sortOrder: adminRecordIndex(target.scope, record),
           categoryId: (target.scope === 'portfolio' || target.scope === 'assets') ? adminCategoryDbIdFor(target.scope, record) : null
         });
+        reconcilePersistedTarget(target, captured, saveResult);
       }
     }
-    /* Only the written targets are cleared: other pending edits stay dirty.
-       When the draft changed mid-save, nothing is cleared and the saved
-       baseline is left alone, so version N+1 can never pass as persisted. */
+    /* Dirty clearing stays revision-gated, but the persisted baseline above
+       already reflects every confirmed write, even after a mid-save edit. */
     var saveChangedMidFlight = !saveRevisionUnchanged(saveStartRevision);
     if(!saveChangedMidFlight){
     targets.forEach(function(target){
       clearAdminDirtyTargetsFor(target.scope, target.kind === 'record' ? target.recordId : null);
       if(target.scope && ADMIN_UI.structuralScopes[target.scope]) delete ADMIN_UI.structuralScopes[target.scope];
     });
-    syncSavedTargetsIntoAdminData(targets);
     }
     ADMIN_UI.dirty = saveChangedMidFlight ? true : Object.keys(ADMIN_UI.dirtyTargets).length > 0 || Object.keys(ADMIN_UI.structuralScopes).length > 0;
     setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
@@ -4274,7 +4278,7 @@ ADMIN_DATA.requests = []; ADMIN_DRAFT.requests = [];
 ADMIN_DATA.media = []; ADMIN_DRAFT.media = [];
 reqFilter.state = 'idle'; reqFilter.page = 1; reqFilter.total = 0; reqFilter.pageCount = 1; reqFilter.error = '';
 mediaPage.state = 'idle'; mediaPage.page = 1; mediaPage.total = 0; mediaPage.pageCount = 1; mediaPage.error = '';
-adminCounts.requests = null; adminCounts.media = null; adminCountsRequested = false;
+adminCounts.requests = null; adminCounts.media = null; adminCountsPending = {};
 setTimeout(function(){
   loadAdminCounts();
   var current = (currentRoute && currentRoute.adminModule) ? currentRoute.adminModule : '';
@@ -4790,7 +4794,7 @@ var mediaPage = {
 };
 var pickerMediaPage = { page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', search:'', type:'all', sort:'newest', from:'', to:'', selected:[], items:[] };
 var adminCounts = { requests:null, media:null };
-var adminCountsRequested = false;
+var adminCountsPending = {};
 
 /** Re-renders a panel only when it is the module the admin is looking at. */
 function refreshAdminPanel(module){
@@ -4896,16 +4900,24 @@ async function loadMediaPage(options){
   if(typeof opts.onLoaded === 'function') opts.onLoaded(mediaPage.state);
 }
 
+var pickerMediaRequestId = 0;
 async function loadPickerMediaPage(options){
   var opts = options || {}; var media = window.CrabbieAdminMedia;
   if(!media || typeof media.loadMediaPage !== 'function'){ pickerMediaPage.state = 'error'; return; }
+  var token = ++pickerMediaRequestId;
   pickerMediaPage.state = 'loading';
   try{
     var page = await media.loadMediaPage({ page: opts.page || pickerMediaPage.page, pageSize: pickerMediaPage.perPage, search: pickerMediaPage.search, type: pickerMediaPage.type, sort: pickerMediaPage.sort, from: pickerMediaPage.from, to: pickerMediaPage.to });
+    /* A slower earlier page must never overwrite a newer one. */
+    if(token !== pickerMediaRequestId) return;
     pickerMediaPage.items = Array.isArray(page.items) ? page.items : [];
     pickerMediaPage.selected = media.reconcilePageSelection ? media.reconcilePageSelection(pickerMediaPage.selected, pickerMediaPage.items) : [];
     pickerMediaPage.page = page.page; pickerMediaPage.total = page.total; pickerMediaPage.pageCount = page.pageCount; pickerMediaPage.state = 'ready';
-  }catch(err){ pickerMediaPage.state = 'error'; pickerMediaPage.error = err && err.message ? err.message : 'Media could not be loaded.'; }
+  }catch(err){
+    /* A stale failure must not replace newer successful state either. */
+    if(token !== pickerMediaRequestId) return;
+    pickerMediaPage.state = 'error'; pickerMediaPage.error = err && err.message ? err.message : 'Media could not be loaded.';
+  }
   renderMediaPickerGrid();
 }
 /** Badge counts never pretend a paged dataset is fully loaded. */
@@ -4917,18 +4929,24 @@ function updateAdminCountBadges(){
   });
 }
 
-/** Cheap head counts for badges: never downloads the tables. */
+/** Cheap head counts for badges: never downloads the tables. Successful counts
+   stay cached; a still-unknown count stays eligible for the next natural
+   trigger instead of suppressing retries forever. Concurrent calls never fan
+   out: a dataset already in flight is skipped. No polling. */
 async function loadAdminCounts(){
   var crud = window.CrabbieAdminCrud;
-  if(adminCountsRequested || !crud || typeof crud.countRows !== 'function') return;
-  adminCountsRequested = true;
+  if(!crud || typeof crud.countRows !== 'function' || typeof crud.pendingCountDatasets !== 'function') return;
+  var wanted = crud.pendingCountDatasets(adminCounts, adminCountsPending);
+  if(!wanted.length) return;
+  wanted.forEach(function(dataset){ adminCountsPending[dataset] = true; });
   try{
-    var counts = await crud.countRows(['requests', 'media']);
+    var counts = await crud.countRows(wanted);
     if(counts){
       if(counts.requests != null) adminCounts.requests = counts.requests;
       if(counts.media != null) adminCounts.media = counts.media;
     }
   }catch(err){ console.warn('Admin counts failed:', err); }
+  wanted.forEach(function(dataset){ delete adminCountsPending[dataset]; });
   updateAdminCountBadges();
 }
 function renderAdminRequests(){

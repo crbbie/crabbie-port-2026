@@ -2,3 +2,5 @@ node_modules/
 .env
 .env.local
 .vercel/
+# Temporary local router smoke-test output; never commit test logs.
+router-run.tmp.txt

@@ -1,12 +1,14 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/+esm';
 import { createAdminSaveSingleFlight } from './admin-save-flight-core.js';
 import { createDraftRevision, shouldFinalizeSave } from './admin-save-revision-core.js';
+import { reconcileSavedTarget } from './admin-persisted-baseline-core.js';
 const config = window.__CRABBIE_SUPABASE_CONFIG__ || {};
 export const isConfigured = Boolean(config.url && config.key);
 export const supabase = isConfigured ? createClient(config.url, config.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 window.CrabbieSupabase = { supabase, isConfigured };
 window.CrabbieAdminSaveFlight = createAdminSaveSingleFlight();
 window.CrabbieSaveRevision = { createDraftRevision, shouldFinalizeSave };
+window.CrabbiePersistedBaseline = { reconcileSavedTarget };
 import('./portfolio-cms.js');
 import('./free-assets-cms.js');
 import('./commissions-cms.js');

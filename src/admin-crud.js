@@ -8,6 +8,7 @@ import {
   paginationRange,
   pagedSummary,
   requestFilterSpec,
+  pendingCountDatasets,
   REQUESTS_PAGE_SIZE,
   MEDIA_PAGE_SIZE
 } from './admin-query-core.js';
@@ -174,10 +175,13 @@ export async function saveAdminSettings(settings, keys, settingsMeta) {
   if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
 
   const plans = planSettingWrites(settings, settingsMeta, keys);
-  if (!plans.length) return { success: true, table: 'site_settings', count: 0 };
+  if (!plans.length) return { success: true, table: 'site_settings', count: 0, savedKeys: [] };
 
   // One guarded write per touched key: a settings row is a key/value singleton,
   // so the key and its baseline both belong in the statement itself.
+  // savedKeys reports exactly the keys the database confirmed, so a later key
+  // that fails cannot erase the baseline of an earlier key that succeeded.
+  const savedKeys = [];
   for (const plan of plans) {
     if (plan.mode === 'update') {
       let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
@@ -194,9 +198,10 @@ export async function saveAdminSettings(settings, keys, settingsMeta) {
       if (!response.data) throw missingRecordError('settings');
       applySettingSaveMeta(settingsMeta, plan.key, response.data);
     }
+    savedKeys.push(plan.key);
   }
 
-  return { success: true, table: 'site_settings', count: plans.length };
+  return { success: true, table: 'site_settings', count: plans.length, savedKeys };
 }
 
 /**
@@ -332,6 +337,7 @@ window.CrabbieAdminCrud = {
   loadRequestPage: loadAdminRequestPage,
   countRows: countAdminRows,
   pageAfterDelete,
+  pendingCountDatasets,
   saveRecord: saveAdminRecord,
   saveSettings: saveAdminSettings,
   saveOrder: saveAdminOrder,

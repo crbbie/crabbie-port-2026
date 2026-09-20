@@ -900,12 +900,86 @@ try {
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
     assert.match(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft stays dirty after a mid-save edit');
     assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
+    // The persisted baseline advanced to N even though the draft is N+1, so
+    // discarding restores N (matching the database), never the older N-1.
+    await page.locator('#admStickySave [data-adm-discard]').click();
+    await page.locator('#adminConfirmModal.open').waitFor({ state: 'visible' });
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => !document.getElementById('admStickySave').classList.contains('visible'));
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Mid-save base', 'discard after a mid-save edit restores the confirmed N');
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Edited mid-save');
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.locator('[data-adm-save="portfolio"]').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1');
     assert.doesNotMatch(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft is clean once the latest revision is saved');
     console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
+
+    // Bug fix: a stale picker page must never overwrite a newer one. Transport
+    // is staged with deferreds, but both loads travel the real UI path.
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse]')));
+    await page.evaluate(() => {
+      const media = window.CrabbieAdminMedia;
+      window.__pickerRealLoad = media.loadMediaPage.bind(media);
+      window.__pickerGates = [];
+      let calls = 0;
+      media.loadMediaPage = (opts) => new Promise((resolve, reject) => {
+        calls += 1;
+        window.__pickerGates.push({ call: calls, opts, resolve, reject });
+      });
+    });
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 1);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 2);
+    const pickerItem = (id, title) => ({ id, title, url: 'https://router-test.supabase.co/' + id + '.png', thumbnailUrl: 'https://router-test.supabase.co/' + id + '.png', type: 'image', mimeType: 'image/png', storagePath: id + '.png', size: '1 KB', alt: title });
+    await page.evaluate((item) => {
+      window.__pickerGates[1].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('new-b', 'New B'));
+    await page.waitForFunction(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      return Boolean(grid) && grid.innerText.indexOf('New B') !== -1;
+    });
+    await page.evaluate((item) => {
+      window.__pickerGates[0].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('old-a', 'Old A'));
+    await page.waitForTimeout(250);
+    assert.match(await page.locator('#adminMediaPickerGrid').innerText(), /New B/, 'a late stale picker response never overwrites the newer page');
+    assert.doesNotMatch(await page.locator('#adminMediaPickerGrid').innerText(), /Old A/, 'stale picker items stay out of the grid');
+    // A stale failure after a newer success keeps the successful state too.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.evaluate(() => { window.__pickerGates.length = 0; });
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 1);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 2);
+    await page.evaluate((item) => {
+      window.__pickerGates[1].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('fresh-c', 'Fresh C'));
+    await page.waitForFunction(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      return Boolean(grid) && grid.innerText.indexOf('Fresh C') !== -1;
+    });
+    await page.evaluate(() => { window.__pickerGates[0].reject(new Error('stale transport failure')); });
+    await page.waitForTimeout(250);
+    assert.match(await page.locator('#adminMediaPickerGrid').innerText(), /Fresh C/, 'a stale picker failure never replaces newer successful state');
+    await page.evaluate(() => {
+      window.CrabbieAdminMedia.loadMediaPage = window.__pickerRealLoad;
+      delete window.__pickerRealLoad;
+      delete window.__pickerGates;
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    console.log('PASS stale picker responses and failures never overwrite newer picker state (SDK fixture)');
 
     // Test 3: a duplicate slug is rejected without touching the other row.
     await goToAdminModule('portfolio');
@@ -2676,6 +2750,50 @@ try {
     assert.equal(typeof p4MediaInsert.payload.width, 'number', 'a measured width is persisted as a number');
     assert.equal(typeof p4MediaInsert.payload.height, 'number', 'a measured height is persisted as a number');
     console.log('PASS an uploaded image measures and persists intrinsic dimensions (SDK fixture canvas decode)');
+
+    // ---- Bug fix: a transient badge-count failure must not stick at "–" ----
+    // No reload between cycles: the retry must come from a natural dashboard
+    // render on the same page (a reload would retry even with the old latch).
+    const badgeText = (key) => page.evaluate((k) => {
+      const el = document.querySelector('#adminNav [data-count="' + k + '"]');
+      return el ? el.textContent : null;
+    }, key);
+    const requestHeadReads = () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.head).length);
+    const mediaHeadReads = () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.head).length);
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_requests = [
+        { id: '00000000-0000-4000-8000-000000000911', client_name: 'Badge A' },
+        { id: '00000000-0000-4000-8000-000000000912', client_name: 'Badge B' },
+        { id: '00000000-0000-4000-8000-000000000913', client_name: 'Badge C' }
+      ];
+      window.__routerFail = 'commission_requests';
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]'));
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) => read.table === 'commission_requests' && read.head));
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]').textContent === '–');
+    assert.equal(await badgeText('requests'), '–', 'a failed requests count stays unknown instead of pretending');
+    await page.evaluate(() => { window.__routerFail = null; });
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]').textContent === '3');
+    assert.equal(await badgeText('requests'), '3', 'the retried requests count updates the badge');
+    assert.ok((await requestHeadReads()) >= 2, 'a later count attempt occurred after the failure');
+    assert.equal(await mediaHeadReads(), 1, 'the successful media count needed no retry');
+    // Rapid re-renders must not fan out: counts are cached or in flight.
+    const settledReads = await requestHeadReads();
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await page.waitForTimeout(300);
+    assert.equal(await requestHeadReads(), settledReads, 'simultaneous renders never duplicate count queries');
+    assert.equal(await mediaHeadReads(), 1, 'media count stays a single query');
+    console.log('PASS a failed badge count retries on the next dashboard render instead of sticking at "–" (SDK fixture)');
 
 // P4_END
 
