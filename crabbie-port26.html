@@ -3831,6 +3831,9 @@ dirty: false,
 /* idle | loading | ready | error: only 'ready' exposes editors and mutations. */
 loadState: 'idle',
 loadError: '',
+/* Prompt 2: per-target dirty tracking so one edited record writes one row. */
+dirtyTargets: {},
+structuralScopes: {},
 selection: initialAdminSelection(ADMIN_DATA),
 subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'settings' },
 settingsGroup: 'Branding'
@@ -3878,7 +3881,76 @@ var adminSidebar = document.getElementById('adminSidebar');
 var adminBurgerBtn = document.getElementById('adminBurger');
 var adminTopSave = document.getElementById('adminTopSave');
 function setAdminSaveStatus(state){ if(!adminSaveStat) return; adminSaveStat.className = 'admin-save-status ' + state; adminSaveStat.setAttribute('data-t', 'status.' + state); adminSaveStat.textContent = tAdmin('status.' + state); }
-function markDirty(){ if(!ADMIN_UI.dirty){ ADMIN_UI.dirty = true; setAdminSaveStatus('dirty'); refreshStickySaveBar(); } }
+/* Prompt 2: dirty bookkeeping. Field edits register the exact record/settings
+   target they touched; structural edits (move, new, block/field changes) mark
+   the module scope so the save can still resolve the right record. */
+function newAdminClientId(){
+if(typeof crypto !== 'undefined' && crypto && typeof crypto.randomUUID === 'function') return 'client-' + crypto.randomUUID();
+return 'client-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+function adminTargetKey(target){
+if(!target) return '';
+if(target.kind === 'record') return 'record:' + target.scope + ':' + (target.recordId == null ? '' : target.recordId);
+if(target.kind === 'order') return 'order:' + target.scope;
+return 'settings:' + target.scope;
+}
+function adminTargetFromPath(path){
+var seg = String(path || '').split('.');
+var head = seg[0];
+if(seg.length > 1 && (head === 'portfolio' || head === 'assets' || head === 'commissions' || head === 'forms' || head === 'navigation' || head === 'requests')){
+return { kind:'record', scope: head, recordId: seg[1] };
+}
+if((head === 'portfolioCategories' || head === 'assetCategories') && seg.length > 1){
+return { kind:'record', scope: head, recordId: seg[1] };
+}
+if(head === 'pages' && seg.length > 1) return { kind:'record', scope:'pages.' + seg[1], recordId: null };
+if(head === 'settings' && seg.length > 1) return { kind:'settings', scope:'settings', key: seg[1] };
+return null;
+}
+function markAdminTarget(target){
+if(!target) return;
+var key = adminTargetKey(target);
+if(target.kind === 'settings'){
+var existing = ADMIN_UI.dirtyTargets[key];
+if(existing){
+if(existing.keys.indexOf(target.key) === -1) existing.keys.push(target.key);
+} else {
+ADMIN_UI.dirtyTargets[key] = { kind:'settings', scope:'settings', keys: target.key ? [target.key] : null };
+}
+return;
+}
+ADMIN_UI.dirtyTargets[key] = { kind: target.kind, scope: target.scope, recordId: target.recordId == null ? null : target.recordId };
+}
+function markAdminStructuralDirty(scope){
+var resolved = scope || currentAdminSaveScope(currentRoute && currentRoute.adminModule);
+if(resolved) ADMIN_UI.structuralScopes[resolved] = true;
+}
+function markAdminOrderDirty(listKey){
+if(listKey === 'portfolio' || listKey === 'assets' || listKey === 'commissions' || listKey === 'forms' || listKey === 'navigation' || listKey === 'portfolioCategories' || listKey === 'assetCategories'){
+markAdminTarget({ kind:'order', scope: listKey });
+return;
+}
+markAdminStructuralDirty();
+}
+function setAdminDirtyFlag(){ if(!ADMIN_UI.dirty){ ADMIN_UI.dirty = true; setAdminSaveStatus('dirty'); refreshStickySaveBar(); } }
+function markDirty(path){
+if(typeof path === 'string' && path) markAdminTarget(adminTargetFromPath(path));
+else markAdminStructuralDirty();
+setAdminDirtyFlag();
+}
+function resetAdminDirtyState(){
+ADMIN_UI.dirtyTargets = {};
+ADMIN_UI.structuralScopes = {};
+ADMIN_UI.dirty = false;
+}
+function clearAdminDirtyTargetsFor(scope, recordId){
+Object.keys(ADMIN_UI.dirtyTargets).forEach(function(key){
+var t = ADMIN_UI.dirtyTargets[key];
+if(t.scope !== scope) return;
+if(recordId != null && t.kind === 'record' && t.recordId !== recordId) return;
+delete ADMIN_UI.dirtyTargets[key];
+});
+}
 function currentAdminSaveScope(module){
   if(module === 'portfolio') return ADMIN_UI.subtab.portfolio === 'categories' ? 'portfolioCategories' : 'portfolio';
   if(module === 'assets') return ADMIN_UI.subtab.assets === 'categories' ? 'assetCategories' : 'assets';
@@ -3887,23 +3959,144 @@ function currentAdminSaveScope(module){
   if(module === 'contact') return 'settings';
   return module;
 }
+function adminListForScope(scope){
+return Array.isArray(ADMIN_DRAFT[scope]) ? ADMIN_DRAFT[scope] : [];
+}
+function adminRecordForTarget(target){
+if(!target) return null;
+if(target.scope === 'pages.about') return ADMIN_DRAFT.pages ? ADMIN_DRAFT.pages.about : null;
+if(target.scope === 'pages.terms') return ADMIN_DRAFT.pages ? ADMIN_DRAFT.pages.terms : null;
+var list = adminListForScope(target.scope);
+if(target.recordId == null) return list[0] || null;
+return list.filter(function(r){ return r.id === target.recordId || r.slug === target.recordId; })[0] || null;
+}
+function adminRecordIndex(scope, record){
+var list = adminListForScope(scope);
+var index = list.indexOf(record);
+return index === -1 ? 0 : index;
+}
+function adminCategoryDbIdFor(scope, record){
+var listKey = scope === 'assets' ? 'assetCategories' : 'portfolioCategories';
+var list = ADMIN_DRAFT[listKey] || [];
+var match = list.filter(function(c){ return (c.slug || c.id) === (record && record.category); })[0];
+return match && match.dbId ? match.dbId : null;
+}
+function adminOrderTargetForScope(scope){
+if(scope === 'portfolio' || scope === 'assets' || scope === 'commissions' || scope === 'forms' || scope === 'navigation' || scope === 'portfolioCategories' || scope === 'assetCategories'){
+return { kind:'order', scope: scope };
+}
+return null;
+}
+function selectedAdminTargetForScope(scope){
+if(scope === 'pages.about' || scope === 'pages.terms') return { kind:'record', scope: scope, recordId: null };
+if(scope === 'settings') return { kind:'settings', scope:'settings', keys: null };
+if(scope === 'dashboard' || scope === 'media') return null;
+var list = adminListForScope(scope);
+if(!list.length) return null;
+var selected = ADMIN_UI.selection[scope];
+var record = list.filter(function(r){ return r.id === selected; })[0] || list[0];
+return { kind:'record', scope: scope, recordId: record.id };
+}
+function adminSaveTargetsForScope(scope){
+var targets = [];
+var seen = {};
+function push(target){
+if(!target) return;
+var key = adminTargetKey(target);
+if(seen[key]) return;
+seen[key] = true;
+targets.push(target);
+}
+Object.keys(ADMIN_UI.dirtyTargets).forEach(function(key){
+var t = ADMIN_UI.dirtyTargets[key];
+if(t.scope === scope) push(t);
+});
+if(ADMIN_UI.structuralScopes[scope]){
+push(selectedAdminTargetForScope(scope));
+push(adminOrderTargetForScope(scope));
+}
+if(!targets.length) push(selectedAdminTargetForScope(scope));
+return targets;
+}
+function syncSavedTargetsIntoAdminData(targets){
+targets.forEach(function(target){
+if(target.kind === 'order'){
+if(Array.isArray(ADMIN_DRAFT[target.scope])) ADMIN_DATA[target.scope] = clone(ADMIN_DRAFT[target.scope]);
+return;
+}
+if(target.kind === 'settings'){
+ADMIN_DATA.settings = ADMIN_DATA.settings || {};
+var keys = target.keys || Object.keys(ADMIN_DRAFT.settings || {});
+keys.forEach(function(key){
+if(ADMIN_DRAFT.settings) ADMIN_DATA.settings[key] = clone(ADMIN_DRAFT.settings[key]);
+});
+return;
+}
+var record = adminRecordForTarget(target);
+if(!record) return;
+if(target.scope === 'pages.about' || target.scope === 'pages.terms'){
+var pageKey = target.scope.split('.')[1];
+ADMIN_DATA.pages = ADMIN_DATA.pages || {};
+ADMIN_DATA.pages[pageKey] = clone(record);
+return;
+}
+if(!Array.isArray(ADMIN_DATA[target.scope])) ADMIN_DATA[target.scope] = [];
+var list = ADMIN_DATA[target.scope];
+var index = list.findIndex(function(r){
+if(record.dbId && r.dbId) return r.dbId === record.dbId;
+return r.id === record.id;
+});
+if(index === -1) list.push(clone(record)); else list[index] = clone(record);
+});
+}
+function adminSaveErrorMessage(err){
+var code = err && err.code;
+if(code === 'stale_save') return 'Conflict: ' + err.message;
+if(code === 'duplicate_slug' || code === 'missing_record' || code === 'permission_denied') return 'Save blocked: ' + err.message;
+return 'Save failed: ' + (err && err.message ? err.message : 'Unknown error');
+}
 async function doSaveCommit(msg, scope){
   setAdminSaveStatus('saving');
   try {
     requireAdminReady();
-    if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData)){
+    var crud = window.CrabbieAdminCrud;
+    if(!(crud && crud.saveRecord && crud.saveOrder && crud.saveSettings)){
       throw new Error('Admin persistence service is unavailable.');
     }
     if(!scope || scope === 'dashboard' || scope === 'media') throw new Error('No editable module selected.');
-    await window.CrabbieAdminCrud.persistAdminData(ADMIN_DRAFT, scope);
-    ADMIN_DATA = clone(ADMIN_DRAFT);
-    ADMIN_UI.dirty = false;
-    setAdminSaveStatus('saved');
+    /* One save writes only the targets the user actually touched. */
+    var targets = adminSaveTargetsForScope(scope);
+    if(!targets.length) throw new Error('Nothing to save.');
+    for(var i = 0; i < targets.length; i++){
+      var target = targets[i];
+      if(target.kind === 'order'){
+        await crud.saveOrder(target.scope, adminListForScope(target.scope));
+      } else if(target.kind === 'settings'){
+        await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys);
+      } else {
+        var record = adminRecordForTarget(target);
+        if(!record) continue;
+        await crud.saveRecord(target.scope, record, {
+          sortOrder: adminRecordIndex(target.scope, record),
+          categoryId: (target.scope === 'portfolio' || target.scope === 'assets') ? adminCategoryDbIdFor(target.scope, record) : null
+        });
+      }
+    }
+    /* Only the written targets are cleared: other pending edits stay dirty. */
+    targets.forEach(function(target){
+      clearAdminDirtyTargetsFor(target.scope, target.kind === 'record' ? target.recordId : null);
+      if(target.scope && ADMIN_UI.structuralScopes[target.scope]) delete ADMIN_UI.structuralScopes[target.scope];
+    });
+    syncSavedTargetsIntoAdminData(targets);
+    ADMIN_UI.dirty = Object.keys(ADMIN_UI.dirtyTargets).length > 0 || Object.keys(ADMIN_UI.structuralScopes).length > 0;
+    setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
     refreshStickySaveBar();
   } catch(err){
     console.error('Save failed:', err);
-    setAdminSaveStatus('dirty');
-    toast('Save failed: ' + err.message);
+    ADMIN_UI.dirty = Object.keys(ADMIN_UI.dirtyTargets).length > 0 || Object.keys(ADMIN_UI.structuralScopes).length > 0;
+    setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
+    refreshStickySaveBar();
+    toast(adminSaveErrorMessage(err));
     return;
   }
   try {
@@ -3915,7 +4108,7 @@ async function doSaveCommit(msg, scope){
     toast('Saved, but public refresh failed. Reload to retry.');
   }
 }
-function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); ADMIN_UI.dirty = false; setAdminSaveStatus('saved'); refreshStickySaveBar(); }
+function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); resetAdminDirtyState(); setAdminSaveStatus('saved'); refreshStickySaveBar(); }
 function refreshStickySaveBar(){ var bar = document.getElementById('admStickySave'); if(!bar) return; if(ADMIN_UI.dirty) bar.classList.add('visible'); else bar.classList.remove('visible'); }
 /* ---------- Admin draft safety: one live snapshot, one load state ---------- */
 var lastAppliedHash = null;
@@ -3988,7 +4181,7 @@ function resetAdminSessionState(){
 ADMIN_DATA = buildAdminData();
 ADMIN_DRAFT = clone(ADMIN_DATA);
 ADMIN_UI.selection = initialAdminSelection(ADMIN_DATA);
-ADMIN_UI.dirty = false;
+resetAdminDirtyState();
 ADMIN_UI.subtab = { portfolio:'items', assets:'items', commissions:'items', settings:'settings' };
 ADMIN_UI.settingsGroup = 'Branding';
 ADMIN_UI.loadError = '';
@@ -4584,7 +4777,7 @@ var i = list.findIndex(function(r){ return r.id === id; }); if(i === -1) return;
 var j = dir === 'up' ? i - 1 : i + 1;
 if(j < 0 || j >= list.length) return;
 var t = list[i]; list[i] = list[j]; list[j] = t;
-markDirty(); renderAdmin(module);
+markAdminOrderDirty(listKey); setAdminDirtyFlag(); renderAdmin(module);
 });
 });
 $$('[data-adm-delete]', adminContent).forEach(function(btn){
@@ -4597,21 +4790,32 @@ var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
 try{
   requireAdminReady();
-  if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord)){
-    throw new Error('Admin delete service is unavailable.');
-  }
-  await window.CrabbieAdminCrud.deleteRecord(listKey, id);
   var i = list.findIndex(function(r){ return r.id === id || r.slug === id; });
-  if(i !== -1) list.splice(i, 1);
+  if(i === -1) return;
+  var record = list[i];
+  /* An unsaved draft only exists locally; a saved record must delete in the
+     database first, and local state may only change after that succeeded. */
+  if(record.dbId){
+    if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord)){
+      throw new Error('Admin delete service is unavailable.');
+    }
+    await window.CrabbieAdminCrud.deleteRecord(listKey, record);
+  }
+  list.splice(i, 1);
   if(Array.isArray(ADMIN_DATA[listKey])){
-    var dataIndex = ADMIN_DATA[listKey].findIndex(function(r){ return r.id === id || r.slug === id; });
+    var dataIndex = ADMIN_DATA[listKey].findIndex(function(r){
+      if(record.dbId) return r.dbId === record.dbId;
+      return r.id === record.id;
+    });
     if(dataIndex !== -1) ADMIN_DATA[listKey].splice(dataIndex, 1);
   }
+  clearAdminDirtyTargetsFor(listKey, record.id);
   if(ADMIN_UI.selection[listKey] === id) ADMIN_UI.selection[listKey] = list[0] ? list[0].id : null;
   toast(tAdmin('toast.deleted') + ' "' + name + '"');
   renderAdmin(module);
 }catch(err){
   console.error('Delete failed:', err);
+  /* A failed delete must never remove the record from local state. */
   toast('Delete failed: ' + (err.message || 'Unknown error'));
 }
 });
@@ -4620,16 +4824,20 @@ try{
 $$('[data-adm-new]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var listKey = btn.getAttribute('data-adm-new');
-var id = newId('new');
-if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, title:'New project', slug:'new-project', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, title:'New asset', slug:'new-asset', description:'', category:'brushes', thumbnail:'', media:'', mediaType:'image', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, title:'New commission', slug:'new-commission', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, title:'New form', slug:'new-form', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, title:'New item', url:'#', published:true });
-else if(listKey === 'portfolioCategories') ADMIN_DRAFT.portfolioCategories.push({ id:id, title:'New category', slug:'new-category', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
-else if(listKey === 'assetCategories') ADMIN_DRAFT.assetCategories.push({ id:id, title:'New category', slug:'new-category', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
+/* A new draft gets a unique client identity and no slug: the slug is chosen by
+   the user, and the row is INSERTed (never upserted over another record). */
+var id = newAdminClientId();
+if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', thumbnail:'', media:'', mediaType:'image', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
+else if(listKey === 'portfolioCategories') ADMIN_DRAFT.portfolioCategories.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New category', slug:'', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
+else if(listKey === 'assetCategories') ADMIN_DRAFT.assetCategories.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New category', slug:'', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
 ADMIN_UI.selection[listKey] = id;
-markDirty(); renderAdmin(module);
+markAdminTarget({ kind:'record', scope: listKey, recordId: id });
+setAdminDirtyFlag();
+renderAdmin(module);
 });
 });
 $$('[data-adm-save]', adminContent).forEach(function(btn){
@@ -4660,7 +4868,7 @@ if(el.type === 'checkbox') return;
 var v = readControlValue(el);
 if(arrSplit) v = String(v).split(arrSplit).map(function(s){ return s.trim(); }).filter(Boolean);
 setByPath(ADMIN_DRAFT, path, v);
-markDirty();
+markDirty(path);
 refreshMediaPreviewByPath(path);
 refreshAuditPanels(module);
 });
@@ -4682,14 +4890,14 @@ if(el.type === 'checkbox' && v && /\.published$/.test(path) && !getByPath(ADMIN_
     confirmPublishGuard(audit, function(){
       setByPath(ADMIN_DRAFT, path, true);
       el.checked = true;
-      markDirty();
+      markDirty(path);
       refreshAuditPanels(module);
     });
     return;
   }
 }
 setByPath(ADMIN_DRAFT, path, v);
-markDirty();
+markDirty(path);
 refreshAuditPanels(module);
 if(el.type === 'checkbox' && (path.indexOf('viOverride') !== -1)) renderAdmin(module);
 });
@@ -4701,14 +4909,14 @@ setByPath(ADMIN_DRAFT, path, '');
 var input = adminContent.querySelector('input[data-adm-path="' + path + '"]');
 if(input) input.value = '';
 refreshMediaPreviewByPath(path);
-markDirty();
+markDirty(path);
 refreshAuditPanels(module);
 });
 });
 $$('[data-adm-path][type="radio"]', adminContent).forEach(function(el){
 var path = el.getAttribute('data-adm-path');
 el.checked = (el.value === getByPath(ADMIN_DRAFT, path));
-el.addEventListener('change', function(){ if(el.checked){ setByPath(ADMIN_DRAFT, path, el.value); markDirty(); } });
+el.addEventListener('change', function(){ if(el.checked){ setByPath(ADMIN_DRAFT, path, el.value); markDirty(path); } });
 });
 $$('[data-adm-array-path]', adminContent).forEach(function(el){
 el.addEventListener('input', function(){
@@ -4717,7 +4925,7 @@ var i = parseInt(el.getAttribute('data-adm-array-i'), 10);
 var key = el.getAttribute('data-adm-array-key');
 var arr = getByPath(ADMIN_DRAFT, path);
 if(!Array.isArray(arr) || !arr[i]) return;
-arr[i][key] = el.value; markDirty();
+arr[i][key] = el.value; markDirty(path);
 });
 });
 $$('[data-adm-mi-path]', adminContent).forEach(function(el){
@@ -4727,7 +4935,7 @@ var i = parseInt(el.getAttribute('data-adm-mi-i'), 10);
 var key = el.getAttribute('data-adm-mi-key');
 var arr = getByPath(ADMIN_DRAFT, path + '.items');
 if(!Array.isArray(arr) || !arr[i]) return;
-arr[i][key] = el.value; markDirty();
+arr[i][key] = el.value; markDirty(path);
 });
 });
 $$('[data-adm-block-field]', adminContent).forEach(function(el){
@@ -4736,7 +4944,7 @@ var path = el.getAttribute('data-adm-block-path');
 var key = el.getAttribute('data-adm-block-field');
 if(!path) return;
 setByPath(ADMIN_DRAFT, path + '.' + key, el.value);
-markDirty();
+markDirty(path);
 });
 });
 $$('[data-adm-block-toggle]', adminContent).forEach(function(head){
@@ -5046,13 +5254,13 @@ async function handleMediaUploadSelected(e){
 
     if(context.type === 'field'){
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
-      markDirty();
+      markDirty(context.path);
       toast(tAdmin('toast.uploadedFile') + newMedia.title);
       renderAdmin(currentRoute.adminModule || 'dashboard');
     } else if(context.type === 'picker'){
       if(activeMediaTarget){
         setByPath(ADMIN_DRAFT, activeMediaTarget, newMedia.url);
-        markDirty();
+        markDirty(activeMediaTarget);
         toast(tAdmin('toast.selectedMedia') + newMedia.title);
         var modal = document.getElementById('adminMediaModal');
         if(modal) modal.classList.remove('open');
@@ -5108,7 +5316,7 @@ var id = t.getAttribute('data-adm-pick');
 var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
 if(m && activeMediaTarget){
 setByPath(ADMIN_DRAFT, activeMediaTarget, m.url);
-markDirty(); toast(tAdmin('toast.selectedMedia') + m.title);
+markDirty(activeMediaTarget); toast(tAdmin('toast.selectedMedia') + m.title);
 modal.classList.remove('open'); renderAdmin(currentRoute.adminModule || 'dashboard');
 } else if(m){ toast(tAdmin('toast.mediaSelected') + ': ' + m.title); modal.classList.remove('open'); }
 });
