@@ -2,6 +2,7 @@ import { formattedCommissionPrice } from './admin-roundtrip-core.js';
 export function formatPortfolioRow(rec, sort_order = 0) {
   const content = {
     cat: rec.category || '',
+    cardMode: rec.cardMode === 'image' ? 'image' : 'project',
     blocks: rec.blocks || [],
     externalLinks: rec.externalLinks || [],
     placeholder: !!rec.placeholder,
