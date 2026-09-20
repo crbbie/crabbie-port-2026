@@ -12,5 +12,6 @@ import('./admin-crud.js');
 import('./admin-data-audit.js').then(() => {
   if (typeof window !== 'undefined' && typeof window.__crabbieAuditReady === 'function') window.__crabbieAuditReady();
 });
+import('./admin-draft-guard.js');
 import('./admin-media.js');
 import('./commission-requests.js');

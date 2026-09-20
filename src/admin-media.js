@@ -7,7 +7,17 @@ import {
   validateUploadFile
 } from './admin-media-core.js';
 
+// Media upload/delete are admin database writes: when the CRUD boundary is
+// available they must pass the same readiness gate as every other mutation.
+function assertMediaMutationReady() {
+  const crud = typeof window !== 'undefined' ? window.CrabbieAdminCrud : null;
+  if (crud && typeof crud.assertAdminReadyForMutation === 'function') {
+    crud.assertAdminReadyForMutation();
+  }
+}
+
 export async function uploadMediaFile(file, altText = '') {
+  assertMediaMutationReady();
   if (!isConfigured || !supabase) {
     throw new Error('Supabase client is not configured.');
   }
@@ -81,6 +91,7 @@ export async function uploadMediaFile(file, altText = '') {
 }
 
 export async function deleteMediaFile(id, storagePath) {
+  assertMediaMutationReady();
   if (!isConfigured || !supabase) return { success: false, error: 'Not configured' };
 
   try {

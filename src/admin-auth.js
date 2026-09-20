@@ -1,8 +1,44 @@
 ﻿import { supabase, isConfigured } from './supabase-client.js';
 import { isAdminUser, validateLoginPayload } from './admin-auth-core.js';
+import { decideAdminAuthEvent } from './admin-auth-events-core.js';
 
 let currentAdmin = null;
 let isRestoring = true;
+// One authenticated session may request exactly one CMS hydration pass.
+let adminHydrationRequested = false;
+
+function isAdminDirty() {
+  try {
+    return Boolean(window.CrabbieAdminAuth && window.CrabbieAdminAuth.isDirty && window.CrabbieAdminAuth.isDirty());
+  } catch (err) {
+    return false;
+  }
+}
+
+function notifyAdminUi(event) {
+  const decision = decideAdminAuthEvent({
+    event,
+    hasAdminUser: Boolean(currentAdmin),
+    hasHydrated: adminHydrationRequested,
+    hydrationInFlight: false,
+    dirty: isAdminDirty()
+  });
+  if (decision.clearAdmin) {
+    currentAdmin = null;
+    adminHydrationRequested = false;
+  }
+  if (decision.hydrate) adminHydrationRequested = true;
+  const payload = { event, adminUser: currentAdmin, hydrate: decision.hydrate, updateUserOnly: decision.updateUserOnly };
+  const bridge = window.CrabbieAdminAuth;
+  if (bridge) {
+    bridge.notify(payload);
+    return;
+  }
+  // The inline admin script owns the shell; it always registers before load.
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(payload);
+  }, { once: true });
+}
 
 export function getAdminState() {
   return { admin: currentAdmin, isRestoring };
@@ -11,7 +47,8 @@ export function getAdminState() {
 export async function restoreSession() {
   if (!isConfigured || !supabase) {
     isRestoring = false;
-    if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(null);
+    currentAdmin = null;
+    notifyAdminUi('SIGNED_OUT');
     return null;
   }
   try {
@@ -29,8 +66,9 @@ export async function restoreSession() {
     currentAdmin = null;
   } finally {
     isRestoring = false;
-    if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(currentAdmin);
   }
+  // One clear ownership path: the initial entry asks for the first hydration.
+  notifyAdminUi('INITIAL_SESSION');
   return currentAdmin;
 }
 
@@ -48,7 +86,9 @@ export async function login(email, password) {
     return { success: false, error: 'Access denied. Account is not authorized as admin.' };
   }
   currentAdmin = data.user;
-  if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(currentAdmin);
+  // The auth-state callback delivers the same SIGNED_IN event; the policy
+  // keeps the pair to a single hydration request.
+  notifyAdminUi('SIGNED_IN');
   return { success: true, user: currentAdmin };
 }
 
@@ -61,18 +101,14 @@ export async function logout() {
     }
   }
   currentAdmin = null;
-  if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(null);
+  adminHydrationRequested = false;
+  notifyAdminUi('SIGNED_OUT');
 }
 
 if (supabase) {
   supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') {
-      currentAdmin = null;
-      if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(null);
-    } else if (session && session.user && isAdminUser(session.user)) {
-      currentAdmin = session.user;
-      if (window.CrabbieAdminAuth) window.CrabbieAdminAuth.notify(currentAdmin);
-    }
+    currentAdmin = session && session.user && isAdminUser(session.user) ? session.user : null;
+    notifyAdminUi(event);
   });
 }
 
