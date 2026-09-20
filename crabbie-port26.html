@@ -4689,7 +4689,22 @@ return '<div class="adm-qblock"><div class="adm-qblock-head" data-adm-q-toggle="
 }
 
 var reqFilter = { status:'all', commission:'all', search:'', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'' };
-var mediaPage = { page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', search:'' };
+var mediaPage = {
+  page: 1,
+  perPage: 30,
+  total: 0,
+  pageCount: 1,
+  state: 'idle',
+  error: '',
+  search: '',
+  type: 'all',
+  sort: 'newest',
+  from: '',
+  to: '',
+  view: 'grid',
+  selected: [],
+  previewId: null
+};
 var adminCounts = { requests:null, media:null };
 var adminCountsRequested = false;
 

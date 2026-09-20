@@ -289,6 +289,22 @@ try {
   const failedRequests = [];
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('requestfailed', (request) => failedRequests.push({ url: request.url(), error: ((request.failure() || {}).errorText) || 'request failed' }));
+  // ---- Batch 5 Group 2: media manager state model (static shape check) ----
+  {
+    const adminHtml = await readFile(resolve(root, 'crabbie-port26.html'), 'utf8');
+    const stateBlock = adminHtml.match(/var mediaPage = \{[\s\S]*?\};/);
+    assert.ok(stateBlock, 'the media page state object exists');
+    ['page', 'perPage', 'total', 'pageCount', 'state', 'error', 'search', 'type', 'sort', 'from', 'to', 'view', 'selected', 'previewId']
+      .forEach((field) => {
+        assert.ok(new RegExp('\\b' + field + ':').test(stateBlock[0]), 'media page state declares ' + field);
+      });
+    assert.match(stateBlock[0], /view: 'grid'/, 'grid is the default media view');
+    assert.match(stateBlock[0], /selected: \[\]/, 'selection starts empty');
+    assert.match(stateBlock[0], /type: 'all'/, 'the type filter starts unfiltered');
+    assert.ok(!/mediaPage\.selected\.push|loadMediaPage\(\{\s*type:/.test(adminHtml), 'state only: no toolbar wiring or spec forwarding yet');
+    console.log('PASS media manager state model is declared and inert (static check)');
+  }
+
   const cases = [
     ['/', 'home'], ['/#home', 'home'], ['/#portfolio', 'portfolio'],
     ['/#free-assets', 'free-assets'], ['/#commissions', 'commissions'],
