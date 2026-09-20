@@ -29,7 +29,10 @@ const liveRow = {
     cat: 'Elements',
     icon: '★',
     version: '2.0',
-    tags: ['Elements', 'SVG']
+    tags: ['Elements', 'SVG'],
+    driveUrl: 'https://drive.google.com/file/d/example/view',
+    showDirectDownload: false,
+    showDriveDownload: true
   }
 };
 
@@ -42,6 +45,9 @@ assert.equal(mapped.format, 'SVG');
 assert.equal(mapped.icon, '★');
 assert.equal(mapped.version, '2.0');
 assert.equal(mapped.downloadUrl, 'https://supabase.co/storage/asset.svg');
+assert.equal(mapped.driveUrl, 'https://drive.google.com/file/d/example/view');
+assert.equal(mapped.showDirectDownload, false);
+assert.equal(mapped.showDriveDownload, true);
 assert.equal(mapped.credit, ''); // DB row is authoritative when metadata is absent.
 assert.deepEqual(mapped.tags, ['Elements', 'SVG']);
 
