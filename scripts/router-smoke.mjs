@@ -2719,11 +2719,8 @@ try {
     await goAdmin('commissions');
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
     await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
-    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="forms"]')));
-    await page.evaluate(() => {
-      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="forms"]'), (candidate) => candidate.innerText.indexOf('Round-trip form') !== -1);
-      if (row) row.click();
-    });
+    await page.locator('#adminContent [data-adm-select="forms"][data-adm-id="round-trip-form"]').waitFor({state:'visible'});
+    await page.locator('#adminContent [data-adm-select="forms"][data-adm-id="round-trip-form"]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-options-path]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".description"]').first().inputValue(), 'Tell me about the emote you want.', 'the description survives a reload');
     assert.equal(await page.locator('#adminContent [data-adm-path$=".published"]').first().isChecked(), true, 'the published flag survives a reload');
