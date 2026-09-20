@@ -10,6 +10,7 @@ export function mapPortfolioProject(row, fallback = {}) {
     tags: Array.isArray(row.tags) ? row.tags : [],
     cover: row.cover_path ?? '',
     thumbnail: row.thumbnail_path ?? '',
+    featured: !!row.featured,
     blocks: Array.isArray(content.blocks) ? content.blocks : [],
     credits: content.credits ?? '',
     year: content.year ?? '',
