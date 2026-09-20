@@ -361,6 +361,38 @@ try {
     if (path === '/') await page.screenshot({path: resolve(tmpdir(), 'crabbie-router-home.png')});
     if (path === '/admin') await page.screenshot({path: resolve(tmpdir(), 'crabbie-router-admin.png')});
   }
+
+  // Regression: CMS slugs may contain spaces or non-ASCII characters. Browsers
+  // percent-encode those hash segments, so the router must decode them before
+  // matching the hydrated record instead of falling through to the 404 view.
+  if (!diagnose && !livePublic) {
+    await page.goto('about:blank');
+    errors.length = 0;
+    await page.goto(origin + '/#portfolio', {waitUntil:'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbiePortfolio));
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{
+        slug: 'lug là gì',
+        title: 'Encoded slug project',
+        desc: 'Fixture route regression',
+        cat: 'Illustration',
+        tags: ['TEST'],
+        thumbnail: '',
+        cover: '',
+        blocks: []
+      }]);
+    });
+    const encodedCard = page.locator('#pfGrid [data-project="lug là gì"]');
+    await encodedCard.waitFor({state:'visible'});
+    assert.equal(await encodedCard.getAttribute('href'), '#project/lug%20l%C3%A0%20g%C3%AC');
+    await encodedCard.click();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.locator('#pdTitle').innerText(), 'Encoded slug project');
+    assert.equal(await page.evaluate(() => decodeURIComponent(location.hash)), '#project/lug là gì');
+    assert.deepEqual(errors, [], 'Encoded CMS project route must not throw');
+    console.log('PASS encoded/non-ASCII CMS project slug opens project detail instead of 404');
+  }
+
   if (!diagnose && livePublic) {
     const readRows = async (table, select, filter = '') => {
       const response = await fetch(publicConfig.url + '/rest/v1/' + table + '?select=' + encodeURIComponent(select) + filter, {headers: {apikey: publicConfig.key}});
