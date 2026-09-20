@@ -17,6 +17,7 @@ const p = formatPortfolioRow({
   category: 'chibi',
   tags: ['CHIBI', 'PASTEL'],
   year: '2026',
+  cardMode: 'image',
   published: true
 }, 2);
 assert.equal(p.slug, 'test-p');
@@ -25,6 +26,7 @@ assert.equal(p.sort_order, 2);
 assert.equal(p.content.cat, 'chibi');
 assert.deepEqual(p.tags, ['CHIBI', 'PASTEL'], 'portfolio tags survive the save payload as an array');
 assert.equal(p.content.year, '2026', 'portfolio date/year survives the save payload');
+assert.equal(p.content.cardMode, 'image', 'portfolio card display mode survives the save payload');
 
 // 2. Asset
 const a = formatAssetRow({
