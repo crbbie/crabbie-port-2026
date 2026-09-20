@@ -398,15 +398,24 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .blk-head{ display:flex; align-items:center; gap:14px; margin-bottom: 16px; }
 .blk-num{width: 42px; height: 42px; flex: 0 0 42px;display:grid; place-items:center; border-radius: 50%;font-family:'Fredoka'; font-weight:700; font-size:14px; color:#fff;background: linear-gradient(180deg, #ffc3dc 0%, var(--pink-hot) 100%);border: 3px solid #fff;box-shadow: 0 0 0 2px var(--pink-hot), 0 5px 0 -1px rgba(217,74,128,.5);}
 .blk-head h3{font-family:'Fredoka'; font-weight:700; font-size: 21px;color: var(--berry); letter-spacing:-.01em;}
-.blk-body{background:#fff; border: 3px solid #fff; border-radius: 28px;padding: 26px 28px;box-shadow:0 0 0 3px var(--pink-light),0 10px 0 -4px var(--pink-light),0 22px 34px -20px rgba(217,74,128,.4);}
-.blk-body > * + *{ margin-top: 16px; }
-.cms{font-family:'Gochi Hand', cursive; font-size: 17px;color: var(--berry-soft);background: var(--pink-soft);border: 2px dashed var(--pink-light);border-radius: 16px; padding: 14px 20px;}
+.blk-body{background:#fff; border: 3px solid #fff; border-radius: 28px;padding: 30px 32px;box-shadow:0 0 0 3px var(--pink-light),0 10px 0 -4px var(--pink-light),0 22px 34px -20px rgba(217,74,128,.4);}
+.blk-body > * + *{ margin-top: 22px; }
+.blk-body figure{margin:0;}
+.blk-body figure > img{display:block;width:100%;height:auto;border-radius:18px;}
+.blk-body figcaption{margin-top:14px;padding:0 4px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;line-height:1.75;color:var(--berry-soft);}
+.cms{font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.8;font-weight:500;color:var(--berry);background:var(--pink-soft);border:2px dashed var(--pink-light);border-radius:16px;padding:18px 22px;}
 .cms.purple{ background: var(--purple-light); border-color: #d7c8ff; }
 .cms.blue{ background: var(--blue-light); border-color: #bfe2ff; }
 .cms.yellow{ background: var(--yellow-light); border-color: #ffe6a8; }
+.pd-image-text{gap:32px !important;align-items:flex-start !important;}
 .ph-row{ display:grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 .ph-row .ph{ aspect-ratio: 4/3; }
 .ph-gallery{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.gallery-zoom{display:block;width:100%;padding:0;border:0;background:none;border-radius:16px;overflow:hidden;cursor:zoom-in;}
+.gallery-zoom img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s ease;}
+.gallery-zoom:hover img{transform:scale(1.025);}
+.gallery-zoom:focus-visible{outline:3px solid var(--purple-hot);outline-offset:4px;}
+.work.is-cms-featured,.item.is-cms-featured{box-shadow:0 0 0 4px rgba(255,190,220,.9),0 18px 34px -20px rgba(217,74,128,.58);}
 .ph-gallery .ph{ min-height: 0; }
 .ph-gallery .g-a{ grid-column: span 2; grid-row: span 2; aspect-ratio: 1/1; }
 .ph-gallery .g-b{ aspect-ratio: 3/4; }
@@ -881,10 +890,20 @@ body.is-loading{ overflow:hidden; }
 body.is-route-loading .nav-shell, body.is-route-loading footer{ display:none !important; }
 body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 
+/* ---- One canonical admin save action ---- */
+#adminContent .adm-editor-bar [data-adm-save]{display:none !important;}
+
 /* ---- Public lang toggle ---- */
 .lang button{padding:5px 11px; border-radius:999px; cursor:pointer;border:none; background:none;font-family:inherit; font-weight:inherit; font-size:inherit;color:var(--berry-soft); transition:.25s;}
 .lang button.on{ background:#fff; color:var(--berry); box-shadow:0 2px 0 var(--purple); }
 .lang button:focus-visible{ outline:3px solid var(--purple-hot); outline-offset:2px; }
+
+/* ---- Public image lightbox ---- */
+.public-lightbox[hidden]{display:none !important;}
+.public-lightbox{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:48px;background:rgba(69,38,73,.78);backdrop-filter:blur(8px);}
+.public-lightbox img{display:block;max-width:min(94vw,1600px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;}
+.public-lightbox-close{position:fixed;top:22px;right:24px;width:46px;height:46px;border-radius:50%;border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+.public-lightbox-close:focus-visible{outline:3px solid #fff;outline-offset:3px;}
 
 /* ---- TOS nav buttons ---- */
 .tos-nav button{display:block; width:100%; text-align:left;padding:9px 12px; border-radius:14px; border:none; background:none;font-family:'Fredoka'; font-size:12.5px; font-weight:800; color:var(--berry-soft);transition:.25s; cursor:pointer;}
@@ -1921,12 +1940,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
       <a href="#terms" data-goto="terms">Terms</a>
       <a href="#contact" data-goto="contact">Contact</a>
     </div>
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" class="on" data-lang="EN" aria-pressed="true">EN</button>
-      <!-- No real translation provider exists in this repository, so the VI
-           switch is hidden rather than presented as a functional control. -->
-      <button type="button" data-lang="VI" aria-pressed="false" hidden>VI</button>
-    </div>
     <a class="nav-cta" href="#commissions" data-goto="commissions">Commission</a>
     <button class="nav-burger" id="navBurger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
   </nav>
@@ -2793,6 +2806,11 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<div class="public-lightbox" id="publicLightbox" role="dialog" aria-modal="true" aria-label="Image preview" hidden>
+  <button class="public-lightbox-close" id="publicLightboxClose" type="button" aria-label="Close image preview">×</button>
+  <img id="publicLightboxImg" alt="">
+</div>
+
 <div class="adm-modal" id="adminConfirmModal" role="dialog" aria-modal="true" aria-labelledby="adminConfirmTitle">
   <div class="adm-modal-card">
     <h3 id="adminConfirmTitle">Discard unsaved edits?</h3>
@@ -3020,7 +3038,14 @@ function publicBlockBody(block){
   if(type === 'image-text') return media || text ? '<div class="pd-image-text" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;' + (block.layout === 'right' ? 'flex-direction:row-reverse;' : '') + '">' + (media ? '<div style="flex:1 1 240px;">' + media + '</div>' : '') + (text ? '<p class="cms" style="flex:1 1 240px;">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '') + '</div>' : '';
   if(type === 'gallery' || type === 'grid'){
     var items = Array.isArray(block.items) ? block.items : [];
-    var images = items.map(function(item){ var image = publicImage(typeof item === 'string' ? item : item.url, item.alt || ''); return image ? '<figure>' + image + '</figure>' : ''; }).join('');
+    var images = items.map(function(item){
+      var raw = typeof item === 'string' ? item : item.url;
+      var src = safePublicUrl(raw, true);
+      if(!src) return '';
+      var alt = typeof item === 'string' ? '' : (item.alt || '');
+      var itemCaption = typeof item === 'string' ? '' : visibleCmsValue(item.caption);
+      return '<figure><button type="button" class="gallery-zoom" data-lightbox-src="' + esc(src) + '" data-lightbox-alt="' + esc(alt || itemCaption) + '" aria-label="Open full-size image"><img src="' + esc(src) + '" alt="' + esc(alt) + '" loading="lazy"></button>' + (itemCaption ? '<figcaption>' + esc(itemCaption) + '</figcaption>' : '') + '</figure>';
+    }).join('');
     return images ? '<div class="ph-gallery">' + images + '</div>' : '';
   }
   if(type === 'video'){
@@ -3688,8 +3713,28 @@ main.setAttribute('tabindex','-1');
 try{ main.focus({ preventScroll: false }); }catch(err){ main.focus(); }
 });
 
+var publicLightbox = document.getElementById('publicLightbox');
+var publicLightboxImg = document.getElementById('publicLightboxImg');
+var publicLightboxClose = document.getElementById('publicLightboxClose');
+function openPublicLightbox(src, alt){
+if(!publicLightbox || !publicLightboxImg || !src) return;
+publicLightboxImg.src = src; publicLightboxImg.alt = alt || '';
+publicLightbox.hidden = false; document.body.style.overflow = 'hidden';
+if(publicLightboxClose) publicLightboxClose.focus();
+}
+function closePublicLightbox(){
+if(!publicLightbox || publicLightbox.hidden) return;
+publicLightbox.hidden = true; document.body.style.overflow = '';
+if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; }
+}
+if(publicLightboxClose) publicLightboxClose.addEventListener('click', closePublicLightbox);
+if(publicLightbox) publicLightbox.addEventListener('click', function(e){ if(e.target === publicLightbox) closePublicLightbox(); });
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
+
 document.addEventListener('click', function(e){
 var t;
+t = e.target.closest('[data-lightbox-src]');
+if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt')); return; }
 t = e.target.closest('[data-other-service]');
 if(t){ e.preventDefault(); jelly(t); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
 t = e.target.closest('[data-service]');
@@ -4200,7 +4245,7 @@ return api.reconcileSavedTarget(ADMIN_DATA, target, captured, result);
 function adminSaveErrorMessage(err){
 var code = err && err.code;
 if(code === 'stale_save') return 'Conflict: ' + err.message;
-if(code === 'duplicate_slug' || code === 'missing_record' || code === 'permission_denied') return 'Save blocked: ' + err.message;
+if(code === 'duplicate_slug' || code === 'missing_record' || code === 'permission_denied' || code === 'missing_field') return 'Save blocked: ' + err.message;
 return 'Save failed: ' + (err && err.message ? err.message : 'Unknown error');
 }
 function adminSaveTransactionActive(){
@@ -4470,14 +4515,39 @@ setTimeout(function(){ okBtn.focus(); }, 20);
 }
 
 /* Render helpers */
+function slugifyAdminTitle(value){
+var text = String(value == null ? '' : value).trim();
+if(!text) return '';
+try{ text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
+return text.replace(/[đĐ]/g, function(ch){ return ch === 'Đ' ? 'D' : 'd'; }).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-');
+}
+function syncSlugFromTitlePath(path, value){
+var m = String(path || '').match(/^(portfolio|assets|commissions|forms|portfolioCategories|assetCategories)\.([^.]+)\.title$/);
+if(!m) return;
+var slugPath = m[1] + '.' + m[2] + '.slug';
+var next = slugifyAdminTitle(value);
+setByPath(ADMIN_DRAFT, slugPath, next);
+var controls = adminContent ? adminContent.querySelectorAll('[data-adm-path]') : [];
+Array.prototype.forEach.call(controls, function(control){ if(control.getAttribute('data-adm-path') === slugPath) control.value = next; });
+var preview = adminContent && adminContent.querySelector('[data-adm-slug-preview="' + m[1] + '.' + m[2] + '"]');
+if(preview) preview.textContent = next || '—';
+}
+function adminCategoryOptions(list, current){
+var options = (Array.isArray(list) ? list : []).map(function(c){ return { value:c.slug || c.id, label:c.title || c.slug || c.id }; });
+if(current && !options.some(function(o){ return o.value === current; })) options.unshift({ value:current, label:current });
+if(!options.length) options.push({ value:'other', label:'Other' });
+return options;
+}
 function inputText(label, path, opts){
 opts = opts || {};
 var v = getByPath(ADMIN_DRAFT, path); if(v == null) v = '';
+if(Array.isArray(v)) v = v.join(opts.arraySplit ? (opts.arraySplit + ' ') : ', ');
 var hint = opts.hint ? '<span class="af-hint">' + esc(opts.hint) + '</span>' : '';
 var req = opts.required ? ' <b class="af-req">*</b>' : '';
 var full = opts.full ? ' style="grid-column: 1 / -1;"' : '';
 var type = opts.type || 'text';
-return '<label class="adm-field"' + full + '><span class="af-label">' + esc(label) + req + '</span>' + hint + '<input type="' + type + '" data-adm-path="' + esc(path) + '" value="' + esc(v) + '"' + (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '></label>';
+var extra = (opts.readonly ? ' readonly aria-readonly="true"' : '') + (opts.arraySplit ? ' data-adm-array-split="' + esc(opts.arraySplit) + '"' : '');
+return '<label class="adm-field"' + full + '><span class="af-label">' + esc(label) + req + '</span>' + hint + '<input type="' + type + '" data-adm-path="' + esc(path) + '" value="' + esc(v) + '"' + extra + (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '></label>';
 }
 function inputTextarea(label, path, opts){
 opts = opts || {};
@@ -4646,7 +4716,7 @@ case 'contact': html = renderAdminContact(); break;
 case 'media': html = renderAdminMedia(); break;
 case 'settings': html = renderAdminSettings(); break;
 }
-adminContent.innerHTML = '<div class="adm-workspace">' + html + '</div><div class="adm-sticky-save' + (ADMIN_UI.dirty ? ' visible' : '') + '" id="admStickySave"><span class="ss-status">' + esc(tAdmin('status.dirty')) + '</span><span class="ss-actions"><button type="button" class="adm-btn-sm" data-adm-discard="1">' + esc(tAdmin('btn.discardShort')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="sticky">' + esc(tAdmin('btn.saveChanges')) + '</button></span></div>';
+adminContent.innerHTML = '<div class="adm-workspace">' + html + '</div>';
 wireAdminContent(module);
 try{ adminContent.focus({ preventScroll: true }); }catch(e){}
 }
@@ -4720,9 +4790,9 @@ var base = 'portfolio.' + rec.id;
 var pAudit = auditFor('portfolio', rec);
 var blocksHtml = (rec.blocks || []).map(function(b, i){ return renderProjectBlock(rec.id, b, i); }).join('');
 var linksHtml = renderExternalLinks(rec);
-return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b>' + esc(rec.slug) + '</b> · ' + (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft')) + '</p>' +
+return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="portfolio.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b> · ' + (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft')) + '</p>' +
 checklistPanel(pAudit) +
-'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 }) + '<div class="adm-row three" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', ADMIN_DRAFT.portfolioCategories.map(function(c){ return { value:c.slug || c.id, label:c.title }; })) + inputText(tAdmin('label.tags'), base + '.tags') + inputText(tAdmin('label.date'), base + '.date') + '</div>' + '<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.cover'), base + '.cover') + '</div></div>' +
+'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 }) + '<div class="adm-row three" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' + '<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.cover'), base + '.cover') + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
@@ -4812,10 +4882,11 @@ return tabs + '<div class="adm-split"><div class="adm-list"><div class="adm-list
 function renderAssetEditor(rec){
 var base = 'assets.' + rec.id;
 var aAudit = auditFor('assets', rec);
-return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b>' + esc(rec.slug) + '</b></p>' +
+return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="assets.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b></p>' +
 checklistPanel(aAudit) +
-'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '</div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;"><label class="adm-field"><span class="af-label">' + esc(tAdmin('auditf.fileFormat')) + '</span><input type="text" data-adm-path="' + esc(base + '.fileFormat') + '" value="' + esc(rec.fileFormat || '') + '" placeholder="PNG / ZIP / PDF…"></label></div></div>' +
+'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div></div>' +
+'<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -4826,7 +4897,7 @@ var rows = list.map(function(r){
 return '<div class="adm-record" role="option" data-adm-select="' + listKey + '" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
 }).join('');
 var sel = list.filter(function(r){ return r.id === selected; })[0] || list[0];
-var editor = sel ? '<div class="adm-editor"><h2>' + esc(sel.title) + '</h2><div class="adm-section"><h4>Category</h4><div class="adm-row">' + inputText(tAdmin('label.title'), listKey + '.' + sel.id + '.title') + inputText(tAdmin('label.slug'), listKey + '.' + sel.id + '.slug') + '</div><div style="margin-top:10px;">' + inputCheck(tAdmin('label.published'), listKey + '.' + sel.id + '.published') + '</div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="' + listKey + '">' + esc(tAdmin('btn.save')) + '</button></div></div>' : '<div class="adm-editor"><h2>No categories</h2></div>';
+var editor = sel ? '<div class="adm-editor"><h2>' + esc(sel.title) + '</h2><div class="adm-section"><h4>Category</h4><div class="adm-row">' + inputText(tAdmin('label.title'), listKey + '.' + sel.id + '.title') + inputText(tAdmin('label.slug'), listKey + '.' + sel.id + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div><div style="margin-top:10px;">' + inputCheck(tAdmin('label.published'), listKey + '.' + sel.id + '.published') + '</div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="' + listKey + '">' + esc(tAdmin('btn.save')) + '</button></div></div>' : '<div class="adm-editor"><h2>No categories</h2></div>';
 return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="' + listKey + '"><button type="button" class="adm-btn-sm primary" data-adm-new="' + listKey + '">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
 }
 
@@ -4854,7 +4925,7 @@ var formOpts = ADMIN_DRAFT.forms.filter(function(f){ return f.slug; }).map(funct
 var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
-'<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
+'<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
 '<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Alternate Price', base + '.alternatePrice') + '</div></div>' +
 '<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + inputText(tAdmin('auditf.delivery'), base + '.delivery') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
@@ -4875,7 +4946,7 @@ return '<div class="adm-list" style="margin-bottom:16px;"><div class="adm-list-t
 function renderRequestFormEditor(rec){
 var base = 'forms.' + rec.id;
 var fields = (rec.fields || []).map(function(f, i){ return renderFormField(rec.id, f, i); }).join('');
-return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderFormField(formId, f, i){
@@ -5454,7 +5525,7 @@ var listKey = btn.getAttribute('data-adm-new');
    the user, and the row is INSERTed (never upserted over another record). */
 var id = newAdminClientId();
 if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', thumbnail:'', media:'', mediaType:'image', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', tags:[], thumbnail:'', media:'', mediaType:'image', downloadUrl:'', fileFormat:'', license:'', credit:'', version:'', updateNote:'', dateAdded:'', flowerTag:'', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
@@ -5493,6 +5564,7 @@ if(el.type === 'checkbox') return;
 var v = readControlValue(el);
 if(arrSplit) v = String(v).split(arrSplit).map(function(s){ return s.trim(); }).filter(Boolean);
 setByPath(ADMIN_DRAFT, path, v);
+if(/\.title$/.test(path)) syncSlugFromTitlePath(path, v);
 markDirty(path);
 refreshMediaPreviewByPath(path);
 refreshAuditPanels(module);
@@ -6540,6 +6612,42 @@ function portfolioFilterGroup(record){
   return 'other';
 }
 
+function prettyTaxonomyLabel(value, fallback){
+var text = String(value || fallback || '').trim();
+if(!text) return '';
+return text.replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+}
+function portfolioBadgeLabel(record){
+if(record && record.featured) return 'FEATURED';
+return prettyTaxonomyLabel(record && (record.cat || record.categorySlug), 'PROJECT').toUpperCase();
+}
+function syncPortfolioBadge(card, record){
+if(!card || !record) return;
+var cloud = card.querySelector('.cloud-tag');
+if(!cloud){ cloud = document.createElement('div'); cloud.className = 'cloud-tag'; cloud.innerHTML = '<span></span>'; card.insertBefore(cloud, card.firstChild); }
+var span = cloud.querySelector('span'); if(span) span.textContent = portfolioBadgeLabel(record);
+card.classList.toggle('is-cms-featured', !!record.featured);
+}
+function assetBadgeLabel(record){
+return String((record && record.flowerTag) || (record && record.featured ? 'FEATURED' : '') || '').trim().toUpperCase();
+}
+function assetBadgeMarkup(record){
+var label = assetBadgeLabel(record); if(!label) return '';
+return '<div class="flower-tag' + (label === 'HOT' ? ' purple' : '') + '"><span>' + esc(label) + '</span></div>';
+}
+function syncAssetBadge(card, record){
+if(!card || !record) return;
+var label = assetBadgeLabel(record);
+var badge = card.querySelector('.flower-tag');
+if(!label){ if(badge) badge.remove(); }
+else {
+  if(!badge){ badge = document.createElement('div'); badge.className = 'flower-tag'; badge.innerHTML = '<span></span>'; card.insertBefore(badge, card.firstChild); }
+  badge.classList.toggle('purple', label === 'HOT');
+  var span = badge.querySelector('span'); if(span) span.textContent = label;
+}
+card.classList.toggle('is-cms-featured', !!record.featured);
+}
+
 window.CrabbiePortfolio = {
 getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
 settled: function(){
@@ -6574,7 +6682,7 @@ apply: function(records){
       var thumb = img
         ? '<div class="thumb">' + img + '</div>'
         : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span></div>';
-      card.innerHTML = '<div class="cloud-tag"><span>' + esc((record.tags && record.tags[0]) || 'PROJECT') + '</span></div>' +
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioBadgeLabel(record)) + '</span></div>' +
         thumb +
         '<div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
       portfolioGrid.appendChild(card);
@@ -6590,6 +6698,7 @@ apply: function(records){
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
     var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = publicImage(record.thumbnail, record.title) || '';
+    syncPortfolioBadge(card, record);
     card.setAttribute('href', '#project/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', portfolioFilterGroup(record));
@@ -6642,7 +6751,7 @@ apply: function(records){
       var preview = img
         ? '<div class="item-preview">' + img + '<span class="format">' + esc(record.format || '') + '</span></div>'
         : '<div class="item-preview"><span class="icon">' + esc(record.icon || '★') + '</span><span class="format">' + esc(record.format || '') + '</span></div>';
-      card.innerHTML = preview +
+      card.innerHTML = assetBadgeMarkup(record) + preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
         '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
         '<div class="item-status">' + (record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet') + '</div>';
@@ -6662,6 +6771,7 @@ apply: function(records){
     var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
     if(st) st.textContent = record.availability === 'available' && record.downloadUrl ? 'Available' : 'File not available yet';
+    syncAssetBadge(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
