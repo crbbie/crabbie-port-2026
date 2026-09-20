@@ -1727,6 +1727,124 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS media toolbar filters server-side once and grid/list reuse the loaded page (SDK fixture)');
 
+    // ---- Batch 5 Group 5: lazy preview, canonical URLs and item actions ---
+    const pvSeedId = (index) => '00000000-0000-4000-8000-0000000009' + String(70 + index);
+    const pvCard = (index) => '#adminContent [data-adm-media-card="' + pvSeedId(index) + '"]';
+    const pvPreviewBtn = (index) => pvCard(index) + ' [data-adm-media-inspect]';
+    const pvAltBtn = (index) => pvCard(index) + ' [data-adm-media-alt]';
+    const pvReads = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length);
+
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      const files = [
+        ['image/png', 'art0.png'], ['image/gif', 'loop1.gif'], ['video/mp4', 'clip1.mp4'],
+        ['audio/mpeg', 'tune1.mp3'], ['application/pdf', 'spec1.pdf'], ['text/plain', 'notes.txt']
+      ];
+      const rows = files.map((entry, index) => ({
+        id: '00000000-0000-4000-8000-0000000009' + String(70 + index),
+        bucket_id: 'media', storage_path: 'uploads/' + entry[1], original_name: entry[1],
+        mime_type: entry[0], size_bytes: 1024 * (index + 1), alt_text: 'alt ' + index, sha256: null,
+        deletion_status: 'active', deleted_at: null, deletion_error: null,
+        created_at: '2026-02-0' + (index + 1) + 'T00:00:00Z'
+      }));
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = rows;
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerCopies = [];
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: (value) => { window.__routerCopies.push(value); return Promise.resolve(); } }
+      });
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-card').length === 6);
+    const pvPanelReads = await pvReads();
+    assert.equal(await page.locator('#adminMediaPreviewModal.open').count(), 0, 'the preview modal stays closed until it is asked for');
+
+    const pvKinds = [
+      { index: 0, file: 'art0.png', kind: 'image', tag: 'img' },
+      { index: 1, file: 'loop1.gif', kind: 'image', tag: 'img' },
+      { index: 2, file: 'clip1.mp4', kind: 'video', tag: 'video' },
+      { index: 3, file: 'tune1.mp3', kind: 'audio', tag: 'audio' },
+      { index: 4, file: 'spec1.pdf', kind: 'pdf', tag: 'a' },
+      { index: 5, file: 'notes.txt', kind: 'unsupported', tag: 'a' }
+    ];
+    for (const entry of pvKinds) {
+      await page.locator(pvPreviewBtn(entry.index)).click();
+      await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaPreviewModal.open [data-adm-preview-kind]')));
+      assert.equal(await page.locator('#adminMediaPreviewModal [data-adm-preview-kind]').getAttribute('data-adm-preview-kind'), entry.kind, 'preview kind for ' + entry.file);
+      const pvOriginal = await page.locator('#adminMediaPreviewModal [data-adm-preview-original]').first().getAttribute('data-adm-preview-original');
+      assert.ok(pvOriginal.indexOf('/uploads/' + entry.file) !== -1, 'preview uses the canonical original for ' + entry.file + ' (' + pvOriginal + ')');
+      assert.equal(await page.locator('#adminMediaPreviewModal [data-adm-preview-original]').first().evaluate((el) => el.tagName.toLowerCase()), entry.tag, 'preview element for ' + entry.file);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#adminMediaPreviewModal.open'));
+      const pvFocusBack = await page.evaluate((id) => document.activeElement === document.querySelector('#adminContent [data-adm-media-inspect="' + id + '"]'), pvSeedId(entry.index));
+      assert.equal(pvFocusBack, true, 'Escape returns focus to the trigger for ' + entry.file);
+    }
+    assert.equal(await pvReads(), pvPanelReads, 'opening and closing previews never queries the server');
+
+    const pvCanonical = await page.locator(pvCard(0) + ' img[data-adm-thumb-original]').getAttribute('data-adm-thumb-original');
+    assert.ok(pvCanonical && pvCanonical.indexOf('/uploads/art0.png') !== -1, 'the card records the canonical original for fallback');
+    await page.locator(pvPreviewBtn(0)).click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaPreviewModal.open [data-adm-preview-original]')));
+    assert.equal(await page.locator('#adminMediaPreviewModal [data-adm-preview-url]').getAttribute('data-adm-preview-url'), pvCanonical, 'the preview host carries the canonical URL');
+    await page.locator('#adminMediaPreviewModal [data-adm-preview-copy]').click();
+    const pvCopies = await page.evaluate(() => window.__routerCopies.slice());
+    assert.equal(pvCopies.length, 1, 'one copy action writes exactly one clipboard entry');
+    assert.equal(pvCopies[0], pvCanonical, 'Copy URL copies the canonical original, never a variant');
+    await page.locator('#adminMediaPreviewModal [data-adm-preview-close]').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaPreviewModal.open'));
+
+    for (let pvRound = 0; pvRound < 3; pvRound += 1) {
+      await page.locator(pvPreviewBtn(2)).click();
+      await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaPreviewModal.open')));
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#adminMediaPreviewModal.open'));
+    }
+    assert.equal(await page.locator('#adminMediaPreviewModal').count(), 1, 'repeated opens never duplicate the modal');
+    await page.locator(pvPreviewBtn(2)).click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaPreviewModal.open')));
+    await page.locator('#adminMediaPreviewModal [data-adm-preview-copy]').click();
+    assert.equal(await page.evaluate(() => window.__routerCopies.length), 2, 'three open/close cycles still copy exactly once per click');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaPreviewModal.open'));
+
+    await page.locator(pvCard(0) + ' [data-adm-media-copy]').click();
+    const pvItemCopies = await page.evaluate(() => window.__routerCopies.slice());
+    assert.equal(pvItemCopies.length, 3, 'the card copy button copies exactly once');
+    assert.equal(pvItemCopies[2], pvCanonical, 'the card copy button copies the canonical original');
+
+    await page.evaluate(() => {
+      const media = window.CrabbieAdminMedia;
+      window.__routerAltCalls = [];
+      media.updateMediaAltText = async (id, altText) => { window.__routerAltCalls.push({ id, altText }); return { success: true, item: { id, alt: altText } }; };
+    });
+    await page.locator(pvAltBtn(1)).click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaPreviewModal.open [data-adm-preview-alt="1"]')));
+    await page.locator('#adminMediaPreviewModal [data-adm-preview-alt="1"]').fill('petal loop');
+    await page.locator('#adminMediaPreviewModal [data-adm-preview-alt-save]').click();
+    await page.waitForFunction(() => (window.__routerAltCalls || []).length === 1);
+    assert.deepEqual(await page.evaluate(() => window.__routerAltCalls.slice()), [{ id: pvSeedId(1), altText: 'petal loop' }], 'alt text is saved for the previewed row only');
+    await page.waitForFunction((id) => {
+      const image = document.querySelector('#adminContent [data-adm-media-card="' + id + '"] img');
+      return Boolean(image) && image.getAttribute('alt') === 'petal loop';
+    }, pvSeedId(1));
+    assert.equal(await page.locator(pvCard(0) + ' img').getAttribute('alt'), 'alt 0', 'other rows keep their own alt text');
+    assert.equal(await page.evaluate(() => window.__routerAltCalls.length), 1, 'one alt save issues exactly one update');
+
+    const pvHtml = await (await fetch(origin + '/')).text();
+    const pvRenderer = pvHtml.match(/function mgrPreviewHtml\(item\)\{[\s\S]*?\n\}/);
+    assert.ok(pvRenderer, 'the preview renderer is shipped');
+    assert.match(pvRenderer[0], /descriptor\.original/, 'the preview renderer uses the canonical original');
+    assert.doesNotMatch(pvRenderer[0], /thumbnailUrl/, 'the preview renderer never uses a thumbnail variant');
+    assert.match(pvHtml, /setByPath\(ADMIN_DRAFT, activeMediaTarget, m\.url\)/, 'the picker stores the canonical URL');
+    assert.doesNotMatch(pvHtml, /setByPath\(ADMIN_DRAFT, [^,]+, [^)]*thumbnailUrl/, 'CMS fields never receive a thumbnail URL');
+    console.log('PASS media preview is lazy, canonical, accessible and action handlers never duplicate (SDK fixture)');
+
 // P4_END
 
   }

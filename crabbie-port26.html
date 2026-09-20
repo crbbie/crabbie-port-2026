@@ -2798,6 +2798,16 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
     </div>
   </div>
 </div>
+<div class="adm-modal" id="adminMediaPreviewModal" role="dialog" aria-modal="true" aria-labelledby="adminMediaPreviewTitle">
+  <div class="adm-modal-card">
+    <h3 id="adminMediaPreviewTitle">Media preview</h3>
+    <div id="adminMediaPreviewBody"></div>
+    <div class="adm-modal-actions">
+      <button type="button" class="adm-btn-sm" data-adm-preview-close="1">Close preview</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,application/pdf">
 
 <script>
@@ -4924,7 +4934,7 @@ function mediaViewItemHtml(m){
 var src = m.thumbnailUrl || m.url;
 var selected = (mediaPage.selected || []).indexOf(m.id) !== -1;
 var actions = '<div class="mb-actions">' +
-  '<button type="button" class="adm-btn-sm" data-adm-media-preview="' + esc(m.id) + '">Preview</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-inspect="' + esc(m.id) + '">Preview</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-media-copy="' + esc(m.id) + '">Copy URL</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-media-alt="' + esc(m.id) + '">Alt text</button>' +
@@ -5041,6 +5051,16 @@ adminContent.addEventListener('click', function(event){
   }
   var retryBtn = event.target.closest('[data-adm-media-retry]');
   if(retryBtn){ loadMediaPage({ page: mediaPage.page }); return; }
+  var previewBtn = event.target.closest('[data-adm-media-inspect]');
+  if(previewBtn){ openMediaPreview(previewBtn.getAttribute('data-adm-media-inspect'), previewBtn); return; }
+  var altBtn = event.target.closest('[data-adm-media-alt]');
+  if(altBtn){ openMediaPreview(altBtn.getAttribute('data-adm-media-alt'), altBtn); return; }
+  var copyBtn = event.target.closest('[data-adm-media-copy]');
+  if(copyBtn){
+    var copyTarget = mediaItemById(copyBtn.getAttribute('data-adm-media-copy'));
+    if(copyTarget) copyMediaUrl(copyTarget.url);
+    return;
+  }
   var openBtn = event.target.closest('[data-adm-media-open]');
   if(openBtn){
     var openItem = mediaItemById(openBtn.getAttribute('data-adm-media-open'));
@@ -5556,6 +5576,7 @@ row.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
 }
 var wireAdminEditor = wireAdminContent;
 
+wireMediaPreview();
 var currentUploadContext = null;
 /* Prompt 4 upload state: one serialized task with visible progress/cancel. */
 var uploadTask = null;
@@ -5706,6 +5727,141 @@ renderMediaPickerGrid();
 modal.classList.add('open');
 if(mediaPage.state === 'idle' || !(ADMIN_DRAFT.media || []).length){ loadMediaPage({ page: mediaPage.page, onLoaded: function(){ renderMediaPickerGrid(); } }); }
 }
+/* --------------------------- media preview modal -------------------------- */
+var previewItemId = null;
+var previewTriggerEl = null;
+
+function mediaPreviewNote(descriptor){
+if(descriptor.kind === 'unsupported') return 'No inline preview for this file type. Copy the URL or open the original instead.';
+if(descriptor.kind === 'pdf') return 'PDF previews open in the browser viewer.';
+if(descriptor.kind === 'audio') return 'Audio preview uses the original file.';
+return '';
+}
+
+/** Preview, copy and open always use the canonical original, never a variant. */
+function mediaPreviewVisualHtml(item, descriptor){
+var url = descriptor.original;
+var alt = item.alt || descriptor.title || item.title || '';
+var mediaStyle = ' max-width:100%; max-height:62vh; object-fit:contain;';
+if(descriptor.kind === 'image') return '<img src="' + esc(url) + '" alt="' + esc(alt) + '" style="' + mediaStyle.trim() + '" data-adm-preview-original="' + esc(url) + '">';
+if(descriptor.kind === 'video') return '<video src="' + esc(url) + '" controls preload="metadata" style="' + mediaStyle.trim() + '" data-adm-preview-original="' + esc(url) + '"></video>';
+if(descriptor.kind === 'audio') return '<audio src="' + esc(url) + '" controls preload="metadata" data-adm-preview-original="' + esc(url) + '"></audio>';
+return '<a class="adm-preview-file" href="' + esc(url) + '" target="_blank" rel="noopener" data-adm-preview-original="' + esc(url) + '">' + esc(item.title || url) + '</a><p class="af-hint">' + esc(mediaPreviewNote(descriptor)) + '</p>';
+}
+
+function mgrPreviewHtml(item){
+var media = window.CrabbieAdminMedia || {};
+var descriptor = typeof media.previewDescriptor === 'function'
+  ? media.previewDescriptor(item)
+  : { kind: 'unsupported', original: item.url || '', title: item.title || '' };
+var rows = typeof media.mediaMetadataRows === 'function' ? media.mediaMetadataRows(item) : [];
+var meta = rows.map(function(row){ return '<div class="adm-preview-row"><span>' + esc(row.label) + '</span><span>' + esc(row.value) + '</span></div>'; }).join('');
+return '<div class="adm-preview" data-adm-preview-kind="' + esc(descriptor.kind) + '" data-adm-preview-id="' + esc(item.id) + '">' +
+  '<div class="adm-preview-head"><h3>' + esc(item.title || 'Media preview') + '</h3><span class="af-hint">' + esc(descriptor.kind) + '</span></div>' +
+  '<div class="adm-preview-body"><div data-adm-preview-url="' + esc(descriptor.original) + '">' + mediaPreviewVisualHtml(item, descriptor) + '</div></div>' +
+  '<div class="adm-preview-side">' + meta +
+    '<label class="adm-field"><span class="af-label">Alt text</span><input type="text" data-adm-preview-alt="1" value="' + esc(item.alt || '') + '" aria-label="Alt text"></label>' +
+    '<div class="adm-preview-actions"><button type="button" class="adm-btn-sm" data-adm-preview-copy="1">Copy URL</button>' +
+    '<button type="button" class="adm-btn-sm" data-adm-preview-open="1">Open original</button>' +
+    '<button type="button" class="adm-btn-sm primary" data-adm-preview-alt-save="1">Save alt text</button></div>' +
+  '</div></div>';
+}
+
+function openMediaPreview(id, trigger){
+var modal = document.getElementById('adminMediaPreviewModal');
+var body = document.getElementById('adminMediaPreviewBody');
+var item = mediaItemById(id);
+if(!modal || !body || !item) return;
+previewItemId = id;
+previewTriggerEl = trigger || null;
+body.innerHTML = mgrPreviewHtml(item);
+modal.classList.add('open');
+var focusTarget = body.querySelector('[data-adm-preview-alt="1"]');
+if(focusTarget && focusTarget.focus) focusTarget.focus();
+}
+
+function closeMediaPreview(){
+var modal = document.getElementById('adminMediaPreviewModal');
+var body = document.getElementById('adminMediaPreviewBody');
+if(!modal || !modal.classList.contains('open')) return;
+modal.classList.remove('open');
+if(body) body.innerHTML = '';
+previewItemId = null;
+if(previewTriggerEl && previewTriggerEl.isConnected && previewTriggerEl.focus) previewTriggerEl.focus();
+previewTriggerEl = null;
+}
+
+function copyMediaUrl(url){
+if(!url) return;
+var notify = function(ok){ toast(ok ? 'Media URL copied.' : 'Copy failed.'); };
+try{
+  if(navigator.clipboard && typeof navigator.clipboard.writeText === 'function'){
+    navigator.clipboard.writeText(url).then(function(){ notify(true); }, function(){ notify(false); });
+    return;
+  }
+}catch(err){ /* fall through to the clipboard-free path */ }
+try{
+  var helper = document.createElement('textarea');
+  helper.value = url;
+  helper.setAttribute('readonly', 'readonly');
+  helper.style.position = 'absolute';
+  helper.style.left = '-9999px';
+  document.body.appendChild(helper);
+  helper.select();
+  var ok = document.execCommand('copy');
+  document.body.removeChild(helper);
+  notify(ok);
+}catch(err){ notify(false); }
+}
+
+async function saveMediaPreviewAlt(){
+var id = previewItemId;
+var body = document.getElementById('adminMediaPreviewBody');
+var media = window.CrabbieAdminMedia || {};
+if(!id || !body) return;
+var input = body.querySelector('[data-adm-preview-alt="1"]');
+var value = input ? input.value : '';
+if(typeof media.updateMediaAltText !== 'function'){ toast('Alt text service is unavailable.'); return; }
+try{
+  requireAdminReady();
+  var result = await media.updateMediaAltText(id, value);
+  if(result && result.success === false) throw new Error(result.error || 'Alt text was not saved.');
+  var item = mediaItemById(id);
+  if(item) item.alt = value;
+  var stored = (ADMIN_DATA.media || []).filter(function(entry){ return entry.id === id; })[0];
+  if(stored) stored.alt = value;
+  toast('Alt text saved.');
+  refreshAdminPanel('media');
+}catch(err){
+  toast('Alt text failed: ' + (err && err.message ? err.message : 'Unknown error'));
+}
+}
+
+function wireMediaPreview(){
+var modal = document.getElementById('adminMediaPreviewModal');
+if(!modal || modal.dataset.previewWired === '1') return;
+modal.dataset.previewWired = '1';
+modal.addEventListener('click', function(event){
+  if(event.target === modal || event.target.closest('[data-adm-preview-close]')){ closeMediaPreview(); return; }
+  if(event.target.closest('[data-adm-preview-copy]')){
+    var copyItem = mediaItemById(previewItemId);
+    if(copyItem) copyMediaUrl(copyItem.url);
+    return;
+  }
+  if(event.target.closest('[data-adm-preview-open]')){
+    var openItem = mediaItemById(previewItemId);
+    if(openItem && openItem.url) window.open(openItem.url, '_blank', 'noopener');
+    return;
+  }
+  if(event.target.closest('[data-adm-preview-alt-save]')) saveMediaPreviewAlt();
+});
+document.addEventListener('keydown', function(event){
+  if(event.key !== 'Escape') return;
+  var opened = document.getElementById('adminMediaPreviewModal');
+  if(opened && opened.classList.contains('open')){ event.preventDefault(); closeMediaPreview(); }
+});
+}
+
 function wireMediaPicker(){
 var modal = document.getElementById('adminMediaModal');
 var grid = document.getElementById('adminMediaPickerGrid');
