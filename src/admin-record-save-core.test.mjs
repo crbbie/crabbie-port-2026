@@ -162,6 +162,9 @@ const inserted = { id: 'client-1', dbId: null, slug: 'brand-new' };
 applySuccessfulSave(inserted, { id: 'uuid-new', slug: 'brand-new', updated_at: '2026-04-04T00:00:00Z' });
 assert.equal(inserted.dbId, 'uuid-new', 'a newly inserted record becomes an existing record');
 assert.equal(inserted.originalUpdatedAt, '2026-04-04T00:00:00Z');
+const savedCategory = { id: 'chibi', dbId: 'uuid-category', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'chibi' };
+applySuccessfulSave(savedCategory, { id: 'uuid-category', slug: 'chibi', updated_at: '2026-05-05T00:00:00Z' });
+assert.equal(savedCategory.originalUpdatedAt, '2026-05-05T00:00:00Z', 'a successful category save advances its baseline');
 
 // --- categories use the composite (kind, slug) DB identity safely ----------
 assert.equal(adminTableForScope('portfolioCategories'), 'cms_categories');
@@ -169,6 +172,8 @@ assert.equal(adminTableForScope('assetCategories'), 'cms_categories');
 const categoryUpdate = buildAdminWritePlan('portfolioCategories', { id: 'chibi', dbId: 'uuid-cat', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'chibi', title: 'Chibi', published: true });
 assert.equal(categoryUpdate.mode, 'update');
 assert.equal(categoryUpdate.table, 'cms_categories');
+assert.equal(categoryUpdate.originalUpdatedAt, '2026-01-01T00:00:00Z', 'category updates carry the hydrated stale-save baseline');
+assert.equal(concurrencyConflictError('portfolioCategories').code, 'stale_save', 'a stale category update uses the shared stale-save conflict path');
 assert.deepEqual(categoryUpdate.payload, { kind: 'portfolio', slug: 'chibi', title: 'Chibi', published: true, sort_order: 0 });
 const categoryInsert = buildAdminWritePlan('assetCategories', { id: 'client-9', dbId: null, slug: 'brushes', title: 'Brushes' }, { sortOrder: 2 });
 assert.equal(categoryInsert.mode, 'insert');

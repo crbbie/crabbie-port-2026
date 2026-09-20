@@ -133,7 +133,7 @@ export function createClient(){
     if (state.op === 'insert') {
       for (const payload of incoming) {
         if (sluggedTables.includes(table) && payload.slug && duplicateSlug(table, payload)) return {data: null, error: slugConflict(table)};
-        const row = Object.assign({id: nextId(), created_at: stamp(), updated_at: stamp()}, payload);
+        const row = Object.assign({id: nextId(), created_at: stamp(), updated_at: stamp(), ...(table === 'media' ? {deletion_status: 'active'} : {})}, payload);
         rowsFor(table).push(row);
         affected.push(row);
       }
@@ -144,7 +144,10 @@ export function createClient(){
       const matchColumn = table === 'site_settings' ? 'key' : 'id';
       for (const payload of incoming) {
         const existing = payload[matchColumn] ? rowsFor(table).find(row => row[matchColumn] === payload[matchColumn]) : null;
-        if (existing) { Object.assign(existing, payload, {updated_at: stamp()}); affected.push(existing); continue; }
+        // An upsert only touches the columns it carries: like Postgres without
+        // an updated_at trigger, it must not bump updated_at on its own, or a
+        // later guarded update with the hydrated baseline would miss its row.
+        if (existing) { Object.assign(existing, payload); affected.push(existing); continue; }
         if (sluggedTables.includes(table) && payload.slug && duplicateSlug(table, payload)) return {data: null, error: slugConflict(table)};
         const row = Object.assign({id: payload.id || nextId(), created_at: stamp(), updated_at: stamp()}, payload);
         rowsFor(table).push(row);
@@ -1427,7 +1430,7 @@ try {
       }
       window.CrabbieTusClient = { Upload: HangingUpload };
       const before = window.__routerRows.media.length;
-      const file = new File([new Uint8Array(7 * 1024 * 1024)], 'cancel-me.png', { type: 'image/png' });
+      const file = new File([new Uint8Array(7 * 1024 * 1024).fill(1)], 'cancel-me.png', { type: 'image/png' });
       let cancel = null;
       const pending = window.CrabbieAdminMedia.uploadMediaFile(file, '', { onCancelReady: (fn) => { cancel = fn; } });
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -1841,7 +1844,7 @@ try {
     assert.ok(pvRenderer, 'the preview renderer is shipped');
     assert.match(pvRenderer[0], /descriptor\.original/, 'the preview renderer uses the canonical original');
     assert.doesNotMatch(pvRenderer[0], /thumbnailUrl/, 'the preview renderer never uses a thumbnail variant');
-    assert.match(pvHtml, /setByPath\(ADMIN_DRAFT, activeMediaTarget, m\.url\)/, 'the picker stores the canonical URL');
+    assert.match(pvHtml, /applyMediaPickerItems\(\[m\]\)/, 'the picker routes a canonical record through the shared Apply function');
     assert.doesNotMatch(pvHtml, /setByPath\(ADMIN_DRAFT, [^,]+, [^)]*thumbnailUrl/, 'CMS fields never receive a thumbnail URL');
     console.log('PASS media preview is lazy, canonical, accessible and action handlers never duplicate (SDK fixture)');
 
@@ -1854,10 +1857,10 @@ try {
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
     await page.evaluate(() => {
       window.__routerRows = window.__routerRows || {};
-      window.__routerRows.media = ['art0.png', 'loop1.gif', 'clip1.mp4'].map((name, index) => ({
+      window.__routerRows.media = ['art0.png', 'loop1.gif', 'art2.png'].map((name, index) => ({
         id: '00000000-0000-4000-8000-0000000009' + String(70 + index),
         bucket_id: 'media', storage_path: 'uploads/' + name, original_name: name,
-        mime_type: index === 0 ? 'image/png' : (index === 1 ? 'image/gif' : 'video/mp4'),
+        mime_type: index === 1 ? 'image/gif' : 'image/png',
         size_bytes: 2048, alt_text: 'alt ' + index, sha256: null,
         deletion_status: 'active', deleted_at: null, deletion_error: null,
         created_at: '2026-03-0' + (index + 1) + 'T00:00:00Z'
@@ -2138,11 +2141,13 @@ try {
     for (const itemsTarget of blkTargets.filter((target) => target.endsWith('.items'))) {
       await blkBrowse(itemsTarget);
       await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length >= 2);
+      assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (0)', 'reopened Picker begins with no stale selection');
       const blkToggleIds = await page.$$eval('#adminMediaModal [data-adm-pick-toggle]', (els) => els.map((el) => el.getAttribute('data-adm-pick-toggle')));
       await page.evaluate((ids) => {
         ids.forEach((id) => document.querySelector('#adminMediaModal [data-adm-pick-toggle="' + id + '"]').click());
         document.querySelector('#adminMediaModal.open [data-adm-pick-apply]').click();
       }, [blkToggleIds[0], blkToggleIds[1]]);
+      assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (2)', 'Picker count matches the two records being applied');
       await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
       const blockPath = blkBlockPath(itemsTarget);
       await page.waitForFunction((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]').length === 2, blockPath);
@@ -2210,6 +2215,389 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     assert.equal(await page.locator('#adminContent [data-adm-block-field][data-adm-block-path]').count() >= 7, true, 'every media block keeps its editable fields');
     console.log('PASS the media library is wired into every portfolio media block (SDK fixture)');
+    await page.evaluate(() => { location.hash = '#admin/media'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-media-card]').length >= 2);
+    await page.evaluate(() => document.querySelector('#adminContent [data-adm-media-card]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    assert.equal(await page.locator('#adminContent [data-adm-bulk-count]').innerText(), '1 selected', 'Manager selection starts independently');
+    await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse$=".items"]')));
+    await page.locator('#adminContent [data-adm-mediabrowse$=".items"]').first().click();
+    await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length >= 2);
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (0)', 'Manager selection does not leak into Picker');
+    await page.locator('#adminMediaModal [data-adm-pick-toggle]').nth(1).click();
+    await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.evaluate(() => { location.hash = '#admin/media'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-bulk-count]')));
+    assert.equal(await page.locator('#adminContent [data-adm-bulk-count]').innerText(), '1 selected', 'Picker Apply leaves Manager selection untouched');
+    console.log('PASS Picker Apply preserves separate Manager selection (SDK fixture)');
+
+    // Patch 3: direct Picker uploads and drops obey the target contract and append rows.
+    await page.evaluate(() => { location.hash = '#admin/portfolio'; window.__routerWrites = []; window.__routerStorageWrites = []; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse$=".items"]')));
+    const p3GalleryTarget = blkTargets.find((target) => target.includes('.blocks.2.items'));
+    const p3GridTarget = blkTargets.find((target) => target.includes('.blocks.3.items'));
+    const p3RowCount = (target) => page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path.slice(0, -6) + '"][data-adm-mi-key="url"]').length, target);
+    const p3GalleryBefore = await p3RowCount(p3GalleryTarget);
+    await page.locator('#adminContent [data-adm-mi-key="alt"]').first().fill('Existing artwork');
+    await blkBrowse(p3GalleryTarget);
+    await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length === 2);
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick]').count(), 2, 'Gallery hides video and audio on a mixed media page');
+    const p3VideoId = await page.evaluate(() => window.__routerRows.media.find((row) => row.mime_type === 'video/mp4').id);
+    await page.evaluate((id) => {
+      const injected = document.createElement('button');
+      injected.setAttribute('data-adm-pick-toggle', id);
+      document.getElementById('adminMediaPickerGrid').appendChild(injected);
+      injected.click();
+    }, p3VideoId);
+    await page.locator('#adminMediaModal [data-adm-pick-toggle]').first().click();
+    await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
+    assert.equal(await page.locator('#adminMediaModal.open').count(), 1, 'mixed compatible/incompatible Apply is all-or-nothing');
+    assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore, 'mixed Apply leaves Gallery unchanged');
+    await page.locator('#adminMediaCancel').click();
+    await blkBrowse(p3GalleryTarget);
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (0)', 'reopened Picker has no stale selection');
+    await page.evaluate(() => {
+      const injected = document.createElement('button');
+      injected.setAttribute('data-adm-pick-toggle', 'missing-picker-id');
+      document.getElementById('adminMediaPickerGrid').appendChild(injected);
+      injected.click();
+    });
+    await page.locator('#adminMediaModal [data-adm-pick-toggle]').first().click();
+    await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
+    assert.equal(await page.locator('#adminMediaModal.open').count(), 1, 'unresolved mixed Apply stays open');
+    assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore, 'unresolved mixed Apply leaves Gallery unchanged');
+    await page.locator('#adminMediaCancel').click();
+    await blkBrowse(p3GalleryTarget);
+    const [p3RejectChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
+    const p3ImageAccept = await page.locator('#adminGlobalFileInput').getAttribute('accept');
+    assert.ok(p3ImageAccept.includes('image/png') && !p3ImageAccept.includes('video/mp4'), 'Picker chooser reflects the image target');
+    const p3WritesBeforeReject = await page.evaluate(() => window.__routerStorageWrites.length);
+    await p3RejectChooser.setFiles({ name: 'picker-reject.mp4', mimeType: 'video/mp4', buffer: Buffer.from([31, 32, 33, 34]) });
+    assert.equal(await page.locator('#adminMediaModal.open').count(), 1, 'an incompatible selected file leaves the Picker open');
+    assert.equal(await page.evaluate(() => window.__routerStorageWrites.length), p3WritesBeforeReject, 'an incompatible file is never uploaded');
+    const [p3GalleryChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
+    await p3GalleryChooser.setFiles({ name: 'picker-gallery-new.png', mimeType: 'image/png', buffer: Buffer.from([41, 42, 43, 44, 45]) });
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.waitForFunction((expected) => document.querySelectorAll('#adminContent [data-adm-mi-key="url"]').length >= expected, p3GalleryBefore + 3);
+    assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore + 1, 'direct Picker upload appends one Gallery row');
+    const p3GalleryShape = await page.evaluate((path) => {
+      const draft = window.CrabbieAdminUsageProvider().draft;
+      return draft.portfolio.find((record) => record.id === path.split('.')[1]).blocks[2].items.at(-1);
+    }, p3GalleryTarget);
+    assert.deepEqual(Object.keys(p3GalleryShape).sort(), ['alt', 'caption', 'url'], 'the uploaded Gallery row keeps the structured schema');
+    const p3GalleryState = await page.evaluate((path) => window.CrabbieAdminUsageProvider().draft.portfolio.find((record) => record.id === path.split('.')[1]).blocks[2].items, p3GalleryTarget);
+    assert.equal(Array.isArray(p3GalleryState), true, 'direct upload keeps Gallery items an Array');
+    assert.equal(p3GalleryState[0].alt, 'Existing artwork', 'direct upload preserves prior Gallery metadata');
+    assert.ok(p3GalleryShape.url.includes('/uploads/'), 'the uploaded Gallery row holds a canonical URL');
+    assert.equal(await page.evaluate((path) => document.activeElement?.getAttribute('data-adm-mediabrowse') === path, p3GalleryTarget), true, 'Picker upload returns focus to its editor button');
+    assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker upload marks the draft dirty without saving');
+    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'Picker upload leaves the draft dirty');
+
+    await blkBrowse(p3GalleryTarget);
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open [data-adm-pick]')));
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore + 1, 'reapplying an existing Gallery URL does not append a duplicate row');
+    await blkBrowse(p3GalleryTarget);
+    const [p3DuplicateChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
+    const p3StorageBeforeDuplicate = await page.evaluate(() => window.__routerStorageWrites.length);
+    await p3DuplicateChooser.setFiles({ name: 'picker-gallery-new.png', mimeType: 'image/png', buffer: Buffer.from([41, 42, 43, 44, 45]) });
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore + 1, 'byte-identical direct upload reuses the Gallery URL');
+    assert.equal(await page.evaluate(() => window.__routerStorageWrites.length), p3StorageBeforeDuplicate, 'SHA-256 duplicate upload skips a second Storage write');
+    const p3GridBefore = await p3RowCount(p3GridTarget);
+    await blkBrowse(p3GridTarget);
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    const p3WritesBeforeWrongDrop = await page.evaluate(() => window.__routerStorageWrites.length);
+    await page.evaluate(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([50, 50, 50])], 'wrong-drop.mp4', { type: 'video/mp4' }));
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+      grid.dispatchEvent(drop);
+    });
+    assert.equal(await page.locator('#adminMediaModal.open').count(), 1, 'incompatible Picker drop leaves modal open');
+    assert.equal(await page.evaluate(() => window.__routerStorageWrites.length), p3WritesBeforeWrongDrop, 'incompatible Picker drop never reaches Storage');
+    assert.equal(await p3RowCount(p3GridTarget), p3GridBefore, 'incompatible Picker drop leaves Grid unchanged');
+    await page.evaluate(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([51, 52, 53, 54, 55])], 'picker-grid-drop.png', { type: 'image/png' }));
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+      grid.dispatchEvent(drop);
+    });
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    assert.equal(await p3RowCount(p3GridTarget), p3GridBefore + 1, 'Picker drag/drop appends one structured Grid row');
+    assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker drag/drop does not auto-save');
+    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-path$=".thumbnail"]').first().getAttribute('data-adm-path');
+    await blkBrowse(p3ThumbnailTarget);
+    const [p3SingleChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
+    await p3SingleChooser.setFiles({ name: 'picker-single.png', mimeType: 'image/png', buffer: Buffer.from([61, 62, 63, 64, 65]) });
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    const p3SingleValue = await page.locator('#adminContent [data-adm-path="' + p3ThumbnailTarget + '"]').inputValue();
+    assert.equal(typeof p3SingleValue, 'string', 'direct Picker upload keeps a single-value target a string');
+    assert.ok(p3SingleValue.includes('/uploads/'), 'single-value direct upload uses the canonical URL');
+    await page.evaluate(() => { location.hash = '#admin/media'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-bulk-count]')));
+    assert.equal(await page.locator('#adminContent [data-adm-bulk-count]').innerText(), '1 selected', 'Picker uploads leave Manager selection unchanged');
+    const [p3ManagerAudioChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminContent [data-adm-media-upload]').click()]);
+    const p3ManagerAccept = await page.locator('#adminGlobalFileInput').getAttribute('accept');
+    assert.ok(p3ManagerAccept.includes('audio/mpeg') && p3ManagerAccept.includes('application/zip') && p3ManagerAccept.includes('.zip'), 'Manager click chooser includes canonical audio and ZIP formats');
+    assert.equal(p3ManagerAccept.includes('.mkv'), false, 'Manager chooser does not include query-only formats');
+    await p3ManagerAudioChooser.setFiles({ name: 'manager-audio.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from([71, 72, 73, 74, 75]) });
+    await page.waitForFunction(() => window.__routerStorageWrites.some((entry) => entry.contentType === 'audio/mpeg'));
+    const [p3ManagerZipChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminContent [data-adm-media-upload]').click()]);
+    await p3ManagerZipChooser.setFiles({ name: 'manager-archive.zip', mimeType: 'application/zip', buffer: Buffer.from([81, 82, 83, 84, 85]) });
+    await page.waitForFunction(() => window.__routerStorageWrites.some((entry) => entry.contentType === 'application/zip'));
+    console.log('PASS Picker upload/drop apply structured rows, reject incompatible files, preserve focus and Manager state (SDK fixture)');
+    // ---- Patch 4 A: the Request panel filters by Commission server-side ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_services = [
+        { id: '00000000-0000-4000-8000-000000000701', slug: 'static-emote', title: 'Static Emote', description: '', price: 25, currency: 'USD', availability: 'open', form_slug: 'emotes', details: { priceFormatted: '$25' }, featured: false, published: true, sort_order: 1, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+        { id: '00000000-0000-4000-8000-000000000702', slug: 'full-illustration', title: 'Full Illustration', description: '', price: 200, currency: 'USD', availability: 'open', form_slug: 'illustration', details: {}, featured: false, published: true, sort_order: 2, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+      ];
+      window.__routerRows.commission_requests = [
+        { id: '00000000-0000-4000-8000-000000000801', client_name: 'Ada', client_email: 'ada@example.test', contact: '', answers: { service: 'Static Emote' }, status: 'new', admin_notes: '', terms_accepted: true, created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
+        { id: '00000000-0000-4000-8000-000000000802', client_name: 'Bea', client_email: 'bea@example.test', contact: '', answers: { service: 'Full Illustration' }, status: 'new', admin_notes: '', terms_accepted: true, created_at: '2026-02-02T00:00:00Z', updated_at: '2026-02-02T00:00:00Z' }
+      ];
+      window.__routerRows.media = window.__routerRows.media || [];
+      window.__routerRows.free_assets = [];
+      window.__routerRows.commission_forms = [];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerWrites = [];
+      window.__routerStorageWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/requests'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-req-row').length === 2);
+    const p4RequestReads = () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests').length);
+    const p4ReadsBeforeFilter = await p4RequestReads();
+    await page.locator('#adminContent [data-adm-req-filter="commission"]').selectOption('Static Emote');
+    await page.waitForFunction((count) => (window.__routerReads || []).filter((read) => read.table === 'commission_requests').length === count + 1, p4ReadsBeforeFilter);
+    const p4FilterRead = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests').slice(-1)[0]);
+    assert.ok(p4FilterRead.filters.some((filter) => filter[0] === 'answers->>service' && filter[1] === 'Static Emote'), 'the production loader forwards the Commission filter into the query');
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-req-row').length === 1);
+    assert.match(await page.locator('#adminContent .adm-req-row').first().innerText(), /Ada/, 'only the matching commission request is listed');
+    console.log('PASS the Request panel filters by Commission through the production loader (SDK fixture)');
+
+    // ---- Patch 4 B: a new Asset keeps an explicit availability ----
+    await page.evaluate(() => { window.location.hash = '#admin/assets'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-new="assets"]')));
+    await page.locator('#adminContent [data-adm-new="assets"]').click();
+    await page.waitForFunction(() => Array.prototype.some.call(document.querySelectorAll('#adminContent [data-adm-select="assets"]'), (row) => String(row.getAttribute('data-adm-id')).indexOf('client-') === 0));
+    const p4AssetId = await page.evaluate(() => {
+      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="assets"]'), (candidate) => String(candidate.getAttribute('data-adm-id')).indexOf('client-') === 0);
+      return row.getAttribute('data-adm-id');
+    });
+    assert.ok(/^client-/.test(p4AssetId), 'a new Asset carries a stable local identity until it is saved');
+    if (await page.locator('#adminConfirmModal.open').count() > 0) {
+      await page.locator('#adminConfirmCancel').click();
+      await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
+    }
+    await page.waitForFunction((id) => Boolean(document.querySelector('#adminContent [data-adm-path="assets.' + id + '.availability"]')), p4AssetId);
+    assert.equal(await page.locator('#adminConfirmModal.open').count(), 0, 'the discard guard is closed before editing the new Asset');
+    const p4AssetAvailability = page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.availability"]');
+    assert.equal(await p4AssetAvailability.inputValue(), 'available', 'a new Asset starts from an explicit availability');
+    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.title"]').fill('Availability asset');
+    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.slug"]').fill('availability-asset');
+    await p4AssetAvailability.selectOption('unavailable');
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="assets"]').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'free_assets'));
+    const p4AssetWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
+    assert.equal(p4AssetWrite.payload.availability, 'unavailable', 'the saved Asset keeps the chosen availability');
+    assert.equal(await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0].availability), 'unavailable', 'the database row stores the explicit availability');
+    const p4SavedAssetRow = await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0]);
+    const p4SavedServicesB = await page.evaluate(() => window.__routerRows.commission_services);
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(({ row, services }) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.free_assets = [row];
+      window.__routerRows.media = [];
+      window.__routerRows.commission_services = services;
+      window.__routerRows.commission_requests = [];
+      window.__routerRows.commission_forms = [];
+    }, { row: p4SavedAssetRow, services: p4SavedServicesB });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('assets');
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="assets"]')));
+    await page.evaluate(() => {
+      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="assets"]'), (candidate) => candidate.innerText.indexOf('Availability asset') !== -1);
+      if (row) row.click();
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-path$=".availability"]')));
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".availability"]').first().inputValue(), 'unavailable', 'a reload keeps the stored availability');
+    console.log('PASS a new Asset keeps an explicit availability across save and reload (SDK fixture)');
+
+    // ---- Patch 4 C: a new Form is selectable by slug without a reload ----
+    await page.evaluate(() => { window.location.hash = '#admin/commissions'; window.__routerWrites = []; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
+    await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-new="forms"]')));
+    await page.locator('#adminContent [data-adm-new="forms"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-new-field]')));
+    const p4FormId = await page.evaluate(() => document.querySelector('#adminContent [data-adm-path$=".title"]').getAttribute('data-adm-path').split('.')[1]);
+    assert.ok(/^client-/.test(p4FormId), 'a new Form uses a stable local identity before saving');
+    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.title"]').fill('Round-trip form');
+    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.slug"]').fill('round-trip-form');
+    await page.locator('#adminContent [data-adm-new-field]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-qblock]')));
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_forms'));
+    const p4FormWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms' && write.operation === 'insert').slice(-1)[0]);
+    assert.equal(p4FormWrite.payload.slug, 'round-trip-form', 'the Form is persisted under its real slug');
+    assert.equal(/^client-/.test(JSON.stringify(p4FormWrite.payload)), false, 'no local identity reaches the form payload');
+    await page.locator('#adminContent [data-adm-subtab="commissions:items"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="commissions"]')));
+    const p4CommissionId = await page.evaluate(() => document.querySelector('#adminContent [data-adm-select="commissions"]').getAttribute('data-adm-id'));
+    await page.locator('#adminContent [data-adm-select="commissions"][data-adm-id="' + p4CommissionId + '"]').click();
+    const p4FormSelect = page.locator('#adminContent [data-adm-path="commissions.' + p4CommissionId + '.form"]');
+    await p4FormSelect.waitFor();
+    const p4FormOptions = await p4FormSelect.evaluate((select) => Array.prototype.map.call(select.options, (option) => option.value));
+    assert.ok(p4FormOptions.indexOf('round-trip-form') !== -1, 'the saved Form appears in the Commission relationship select without a reload');
+    assert.equal(p4FormOptions.some((value) => /^client-/.test(value)), false, 'the relationship select never offers a local identity');
+    await p4FormSelect.selectOption('round-trip-form');
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services'));
+    const p4CommissionWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services').slice(-1)[0]);
+    assert.equal(p4CommissionWrite.payload.form_slug, 'round-trip-form', 'the Commission persists the real Form slug');
+    assert.equal(/^client-/.test(String(p4CommissionWrite.payload.form_slug)), false, 'a local id is never persisted as form_slug');
+    console.log('PASS a new Form is selectable and persisted by slug without a reload (SDK fixture)');
+
+    // ---- Patch 4 D: the Request Form editor authors the complete schema ----
+    await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="forms"]')));
+    await page.evaluate(() => {
+      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="forms"]'), (candidate) => candidate.innerText.indexOf('Round-trip form') !== -1);
+      if (row) row.click();
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-qblock]')));
+    const p4FieldBase = await page.evaluate(() => {
+      const input = document.querySelector('#adminContent [data-adm-qblock] [data-adm-path$=".type"]');
+      return input ? input.getAttribute('data-adm-path').replace(/\.type$/, '') : null;
+    });
+    assert.ok(p4FieldBase && /\.fields\.\d+$/.test(p4FieldBase), 'the form field editor exposes its schema path');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.label"]').fill('Preferred package');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.placeholder"]').fill('Pick one');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.help"]').fill('Both packages include sketches');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.contactRole"]').selectOption('email');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.type"]').selectOption('select');
+    await page.waitForFunction((base) => Boolean(document.querySelector('#adminContent [data-adm-options-path="' + base + '.options"]')), p4FieldBase);
+    await page.locator('#adminContent [data-adm-options-path="' + p4FieldBase + '.options"]').fill('Mini\nFull\nDeluxe');
+    await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.required"]').check();
+    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.description"]').fill('Tell me about the emote you want.');
+    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.published"]').check();
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').length >= 2);
+    const p4FormUpdate = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').slice(-1)[0]);
+    assert.equal(p4FormUpdate.payload.description, 'Tell me about the emote you want.', 'the form description is persisted');
+    assert.equal(p4FormUpdate.payload.published, true, 'the form published flag is persisted');
+    assert.deepEqual(p4FormUpdate.payload.fields[0].options, ['Mini', 'Full', 'Deluxe'], 'options are parsed one per line in author order');
+    assert.equal(p4FormUpdate.payload.fields[0].help, 'Both packages include sketches', 'help text is persisted');
+    assert.equal(p4FormUpdate.payload.fields[0].contactRole, 'email', 'a supported contact role is persisted');
+    assert.equal(p4FormUpdate.payload.fields[0].required, true, 'required is persisted');
+    assert.equal(p4FormUpdate.payload.fields[0].placeholder, 'Pick one', 'placeholder is persisted');
+    assert.equal(p4FormUpdate.payload.fields[0].type, 'select', 'the field type is persisted');
+    assert.equal(p4FormUpdate.payload.fields[0].label, 'Preferred package', 'the field label is persisted');
+    const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.slice(-1)[0]);
+    const p4SavedServicesD = await page.evaluate(() => window.__routerRows.commission_services);
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(({ row, services }) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_forms = [row];
+      window.__routerRows.commission_services = services;
+      window.__routerRows.commission_requests = [];
+      window.__routerRows.free_assets = [];
+      window.__routerRows.media = [];
+    }, { row: p4SavedFormRow, services: p4SavedServicesD });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('commissions');
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
+    await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="forms"]')));
+    await page.evaluate(() => {
+      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="forms"]'), (candidate) => candidate.innerText.indexOf('Round-trip form') !== -1);
+      if (row) row.click();
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-options-path]')));
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".description"]').first().inputValue(), 'Tell me about the emote you want.', 'the description survives a reload');
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".published"]').first().isChecked(), true, 'the published flag survives a reload');
+    assert.equal(await page.locator('#adminContent [data-adm-options-path]').first().inputValue(), 'Mini\nFull\nDeluxe', 'option order survives a reload');
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".contactRole"]').first().inputValue(), 'email', 'the contact role survives a reload');
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".help"]').first().inputValue(), 'Both packages include sketches', 'help text survives a reload');
+    console.log('PASS the Request Form editor round-trips every supported value (SDK fixture)');
+
+    // ---- Patch 4 E: a canonical price edit replaces stale display text ----
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminContent [data-adm-subtab="commissions:items"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="commissions"]')));
+    const p4PriceId = await page.evaluate(() => document.querySelector('#adminContent [data-adm-select="commissions"]').getAttribute('data-adm-id'));
+    await page.locator('#adminContent [data-adm-select="commissions"][data-adm-id="' + p4PriceId + '"]').click();
+    const p4PriceField = page.locator('#adminContent [data-adm-path="commissions.' + p4PriceId + '.price"]');
+    await p4PriceField.waitFor();
+    await p4PriceField.fill('75');
+    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services' && write.payload.price === 75));
+    const p4PriceWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services' && write.payload.price === 75).slice(-1)[0]);
+    assert.equal(p4PriceWrite.payload.details.priceFormatted, '$75', 'saving a new price rewrites the stale formatted detail');
+    assert.equal(await page.evaluate(() => window.__routerRows.commission_services.filter((row) => row.slug === 'static-emote')[0].details.priceFormatted), '$75', 'the stored details no longer hold the old price');
+    // The SDK fixture lives in page memory, so the public boot would read an
+    // empty table: seed the saved services before the page scripts run.
+    const p4SavedServicesE = await page.evaluate(() => window.__routerRows.commission_services);
+    await page.addInitScript((services) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_services = services;
+    }, p4SavedServicesE);
+    await page.goto(origin + '/#commissions', {waitUntil: 'load'});
+    await page.waitForFunction(() => {
+      const view = document.querySelector('[data-view="commissions"]');
+      return Boolean(view) && view.classList.contains('is-active');
+    });
+    await page.waitForFunction(() => document.querySelector('[data-view="commissions"]').innerText.indexOf('$75') !== -1);
+    assert.doesNotMatch(await page.locator('[data-view="commissions"]').innerText(), /\$25/, 'the public page never shows the stale price');
+    console.log('PASS a canonical price edit replaces stale formatted display text (SDK fixture)');
+
+    // ---- Patch 4 F: an uploaded image persists intrinsic dimensions -------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; window.__routerWrites = []; window.__routerStorageWrites = []; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-media-drop]')));
+    await page.evaluate(async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 3;
+      canvas.height = 2;
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#ff00aa';
+      context.fillRect(0, 0, 3, 2);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([blob], 'measured.png', { type: 'image/png' }));
+      const zone = document.querySelector('#adminContent [data-adm-media-drop]');
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+      zone.dispatchEvent(drop);
+    });
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'media' && write.operation === 'insert'));
+    const p4MediaInsert = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'media' && write.operation === 'insert').slice(-1)[0]);
+    assert.equal(p4MediaInsert.payload.width, 3, 'an uploaded image persists its measured intrinsic width');
+    assert.equal(p4MediaInsert.payload.height, 2, 'an uploaded image persists its measured intrinsic height');
+    assert.equal(typeof p4MediaInsert.payload.width, 'number', 'a measured width is persisted as a number');
+    assert.equal(typeof p4MediaInsert.payload.height, 'number', 'a measured height is persisted as a number');
+    console.log('PASS an uploaded image measures and persists intrinsic dimensions (SDK fixture canvas decode)');
 
 // P4_END
 

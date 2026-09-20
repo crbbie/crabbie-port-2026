@@ -1,3 +1,4 @@
+import { normalizeRequestFormFields } from './admin-roundtrip-core.js';
 /**
  * admin-record-save-core.js
  * Pure identity, payload, ordering and concurrency rules for safe admin saves.
@@ -130,7 +131,7 @@ export function buildAdminWritePlan(scope, record, options = {}) {
       slug,
       title: source.title || 'Untitled form',
       description: source.description || '',
-      fields: Array.isArray(source.fields) ? source.fields : [],
+      fields: normalizeRequestFormFields(Array.isArray(source.fields) ? source.fields : []),
       published: !!source.published
     };
   }

@@ -1,3 +1,4 @@
+import { formattedCommissionPrice } from './admin-roundtrip-core.js';
 export function formatPortfolioRow(rec, sort_order = 0) {
   const content = {
     cat: rec.category || '',
@@ -64,7 +65,7 @@ export function formatCommissionRow(rec, sort_order = 0) {
   const details = {
     formType: rec.form || rec.formType || 'illustration',
     formLabel: rec.formLabel || '',
-    priceFormatted: rec.priceFormatted || (rec.currency === 'VND' ? `${rec.price} VND` : `$${rec.price}`),
+    priceFormatted: formattedCommissionPrice({ price: rec.price, currency: rec.currency }),
     priceNote: rec.priceNote || '',
     previewLabel: rec.previewLabel || '',
     previewVariant: rec.previewVariant || '',

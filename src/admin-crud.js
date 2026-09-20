@@ -275,7 +275,7 @@ export async function loadAdminRequestPage(options = {}) {
   if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
 
   const range = paginationRange(options.page, options.pageSize || REQUESTS_PAGE_SIZE);
-  const spec = requestFilterSpec({ status: options.status, search: options.search });
+  const spec = requestFilterSpec({ status: options.status, search: options.search, commission: options.commission });
 
   let query = supabase
     .from('commission_requests')

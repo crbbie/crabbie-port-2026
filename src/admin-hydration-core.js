@@ -1,5 +1,6 @@
 import { formatMediaItem } from './admin-media-core.js';
 import { formatRequestRowForAdmin } from './commission-requests-core.js';
+import { formattedCommissionPrice } from './admin-roundtrip-core.js';
 
 const LOAD_LABELS = {
   portfolio: 'Portfolio load failed', assets: 'Free Assets load failed', categories: 'Categories load failed',
@@ -101,6 +102,7 @@ function mapCategoryRow(row) {
   return {
     id: row.slug,
     dbId: row.id,
+    originalUpdatedAt: typeof row.updated_at === 'string' && row.updated_at ? row.updated_at : null,
     slug: row.slug,
     title: row.title,
     published: !!row.published,
@@ -117,14 +119,14 @@ function mapCommissionRow(row) {
     slug: row.slug,
     title: row.title,
     description: row.description || '',
-    price: d.priceFormatted ? d.priceFormatted.replace('$', '') : String(row.price || ''),
+    price: row.price == null ? '' : String(row.price),
     currency: row.currency || 'USD',
     availability: avail,
     form: row.form_slug || d.formType || 'illustration',
     featured: !!row.featured,
     published: !!row.published,
     formLabel: d.formLabel || '',
-    priceFormatted: d.priceFormatted || '',
+    priceFormatted: formattedCommissionPrice({ price: row.price, currency: row.currency || 'USD' }),
     priceNote: d.priceNote || '',
     previewLabel: d.previewLabel || '',
     previewVariant: d.previewVariant || '',

@@ -5,6 +5,7 @@ import {
   resolveUploadContentType,
   formatMediaItem,
   canUseThumbnail,
+  measureImageDimensions,
   THUMBNAIL_TRANSFORM
 } from './admin-media-core.js';
 import {
@@ -282,6 +283,15 @@ export async function uploadMediaWithPipeline(file, options = {}) {
     throw error;
   }
 
+  // 3.5 Intrinsic dimensions come from the browser decoder, only for images,
+  // and a measurement failure must never fail an otherwise good upload.
+  let dimensions = null;
+  try {
+    dimensions = await measureImageDimensions(file);
+  } catch (_) {
+    dimensions = null;
+  }
+
   // 4. Media row only after Storage confirmed the object.
   const payload = mediaRowPayload({
     storagePath,
@@ -289,7 +299,9 @@ export async function uploadMediaWithPipeline(file, options = {}) {
     mimeType: contentType,
     sizeBytes: file.size,
     altText,
-    sha256: digest
+    sha256: digest,
+    width: dimensions && dimensions.width,
+    height: dimensions && dimensions.height
   });
 
   const inserted = await insertMediaRow(payload);

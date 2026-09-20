@@ -3,6 +3,7 @@ import {
   REQUESTS_PAGE_SIZE,
   MEDIA_PAGE_SIZE,
   ADMIN_SELECT_COLUMNS,
+  HYDRATION_MAPPED_COLUMNS,
   missingMappedColumns,
   paginationRange,
   pagedSummary,
@@ -70,6 +71,7 @@ for (const required of ['id', 'slug', 'title', 'content', 'thumbnail_path', 'cov
   assert.ok(portfolioColumns.includes(required), 'portfolio select keeps ' + required);
 }
 assert.ok(portfolioColumns.some((column) => column.startsWith('category:')), 'the nested category selection is kept');
+assert.ok(HYDRATION_MAPPED_COLUMNS.cms_categories.includes('updated_at'), 'category stale-save baseline is required mapped coverage');
 const mediaColumns = ADMIN_SELECT_COLUMNS.media;
 for (const required of ['id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text', 'created_at', 'sha256', 'deletion_status']) {
   assert.ok(mediaColumns.includes(required), 'media select keeps ' + required);

@@ -23,6 +23,10 @@ export const SUPPORTED_MEDIA_EXTENSIONS = Object.freeze([
   'pdf', 'zip'
 ]);
 
+/** File chooser hints mirror the upload allowlist, including extension fallback. */
+export function supportedMediaInputAccept() {
+  return [...SUPPORTED_MEDIA_MIME_TYPES, ...SUPPORTED_MEDIA_EXTENSIONS.map((ext) => '.' + ext)].join(',');
+}
 const MIME_TYPE_BY_EXTENSION = Object.freeze({
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
@@ -144,6 +148,29 @@ export function getMediaType(mimeType = '', fileName = '') {
   return 'file';
 }
 
+export function measureImageDimensions(file, options = {}) {
+  if (getMediaType(resolveUploadContentType(file), file && file.name) !== 'image') return Promise.resolve(null);
+  const createObjectURL = options.createObjectURL || (globalThis.URL && globalThis.URL.createObjectURL);
+  const revokeObjectURL = options.revokeObjectURL || (globalThis.URL && globalThis.URL.revokeObjectURL);
+  const ImageCtor = options.ImageCtor || globalThis.Image;
+  if (typeof createObjectURL !== 'function' || typeof revokeObjectURL !== 'function' || typeof ImageCtor !== 'function') return Promise.resolve(null);
+  const objectUrl = createObjectURL(file);
+  return new Promise((resolve) => {
+    const image = new ImageCtor();
+    const finish = (result) => {
+      revokeObjectURL(objectUrl);
+      resolve(result);
+    };
+    image.onload = () => {
+      const width = Number(image.naturalWidth || image.width);
+      const height = Number(image.naturalHeight || image.height);
+      finish(width > 0 && height > 0 ? { width, height } : null);
+    };
+    image.onerror = () => finish(null);
+    image.src = objectUrl;
+  });
+}
+
 export function formatMediaItem(row = {}, getPublicUrlFn, getThumbnailUrlFn) {
   const storagePath = row.storage_path || row.storagePath || '';
   let url = row.url || '';
@@ -166,6 +193,8 @@ export function formatMediaItem(row = {}, getPublicUrlFn, getThumbnailUrlFn) {
     mimeType,
     extension: fileExtension(title || storagePath),
     sha256: row.sha256 || null,
+    width: Number.isFinite(Number(row.width)) ? Number(row.width) : null,
+    height: Number.isFinite(Number(row.height)) ? Number(row.height) : null,
     deletionStatus: row.deletion_status || null,
     alt: row.alt_text || row.alt || '',
     createdAt: row.created_at || row.createdAt || '',

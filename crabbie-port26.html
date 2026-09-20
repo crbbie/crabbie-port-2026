@@ -2808,7 +2808,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   </div>
 </div>
 
-<input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,application/pdf">
+<input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,audio/*,application/pdf,application/zip,.zip">
 
 <script>
 (function(){
@@ -3719,6 +3719,9 @@ btn.addEventListener('click', function(){ setAdminLang(btn.getAttribute('data-ad
 var BLOCK_TYPES = ['heading','text','image','image-text','gallery','grid','gif','video','youtube','before-after','quote','caption','link','divider','spacer'];
 var BLOCK_LABELS = { heading:'Heading', text:'Text', image:'Image', 'image-text':'Image + Text', gallery:'Gallery', grid:'Grid', gif:'GIF', video:'Video', youtube:'YouTube', 'before-after':'Before / After', quote:'Quote', caption:'Caption', link:'Link', divider:'Divider', spacer:'Spacer' };
 var FIELD_TYPES = ['text','textarea','email','number','select','radio','checkbox','date','url'];
+/* Only roles the repository actually authors; the select never invents one. */
+var CONTACT_ROLE_VALUES = [{ value:'none', label:'None' },{ value:'name', label:'Name' },{ value:'email', label:'Email' }];
+var OPTION_FIELD_TYPES = ['select','radio'];
 var CURRENCIES = ['USD','VND','EUR','GBP','JPY','CAD','AUD'];
 var REQ_STATUSES = ['New','Reviewing','Contacted','Accepted','Declined','Completed'];
 var SETTINGS_GROUPS = ['Branding','Typography','Theme','Motion','Music','Language','SEO','Footer','Interface'];
@@ -3919,7 +3922,7 @@ var adminSaveStat = document.getElementById('adminSaveStatus');
 var adminSidebar = document.getElementById('adminSidebar');
 var adminBurgerBtn = document.getElementById('adminBurger');
 var adminTopSave = document.getElementById('adminTopSave');
-function setAdminSaveStatus(state){ if(!adminSaveStat) return; adminSaveStat.className = 'admin-save-status ' + state; adminSaveStat.setAttribute('data-t', 'status.' + state); adminSaveStat.textContent = tAdmin('status.' + state); }
+function setAdminSaveStatus(state){ if(!adminSaveStat) return; adminSaveStat.className = 'admin-save-status ' + state; adminSaveStat.setAttribute('data-t', 'status.' + state); adminSaveStat.textContent = tAdmin('status.' + state); syncAdminSaveControlAvailability(); }
 /* Prompt 2: dirty bookkeeping. Field edits register the exact record/settings
    target they touched; structural edits (move, new, block/field changes) mark
    the module scope so the save can still resolve the right record. */
@@ -4097,6 +4100,28 @@ if(code === 'stale_save') return 'Conflict: ' + err.message;
 if(code === 'duplicate_slug' || code === 'missing_record' || code === 'permission_denied') return 'Save blocked: ' + err.message;
 return 'Save failed: ' + (err && err.message ? err.message : 'Unknown error');
 }
+function adminSaveTransactionActive(){
+var flight = window.CrabbieAdminSaveFlight;
+return Boolean(flight && flight.active);
+}
+function syncAdminSaveControlAvailability(){
+var available = ADMIN_UI.loadState === 'ready' && !adminSaveTransactionActive();
+if(adminTopSave) adminTopSave.disabled = !available;
+$$('[data-adm-save], [data-adm-discard], [data-adm-path], [data-adm-new], [data-adm-move], [data-adm-delete]').forEach(function(control){ control.disabled = !available; });
+}
+async function startAdminSave(msg, scope){
+var flight = window.CrabbieAdminSaveFlight;
+if(!(flight && typeof flight.run === 'function')){
+  toast('Admin save protection is unavailable. Please wait for the page to finish loading.');
+  return { started:false };
+}
+var result = await flight.run(function(){ return doSaveCommit(msg, scope); });
+if(result.started){
+  setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
+  refreshStickySaveBar();
+}
+return result;
+}
 async function doSaveCommit(msg, scope){
   setAdminSaveStatus('saving');
   try {
@@ -4151,7 +4176,7 @@ async function doSaveCommit(msg, scope){
     toast('Saved, but public refresh failed. Reload to retry.');
   }
 }
-function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); resetAdminDirtyState(); setAdminSaveStatus('saved'); refreshStickySaveBar(); }
+function doDiscard(){ if(adminSaveTransactionActive()){ toast('Save in progress. Wait for it to finish before discarding changes.'); return false; } ADMIN_DRAFT = clone(ADMIN_DATA); resetAdminDirtyState(); setAdminSaveStatus('saved'); refreshStickySaveBar(); return true; }
 function refreshStickySaveBar(){ var bar = document.getElementById('admStickySave'); if(!bar) return; if(ADMIN_UI.dirty) bar.classList.add('visible'); else bar.classList.remove('visible'); }
 /* ---------- Admin draft safety: one live snapshot, one load state ---------- */
 var lastAppliedHash = null;
@@ -4161,7 +4186,8 @@ if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.assertAdminReadyForMutatio
 }
 function applyAdminLoadStateToShell(){
 var ready = ADMIN_UI.loadState === 'ready';
-if(adminTopSave){ adminTopSave.disabled = !ready; adminTopSave.style.display = ready ? '' : 'none'; }
+if(adminTopSave){ adminTopSave.style.display = ready ? '' : 'none'; }
+syncAdminSaveControlAvailability();
 if(!ready){ var barEl = document.getElementById('admStickySave'); if(barEl) barEl.classList.remove('visible'); }
 }
 function setAdminLoadState(state, errorMessage){
@@ -4186,6 +4212,7 @@ var retryBtn = adminContent.querySelector('[data-adm-retry]');
 if(retryBtn) retryBtn.addEventListener('click', retryAdminHydration);
 }
 async function hydrateAdminSnapshot(){
+if(adminSaveTransactionActive()) return false;
 if(ADMIN_UI.loadState === 'loading') return false;
 if(ADMIN_UI.dirty) return false;
 if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData)){
@@ -4231,6 +4258,7 @@ return false;
 }
 }
 function retryAdminHydration(){
+if(adminSaveTransactionActive()) return;
 if(ADMIN_UI.loadState === 'loading') return;
 if(ADMIN_UI.dirty){ confirmDiscard(function(){ hydrateAdminSnapshot(); }); return; }
 hydrateAdminSnapshot();
@@ -4271,6 +4299,7 @@ renderAdminLoadStatePanel();
 }
 
 function confirmDiscard(onOk){
+if(adminSaveTransactionActive()){ toast('Save in progress. Wait for it to finish before discarding changes.'); return; }
 if(!ADMIN_UI.dirty){ onOk && onOk(); return; }
 var modal = document.getElementById('adminConfirmModal'); if(!modal){ onOk && onOk(); return; }
 var titleEl = document.getElementById('adminConfirmTitle'); var bodyEl = document.getElementById('adminConfirmBody');
@@ -4634,7 +4663,7 @@ return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub"
 checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;"><label class="adm-field"><span class="af-label">' + esc(tAdmin('auditf.fileFormat')) + '</span><input type="text" data-adm-path="' + esc(base + '.fileFormat') + '" value="' + esc(rec.fileFormat || '') + '" placeholder="PNG / ZIP / PDF…"></label></div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 viOverrideBlock(base + '.descriptionCopy.en', rec.viState) +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -4669,7 +4698,7 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 
 function renderCommissionEditor(rec){
 var base = 'commissions.' + rec.id;
-var formOpts = ADMIN_DRAFT.forms.map(function(f){ return { value:f.id, label:f.title }; });
+var formOpts = ADMIN_DRAFT.forms.filter(function(f){ return f.slug; }).map(function(f){ return { value:f.slug, label:f.title }; });
 var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
@@ -4695,13 +4724,13 @@ return '<div class="adm-list" style="margin-bottom:16px;"><div class="adm-list-t
 function renderRequestFormEditor(rec){
 var base = 'forms.' + rec.id;
 var fields = (rec.fields || []).map(function(f, i){ return renderFormField(rec.id, f, i); }).join('');
-return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug') + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderFormField(formId, f, i){
 var base = 'forms.' + formId + '.fields.' + i;
-var body = '<div class="adm-row three">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + inputText('Label', base + '.label') + inputText('Placeholder', base + '.placeholder') + '</div><div style="margin-top:10px;">' + inputCheck('Required', base + '.required') + '</div>';
-return '<div class="adm-qblock"><div class="adm-qblock-head" data-adm-q-toggle="' + i + '"><span class="qb-num">' + (i + 1) + '</span><span class="qb-title">' + esc(f.label || ('Q' + (i + 1))) + '</span><span class="qb-type">' + esc(f.type) + '</span><span class="qb-actions"><button type="button" data-adm-q-del="' + i + '">✕</button></span></div><div class="adm-qblock-body">' + body + '</div></div>';
+var body = '<div class="adm-row three">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + inputText('Label', base + '.label') + inputText('Placeholder', base + '.placeholder') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Help text', base + '.help') + inputSelect('Contact role', base + '.contactRole', CONTACT_ROLE_VALUES) + '</div>' + (OPTION_FIELD_TYPES.indexOf(f.type) !== -1 ? '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Options (one per line)</span><textarea data-adm-options-path="' + esc(base + '.options') + '" style="min-height:90px;" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea></label>' : '') + '<div style="margin-top:10px;">' + inputCheck('Required', base + '.required') + '</div>';
+return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblock-head" data-adm-q-toggle="' + i + '"><span class="qb-num">' + (i + 1) + '</span><span class="qb-title">' + esc(f.label || ('Q' + (i + 1))) + '</span><span class="qb-type">' + esc(f.type) + '</span><span class="qb-actions"><button type="button" data-adm-q-del="' + i + '">✕</button></span></div><div class="adm-qblock-body">' + body + '</div></div>';
 }
 
 var reqFilter = { status:'all', commission:'all', search:'', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'' };
@@ -4721,6 +4750,7 @@ var mediaPage = {
   selected: [],
   previewId: null
 };
+var pickerMediaPage = { page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', search:'', type:'all', sort:'newest', from:'', to:'', selected:[], items:[] };
 var adminCounts = { requests:null, media:null };
 var adminCountsRequested = false;
 
@@ -4811,7 +4841,9 @@ async function loadMediaPage(options){
       to: mediaPage.to
     });
     if(token !== mediaRequestId) return;
-    mergePagedIntoDraft('media', Array.isArray(page.items) ? page.items : []);
+    var mediaItems = Array.isArray(page.items) ? page.items : [];
+    mergePagedIntoDraft('media', mediaItems);
+    mediaPage.selected = media.reconcilePageSelection ? media.reconcilePageSelection(mediaPage.selected, mediaItems) : mediaPage.selected.filter(function(id){ return mediaItems.some(function(item){ return item.id === id; }); });
     mediaPage.page = page.page; mediaPage.total = page.total; mediaPage.pageCount = page.pageCount;
     mediaPage.state = 'ready'; mediaPage.error = '';
     adminCounts.media = page.total;
@@ -4826,6 +4858,18 @@ async function loadMediaPage(options){
   if(typeof opts.onLoaded === 'function') opts.onLoaded(mediaPage.state);
 }
 
+async function loadPickerMediaPage(options){
+  var opts = options || {}; var media = window.CrabbieAdminMedia;
+  if(!media || typeof media.loadMediaPage !== 'function'){ pickerMediaPage.state = 'error'; return; }
+  pickerMediaPage.state = 'loading';
+  try{
+    var page = await media.loadMediaPage({ page: opts.page || pickerMediaPage.page, pageSize: pickerMediaPage.perPage, search: pickerMediaPage.search, type: pickerMediaPage.type, sort: pickerMediaPage.sort, from: pickerMediaPage.from, to: pickerMediaPage.to });
+    pickerMediaPage.items = Array.isArray(page.items) ? page.items : [];
+    pickerMediaPage.selected = media.reconcilePageSelection ? media.reconcilePageSelection(pickerMediaPage.selected, pickerMediaPage.items) : [];
+    pickerMediaPage.page = page.page; pickerMediaPage.total = page.total; pickerMediaPage.pageCount = page.pageCount; pickerMediaPage.state = 'ready';
+  }catch(err){ pickerMediaPage.state = 'error'; pickerMediaPage.error = err && err.message ? err.message : 'Media could not be loaded.'; }
+  renderMediaPickerGrid();
+}
 /** Badge counts never pretend a paged dataset is fully loaded. */
 function updateAdminCountBadges(){
   $$('#adminNav [data-count]').forEach(function(el){
@@ -5044,7 +5088,7 @@ adminContent.addEventListener('click', function(event){
   }
   var clearBtn = event.target.closest('[data-adm-media-clear]');
   if(clearBtn){
-    mediaPage.search = ''; mediaPage.type = 'all'; mediaPage.sort = 'newest'; mediaPage.from = ''; mediaPage.to = '';
+    mediaPage.selected = []; mediaPage.search = ''; mediaPage.type = 'all'; mediaPage.sort = 'newest'; mediaPage.from = ''; mediaPage.to = '';
     mediaPage.page = 1;
     loadMediaPage({ page: 1 });
     return;
@@ -5052,6 +5096,7 @@ adminContent.addEventListener('click', function(event){
   var pageBtn = event.target.closest('[data-adm-media-page]');
   if(pageBtn){
     var dir = pageBtn.getAttribute('data-adm-media-page');
+    mediaPage.selected = [];
     mediaPage.page = dir === 'prev' ? Math.max(1, mediaPage.page - 1) : mediaPage.page + 1;
     loadMediaPage({ page: mediaPage.page });
     return;
@@ -5097,6 +5142,7 @@ adminContent.addEventListener('change', function(event){
   var key = filter.getAttribute('data-adm-media-filter');
   if(['type', 'sort', 'from', 'to'].indexOf(key) === -1) return;
   /* A query control restarts at page one and issues exactly one query. */
+  mediaPage.selected = [];
   mediaPage[key] = filter.value;
   mediaPage.page = 1;
   loadMediaPage({ page: 1 });
@@ -5126,6 +5172,7 @@ adminContent.addEventListener('input', function(event){
   if(searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(function(){
     searchTimer = null;
+    mediaPage.selected = [];
     mediaPage.search = input.value;
     mediaPage.page = 1;
     loadMediaPage({ page: 1 });
@@ -5224,7 +5271,7 @@ var listKey = btn.getAttribute('data-adm-new');
    the user, and the row is INSERTed (never upserted over another record). */
 var id = newAdminClientId();
 if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', thumbnail:'', media:'', mediaType:'image', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', thumbnail:'', media:'', mediaType:'image', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
@@ -5238,8 +5285,7 @@ renderAdmin(module);
 });
 $$('[data-adm-save]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
-setAdminSaveStatus('saving');
-setTimeout(function(){ doSaveCommit(tAdmin('toast.saved'), btn.getAttribute('data-adm-save') === 'sticky' ? currentAdminSaveScope(module) : btn.getAttribute('data-adm-save')); }, prefersReduced() ? 0 : 380);
+startAdminSave(tAdmin('toast.saved'), btn.getAttribute('data-adm-save') === 'sticky' ? currentAdminSaveScope(module) : btn.getAttribute('data-adm-save'));
 });
 });
 $$('[data-adm-discard]', adminContent).forEach(function(btn){
@@ -5295,7 +5341,8 @@ if(el.type === 'checkbox' && v && /\.published$/.test(path) && !getByPath(ADMIN_
 setByPath(ADMIN_DRAFT, path, v);
 markDirty(path);
 refreshAuditPanels(module);
-if(el.type === 'checkbox' && (path.indexOf('viOverride') !== -1)) renderAdmin(module);
+/* A field-type change swaps the option editor: re-render from the draft. */
+if(/.type$/.test(path) || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
 });
 });
 $$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
@@ -5332,6 +5379,15 @@ var key = el.getAttribute('data-adm-mi-key');
 var arr = getByPath(ADMIN_DRAFT, path + '.items');
 if(!Array.isArray(arr) || !arr[i]) return;
 arr[i][key] = el.value; markDirty(path);
+});
+});
+/* One option per line becomes the canonical stored options array. */
+$$('[data-adm-options-path]', adminContent).forEach(function(area){
+area.addEventListener('input', function(){
+var path = area.getAttribute('data-adm-options-path');
+var options = area.value.split('\n').map(function(line){ return line.trim(); }).filter(function(line){ return line.length > 0; });
+setByPath(ADMIN_DRAFT, path, options);
+markDirty(path);
 });
 });
 $$('[data-adm-block-field]', adminContent).forEach(function(el){
@@ -5432,7 +5488,9 @@ var sel = document.getElementById('admNewFieldType'); var type = sel ? sel.value
 var fid = btn.getAttribute('data-adm-new-field');
 var rec = ADMIN_DRAFT.forms.filter(function(r){ return r.id === fid; })[0]; if(!rec) return;
 rec.fields = rec.fields || [];
-rec.fields.push({ id:newId('field'), type:type, label:'New question', placeholder:'', help:'', required:false, contactRole:'none' });
+var newField = { id:newId('field'), type:type, label:'New question', placeholder:'', help:'', required:false, contactRole:'none' };
+if(OPTION_FIELD_TYPES.indexOf(type) !== -1) newField.options = [];
+rec.fields.push(newField);
 markDirty(); renderAdmin('commissions');
 });
 });
@@ -5544,8 +5602,7 @@ confirmDelete(name, async function(){
       toast('Deletion is incomplete: ' + (deleteResult.error || 'cleanup failed') + ' Retry the deletion to finish.');
       if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.loadMediaPage){
         try{
-          var pendingList = await window.CrabbieAdminMedia.loadMediaPage({ page: mediaPage.page, pageSize: mediaPage.perPage, search: mediaPage.search }).then(function(paged){ mediaPage.total = paged.total; mediaPage.pageCount = paged.pageCount; return paged.items; });
-          if(Array.isArray(pendingList)){ ADMIN_DATA.media = pendingList; ADMIN_DRAFT.media = pendingList.slice(); }
+          await loadMediaPage({ page: mediaPage.page });
         }catch(refreshErr){ console.warn('Media refresh after incomplete delete failed:', refreshErr); }
       }
       renderAdmin('media');
@@ -5557,11 +5614,7 @@ confirmDelete(name, async function(){
     if(window.CrabbieAdminMedia && window.CrabbieAdminMedia.loadMediaPage){
       try {
         mediaPage.page = window.CrabbieAdminCrud.pageAfterDelete({ page: mediaPage.page, itemsOnPage: (ADMIN_DRAFT.media || []).length - 1, total: Math.max(0, (mediaPage.total || (ADMIN_DRAFT.media || []).length) - 1), pageSize: mediaPage.perPage });
-        var fresh = await window.CrabbieAdminMedia.loadMediaPage({ page: mediaPage.page, pageSize: mediaPage.perPage, search: mediaPage.search }).then(function(paged){ mediaPage.total = paged.total; mediaPage.pageCount = paged.pageCount; mediaPage.page = paged.page; adminCounts.media = paged.total; return paged.items; });
-        if(Array.isArray(fresh)){
-          ADMIN_DATA.media = fresh;
-          ADMIN_DRAFT.media = fresh.slice();
-        }
+        await loadMediaPage({ page: mediaPage.page });
       } catch(refreshErr){
         var idx = (ADMIN_DRAFT.media || []).findIndex(function(x){ return x.id === id; });
         if(idx !== -1) ADMIN_DRAFT.media.splice(idx, 1);
@@ -5634,7 +5687,7 @@ function getAuthoritativeFileInput(){
     fileInput.type = 'file';
     fileInput.id = 'adminGlobalFileInput';
     fileInput.style.display = 'none';
-    fileInput.accept = 'image/*,video/*,application/pdf';
+    fileInput.accept = 'image/*,video/*,audio/*,application/pdf,application/zip,.zip';
     document.body.appendChild(fileInput);
   }
   fileInput.onchange = null;
@@ -5655,8 +5708,12 @@ function triggerMediaUpload(context){
     toast('An upload is already in progress: ' + uploadTask.fileName);
     return;
   }
+  var media = window.CrabbieAdminMedia || {};
+  var accept = context && context.path ? mediaAcceptForTarget(context.path) : '*';
+  if(!accept){ toast('This field does not accept uploaded media.'); return; }
   currentUploadContext = context;
   var fileInput = getAuthoritativeFileInput();
+  fileInput.accept = typeof media.mediaInputAccept === 'function' ? media.mediaInputAccept(accept) : '';
   fileInput.value = '';
   fileInput.click();
 }
@@ -5669,6 +5726,13 @@ async function handleMediaUploadSelected(e){
   }
   var context = currentUploadContext || { type: 'mediaTab' };
   currentUploadContext = null;
+  var media = window.CrabbieAdminMedia || {};
+  var accept = context.path ? mediaAcceptForTarget(context.path) : '*';
+  if(!accept || (context.path && (!media.acceptedDropFiles || !media.acceptedDropFiles([file], { accept: accept }).length))){
+    toast('This file is not compatible with the selected media field.');
+    if(e.target) e.target.value = '';
+    return;
+  }
   if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile)){
     toast('Media upload service is unavailable.');
     return;
@@ -5683,20 +5747,17 @@ async function handleMediaUploadSelected(e){
     var newMedia = result || {};
 
     if(context.type === 'field' && context.path){
+      if(!media.mediaItemMatchesTarget || !media.mediaItemMatchesTarget(newMedia, accept)) throw new Error('Uploaded file is incompatible with this field.');
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
       markDirty(context.path);
       toast(tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
       renderAdmin(currentRoute.adminModule || 'dashboard');
     } else if(context.type === 'picker'){
-      mediaPage.page = 1;
-      await loadMediaPage({ page: 1 });
-      if(activeMediaTarget && newMedia.url){
-        setByPath(ADMIN_DRAFT, activeMediaTarget, newMedia.url);
-        markDirty(activeMediaTarget);
-        toast(tAdmin('toast.selectedMedia') + (newMedia.title || file.name));
-        var modal = document.getElementById('adminMediaModal');
-        if(modal) modal.classList.remove('open');
-        renderAdmin(currentRoute.adminModule || 'dashboard');
+      pickerMediaPage.page = 1;
+      await loadPickerMediaPage({ page: 1 });
+      var modal = document.getElementById('adminMediaModal');
+      if(context.path && activeMediaTarget === context.path && modal && modal.classList.contains('open')){
+        if(!applyMediaPickerItems([newMedia])) toast('Uploaded file is incompatible with this field.');
       } else {
         toast(newMedia.deduplicated ? ('Already in the library: ' + (newMedia.title || file.name)) : (tAdmin('toast.uploaded') + ': ' + (newMedia.title || file.name)));
         renderMediaPickerGrid();
@@ -5732,10 +5793,12 @@ async function handleMediaUploadSelected(e){
 
 var activeMediaTarget = null;
 function mediaPickerCards(){
-var rows = ADMIN_DRAFT.media || [];
-var selected = mediaPage.selected || [];
+var media = window.CrabbieAdminMedia || {};
+var accept = mediaAcceptForTarget(activeMediaTarget);
+var rows = (pickerMediaPage.items || []).filter(function(item){ return accept && media.mediaItemMatchesTarget && media.mediaItemMatchesTarget(item, accept); });
+var selected = pickerMediaPage.selected || [];
 if(!rows.length){
-  var note = mediaPage.state === 'loading' ? 'Loading media…' : 'No media available yet. Click "Upload file" below to upload an image!';
+  var note = pickerMediaPage.state === 'loading' ? 'Loading media…' : 'No compatible media on this page. Upload a supported file or browse another page.';
   return '<div style="grid-column:1/-1;padding:30px 10px;text-align:center;color:var(--berry-soft);font-weight:700;">' + note + '</div>';
 }
 var multiple = activeMediaTargetIsMultiple();
@@ -5757,11 +5820,11 @@ return rows.map(function(m){
 function renderMediaPickerGrid(){
 var grid = document.getElementById('adminMediaPickerGrid');
 if(!grid) return;
-var pages = Math.max(1, mediaPage.pageCount || 1);
-var total = mediaPage.total || (ADMIN_DRAFT.media || []).length;
-var selected = mediaPage.selected || [];
+var pages = Math.max(1, pickerMediaPage.pageCount || 1);
+var total = pickerMediaPage.total || (pickerMediaPage.items || []).length;
+var selected = pickerMediaPage.selected || [];
 var multiple = activeMediaTargetIsMultiple();
-var footer = '<div style="grid-column:1/-1;" class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-pick-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>Previous</button><span>Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-pick-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>Next</button>' +
+var footer = '<div style="grid-column:1/-1;" class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-pick-page="prev"' + (pickerMediaPage.page <= 1 ? ' disabled' : '') + '>Previous</button><span>Page ' + pickerMediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-pick-page="next"' + (pickerMediaPage.page >= pages ? ' disabled' : '') + '>Next</button>' +
   (multiple ? '<button type="button" class="adm-btn-sm primary" data-adm-pick-apply="1"' + (selected.length ? '' : ' disabled') + '>Use selected (' + selected.length + ')</button>' : '') + '</div>';
 grid.innerHTML = mediaPickerCards() + footer;
 }
@@ -5773,10 +5836,9 @@ var modal = document.getElementById('adminMediaModal');
 if(!modal) return;
 activeMediaTarget = targetPath || null;
 pickerTriggerEl = document.activeElement;
-mediaPage.selected = [];
-renderMediaPickerGrid();
-modal.classList.add('open');
-if(mediaPage.state === 'idle' || !(ADMIN_DRAFT.media || []).length){ loadMediaPage({ page: mediaPage.page, onLoaded: function(){ renderMediaPickerGrid(); } }); }
+var media = window.CrabbieAdminMedia || {}; var query = media.createPickerMediaQuery ? media.createPickerMediaQuery(mediaPage) : { page:1, pageSize:mediaPage.perPage, search:null, type:'all', sort:'newest', from:null, to:null };
+pickerMediaPage = { page:query.page, perPage:query.pageSize, total:0, pageCount:1, state:'idle', error:'', search:query.search || '', type:query.type, sort:query.sort, from:query.from || '', to:query.to || '', selected:[], items:[] };
+modal.classList.add('open'); loadPickerMediaPage({ page:1 });
 }
 /* --------------------------- media preview modal -------------------------- */
 var previewItemId = null;
@@ -5919,18 +5981,20 @@ document.addEventListener('keydown', function(event){
 /** Drops reuse the Batch 4 uploader: one serialized task per accepted file. */
 async function uploadDroppedFiles(fileList, context){
 var media = window.CrabbieAdminMedia || {};
-var files = typeof media.acceptedDropFiles === 'function' ? media.acceptedDropFiles(fileList) : [];
+var accept = context && context.path ? mediaAcceptForTarget(context.path) : '*';
+var files = accept && typeof media.acceptedDropFiles === 'function' ? media.acceptedDropFiles(fileList, { accept: accept }) : [];
 if(!files.length){ toast(typeof media.dropMessage === 'function' ? media.dropMessage(files) : 'No supported files in that drop.'); return 0; }
 for(var i = 0; i < files.length; i += 1){
+  if(context && context.type === 'picker' && i > 0) break;
   currentUploadContext = context || { type: 'mediaTab' };
   await handleMediaUploadSelected({ target: { files: [files[i]], value: '' } });
 }
-return files.length;
+return context && context.type === 'picker' ? 1 : files.length;
 }
 
-function activeMediaBlock(){
-if(!activeMediaTarget) return null;
-var parts = String(activeMediaTarget).split('.');
+function mediaBlockForTarget(targetPath){
+if(!targetPath) return null;
+var parts = String(targetPath).split('.');
 var index = parts.lastIndexOf('blocks');
 if(index === -1) return null;
 var blocks = getByPath(ADMIN_DRAFT, parts.slice(0, index + 1).join('.'));
@@ -5938,6 +6002,12 @@ if(!Array.isArray(blocks)) return null;
 return blocks[Number(parts[index + 1])] || null;
 }
 
+function activeMediaBlock(){ return mediaBlockForTarget(activeMediaTarget); }
+function mediaAcceptForTarget(targetPath){
+var media = window.CrabbieAdminMedia || {};
+var block = mediaBlockForTarget(targetPath);
+return typeof media.mediaTargetAccept === 'function' ? media.mediaTargetAccept(targetPath, block && block.type) : null;
+}
 /** Only gallery-style targets accept many items; every other target is single. */
 function activeMediaTargetIsMultiple(){
 var media = window.CrabbieAdminMedia || {};
@@ -5953,13 +6023,17 @@ var modal = document.getElementById('adminMediaModal');
 if(modal) modal.classList.remove('open');
 if(pickerTriggerEl && pickerTriggerEl.isConnected && pickerTriggerEl.focus) pickerTriggerEl.focus();
 pickerTriggerEl = null;
+activeMediaTarget = null;
+pickerMediaPage.selected = [];
 }
 
 /** Multi targets append correctly shaped gallery rows; single targets take one URL. */
 function applyMediaPickerItems(items){
 var media = window.CrabbieAdminMedia || {};
-var picked = (Array.isArray(items) ? items : []).filter(function(entry){ return entry && entry.url; });
+var picked = Array.isArray(items) ? items : [];
 if(!activeMediaTarget || !picked.length) return false;
+var accept = mediaAcceptForTarget(activeMediaTarget);
+if(!accept || !media.mediaItemMatchesTarget || !picked.every(function(entry){ return media.mediaItemMatchesTarget(entry, accept); })) return false;
 var multiple = activeMediaTargetIsMultiple();
 var urls = picked.map(function(entry){ return entry.url; });
 if(multiple){
@@ -5975,9 +6049,11 @@ if(multiple){
   setByPath(ADMIN_DRAFT, activeMediaTarget, result.value);
 }
 markDirty(activeMediaTarget);
-mediaPage.selected = [];
+var appliedTarget = activeMediaTarget;
 closeMediaPickerModal();
 renderAdmin(currentRoute.adminModule || 'dashboard');
+var returnButton = Array.prototype.slice.call(document.querySelectorAll('#adminContent [data-adm-mediabrowse]')).filter(function(btn){ return btn.getAttribute('data-adm-mediabrowse') === appliedTarget; })[0];
+if(returnButton) returnButton.focus();
 toast(multiple ? ('Added ' + picked.length + ' media item' + (picked.length === 1 ? '' : 's') + '.') : (tAdmin('toast.selectedMedia') + (picked[0].title || '')));
 return true;
 }
@@ -5987,6 +6063,7 @@ async function bulkDeleteSelectedMedia(){
 var media = window.CrabbieAdminMedia || {};
 var selected = mediaPage.selected || [];
 var items = selected.map(function(id){ return mediaItemById(id); }).filter(Boolean);
+if(items.length !== selected.length){ mediaPage.selected = items.map(function(item){ return item.id; }); }
 if(!items.length || typeof media.bulkDeleteMedia !== 'function') return;
 try{
   requireAdminReady();
@@ -6003,7 +6080,7 @@ try{
 }
 
 /* ---------------------------- Ctrl/Cmd + S ------------------------------- */
-var saveShortcutInFlight = false;
+
 var lastBulkSummary = '';
 
 function dirtySaveTargets(){
@@ -6037,7 +6114,7 @@ var decision = media.keyboardSaveDecision({
   dirty: Boolean(ADMIN_UI.dirty),
   savedTargets: dirtySaveTargets(),
   hasOpenModal: adminAnyModalOpen(),
-  busy: saveShortcutInFlight || adminUploadBusy()
+  busy: adminSaveTransactionActive() || adminUploadBusy()
 });
 if(decision.action !== 'save'){
   /* The browser's own save dialog must never appear for the shortcut, but a
@@ -6046,12 +6123,7 @@ if(decision.action !== 'save'){
   return;
 }
 event.preventDefault();
-saveShortcutInFlight = true;
-setAdminSaveStatus('saving');
-setTimeout(function(){
-  saveShortcutInFlight = false;
-  doSaveCommit(tAdmin('toast.saved'), decision.targets[0]);
-}, prefersReduced() ? 0 : 380);
+startAdminSave(tAdmin('toast.saved'), decision.targets[0]);
 }
 
 function wireAdminKeyboardShortcuts(){
@@ -6069,34 +6141,35 @@ grid.addEventListener('click', function(e){
 var pager = e.target.closest('[data-adm-pick-page]');
 if(pager){
   var dir = pager.getAttribute('data-adm-pick-page');
-  if(dir === 'prev') mediaPage.page = Math.max(1, mediaPage.page - 1); else mediaPage.page++;
-  loadMediaPage({ page: mediaPage.page, onLoaded: function(){ renderMediaPickerGrid(); } });
+  pickerMediaPage.selected = [];
+  if(dir === 'prev') pickerMediaPage.page = Math.max(1, pickerMediaPage.page - 1); else pickerMediaPage.page++;
+  loadPickerMediaPage({ page: pickerMediaPage.page });
   return;
 }
 var toggle = e.target.closest('[data-adm-pick-toggle]');
 if(toggle){
   var toggleApi = window.CrabbieAdminMedia || {};
   if(typeof toggleApi.toggleSelection === 'function'){
-    mediaPage.selected = toggleApi.toggleSelection(mediaPage.selected, toggle.getAttribute('data-adm-pick-toggle'));
+    pickerMediaPage.selected = toggleApi.toggleSelection(pickerMediaPage.selected, toggle.getAttribute('data-adm-pick-toggle'));
   }
   renderMediaPickerGrid();
   return;
 }
 var applyBtn = e.target.closest('[data-adm-pick-apply]');
 if(applyBtn){
-  var picked = (ADMIN_DRAFT.media || []).filter(function(x){ return (mediaPage.selected || []).indexOf(x.id) !== -1; });
-  if(picked.length) applyMediaPickerItems(picked);
+  var media = window.CrabbieAdminMedia || {};
+  var picked = media.resolvePickerSelectedItems ? media.resolvePickerSelectedItems(pickerMediaPage.selected, pickerMediaPage.items) : null;
+  if(!picked){ toast('Selected media changed. Choose the files again.'); return; }
+  if(picked.length && !applyMediaPickerItems(picked)) toast('Selected media is incompatible with this field. Choose compatible files.');
   return;
 }
 var t = e.target.closest('[data-adm-pick]'); if(!t) return;
 var id = t.getAttribute('data-adm-pick');
-var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
+var m = (pickerMediaPage.items || []).filter(function(x){ return x.id === id; })[0];
 if(!m) return;
 if(!activeMediaTarget){ toast(tAdmin('toast.mediaSelected') + ': ' + m.title); closeMediaPickerModal(); return; }
-if(activeMediaTargetIsMultiple()){ mediaPage.selected = [id]; applyMediaPickerItems([m]); return; }
-setByPath(ADMIN_DRAFT, activeMediaTarget, m.url);
-markDirty(activeMediaTarget); toast(tAdmin('toast.selectedMedia') + m.title);
-closeMediaPickerModal(); renderAdmin(currentRoute.adminModule || 'dashboard');
+if(activeMediaTargetIsMultiple()) pickerMediaPage.selected = [id];
+if(!applyMediaPickerItems([m])) toast('Selected media is incompatible with this field.');
 });
 grid.addEventListener('error', function(event){
   var img = event.target;
@@ -6185,8 +6258,7 @@ adminBurgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 if(adminTopSave){
 adminTopSave.addEventListener('click', function(){
-setAdminSaveStatus('saving');
-setTimeout(function(){ doSaveCommit(tAdmin('toast.saved'), currentAdminSaveScope(currentRoute.adminModule)); }, prefersReduced() ? 0 : 380);
+startAdminSave(tAdmin('toast.saved'), currentAdminSaveScope(currentRoute.adminModule));
 });
 }
 }

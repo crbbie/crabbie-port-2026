@@ -14,9 +14,15 @@ import {
   previewKindFor,
   previewDescriptor,
   acceptMatches,
+  mediaTargetAccept,
+  mediaItemMatchesTarget,
+  mediaInputAccept,
   filterByAccept,
   toggleSelection,
   selectionState,
+  reconcilePageSelection,
+  resolvePickerSelectedItems,
+  createPickerMediaQuery,
   pickerResultFor,
   blockMediaFields,
   blockAcceptsMultiple,
@@ -97,6 +103,19 @@ assert.equal(acceptMatches(item, undefined), true, 'no accept means anything goe
 assert.deepEqual(filterByAccept([item, { mimeType: 'video/mp4', title: 'a.mp4' }], 'image/*').map((entry) => entry.id), ['m1']);
 assert.deepEqual(toggleSelection([], 'a'), ['a']);
 assert.deepEqual(toggleSelection(['a', 'b'], 'a'), ['b']);
+assert.deepEqual(reconcilePageSelection(['a', 'b', 'a', 'missing'], [{ id: 'a' }, { id: 'b' }]), ['a', 'b'], 'a page-scoped selection only retains loaded records');
+assert.deepEqual(reconcilePageSelection(['a', 'b'], [{ id: 'c' }]), [], 'changing pages clears selections not present on the new page');
+const pickerRecords = [{ id: 'a', url: 'https://cdn/a.png' }, { id: 'b', url: 'https://cdn/b.png' }];
+const pickerSelected = ['a', 'b'];
+const managerSelected = ['unrelated'];
+assert.deepEqual(resolvePickerSelectedItems(pickerSelected, pickerRecords), pickerRecords, 'Apply receives exactly the two records selected in the Picker');
+assert.deepEqual(managerSelected, ['unrelated'], 'resolving Picker selection leaves Manager selection untouched');
+assert.deepEqual(resolvePickerSelectedItems(pickerSelected, pickerRecords.filter((record) => record.id !== 'b')), null, 'Apply must reject an unresolved selection instead of dropping it');
+assert.deepEqual(resolvePickerSelectedItems([], pickerRecords), [], 'an empty Picker selection remains empty regardless of Manager state');
+assert.deepEqual(pickerSelected, ['a', 'b'], 'selection remains available until application completes');
+assert.deepEqual(createPickerMediaQuery({ search: 'abc', type: 'document', sort: 'name', from: '2026-01-01', to: '2026-02-01', page: 4, pageSize: 50 }), {
+  search: null, type: 'all', sort: 'newest', from: null, to: null, page: 1, pageSize: 50
+}, 'the picker starts with an isolated, visible-only browse query');
 assert.deepEqual(selectionState(['a'], [{ id: 'a', url: 'https://cdn/a.png' }, { id: 'b', url: 'https://cdn/b.png' }]).urls, ['https://cdn/a.png']);
 assert.deepEqual(pickerResultFor(['https://cdn/a.png'], { multiple: false }).value, 'https://cdn/a.png');
 assert.deepEqual(pickerResultFor(['https://cdn/a.png', 'https://cdn/b.png'], { multiple: true }).value, ['https://cdn/a.png', 'https://cdn/b.png']);
@@ -117,6 +136,38 @@ assert.deepEqual(galleryItemsFor(['https://cdn/a.png', 'https://cdn/b.png'], { a
   { url: 'https://cdn/b.png', alt: 'art', caption: '' }
 ]);
 
+// Patch 3: every editor target has an explicit, narrow media contract.
+const mediaRecord = (title, mimeType) => ({ title, mimeType, url: 'https://cdn/' + title });
+assert.equal(mediaTargetAccept('portfolio.p.blocks.0.items', 'gallery'), 'image/*');
+assert.equal(mediaTargetAccept('portfolio.p.blocks.1.items', 'grid'), 'image/*');
+assert.equal(mediaTargetAccept('portfolio.p.blocks.2.url', 'video'), 'video/*');
+assert.equal(mediaTargetAccept('portfolio.p.blocks.3.url', 'gif'), 'image/gif');
+assert.equal(mediaTargetAccept('portfolio.p.blocks.4.before', 'before-after'), 'image/*');
+assert.equal(mediaTargetAccept('settings.music.url'), 'audio/*');
+assert.equal(mediaTargetAccept('assets.asset.downloadUrl'), '*');
+assert.equal(mediaTargetAccept('settings.branding.heroMedia'), 'image/*');
+assert.equal(mediaTargetAccept('portfolio.p.blocks.5.url', 'youtube'), null);
+assert.equal(mediaTargetAccept('settings.unknown'), null);
+assert.equal(mediaItemMatchesTarget(mediaRecord('art.png', 'image/png'), 'image/*'), true);
+assert.equal(mediaItemMatchesTarget(mediaRecord('clip.mp4', 'video/mp4'), 'image/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('sheet.pdf', 'application/pdf'), 'image/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('song.mp3', 'audio/mpeg'), 'image/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('clip.mp4', 'video/mp4'), 'video/*'), true);
+assert.equal(mediaItemMatchesTarget(mediaRecord('art.png', 'image/png'), 'video/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('fake.gif', 'video/mp4'), 'image/gif'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('art.png', 'image/png'), 'audio/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('clip.mp4', 'video/mp4'), 'audio/*'), false);
+assert.equal(mediaItemMatchesTarget(mediaRecord('song.mp3', 'audio/mpeg'), 'audio/*'), true);
+assert.equal(mediaItemMatchesTarget(mediaRecord('archive.zip', 'application/zip'), '*'), true);
+assert.equal(mediaItemMatchesTarget(mediaRecord('bad.txt', 'text/plain'), '*'), false);
+assert.equal(mediaInputAccept('*').includes('audio/mpeg'), true);
+assert.equal(mediaInputAccept('*').includes('application/zip'), true);
+assert.equal(mediaInputAccept('*').includes('.zip'), true);
+assert.equal(mediaInputAccept('image/*').includes('video/mp4'), false);
+assert.equal(mediaInputAccept('video/*').includes('video/mp4'), true);
+assert.deepEqual(acceptedDropFiles([{ name: 'clip.mp4', type: 'video/mp4' }, { name: 'art.png', type: 'image/png' }], { accept: 'image/*' }).map((file) => file.name), ['art.png']);
+assert.deepEqual(acceptedDropFiles([{ name: 'art.png', type: '' }], { accept: 'image/*' }).map((file) => file.name), ['art.png']);
+assert.deepEqual(acceptedDropFiles([{ name: 'evil.exe', type: 'image/png' }], { accept: 'image/*' }), []);
 // --- Tests 11-13 core: bulk delete summary ---------------------------------
 const summary = bulkMediaSummary([
   { id: 'a', title: 'a.png', result: { success: true } },

@@ -149,4 +149,55 @@ import {
   assert.equal(gif.src, 'https://cdn/anim.gif', 'the original is the fallback');
 }
 
+
+// --- Patch 4: intrinsic image measurement through an injected decoder ---
+import { measureImageDimensions } from './admin-media-core.js';
+
+{
+  let revoked = null;
+  const measured = await measureImageDimensions(
+    { name: 'art.png', type: 'image/png', size: 12 },
+    {
+      createObjectURL: () => 'blob:measured',
+      revokeObjectURL: (url) => { revoked = url; },
+      ImageCtor: function StubImage() {
+        Object.defineProperty(this, 'src', {
+          set() { this.naturalWidth = 640; this.naturalHeight = 480; this.onload(); }
+        });
+      }
+    }
+  );
+  assert.deepEqual(measured, { width: 640, height: 480 }, 'a decodable image reports intrinsic dimensions');
+  assert.equal(revoked, 'blob:measured', 'the object URL is revoked after a successful decode');
+}
+
+{
+  let createdUrls = 0;
+  const nonImage = await measureImageDimensions(
+    { name: 'clip.mp4', type: 'video/mp4', size: 12 },
+    { createObjectURL: () => { createdUrls += 1; return 'blob:video'; }, revokeObjectURL: () => {}, ImageCtor: function () {} }
+  );
+  assert.equal(nonImage, null, 'non-image files are never measured');
+  assert.equal(createdUrls, 0, 'no object URL is created for a non-image file');
+}
+
+{
+  let revoked = null;
+  const failure = await measureImageDimensions(
+    { name: 'broken.png', type: 'image/png', size: 12 },
+    {
+      createObjectURL: () => 'blob:broken',
+      revokeObjectURL: (url) => { revoked = url; },
+      ImageCtor: function BrokenImage() {
+        Object.defineProperty(this, 'src', { set() { this.onerror(new Error('decode failed')); } });
+      }
+    }
+  );
+  assert.equal(failure, null, 'a decode failure resolves null instead of throwing');
+  assert.equal(revoked, 'blob:broken', 'a failed decode still revokes the object URL');
+}
+
+assert.equal(await measureImageDimensions({ name: 'art.png', type: 'image/png', size: 12 }, { createObjectURL: null, revokeObjectURL: null, ImageCtor: null }), null, 'a missing decoder resolves null');
+assert.equal(await measureImageDimensions(null, {}), null, 'a missing file resolves null');
+
 console.log('Admin media core tests passed.');

@@ -5,7 +5,7 @@
  * keyboard-save decision. DOM wiring stays in the admin page.
  */
 import { MEDIA_PAGE_SIZE } from './admin-query-core.js';
-import { isSupportedMediaFile } from './admin-media-core.js';
+import { isSupportedMediaFile, resolveUploadContentType, supportedMediaInputAccept, SUPPORTED_MEDIA_MIME_TYPES, SUPPORTED_MEDIA_EXTENSIONS } from './admin-media-core.js';
 
 export const MEDIA_VIEWS = Object.freeze({ GRID: 'grid', LIST: 'list' });
 
@@ -167,6 +167,43 @@ export function acceptMatches(item, accept) {
   });
 }
 
+/** Explicit editor contract; null means a path is not a media target. */
+export function mediaTargetAccept(path, blockType = '') {
+  const target = String(path || '');
+  if (/^assets\.[^.]+\.downloadUrl$/.test(target)) return '*';
+  if (target === 'settings.music.url') return 'audio/*';
+  const block = target.match(/^portfolio\.[^.]+\.blocks\.\d+\.(url|items|before|after)$/);
+  if (block) {
+    const field = block[1];
+    if ((blockType === 'gallery' || blockType === 'grid') && field === 'items') return 'image/*';
+    if (blockType === 'video' && field === 'url') return 'video/*';
+    if (blockType === 'gif' && field === 'url') return 'image/gif';
+    if (['image', 'image-text'].includes(blockType) && field === 'url') return 'image/*';
+    if (blockType === 'before-after' && ['before', 'after'].includes(field)) return 'image/*';
+    return null;
+  }
+  if (/^portfolio\.[^.]+\.(thumbnail|cover)$/.test(target)) return 'image/*';
+  if (/^(assets|commissions)\.[^.]+\.thumbnail$/.test(target)) return 'image/*';
+  if (target === 'pages.about.profileImage') return 'image/*';
+  if (['settings.branding.logo', 'settings.branding.heroMedia', 'settings.seo.socialImage'].includes(target)) return 'image/*';
+  return null;
+}
+
+export function mediaItemMatchesTarget(item, accept) {
+  if (!accept || !item || !item.url) return false;
+  const name = item.title || item.storagePath || '';
+  const mime = item.mimeType || resolveUploadContentType({ name });
+  return isSupportedMediaFile({ name, type: mime }).supported && acceptMatches({ ...item, mimeType: mime }, accept);
+}
+
+/** Canonical chooser hints, narrowed to one editor target when needed. */
+export function mediaInputAccept(accept = '*') {
+  if (accept === '*') return supportedMediaInputAccept();
+  if (!accept) return '';
+  const mimes = SUPPORTED_MEDIA_MIME_TYPES.filter((mimeType) => acceptMatches({ mimeType }, accept));
+  const extensions = SUPPORTED_MEDIA_EXTENSIONS.filter((extension) => acceptMatches({ mimeType: resolveUploadContentType({ name: 'file.' + extension }), title: 'file.' + extension }, accept));
+  return [...mimes, ...extensions.map((extension) => '.' + extension)].join(',');
+}
 export function filterByAccept(items, accept) {
   return (Array.isArray(items) ? items : []).filter((item) => acceptMatches(item, accept));
 }
@@ -179,6 +216,31 @@ export function toggleSelection(selected, id) {
   return list;
 }
 
+/** A paged UI may only act on records loaded for its current page. */
+export function reconcilePageSelection(selected, items) {
+  const available = new Set((Array.isArray(items) ? items : []).map((item) => String(item && item.id)).filter(Boolean));
+  const seen = new Set();
+  return (Array.isArray(selected) ? selected : []).map(String).filter((id) => {
+    if (!available.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+/** Picker browsing intentionally begins without hidden manager-only filters. */
+export function createPickerMediaQuery(managerQuery = {}) {
+  return {
+    ...mediaQuerySpec({ pageSize: managerQuery.pageSize }),
+    page: 1
+  };
+}
+/** Resolve every Picker ID against its own current page before applying. */
+export function resolvePickerSelectedItems(selected, items) {
+  const ids = Array.isArray(selected) ? selected : [];
+  const records = Array.isArray(items) ? items : [];
+  const resolved = ids.map((id) => records.find((item) => item && String(item.id) === String(id)));
+  return resolved.every(Boolean) ? resolved : null;
+}
 export function selectionState(selected, items) {
   const ids = new Set((Array.isArray(selected) ? selected : []).map(String));
   return {
@@ -270,7 +332,7 @@ export const MAX_DROPPED_FILES = 20;
 export function acceptedDropFiles(fileList, { accept } = {}) {
   const files = Array.from(fileList || []).filter((file) => file && typeof file.name === 'string');
   const bounded = files.slice(0, MAX_DROPPED_FILES);
-  if (accept) return bounded.filter((file) => acceptMatches({ mimeType: file.type, title: file.name }, accept));
+  if (accept) return bounded.filter((file) => isSupportedMediaFile(file).supported && acceptMatches({ mimeType: resolveUploadContentType(file), title: file.name }, accept));
   // Without an explicit accept, a drop inherits the Batch 3 upload MIME policy.
   return bounded.filter((file) => isSupportedMediaFile(file).supported);
 }

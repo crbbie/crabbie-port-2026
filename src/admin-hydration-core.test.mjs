@@ -28,6 +28,42 @@ const failedHydration = { ...empty, forms: { error: { message: 'timeout' } } };
 assert.throws(() => mapAdminHydrationResults(failedHydration, () => ''), /Commission Forms load failed: timeout/);
 assert.throws(() => mapAdminHydrationResults({ ...empty, media: { error: { message: 'denied' } } }, () => ''), /Media load failed: denied/);
 
+
+// --- Patch 4: assets, commissions and media hydrate faithful canonical values ---
+const roundTrip = mapAdminHydrationResults({
+  ...empty,
+  assets: { data: [{
+    id: 'a1', slug: 'petal-pack', title: 'Petal Pack', description: '', availability: 'unavailable',
+    file_path: 'uploads/petal.zip', file_type: 'ZIP', thumbnail_path: null, metadata: {},
+    published: true, sort_order: 1, updated_at: '2026-09-20T00:00:00Z'
+  }, {
+    id: 'a2', slug: 'free-pack', title: 'Free Pack', description: '', file_path: '', file_type: 'PNG',
+    thumbnail_path: null, metadata: {}, published: true, sort_order: 2, updated_at: '2026-09-20T00:00:00Z'
+  }] },
+  commissions: { data: [{
+    id: 'c1', slug: 'static-emote', title: 'Static Emote', description: '', price: 75, currency: 'USD',
+    availability: 'open', form_slug: 'emotes', details: { priceFormatted: '$25' }, sort_order: 1,
+    updated_at: '2026-09-20T00:00:00Z'
+  }] },
+  media: { data: [{
+    id: 'm1', bucket_id: 'media', storage_path: 'uploads/art.png', original_name: 'art.png', mime_type: 'image/png',
+    size_bytes: 1024, alt_text: 'art', width: 1200, height: 800, deletion_status: 'active',
+    created_at: '2026-09-20T00:00:00Z'
+  }, {
+    id: 'm2', bucket_id: 'media', storage_path: 'uploads/clip.mp4', original_name: 'clip.mp4', mime_type: 'video/mp4',
+    size_bytes: 2048, alt_text: 'clip', deletion_status: 'active', created_at: '2026-09-20T00:00:00Z'
+  }] }
+}, (path) => `https://cdn.test/${path}`);
+
+assert.equal(roundTrip.assets[0].availability, 'unavailable', 'a hydrated unavailable asset stays unavailable');
+assert.equal(roundTrip.assets[1].availability, 'available', 'a missing asset availability resolves explicitly');
+assert.equal(roundTrip.commissions[0].price, '75', 'the canonical price column outranks a legacy formatted detail');
+assert.equal(roundTrip.commissions[0].priceFormatted, '$75', 'hydration derives fresh display text from the canonical price');
+assert.equal(roundTrip.media[0].width, 1200, 'media width is mapped from the row');
+assert.equal(roundTrip.media[0].height, 800, 'media height is mapped from the row');
+assert.equal(roundTrip.media[1].width, null, 'a row without dimensions stays null');
+assert.equal(roundTrip.media[1].height, null, 'a row without dimensions never gains a fake height');
+
 // A successful query with null data must behave as empty, not as fallback data.
 const nullData = Object.fromEntries(names.map((name) => [name, { data: null }]));
 const nullSnapshot = mapAdminHydrationResults(nullData, () => '');
@@ -37,13 +73,14 @@ assert.deepEqual(nullSnapshot.pages, {});
 
 // Categories are split by kind from a single successful shared result.
 const categorized = { ...empty, categories: { data: [
-  { id: 'c1', slug: 'chibi', title: 'Chibi', kind: 'portfolio', published: true, sort_order: 2 },
+  { id: 'c1', slug: 'chibi', title: 'Chibi', kind: 'portfolio', published: true, sort_order: 2, updated_at: '2026-09-20T00:00:00Z' },
   { id: 'c2', slug: 'brushes', title: 'Brushes', kind: 'asset', published: false, sort_order: 0 }
 ] } };
 const categorizedSnapshot = mapAdminHydrationResults(categorized, () => '');
 assert.deepEqual(categorizedSnapshot.portfolioCategories.map((c) => c.slug), ['chibi']);
 assert.deepEqual(categorizedSnapshot.assetCategories.map((c) => c.slug), ['brushes']);
 assert.equal(categorizedSnapshot.portfolioCategories[0].dbId, 'c1');
+assert.equal(categorizedSnapshot.portfolioCategories[0].originalUpdatedAt, '2026-09-20T00:00:00Z', 'categories retain the stale-save baseline returned by hydration');
 assert.equal(categorizedSnapshot.assetCategories[0].published, false);
 
 // Media rows resolve their public storage URL through the injected resolver.

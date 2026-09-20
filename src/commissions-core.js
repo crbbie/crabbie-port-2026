@@ -2,8 +2,12 @@ export function mapCommissionService(row, fallback = {}) {
   if (!row) return { ...fallback };
   const details = row.details || {};
   const availability = row.availability === 'waitlist' ? 'inquiry' : (row.availability ?? '');
-  const price = details.priceFormatted || (row.price == null ? '' :
-    row.currency === 'VND' ? `${Number(row.price).toLocaleString()} VND` : `$${row.price}`);
+  // The canonical price column is authoritative: a persisted formatted string
+  // only survives as a fallback for legacy rows without a canonical price.
+  const hasCanonicalPrice = row.price != null && String(row.price).trim() !== '';
+  const price = hasCanonicalPrice
+    ? (row.currency === 'VND' ? `${Number(row.price).toLocaleString()} VND` : `$${row.price}`)
+    : (details.priceFormatted || '');
   return {
     id: row.slug ?? '',
     slug: row.slug ?? '',

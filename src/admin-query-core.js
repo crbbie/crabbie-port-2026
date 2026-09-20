@@ -23,7 +23,7 @@ export const ADMIN_SELECT_COLUMNS = Object.freeze({
   ]),
   free_assets: Object.freeze([
     'id', 'slug', 'title', 'description', 'metadata', 'thumbnail_path', 'file_path', 'file_type',
-    'featured', 'published', 'sort_order', 'updated_at', NESTED_CATEGORY
+    'availability', 'featured', 'published', 'sort_order', 'updated_at', NESTED_CATEGORY
   ]),
   cms_categories: Object.freeze(['id', 'kind', 'slug', 'title', 'title_i18n', 'published', 'sort_order', 'updated_at']),
   commission_services: Object.freeze([
@@ -40,22 +40,22 @@ export const ADMIN_SELECT_COLUMNS = Object.freeze({
   ]),
   media: Object.freeze([
     'id', 'bucket_id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text',
-    'sha256', 'deletion_status', 'deleted_at', 'deletion_error', 'created_at'
+    'sha256', 'width', 'height', 'deletion_status', 'deleted_at', 'deletion_error', 'created_at'
   ])
 });
 
 /** Database columns each admin mapper/safety feature actually reads. */
 export const HYDRATION_MAPPED_COLUMNS = Object.freeze({
   portfolio_projects: Object.freeze(['id', 'slug', 'title', 'description', 'tags', 'content', 'thumbnail_path', 'cover_path', 'featured', 'published', 'updated_at', 'category.slug', 'category.title']),
-  free_assets: Object.freeze(['id', 'slug', 'title', 'description', 'metadata', 'thumbnail_path', 'file_path', 'file_type', 'featured', 'published', 'updated_at', 'category.slug', 'category.title']),
-  cms_categories: Object.freeze(['id', 'kind', 'slug', 'title', 'published', 'sort_order']),
+  free_assets: Object.freeze(['id', 'slug', 'title', 'description', 'metadata', 'thumbnail_path', 'file_path', 'file_type', 'availability', 'featured', 'published', 'updated_at', 'category.slug', 'category.title']),
+  cms_categories: Object.freeze(['id', 'kind', 'slug', 'title', 'published', 'sort_order', 'updated_at']),
   commission_services: Object.freeze(['id', 'slug', 'title', 'description', 'price', 'currency', 'availability', 'form_slug', 'thumbnail_path', 'featured', 'published', 'details', 'updated_at']),
   commission_forms: Object.freeze(['id', 'slug', 'title', 'description', 'fields', 'published', 'updated_at']),
   cms_pages: Object.freeze(['id', 'slug', 'title', 'content', 'published', 'data', 'updated_at']),
   cms_navigation: Object.freeze(['id', 'title', 'url', 'published', 'updated_at']),
   site_settings: Object.freeze(['key', 'value', 'updated_at']),
   commission_requests: Object.freeze(['id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes', 'terms_accepted', 'created_at', 'updated_at']),
-  media: Object.freeze(['id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text', 'sha256', 'deletion_status', 'created_at'])
+  media: Object.freeze(['id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text', 'sha256', 'width', 'height', 'deletion_status', 'created_at'])
 });
 
 export function selectList(table) {
