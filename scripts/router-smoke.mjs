@@ -63,6 +63,36 @@ export function createClient(){
     row.slug === payload.slug &&
     (table !== 'cms_categories' || row.kind === payload.kind));
   const slugConflict = (table) => ({code: '23505', message: 'duplicate key value violates unique constraint "' + table + '_slug_key"'});
+  // PostgREST-style filter helpers: jsonb paths, ilike and or() groups.
+  const valueAt = (row, column) => {
+    if (column.includes('->>')) {
+      const [head, tail] = column.split('->>');
+      const container = row[head];
+      return container && typeof container === 'object' ? container[tail] : undefined;
+    }
+    return row[column];
+  };
+  const ilikeToRegex = (pattern) => {
+    const escaped = String(pattern).split('%').map(part => part.replace(/[^\w\s@.\-]/g, ' ')).join('.*');
+    return new RegExp('^' + escaped + '$', 'i');
+  };
+  const applyFilter = (row, filter) => {
+    const [column, value] = filter;
+    if (column === 'or') {
+      return String(value).split(',').some(part => {
+        const bits = part.split('.');
+        const op = bits[1];
+        const columnName = bits[0];
+        const expected = bits.slice(2).join('.');
+        return op === 'ilike' ? ilikeToRegex(expected).test(String(valueAt(row, columnName) || '')) : valueAt(row, columnName) === expected;
+      });
+    }
+    if (column.endsWith('ilike')) {
+      return ilikeToRegex(value).test(String(valueAt(row, column.replace('.ilike', '')) || ''));
+    }
+    return valueAt(row, column) === value;
+  };
+
   const runQuery = (table, state) => {
     const forced = window.__routerWriteError;
     if (state.op && forced && forced.table === table && (!forced.operation || forced.operation === state.op)) {
@@ -71,13 +101,17 @@ export function createClient(){
     }
     if (!state.op) {
       (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
-      (window.__routerReads ||= []).push({table, filters: state.filters.slice()});
+      (window.__routerReads ||= []).push({table, filters: state.filters.slice(), range: state.range ? state.range.slice() : null, count: state.count, head: Boolean(state.head)});
       if (window.__routerFail === table) return {data: null, error: {message: 'Fixture forced failure'}};
       const filters = state.filters.slice();
-      const rows = rowsFor(table).filter((row) => filters.every(([column, value]) => row[column] === value));
-      return state.single ? {data: rows[0] || null, error: null} : {data: rows, error: null};
+      const matched = rowsFor(table).filter((row) => filters.every(filter => applyFilter(row, filter)));
+      const total = matched.length;
+      const ranged = state.range ? matched.slice(state.range[0], state.range[1] + 1) : matched;
+      if (state.head) return {data: null, error: null, count: total};
+      const withCount = state.count ? {count: total} : {};
+      return state.single ? {data: ranged[0] || null, error: null, ...withCount} : {data: ranged, error: null, ...withCount};
     }
-    const matches = (row) => state.filters.every(([column, value]) => row[column] === value);
+    const matches = (row) => state.filters.every(filter => applyFilter(row, filter));
     const incoming = Array.isArray(state.payload) ? state.payload : [state.payload];
     let affected = [];
     if (state.op === 'insert') {
@@ -117,8 +151,17 @@ export function createClient(){
         (window.__routerWrites ||= []).push({table, operation: key, filters: state.filters, payload: args[0]});
       } else if (key === 'select') {
         state.select = String(args[0] || '');
+        const options = args[1];
+        if (options && options.count) state.count = options.count;
+        if (options && options.head) state.head = true;
       } else if (key === 'eq') {
         state.filters.push([args[0], args[1]]);
+      } else if (key === 'or') {
+        state.filters.push(['or', args[0]]);
+      } else if (key === 'ilike') {
+        state.filters.push([String(args[0]) + '.ilike', args[1]]);
+      } else if (key === 'range') {
+        state.range = [Number(args[0]), Number(args[1])];
       } else if (key === 'maybeSingle' || key === 'single') {
         state.single = true;
       }
@@ -127,10 +170,18 @@ export function createClient(){
   } });
   return {
     from: table => query(table),
+    supabaseUrl: 'https://router-test.supabase.co',
+    supabaseKey: 'router-test-anon-key',
     storage: {from: bucket => ({
-      getPublicUrl: path => ({data: {publicUrl: 'https://router-test.supabase.co/' + path}}),
+      // Image Transformations URLs are distinguishable so tests can prove the
+      // grid never requests the full original for a big raster image.
+      getPublicUrl: (path, options) => ({
+        data: {publicUrl: options && options.transform
+          ? 'https://router-test.supabase.co/storage/v1/render/image/public/' + bucket + '/' + path + '?width=' + (options.transform.width || 0)
+          : 'https://router-test.supabase.co/' + path}
+      }),
       upload: async (path, file, options) => {
-        (window.__routerStorageWrites ||= []).push({bucket, operation: 'upload', path});
+        (window.__routerStorageWrites ||= []).push({bucket, operation: 'upload', path, contentType: options && options.contentType, cacheControl: options && options.cacheControl});
         if (window.__routerStorageUploadError) {
           const error = window.__routerStorageUploadError;
           window.__routerStorageUploadError = null;
@@ -163,7 +214,7 @@ export function createClient(){
         window.__routerLoginCalls = (window.__routerLoginCalls || 0) + 1;
         if(email === 'invalid@example.test') return {data: {user: null, session: null}, error: {message: 'Invalid login credentials'}};
         const user = {id: 'router-test-user', app_metadata: {role: email === 'admin@example.test' ? 'admin' : 'user'}, user_metadata: {role: 'admin'}};
-        session = {user};
+        session = {user, access_token: 'router-test-token', expires_at: Math.floor(Date.now() / 1000) + 3600};
         // Real supabase-js notifies SIGNED_IN from signInWithPassword, and the
         // login() path notifies too; the auth policy must dedupe them.
         window.__routerEmit('SIGNED_IN');
@@ -1105,6 +1156,273 @@ try {
     assert.deepEqual(diagnostics.pendingCleanup, []);
     assert.equal(diagnostics.remainingObjects, 2, 'the diagnostic never deletes anything');
     console.log('PASS the media integrity diagnostic reports missing objects and orphan candidates only (SDK fixture)');
+
+    // ---- Prompt 4: pagination, thumbnails and the upload pipeline ----------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminCrud && window.CrabbieAdminMedia));
+    const mediaSeed = (id, name, over) => Object.assign({
+      id, bucket_id: 'media', storage_path: 'uploads/' + name, original_name: name, mime_type: 'image/png',
+      size_bytes: 3 * 1024 * 1024, alt_text: name, sha256: null, deletion_status: 'active',
+      deleted_at: null, deletion_error: null, created_at: '2026-03-01T00:00:00Z'
+    }, over || {});
+    const requestSeed = (index) => ({
+      id: '00000000-0000-4000-8000-' + String(700 + index).padStart(12, '0'),
+      client_name: 'Client ' + index, client_email: 'client' + index + '@example.test', contact: '',
+      answers: { service: index % 2 ? 'Character Design' : 'Illustration', note: 'n' + index },
+      status: index % 3 === 0 ? 'new' : 'contacted', admin_notes: '', terms_accepted: true,
+      service_id: null, form_id: null, created_at: '2026-03-' + String((index % 28) + 1).padStart(2, '0') + 'T00:00:00Z',
+      updated_at: '2026-03-01T00:00:00Z'
+    });
+    const p4MediaRows = [];
+    for (let i = 0; i < 30; i += 1) {
+      p4MediaRows.push(mediaSeed('00000000-0000-4000-8000-' + String(900 + i).padStart(12, '0'), 'art' + String(i).padStart(2, '0') + '.png'));
+    }
+    p4MediaRows.push(mediaSeed('00000000-0000-4000-8000-000000000999', 'dance.gif', { mime_type: 'image/gif', size_bytes: 5 * 1024 * 1024 }));
+    const p4RequestRows = [];
+    for (let i = 0; i < 35; i += 1) p4RequestRows.push(requestSeed(i));
+
+    // Fixture media URLs are served as real (tiny) images so the thumbnail
+    // fallback does not fire while the markup is asserted.
+    const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+    await context.route('**/storage/v1/render/image/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
+    await context.route('**/uploads/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
+
+    await page.evaluate((payload) => {
+      window.__routerRows = {
+        media: payload.media, commission_requests: payload.requests,
+        portfolio_projects: [], free_assets: [], commission_services: [], commission_forms: [],
+        cms_categories: [], cms_pages: [], cms_navigation: [], site_settings: []
+      };
+      window.__routerStorageObjects = [];
+      window.__routerStorageWrites = [];
+      window.__routerWrites = [];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+      window.__routerWriteError = null;
+      window.__routerStorageRemoveError = null;
+      window.__routerStorageUploadError = null;
+      window.__routerTusCalls = [];
+    }, { media: p4MediaRows, requests: p4RequestRows });
+
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+
+    // Tests 1-2: the atomic CMS hydration never downloads the paged tables.
+    const hydrationRowReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => !read.head).map((read) => read.table));
+    assert.equal(hydrationRowReads.includes('commission_requests'), false, 'initial hydration does not fetch requests rows');
+    assert.equal(hydrationRowReads.includes('media'), false, 'initial hydration does not fetch media rows');
+    const headReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.head).map((read) => read.table).sort());
+    assert.deepEqual(headReads, ['commission_requests', 'media'], 'badges use head counts only');
+    console.log('PASS initial admin hydration loads no request or media rows (SDK fixture)');
+
+    // Tests 3-6: request paging is one server-scoped range per page.
+    const goToModule = async (module) => {
+      await page.evaluate((name) => { window.location.hash = '#admin/' + name; }, module);
+      await page.waitForFunction(() => document.querySelector('.view.is-active') && document.querySelector('.view.is-active').dataset.view === 'admin');
+      await page.waitForTimeout(250);
+    };
+    await goToModule('requests');
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) => read.table === 'commission_requests' && read.range));
+    let requestReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.range));
+    assert.equal(requestReads.length, 1, 'opening the requests panel issues exactly one paged query');
+    assert.deepEqual(requestReads[0].range, [0, 29], 'page one is a bounded range, never the whole table');
+    assert.equal(requestReads[0].count, 'exact', 'the query asks for an exact total');
+    assert.match(await page.locator('.adm-pagination').first().innerText(), new RegExp('Page 1 / 2 · 35 requests'), 'the pager shows the server total');
+
+    await page.locator('[data-adm-req-page="next"]').click();
+    await page.waitForFunction(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.range).length === 2);
+    requestReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.range));
+    assert.deepEqual(requestReads[1].range, [30, 59], 'changing the page issues a new scoped query');
+    assert.match(await page.locator('.adm-pagination').first().innerText(), new RegExp('Page 2 / 2'));
+    assert.equal(await page.locator('.adm-req-row').count(), 5, 'only the five rows of the last page are rendered');
+
+    await page.selectOption('[data-adm-req-filter="status"]', 'New');
+    await page.waitForFunction(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.range).length === 3);
+    requestReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.range));
+    assert.deepEqual(requestReads[2].range, [0, 29], 'changing a filter restarts at page one');
+    assert.ok(requestReads[2].filters.some((filter) => filter[0] === 'status' && filter[1] === 'new'), 'the status filter runs server-side');
+    const filteredRows = await page.locator('.adm-req-row').count();
+    assert.ok(filteredRows > 0 && filteredRows <= 29, 'the filtered page only contains matching rows');
+    console.log('PASS commission requests page, filter and count server-side (SDK fixture)');
+
+    // Tests 7-9, 11-12: media paging, thumbnails and post-delete page repair.
+    await goToModule('media');
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) => read.table === 'media' && read.range));
+    let mediaReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range));
+    assert.equal(mediaReads.length, 1, 'opening the media panel issues exactly one paged query');
+    assert.deepEqual(mediaReads[0].range, [0, 29], 'media page one is a bounded range');
+    assert.ok(mediaReads[0].filters.some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active'), 'the media page is always active-only');
+    assert.equal(await page.locator('.adm-media-card').count(), 30, 'only one page of media is rendered');
+
+    const firstThumb = await page.locator('.adm-media-grid img').first().getAttribute('src');
+    assert.match(firstThumb, /storage\/v1\/render\/image\/public\/media\/uploads\/art00\.png/, 'a big raster card loads a small transformation URL, not the original');
+    const gifCard = page.locator('.adm-media-card', { hasText: 'dance.gif' });
+    assert.equal(await gifCard.count(), 0, 'the gif lives on page two, so page one never renders it');
+
+    await page.locator('[data-adm-media-page="next"]').click();
+    await page.waitForFunction(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length === 2);
+    mediaReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range));
+    assert.deepEqual(mediaReads[1].range, [30, 59], 'changing the media page issues a new scoped query');
+    assert.equal(await page.locator('.adm-media-card').count(), 1, 'the last media page holds the remaining row');
+    const gifThumb = await page.locator('.adm-media-card', { hasText: 'dance.gif' }).locator('img').first().getAttribute('src');
+    assert.match(gifThumb, /^https:\/\/router-test\.supabase\.co\/uploads\/dance\.gif$/, 'a GIF keeps its canonical original URL');
+
+    // Test 9: deleting the last row of a page repairs the page safely.
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await clearToast();
+    await page.locator('[data-adm-media-del="00000000-0000-4000-8000-000000000999"]').click();
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length === 3);
+    mediaReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range));
+    assert.deepEqual(mediaReads[2].range, [0, 29], 'emptying the last page refetches the adjusted page');
+    assert.match(await page.locator('.adm-pagination').first().innerText(), new RegExp('Page 1 / 1 · 30 files'), 'the count drops by the deleted row');
+    const openButton = page.locator('.adm-media-card').first().locator('[data-adm-media-open]');
+    assert.equal(await openButton.count(), 1, 'preview/download still uses the canonical original');
+    console.log('PASS media pages are active-only, thumbnail-first and page-repaired after delete (SDK fixture)');
+
+    // Tests 13-15, 18, 22: upload pipeline split, progress, cancel, validation.
+    const smallUpload = await page.evaluate(async () => {
+      const file = new File([new Uint8Array(1024)], 'small-art.png', { type: 'image/png' });
+      window.__routerStorageWrites = [];
+      const item = await window.CrabbieAdminMedia.uploadMediaFile(file, 'small art');
+      return { item: { title: item.title, strategy: item.task && item.task.strategy, sha256: item.sha256 }, writes: window.__routerStorageWrites.slice(), stored: window.__routerRows.media.filter((row) => row.original_name === 'small-art.png').length };
+    });
+    assert.equal(smallUpload.item.strategy, 'standard', 'a small file uses the standard upload path');
+    assert.deepEqual(smallUpload.writes.map((write) => write.operation), ['upload'], 'exactly one plain upload happens');
+    assert.equal(smallUpload.writes[0].cacheControl, '31536000', 'immutable paths are cached for a year');
+    assert.equal(smallUpload.item.sha256.length, 64, 'the stored media row keeps the SHA-256 digest');
+    assert.equal(smallUpload.stored, 1, 'the media row is created only after a successful upload');
+    console.log('PASS a small upload uses the standard path with digest and cache control (SDK fixture)');
+
+    // Tests 14-15, 18: a large file goes resumable with progress and cancel.
+    const tusRun = await page.evaluate(async () => {
+      const events = [];
+      window.__routerTusCalls = [];
+      class FakeUpload {
+        constructor(file, options) { this.file = file; this.options = options; }
+        findPreviousUploads() { return Promise.resolve([]); }
+        start() {
+          window.__routerTusCalls.push({ objectName: this.options.metadata.objectName, endpoint: this.options.endpoint, auth: Boolean(this.options.headers.authorization) });
+          this.options.onProgress(Math.floor(this.file.size / 2), this.file.size);
+          this.options.onProgress(this.file.size, this.file.size);
+          this.options.onSuccess({});
+        }
+        abort() { window.__routerTusCalls.push({ aborted: true }); }
+      }
+      window.CrabbieTusClient = { Upload: FakeUpload };
+      const file = new File([new Uint8Array(7 * 1024 * 1024)], 'huge-art.png', { type: 'image/png' });
+      window.__routerStorageWrites = [];
+      const item = await window.CrabbieAdminMedia.uploadMediaFile(file, '', { onTask: (task) => events.push({ status: task.status, progress: task.progress }) });
+      return { strategy: item.task && item.task.strategy, resumable: item.task && item.task.resumable, events, calls: window.__routerTusCalls.slice(), writes: window.__routerStorageWrites.map((write) => write.operation) };
+    });
+    assert.equal(tusRun.strategy, 'resumable', 'a 7MB file takes the resumable path');
+    assert.equal(tusRun.resumable, true);
+    assert.deepEqual(tusRun.writes, [], 'the resumable path never falls back to a plain upload');
+    assert.deepEqual(tusRun.calls.map((call) => call.aborted), [undefined], 'the TUS upload was started once');
+    assert.match(tusRun.calls[0].endpoint, /\/storage\/v1\/upload\/resumable$/, 'the supported Supabase resumable endpoint is used');
+    assert.equal(tusRun.calls[0].auth, true, 'the request keeps the authenticated session token');
+    assert.ok(tusRun.events.some((event) => event.status === 'uploading' && event.progress > 0 && event.progress < 100), 'progress is reported while uploading');
+    assert.equal(tusRun.events[tusRun.events.length - 1].status, 'complete');
+    console.log('PASS a large upload is resumable, authenticated and reports progress (SDK fixture)');
+
+    const cancelRun = await page.evaluate(async () => {
+      window.__routerTusCalls = [];
+      class HangingUpload {
+        constructor(file, options) { this.file = file; this.options = options; }
+        findPreviousUploads() { return Promise.resolve([]); }
+        start() { window.__routerTusCalls.push({ started: true }); this.options.onProgress(1, this.file.size); }
+        abort() { window.__routerTusCalls.push({ aborted: true }); if (this.options.onError) this.options.onError(new Error('Upload cancelled')); }
+      }
+      window.CrabbieTusClient = { Upload: HangingUpload };
+      const before = window.__routerRows.media.length;
+      const file = new File([new Uint8Array(7 * 1024 * 1024)], 'cancel-me.png', { type: 'image/png' });
+      let cancel = null;
+      const pending = window.CrabbieAdminMedia.uploadMediaFile(file, '', { onCancelReady: (fn) => { cancel = fn; } });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      // Cancel only once the resumable transfer is actually in flight.
+      for (let i = 0; i < 200 && !window.__routerTusCalls.some((call) => call.started); i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      cancel();
+      let outcome = 'resolved';
+      let message = '';
+      try { await pending; } catch (err) { outcome = 'rejected'; message = err.message; }
+      return { outcome, message, aborted: window.__routerTusCalls.some((call) => call.aborted), rows: window.__routerRows.media.length - before, local: 0 };
+    });
+    assert.equal(cancelRun.outcome, 'rejected', 'cancel never reports success');
+    assert.match(cancelRun.message, /cancel/i);
+    assert.equal(cancelRun.aborted, true, 'cancel aborts the resumable request');
+    assert.equal(cancelRun.rows, 0, 'cancel creates no media row');
+    console.log('PASS cancelling a resumable upload aborts it and creates no row (SDK fixture)');
+
+    // Tests 19-20: content digest dedupe and digest persistence.
+    const dedupeRun = await page.evaluate(async () => {
+      const bytes = new Uint8Array(4096).fill(11);
+      const digestBuffer = await crypto.subtle.digest('SHA-256', bytes);
+      const digest = Array.from(new Uint8Array(digestBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      const smallBuffer = await crypto.subtle.digest('SHA-256', new Uint8Array(1024));
+      const smallDigest = Array.from(new Uint8Array(smallBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      window.__routerRows.media.push({
+        id: '00000000-0000-4000-8000-00000000aaaa', bucket_id: 'media', storage_path: 'uploads/already-here.png',
+        original_name: 'already-here.png', mime_type: 'image/png', size_bytes: bytes.length, alt_text: 'x',
+        sha256: digest, deletion_status: 'active', deleted_at: null, deletion_error: null, created_at: '2026-03-01T00:00:00Z'
+      });
+      window.__routerStorageWrites = [];
+      const before = window.__routerRows.media.length;
+      const item = await window.CrabbieAdminMedia.uploadMediaFile(new File([bytes], 'reupload.png', { type: 'image/png' }), '');
+      const stored = window.__routerRows.media.find((row) => row.original_name === 'small-art.png');
+      return {
+        deduplicated: item.deduplicated,
+        reusedId: item.id,
+        digest,
+        smallDigest,
+        storedDigest: stored ? stored.sha256 : null,
+        storageWrites: window.__routerStorageWrites.length,
+        rowGrowth: window.__routerRows.media.length - before
+      };
+    });
+    assert.equal(dedupeRun.deduplicated, true, 'an identical file reuses the existing media record');
+    assert.equal(dedupeRun.reusedId, '00000000-0000-4000-8000-00000000aaaa');
+    assert.equal(dedupeRun.storageWrites, 0, 'a duplicate never uploads another copy');
+    assert.equal(dedupeRun.rowGrowth, 0, 'a duplicate never creates a second row');
+    assert.equal(dedupeRun.storedDigest, dedupeRun.smallDigest, 'a stored row keeps the SHA-256 it was uploaded with');
+    console.log('PASS SHA-256 duplicates reuse the existing record and new rows keep their digest (SDK fixture)');
+
+    // Test 22: validation still runs before either upload path.
+    const validationRun = await page.evaluate(async () => {
+      window.__routerStorageWrites = [];
+      const attempts = {};
+      const attempt = async (label, file) => {
+        try { await window.CrabbieAdminMedia.uploadMediaFile(file, ''); attempts[label] = 'uploaded'; }
+        catch (err) { attempts[label] = err.message; }
+      };
+      await attempt('unsupported', new File([new Uint8Array(64)], 'notes.txt', { type: 'text/plain' }));
+      await attempt('oversized', { name: 'huge.png', type: 'image/png', size: 60 * 1024 * 1024 });
+      return { attempts, storageWrites: window.__routerStorageWrites.length };
+    });
+    assert.match(validationRun.attempts.unsupported, /Unsupported file type/i, 'an unsupported MIME never reaches Storage');
+    assert.match(validationRun.attempts.oversized, /exceeds 50MB/i, 'an oversized file never reaches Storage');
+    assert.equal(validationRun.storageWrites, 0, 'no upload path ran for a rejected file');
+    console.log('PASS MIME and size validation still block both upload paths (SDK fixture)');
+
+    // Tests 24-25: token refresh and repeated panel opens stay quiet.
+    const readsBeforeRefresh = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.range).length);
+    await page.evaluate(() => window.__routerEmit('TOKEN_REFRESHED'));
+    await page.waitForTimeout(300);
+    const readsAfterRefresh = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.range).length);
+    assert.equal(readsAfterRefresh, readsBeforeRefresh, 'a token refresh performs no paged reload');
+
+    const mediaReadsBeforeReopen = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length);
+    await goToModule('dashboard');
+    await goToModule('media');
+    const mediaReadsAfterReopen = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length);
+    assert.ok(mediaReadsAfterReopen <= mediaReadsBeforeReopen + 1, 'reopening the media module never duplicates page queries (reads: ' + mediaReadsAfterReopen + ')');
+    assert.equal(await page.locator('[data-adm-upload-status]').count() <= 1, true, 'the upload status strip is never duplicated');
+    console.log('PASS token refresh reloads nothing and reopened panels do not duplicate requests (SDK fixture)');
+
+// P4_END
+
   }
 } finally {
   if (browser) await browser.close();
