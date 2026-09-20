@@ -15,13 +15,16 @@ const p = formatPortfolioRow({
   title: 'Test P',
   description: 'Desc',
   category: 'chibi',
-  tags: ['CHIBI'],
+  tags: ['CHIBI', 'PASTEL'],
+  year: '2026',
   published: true
 }, 2);
 assert.equal(p.slug, 'test-p');
 assert.equal(p.title, 'Test P');
 assert.equal(p.sort_order, 2);
 assert.equal(p.content.cat, 'chibi');
+assert.deepEqual(p.tags, ['CHIBI', 'PASTEL'], 'portfolio tags survive the save payload as an array');
+assert.equal(p.content.year, '2026', 'portfolio date/year survives the save payload');
 
 // 2. Asset
 const a = formatAssetRow({
@@ -29,11 +32,25 @@ const a = formatAssetRow({
   title: 'Test A',
   category: 'brushes',
   fileFormat: 'PNG',
-  availability: 'available'
+  availability: 'available',
+  tags: ['brushes', 'cute'],
+  flowerTag: 'NEW',
+  version: '1.2',
+  dateAdded: '2026-09-20',
+  credit: 'Credit Crabbie',
+  license: 'Personal use',
+  updateNote: 'New brushes'
 }, 0);
 assert.equal(a.slug, 'test-a');
 assert.equal(a.availability, 'available');
 assert.equal(a.metadata.cat, 'brushes');
+assert.deepEqual(a.metadata.tags, ['brushes', 'cute']);
+assert.equal(a.metadata.flowerTag, 'NEW');
+assert.equal(a.metadata.version, '1.2');
+assert.equal(a.metadata.date, '2026-09-20');
+assert.equal(a.metadata.credit, 'Credit Crabbie');
+assert.equal(a.metadata.license, 'Personal use');
+assert.equal(a.metadata.update, 'New brushes');
 assert.equal(formatAssetRow({ id: 'cleared', media: 'stale.zip', downloadUrl: '' }).file_path, '', 'Clearing the editor download URL must persist');
 
 // 3. Commission
