@@ -73,6 +73,15 @@ exception when duplicate_object then null;
 end $$;
 
 -- 5. Server-side bucket restrictions mirror the client media policy ----------
+-- NOTE (draft vs public media, Batch 3): uploaded media still lives in one
+-- public bucket and becomes reachable by URL immediately. A full
+-- draft-bucket -> promote-to-public migration would invalidate every existing
+-- media URL, so it is deliberately NOT performed here. Staged plan:
+--   1. add a private 'media-drafts' bucket plus a promoted_at/published flag,
+--   2. upload drafts privately and promote on publish,
+--   3. migrate existing objects last, writing new URLs into CMS content.
+-- Until step 3 ships, treat unpublished or client-confidential files as
+-- publicly reachable and do not upload them.
 update storage.buckets
    set file_size_limit = 52428800,
        allowed_mime_types = array[
