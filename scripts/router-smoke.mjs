@@ -1224,10 +1224,15 @@ try {
     await loginAdmin();
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
 
-    // Test 8: normal hydration only reads active media.
-    const mediaRead = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').pop());
-    assert.deepEqual(mediaRead.filters, [['deletion_status', 'active']], 'media hydration is restricted to active rows');
+    // Test 8: media is lazy-loaded, and the first real library page reads active rows only.
     await goToAdminModule('media');
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) =>
+      read.table === 'media' && (read.filters || []).some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active')
+    ));
+    const mediaRead = await page.evaluate(() => (window.__routerReads || []).filter((read) =>
+      read.table === 'media' && (read.filters || []).some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active')
+    ).pop());
+    assert.deepEqual(mediaRead.filters, [['deletion_status', 'active']], 'the lazy media page is restricted to active rows');
     assert.equal(await page.locator('.adm-media-card').count(), 4, 'a tombstoned row is never listed as active media');
 
     // Test 2: a referenced thumbnail blocks the deletion outright.
