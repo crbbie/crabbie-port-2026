@@ -386,6 +386,12 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pf-s{ grid-column: span 2; grid-row: span 2; }
 .pf-w{ grid-column: span 3; grid-row: span 2; }
 .pf-l .work-title{ font-size: 22px; }
+#pfGrid .work.is-image-card{cursor:zoom-in;overflow:hidden;background:var(--pink-soft);}
+#pfGrid .work.is-image-card .cloud-tag,
+#pfGrid .work.is-image-card .meta{display:none !important;}
+#pfGrid .work.is-image-card .thumb{inset:0;border-radius:25px;}
+#pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
+#pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
 
 /* PROJECT DETAIL */
 .pd-hero{display:grid; grid-template-columns: 1fr 1.05fr;gap: 46px; align-items:center; margin-bottom: 62px;}
@@ -4810,18 +4816,31 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 
 function renderProjectEditor(rec){
 var base = 'portfolio.' + rec.id;
+var imageOnly = rec.cardMode === 'image';
 var pAudit = auditFor('portfolio', rec);
 var blocksHtml = (rec.blocks || []).map(function(b, i){ return renderProjectBlock(rec.id, b, i); }).join('');
 var linksHtml = renderExternalLinks(rec);
-return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="portfolio.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b> · ' + (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft')) + '</p>' +
-checklistPanel(pAudit) +
-'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 }) + '<div class="adm-row three" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' + '<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.cover'), base + '.cover') + '</div></div>' +
+var modeLabel = currentAdminLang === 'vi' ? 'Kiểu hiển thị' : 'Display type';
+var modeOptions = [
+  { value:'project', label: currentAdminLang === 'vi' ? 'Project đầy đủ (có trang chi tiết)' : 'Full project (detail page)' },
+  { value:'image', label: currentAdminLang === 'vi' ? 'Thẻ ảnh / Illustration (bấm để phóng to)' : 'Image / Illustration card (click to zoom)' }
+];
+var basic =
+'<div class="adm-section"><h4>Basic info</h4>' +
+'<div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' +
+'<div class="adm-row" style="margin-top:10px;">' + inputSelect(modeLabel, base + '.cardMode', modeOptions) + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + '</div>' +
+'<div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' +
+(imageOnly ? '' : inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 })) +
+'<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail', { hint: imageOnly ? (currentAdminLang === 'vi' ? 'Ảnh này sẽ là toàn bộ thẻ và ảnh phóng to.' : 'This image becomes the whole card and its zoom image.') : '' }) + (imageOnly ? '' : mediaField(tAdmin('label.cover'), base + '.cover')) + '</div></div>';
+var projectOnly = imageOnly ? '' :
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="portfolio.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b> · ' + (imageOnly ? (currentAdminLang === 'vi' ? 'Thẻ ảnh' : 'Image card') : (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft'))) + '</p>' +
+checklistPanel(pAudit) +
+basic + projectOnly +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="portfolio" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm" data-adm-preview="project" data-adm-id="' + esc(rec.id) + '">' + esc(tAdmin('btn.previewSaved')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="portfolio">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
-
 function renderExternalLinks(rec){
 var base = 'portfolio.' + rec.id;
 var links = rec.externalLinks || [];
@@ -5547,7 +5566,7 @@ var listKey = btn.getAttribute('data-adm-new');
 /* A new draft gets a unique client identity and no slug: the slug is chosen by
    the user, and the row is INSERTed (never upserted over another record). */
 var id = newAdminClientId();
-if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', cardMode:'project', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', tags:[], thumbnail:'', media:'', mediaType:'image', downloadUrl:'', driveUrl:'', showDirectDownload:true, showDriveDownload:false, fileFormat:'', license:'', credit:'', version:'', updateNote:'', dateAdded:'', flowerTag:'', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
@@ -5575,7 +5594,8 @@ if(kind === 'project'){
   var id = btn.getAttribute('data-adm-id');
   var projectDraft = (ADMIN_DRAFT.portfolio || []).filter(function(r){ return r.id === id || r.slug === id; })[0];
   var projectSlug = projectDraft && projectDraft.slug ? projectDraft.slug : id;
-  if(PROJECTS[projectSlug]) navigate('project/' + encodeURIComponent(projectSlug)); else navigate('portfolio');
+  if(projectDraft && projectDraft.cardMode === 'image') navigate('portfolio');
+  else if(PROJECTS[projectSlug]) navigate('project/' + encodeURIComponent(projectSlug)); else navigate('portfolio');
 }
 else if(kind === 'asset'){
   var aid = btn.getAttribute('data-adm-id');
@@ -5630,7 +5650,7 @@ setByPath(ADMIN_DRAFT, path, v);
 markDirty(path);
 refreshAuditPanels(module);
 /* A field-type change swaps the option editor: re-render from the draft. */
-if(/.type$/.test(path) || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
+if(/\.type$/.test(path) || /\.cardMode$/.test(path) || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
 });
 });
 $$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
@@ -6650,6 +6670,30 @@ var text = String(value || fallback || '').trim();
 if(!text) return '';
 return text.replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
 }
+function portfolioIsImageCard(record){ return !!(record && record.cardMode === 'image'); }
+function syncPortfolioCardMode(card, record){
+if(!card || !record || !(card.closest && card.closest('#pfGrid'))) return;
+var imageOnly = portfolioIsImageCard(record);
+card.classList.toggle('is-image-card', imageOnly);
+if(imageOnly){
+  var src = safePublicUrl(record.thumbnail, true);
+  if(src){
+    card.setAttribute('href', src);
+    card.setAttribute('data-lightbox-src', src);
+    card.setAttribute('data-lightbox-alt', record.title || 'Illustration');
+    card.setAttribute('aria-label', (record.title || 'Illustration') + ' — open full-size image');
+  } else {
+    card.setAttribute('href', '#portfolio');
+    card.removeAttribute('data-lightbox-src');
+    card.removeAttribute('data-lightbox-alt');
+  }
+} else {
+  card.setAttribute('href', '#project/' + encodeURIComponent(record.slug || ''));
+  card.removeAttribute('data-lightbox-src');
+  card.removeAttribute('data-lightbox-alt');
+  card.removeAttribute('aria-label');
+}
+}
 function portfolioBadgeLabel(record){
 if(record && record.featured) return 'FEATURED';
 return prettyTaxonomyLabel(record && (record.cat || record.categorySlug), 'PROJECT').toUpperCase();
@@ -6705,7 +6749,7 @@ apply: function(records){
     PROJECTS[record.slug] = record;
   });
   Object.keys(PROJECTS).forEach(function(slug){ if(!live[slug]) delete PROJECTS[slug]; });
-  PROJECT_ORDER = records.map(function(record){ return record.slug; });
+  PROJECT_ORDER = records.filter(function(record){ return !portfolioIsImageCard(record); }).map(function(record){ return record.slug; });
 
   var portfolioGrid = document.getElementById('pfGrid');
   if(portfolioGrid){
@@ -6728,6 +6772,7 @@ apply: function(records){
         thumb +
         '<div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
       portfolioGrid.appendChild(card);
+      syncPortfolioCardMode(card, record);
     });
   }
 
@@ -6741,7 +6786,7 @@ apply: function(records){
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
     var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = publicImage(record.thumbnail, record.title) || '';
     syncPortfolioBadge(card, record);
-    card.setAttribute('href', '#project/' + encodeURIComponent(slug));
+    syncPortfolioCardMode(card, record);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', portfolioFilterGroup(record));
   });
