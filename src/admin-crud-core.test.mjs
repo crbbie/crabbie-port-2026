@@ -39,7 +39,10 @@ const a = formatAssetRow({
   dateAdded: '2026-09-20',
   credit: 'Credit Crabbie',
   license: 'Personal use',
-  updateNote: 'New brushes'
+  updateNote: 'New brushes',
+  driveUrl: 'https://drive.google.com/file/d/example/view',
+  showDirectDownload: false,
+  showDriveDownload: true
 }, 0);
 assert.equal(a.slug, 'test-a');
 assert.equal(a.availability, 'available');
@@ -51,6 +54,9 @@ assert.equal(a.metadata.date, '2026-09-20');
 assert.equal(a.metadata.credit, 'Credit Crabbie');
 assert.equal(a.metadata.license, 'Personal use');
 assert.equal(a.metadata.update, 'New brushes');
+assert.equal(a.metadata.driveUrl, 'https://drive.google.com/file/d/example/view');
+assert.equal(a.metadata.showDirectDownload, false);
+assert.equal(a.metadata.showDriveDownload, true);
 assert.equal(formatAssetRow({ id: 'cleared', media: 'stale.zip', downloadUrl: '' }).file_path, '', 'Clearing the editor download URL must persist');
 
 // 3. Commission
