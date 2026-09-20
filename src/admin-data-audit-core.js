@@ -84,18 +84,21 @@ const hasSubstantialProjectContent = (rec) =>
   !isBlank(rec.intro) || !isBlank(rec.sketch) || !isBlank(rec.process) || !isBlank(rec.body);
 
 export function auditPortfolioRecord(rec = {}) {
-  const required = ['title', 'slug', 'category', 'thumbnail', 'cover', 'description'];
+  const imageOnly = rec.cardMode === 'image';
+  const required = imageOnly
+    ? ['title', 'slug', 'category', 'thumbnail']
+    : ['title', 'slug', 'category', 'thumbnail', 'cover', 'description'];
   const missing = required.filter((k) => isBlank(rec[k]));
   const warnings = [];
   if (isBlank(rec.tags)) warnings.push('no-tags');
   if (isBlank(rec.date) && isBlank(rec.year)) warnings.push('no-date');
-  if (!hasSubstantialProjectContent(rec)) warnings.push('no-content-blocks');
+  if (!imageOnly && !hasSubstantialProjectContent(rec)) warnings.push('no-content-blocks');
   if (rec.placeholder) warnings.push('record-flagged-placeholder');
   return finalize({
     status: 'complete',
     required,
     missing,
-    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'cover']),
+    placeholders: scanFields(rec, imageOnly ? ['title', 'thumbnail'] : ['title', 'description', 'thumbnail', 'cover']),
     warnings,
     critical: []
   });
