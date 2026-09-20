@@ -54,11 +54,26 @@ export function normalizeSlug(value) {
   return value == null ? '' : String(value).trim();
 }
 
+export function slugFromTitle(value) {
+  const source = value == null ? '' : String(value).trim();
+  if (!source) return '';
+  return source
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (char) => char === 'Đ' ? 'D' : 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
 function requireSlug(scope, record) {
-  const slug = normalizeSlug(record && record.slug);
-  if (slug) return slug;
-  if (isNewAdminRecord(record)) throw new Error('Enter a slug before saving this new record.');
-  throw new Error('This record needs a slug before it can be saved.');
+  const authored = normalizeSlug(record && record.slug);
+  if (authored) return authored;
+  const generated = slugFromTitle(record && record.title);
+  if (generated) return generated;
+  if (isNewAdminRecord(record)) throw new Error('Enter a title so a slug can be generated before saving this new record.');
+  throw new Error('This record needs a title or slug before it can be saved.');
 }
 
 function pageSlugForScope(scope) {
@@ -215,7 +230,16 @@ export function classifyAdminWriteError(error) {
     return { code: 'missing_reference', message: 'A related record is missing, so this change cannot be saved.', detail };
   }
   if (code === '23502' || /null value in column/i.test(detail)) {
-    return { code: 'missing_field', message: 'A required field is empty, so this change cannot be saved.', detail };
+    const match = detail.match(/null value in column ["']?([^"'\s]+)["']?/i);
+    const field = match ? match[1] : null;
+    return {
+      code: 'missing_field',
+      field,
+      message: field
+        ? `Required field "${field}" is empty. Fill it in and save again.`
+        : 'A required field is empty. Fill the missing field and save again.',
+      detail
+    };
   }
   if (code === '23514' || /check constraint/i.test(detail)) {
     return { code: 'invalid_value', message: 'One of the values is not allowed by the database.', detail };
@@ -234,6 +258,7 @@ export function adminWriteError(error) {
   const wrapped = new Error(info.message);
   wrapped.code = info.code;
   wrapped.detail = info.detail;
+  if (info.field) wrapped.field = info.field;
   return wrapped;
 }
 
