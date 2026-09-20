@@ -164,13 +164,43 @@ export function planNavigationOrderWrites(list) {
   return planRecordOrderWrites(list);
 }
 
-/** Settings are key/value singletons: only the requested keys are written. */
-export function planSettingsWrites(settings, keys) {
+/**
+ * Settings are key/value singletons: only the requested keys are planned, and a
+ * key that was loaded from the database keeps its own updated_at baseline so a
+ * stale settings save changes zero rows instead of overwriting a newer value.
+ */
+export function planSettingWrites(settings, settingsMeta, keys) {
   const source = settings && typeof settings === 'object' ? settings : {};
+  const meta = settingsMeta && typeof settingsMeta === 'object' ? settingsMeta : {};
   const selected = Array.isArray(keys) ? keys : Object.keys(source);
   return selected
     .filter((key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(source, key))
-    .map((key) => formatSettingRow(key, source[key]));
+    .map((key) => {
+      const entry = meta[key];
+      const baseline = entry && typeof entry.originalUpdatedAt === 'string' && entry.originalUpdatedAt ? entry.originalUpdatedAt : null;
+      return {
+        key,
+        mode: baseline ? 'update' : 'insert',
+        originalUpdatedAt: baseline,
+        payload: formatSettingRow(key, source[key])
+      };
+    });
+}
+
+/** Only a confirmed database response may advance a settings baseline. */
+export function applySettingSaveMeta(settingsMeta, key, row) {
+  if (!settingsMeta || typeof settingsMeta !== 'object' || !key || !row) return settingsMeta;
+  if (typeof row.updated_at === 'string' && row.updated_at) {
+    settingsMeta[key] = Object.assign({}, settingsMeta[key], { originalUpdatedAt: row.updated_at });
+  }
+  return settingsMeta;
+}
+
+/** A primary-key or unique-constraint violation means the row already exists. */
+export function isUniqueViolation(error) {
+  const detail = String((error && error.message) || '');
+  const code = error && error.code ? String(error.code) : '';
+  return code === '23505' || /duplicate key|unique constraint/i.test(detail);
 }
 
 /** Turns a database error into an action-able user message plus a detail trail. */

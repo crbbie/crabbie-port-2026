@@ -6,7 +6,9 @@ import {
   buildAdminWritePlan,
   planCategoryOrderWrites,
   planNavigationOrderWrites,
-  planSettingsWrites,
+  planSettingWrites,
+  applySettingSaveMeta,
+  isUniqueViolation,
   classifyAdminWriteError,
   adminWriteError,
   concurrencyConflictError,
@@ -99,10 +101,30 @@ assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_or
 assert.deepEqual(planCategoryOrderWrites('asset', []), []);
 assert.deepEqual(planNavigationOrderWrites(null), []);
 
-// --- settings singletons ----------------------------------------------------
-assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' }, seo: { title: 'x' } }, ['branding']), [{ key: 'branding', value: { title: 'CRABBIE' } }]);
-assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' } }, []), []);
-assert.deepEqual(planSettingsWrites({ branding: { title: 'CRABBIE' } }, null), [{ key: 'branding', value: { title: 'CRABBIE' } }]);
+// --- settings singletons: only touched keys, each under its own baseline ----
+const settingsDraft = { branding: { title: 'CRABBIE' }, seo: { title: 'x' } };
+assert.deepEqual(planSettingWrites(settingsDraft, {}, ['branding']), [
+  { key: 'branding', mode: 'insert', originalUpdatedAt: null, payload: { key: 'branding', value: { title: 'CRABBIE' } } }
+], 'a key without a baseline is inserted');
+assert.deepEqual(planSettingWrites(settingsDraft, { branding: { originalUpdatedAt: '2026-05-05T00:00:00Z' } }, ['branding']), [
+  { key: 'branding', mode: 'update', originalUpdatedAt: '2026-05-05T00:00:00Z', payload: { key: 'branding', value: { title: 'CRABBIE' } } }
+], 'a loaded key is updated under its hydrated baseline');
+assert.deepEqual(planSettingWrites(settingsDraft, {}, []), [], 'no touched keys means no writes');
+assert.deepEqual(planSettingWrites(settingsDraft, {}, ['seo']).map((plan) => plan.key), ['seo'], 'only touched keys are planned');
+assert.equal(planSettingWrites(settingsDraft, {}, null).length, 2, 'all keys are written only when the caller asks for all');
+assert.deepEqual(planSettingWrites({}, {}, ['branding']), [], 'a key missing from the draft is skipped');
+assert.equal(planSettingWrites(settingsDraft, { branding: { originalUpdatedAt: '' } }, ['branding'])[0].mode, 'insert', 'an empty baseline falls back to insert semantics');
+
+const settingsMeta = { branding: { originalUpdatedAt: '2026-05-05T00:00:00Z' } };
+applySettingSaveMeta(settingsMeta, 'branding', { key: 'branding', updated_at: '2026-06-06T00:00:00Z' });
+assert.equal(settingsMeta.branding.originalUpdatedAt, '2026-06-06T00:00:00Z', 'the settings baseline advances after a confirmed save');
+applySettingSaveMeta(settingsMeta, 'branding', { key: 'branding' });
+assert.equal(settingsMeta.branding.originalUpdatedAt, '2026-06-06T00:00:00Z', 'a response without updated_at must not invent a baseline');
+assert.equal(settingsMeta.branding.title, undefined, 'the baseline map never carries the stored value');
+assert.equal(isUniqueViolation({ code: '23505', message: 'duplicate key value violates unique constraint "site_settings_pkey"' }), true);
+assert.equal(isUniqueViolation({ message: 'unique constraint violated' }), true);
+assert.equal(isUniqueViolation({ message: 'network down' }), false);
+assert.equal(concurrencyConflictError('settings').code, 'stale_save', 'settings conflicts reuse the record conflict code');
 
 // --- error classification ---------------------------------------------------
 const duplicate = classifyAdminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "portfolio_projects_slug_key"' });

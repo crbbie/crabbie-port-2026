@@ -7,7 +7,9 @@ import {
   buildAdminWritePlan,
   planCategoryOrderWrites,
   planRecordOrderWrites,
-  planSettingsWrites,
+  planSettingWrites,
+  applySettingSaveMeta,
+  isUniqueViolation,
   adminWriteError,
   concurrencyConflictError,
   missingRecordError,
@@ -138,18 +140,51 @@ export async function saveAdminRecord(scope, record, options = {}) {
   return { success: true, mode: plan.mode, table: plan.table, row };
 }
 
-export async function saveAdminSettings(settings, keys) {
+function settingsWriteError(error, key) {
+  if (isUniqueViolation(error)) {
+    // The key appeared in another session between hydration and this save:
+    // report the same conflict the record saves report instead of overwriting.
+    const conflict = concurrencyConflictError('settings');
+    conflict.detail = String((error && error.message) || '');
+    conflict.settingKey = key;
+    return conflict;
+  }
+  return adminWriteError(error);
+}
+
+/**
+ * Settings are written per touched key. A key that was hydrated keeps its own
+ * updated_at baseline, so a save that lost a race changes zero rows and is
+ * reported as a conflict instead of overwriting the newer stored value.
+ */
+export async function saveAdminSettings(settings, keys, settingsMeta) {
   assertAdminReadyForMutation();
   if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
 
-  const rows = planSettingsWrites(settings, keys);
-  if (!rows.length) return { success: true, table: 'site_settings', count: 0 };
+  const plans = planSettingWrites(settings, settingsMeta, keys);
+  if (!plans.length) return { success: true, table: 'site_settings', count: 0 };
 
-  // site_settings is a key/value singleton table (primary key = key), so one
-  // keyed upsert can only replace the row it names.
-  const response = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' }).select('key');
-  if (response.error) throw adminWriteError(response.error);
-  return { success: true, table: 'site_settings', count: rows.length };
+  // One guarded write per touched key: a settings row is a key/value singleton,
+  // so the key and its baseline both belong in the statement itself.
+  for (const plan of plans) {
+    if (plan.mode === 'update') {
+      let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
+      if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
+      const response = await request.select('key, updated_at').maybeSingle();
+      if (response.error) throw adminWriteError(response.error);
+      if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('settings');
+      applySettingSaveMeta(settingsMeta, plan.key, response.data);
+    } else {
+      // A key that was never loaded is inserted; if another session created it
+      // first, the key conflict is surfaced instead of an overwrite.
+      const response = await supabase.from('site_settings').insert(plan.payload).select('key, updated_at').maybeSingle();
+      if (response.error) throw settingsWriteError(response.error, plan.key);
+      if (!response.data) throw missingRecordError('settings');
+      applySettingSaveMeta(settingsMeta, plan.key, response.data);
+    }
+  }
+
+  return { success: true, table: 'site_settings', count: plans.length };
 }
 
 /**

@@ -406,7 +406,7 @@ try {
     assert.deepEqual(scopedWrites['pages.about'], ['cms_pages:update']);
     assert.deepEqual(scopedWrites['pages.terms'], ['cms_pages:update']);
     assert.deepEqual(scopedWrites['navigation'], ['cms_navigation:insert']);
-    assert.deepEqual(scopedWrites['settings'], ['site_settings:upsert']);
+    assert.deepEqual(scopedWrites['settings'], ['site_settings:insert'], 'a settings key without a baseline is inserted');
     assert.deepEqual(scopedWrites['portfolioCategories'], ['cms_categories:insert']);
     // Leaving the admin area with unsaved edits is now guarded: discard the
     // draft explicitly through the sticky bar before public CMS rendering.
@@ -644,6 +644,20 @@ try {
     await loginAdmin();
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
 
+    /* Toast assertions must never read the previous toast: clear it first. */
+    const clearToast = () => page.evaluate(() => {
+      const el = document.getElementById('toast');
+      el.classList.remove('show');
+      el.textContent = '';
+    });
+    const readToast = async () => {
+      await page.waitForFunction(() => {
+        const el = document.getElementById('toast');
+        return el.classList.contains('show') && el.textContent.trim() !== '';
+      });
+      return page.locator('#toast').innerText();
+    };
+
     // Test 1 + Test 5: one portfolio edit updates only that row, by DB id.
     await goToAdminModule('portfolio');
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Edited once');
@@ -704,9 +718,9 @@ try {
     await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Duplicate attempt');
     await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').fill('color-fiesta');
     await page.evaluate(() => { window.__routerWrites = []; });
+    await clearToast();
     await page.locator('[data-adm-save="portfolio"]').click();
-    await page.waitForFunction(() => document.querySelector('#toast').classList.contains('show'));
-    assert.match(await page.locator('#toast').innerText(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
+    assert.match(await readToast(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
     assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'color-fiesta', 'the draft slug is preserved');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
     assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').map(r => r.title)), ['Edited once'], 'the existing row is untouched');
@@ -776,10 +790,10 @@ try {
     const countBeforeDelete = await adminRecordCount();
     await page.locator('.adm-record[data-adm-id="second-project"]').click();
     await page.evaluate(() => { window.__routerWriteError = { table:'portfolio_projects', operation:'delete', message:'Network request failed' }; });
+    await clearToast();
     await page.locator('[data-adm-delete-list="portfolio"]').click();
     await page.locator('#adminConfirmOk').click();
-    await page.waitForFunction(() => document.querySelector('#toast').classList.contains('show'));
-    assert.match(await page.locator('#toast').innerText(), /Delete failed/i, 'a failed delete is reported to the user');
+    assert.match(await readToast(), /Delete failed/i, 'a failed delete is reported to the user');
     assert.equal(await adminRecordCount(), countBeforeDelete, 'the record stays in the admin list after a failed delete');
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.some(r => r.slug === 'second-project')), true, 'the row is still in the database');
     assert.equal(await page.locator('.adm-record[data-adm-id="second-project"]').getAttribute('aria-selected'), 'true', 'selection stays coherent after a failed delete');
@@ -803,7 +817,7 @@ try {
       const results = {
         save: await attempt(() => window.CrabbieAdminCrud.saveRecord('portfolio', { id:'x', dbId:null, slug:'x', title:'X', category:'illustration', tags:[] })),
         order: await attempt(() => window.CrabbieAdminCrud.saveOrder('portfolio', [])),
-        settings: await attempt(() => window.CrabbieAdminCrud.saveSettings({ branding: { title:'X' } }, ['branding'])),
+        settings: await attempt(() => window.CrabbieAdminCrud.saveSettings({ branding: { title:'X' } }, ['branding'], { branding: { originalUpdatedAt: '2026-01-01T00:00:00Z' } })),
         remove: await attempt(() => window.CrabbieAdminCrud.deleteRecord('portfolio', { id:'x', dbId:'00000000-0000-4000-8000-000000000101' }))
       };
       window.CrabbieAdminCrud.setAdminLoadState('ready');
@@ -813,6 +827,73 @@ try {
       assert.equal(gateResults[name], 'Admin data is not ready for mutation.', name + ' must respect the load-state gate');
     }
     console.log('PASS record, order, settings and delete mutations all refuse to run while not ready (SDK fixture)');
+
+    // ---- Settings concurrency: two sessions, one site_settings key ----------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminCrud && window.CrabbieAdminCrud.saveSettings));
+    await page.evaluate(() => {
+      window.__routerRows = {
+        site_settings: [
+          { key:'branding', value:{ title:'CRABBIE' }, updated_at:'2026-03-01T00:00:00Z' },
+          { key:'seo', value:{ title:'Old SEO' }, updated_at:'2026-03-02T00:00:00Z' }
+        ]
+      };
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+      window.__routerWriteError = null;
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goToAdminModule('settings');
+
+    const settingsRow = () => page.evaluate(() => {
+      const row = window.__routerRows.site_settings.find(r => r.key === 'branding');
+      return { title: row.value.title, updated_at: row.updated_at };
+    });
+
+    // Session A saves the key it hydrated.
+    await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="settings"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const settingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
+    assert.equal(settingsWrites.length, 1, 'only the touched settings key is written');
+    assert.equal(settingsWrites[0].table, 'site_settings');
+    assert.equal(settingsWrites[0].op, 'update', 'a hydrated settings key is UPDATEd, never re-inserted');
+    assert.deepEqual(settingsWrites[0].filters, [['key', 'branding'], ['updated_at', '2026-03-01T00:00:00Z']], 'the settings write is guarded by key + hydrated baseline');
+    assert.equal(settingsWrites[0].payload.value.title, 'Edited branding');
+    const savedBranding = await settingsRow();
+    assert.equal(savedBranding.title, 'Edited branding');
+    assert.notEqual(savedBranding.updated_at, '2026-03-01T00:00:00Z', 'the database advanced updated_at');
+    assert.equal(await page.evaluate(() => window.__routerRows.site_settings.find(r => r.key === 'seo').updated_at), '2026-03-02T00:00:00Z', 'an untouched settings key is not written');
+    console.log('PASS one settings save writes only the touched key under its baseline (SDK fixture)');
+
+    // The advanced baseline is used by the next save from the same session.
+    await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding twice');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-adm-save="settings"]').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    const secondSettingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
+    assert.equal(secondSettingsWrites[0].filters[1][1], savedBranding.updated_at, 'the settings baseline advanced to the returned updated_at');
+    console.log('PASS the settings baseline advances after a successful save (SDK fixture)');
+
+    // Session B still holds the old baseline, so its save must be rejected.
+    await page.evaluate(() => {
+      const row = window.__routerRows.site_settings.find(r => r.key === 'branding');
+      row.value = { title: 'OTHER SESSION' };
+      row.updated_at = '2026-09-09T00:00:00Z';
+    });
+    await page.locator('[data-adm-path="settings.branding.title"]').fill('MY STALE EDIT');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await clearToast();
+    await page.locator('[data-adm-save="settings"]').click();
+    assert.match(await readToast(), /Conflict/i, 'a stale settings save reports the same conflict as records');
+    assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), 'MY STALE EDIT', 'the stale settings draft is preserved');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the stale settings draft stays dirty');
+    assert.deepEqual(await settingsRow(), { title: 'OTHER SESSION', updated_at: '2026-09-09T00:00:00Z' }, 'the newer stored value is not overwritten');
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['update'], 'the stale save attempted one guarded update only');
+    console.log('PASS a stale settings save is rejected and the newer value survives (SDK fixture)');
   }
 } finally {
   if (browser) await browser.close();

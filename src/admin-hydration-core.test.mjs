@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { assertAdminHydrationResults, mapAdminCollection, mapAdminHydrationResults, mapAdminPages, mapAdminSettings } from './admin-hydration-core.js';
+import { assertAdminHydrationResults, mapAdminCollection, mapAdminHydrationResults, mapAdminPages, mapAdminSettings, mapSettingsMeta } from './admin-hydration-core.js';
 
 const names = ['portfolio', 'assets', 'categories', 'commissions', 'forms', 'pages', 'navigation', 'settings', 'requests', 'media'];
 const empty = Object.fromEntries(names.map((name) => [name, { data: [] }]));
@@ -99,5 +99,22 @@ assert.equal(identity.pages.about.originalUpdatedAt, '2026-01-08T00:00:00Z');
 const noUuid = mapAdminHydrationResults({ ...empty, portfolio: { data: [{ slug: 'x', title: 'X', content: {} }] } }, () => '');
 assert.equal(noUuid.portfolio[0].dbId, null);
 assert.equal(noUuid.portfolio[0].originalUpdatedAt, null);
+
+// Settings keep a per-key updated_at baseline beside the value payload.
+const settingsSnapshot = mapAdminHydrationResults({
+  ...empty,
+  settings: { data: [
+    { key: 'branding', value: { title: 'CRABBIE' }, updated_at: '2026-07-07T00:00:00Z' },
+    { key: 'seo', value: { title: 'SEO' } }
+  ] }
+}, () => '');
+assert.deepEqual(settingsSnapshot.settings.branding, { title: 'CRABBIE' });
+assert.deepEqual(settingsSnapshot.settingsMeta, {
+  branding: { originalUpdatedAt: '2026-07-07T00:00:00Z' },
+  seo: { originalUpdatedAt: null }
+}, 'settings baselines never leak into the stored value');
+assert.equal('settingsMeta' in mapAdminHydrationResults(empty, () => ''), true, 'an empty snapshot still carries the baseline map');
+assert.deepEqual(mapAdminHydrationResults(empty, () => '').settingsMeta, {});
+assert.deepEqual(mapSettingsMeta([]), {});
 
 console.log('Admin hydration safety tests passed.');

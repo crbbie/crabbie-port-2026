@@ -4026,9 +4026,12 @@ return;
 }
 if(target.kind === 'settings'){
 ADMIN_DATA.settings = ADMIN_DATA.settings || {};
+ADMIN_DATA.settingsMeta = ADMIN_DATA.settingsMeta || {};
+var draftMeta = ADMIN_DRAFT.settingsMeta || {};
 var keys = target.keys || Object.keys(ADMIN_DRAFT.settings || {});
 keys.forEach(function(key){
 if(ADMIN_DRAFT.settings) ADMIN_DATA.settings[key] = clone(ADMIN_DRAFT.settings[key]);
+if(draftMeta[key]) ADMIN_DATA.settingsMeta[key] = clone(draftMeta[key]);
 });
 return;
 }
@@ -4072,7 +4075,8 @@ async function doSaveCommit(msg, scope){
       if(target.kind === 'order'){
         await crud.saveOrder(target.scope, adminListForScope(target.scope));
       } else if(target.kind === 'settings'){
-        await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys);
+        if(!ADMIN_DRAFT.settingsMeta) ADMIN_DRAFT.settingsMeta = {};
+        await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys, ADMIN_DRAFT.settingsMeta);
       } else {
         var record = adminRecordForTarget(target);
         if(!record) continue;
@@ -4158,6 +4162,8 @@ if(!live) throw new Error('Admin hydration returned no snapshot.');
 /* Atomic swap: only one complete live snapshot may replace admin state. */
 ADMIN_DATA = live;
 ADMIN_DRAFT = clone(live);
+/* Settings baselines live beside the draft values, never inside them. */
+ADMIN_DRAFT.settingsMeta = clone(live.settingsMeta || {});
 ADMIN_UI.selection = initialAdminSelection(live);
 ADMIN_UI.dirty = false;
 setAdminLoadState('ready');
@@ -4180,6 +4186,8 @@ hydrateAdminSnapshot();
 function resetAdminSessionState(){
 ADMIN_DATA = buildAdminData();
 ADMIN_DRAFT = clone(ADMIN_DATA);
+ADMIN_DATA.settingsMeta = {};
+ADMIN_DRAFT.settingsMeta = {};
 ADMIN_UI.selection = initialAdminSelection(ADMIN_DATA);
 resetAdminDirtyState();
 ADMIN_UI.subtab = { portfolio:'items', assets:'items', commissions:'items', settings:'settings' };

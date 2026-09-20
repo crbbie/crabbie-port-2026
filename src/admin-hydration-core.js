@@ -219,6 +219,17 @@ export function mapAdminSettings(data) {
   return settings;
 }
 
+/** Per-key settings baselines, kept beside the value payload so the stored
+ *  jsonb value never has to carry bookkeeping fields. */
+export function mapSettingsMeta(data) {
+  const meta = {};
+  mapAdminCollection(data, (row) => {
+    meta[row.key] = { originalUpdatedAt: typeof row.updated_at === 'string' && row.updated_at ? row.updated_at : null };
+    return row;
+  });
+  return meta;
+}
+
 /**
  * Builds one complete admin snapshot from the raw Supabase query responses.
  * Throws for any failed query and never merges partial results, so callers can
@@ -240,6 +251,7 @@ export function mapAdminHydrationResults(results, getPublicUrl) {
     pages: mapAdminPages(results?.pages?.data),
     navigation: withRecordIdentity(results?.navigation?.data, mapNavigationRow),
     settings: mapAdminSettings(results?.settings?.data),
+    settingsMeta: mapSettingsMeta(results?.settings?.data),
     requests: withRecordIdentity(results?.requests?.data, (row) => formatRequestRowForAdmin(row)),
     media: mapAdminCollection(results?.media?.data, (row) => formatMediaItem(row, urlFor))
   };
