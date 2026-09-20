@@ -1845,6 +1845,221 @@ try {
     assert.doesNotMatch(pvHtml, /setByPath\(ADMIN_DRAFT, [^,]+, [^)]*thumbnailUrl/, 'CMS fields never receive a thumbnail URL');
     console.log('PASS media preview is lazy, canonical, accessible and action handlers never duplicate (SDK fixture)');
 
+    // ---- Batch 5 Group 6: drag/drop reuses the uploader, picker multi ------
+    const ixSeed = (index) => '00000000-0000-4000-8000-0000000009' + String(70 + index);
+    const ixMediaReads = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').length);
+    const ixItemUrls = () => page.$$eval('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]', (els) => els.map((el) => el.value));
+
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = ['art0.png', 'loop1.gif', 'clip1.mp4'].map((name, index) => ({
+        id: '00000000-0000-4000-8000-0000000009' + String(70 + index),
+        bucket_id: 'media', storage_path: 'uploads/' + name, original_name: name,
+        mime_type: index === 0 ? 'image/png' : (index === 1 ? 'image/gif' : 'video/mp4'),
+        size_bytes: 2048, alt_text: 'alt ' + index, sha256: null,
+        deletion_status: 'active', deleted_at: null, deletion_error: null,
+        created_at: '2026-03-0' + (index + 1) + 'T00:00:00Z'
+      }));
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000401', slug: 'ix-project', title: 'Interactions project',
+        description: 'Blocks', category: 'illustration', tags: [], thumbnail_path: '', cover_path: '',
+        content: { blocks: [{ type: 'gallery', open: true, items: [] }] },
+        featured: false, published: true, placeholder: false, sort_order: 1,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerWrites = [];
+      window.__routerStorageWrites = [];
+      window.__routerBulkCalls = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-card').length >= 3);
+
+    const ixDropUploads = await page.evaluate(() => (window.__routerStorageWrites || []).length);
+    const ixReadsBeforeDrop = await page.evaluate(() => (window.__routerReads || []).length);
+    const ixDropHighlight = await page.evaluate(() => {
+      const zone = document.querySelector('#adminContent [data-adm-media-drop]');
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(64)], 'dropped.png', { type: 'image/png' }));
+      const dragOver = new Event('dragover', { bubbles: true, cancelable: true });
+      Object.defineProperty(dragOver, 'dataTransfer', { value: transfer });
+      zone.dispatchEvent(dragOver);
+      const highlighted = zone.classList.contains('adm-dropzone-active');
+      const dragLeave = new Event('dragleave', { bubbles: true, cancelable: true });
+      Object.defineProperty(dragLeave, 'dataTransfer', { value: transfer });
+      zone.dispatchEvent(dragLeave);
+      const cleared = !zone.classList.contains('adm-dropzone-active');
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+      zone.dispatchEvent(drop);
+      return { highlighted, cleared };
+    });
+    assert.deepEqual(ixDropHighlight, { highlighted: true, cleared: true }, 'the drop zone highlights while a file is dragged over it');
+    await page.waitForFunction((count) => (window.__routerStorageWrites || []).length === count + 1, ixDropUploads);
+    assert.deepEqual(await page.evaluate(() => (window.__routerStorageWrites || []).map((entry) => entry.operation + ':' + entry.contentType)), ['upload:image/png'], 'a dropped file goes through the existing upload pipeline exactly once');
+    await page.waitForFunction((count) => (window.__routerReads || []).length > count, ixReadsBeforeDrop);
+    assert.equal(await page.locator('[data-adm-upload-status]').count() <= 1, true, 'a drop never duplicates the upload status strip');
+
+    const ixRejectedBefore = await page.evaluate(() => (window.__routerStorageWrites || []).length);
+    await page.evaluate(() => {
+      const zone = document.querySelector('#adminContent [data-adm-media-drop]');
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(16)], 'notes.txt', { type: 'text/plain' }));
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+      zone.dispatchEvent(drop);
+    });
+    await page.waitForFunction(() => document.body.innerText.indexOf('No supported files in that drop.') !== -1);
+    assert.equal(await page.evaluate(() => (window.__routerStorageWrites || []).length), ixRejectedBefore, 'an unsupported drop never reaches Storage');
+
+    await page.evaluate(() => { window.location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse]')));
+    const ixItemsTarget = await page.locator('#adminContent [data-adm-mediabrowse$=".items"]').getAttribute('data-adm-mediabrowse');
+    assert.equal(ixItemsTarget.endsWith('.items'), true, 'the gallery block browses its items array');
+    await page.locator('#adminContent [data-adm-mediabrowse$=".items"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length >= 3);
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').isDisabled(), true, 'the apply button waits for a selection');
+    const ixPickerReads = await ixMediaReads();
+    const ixTogglePick = (id) => page.evaluate((target) => {
+      const box = document.querySelector('#adminMediaModal [data-adm-pick-toggle="' + target + '"]');
+      if (!box) throw new Error('pick box missing for ' + target);
+      box.click();
+    }, id);
+    const ixToggleIds = await page.$$eval('#adminMediaModal [data-adm-pick-toggle]', (els) => els.map((el) => el.getAttribute('data-adm-pick-toggle')));
+    assert.equal(ixToggleIds.length >= 3, true, 'every loaded media row offers a pick checkbox');
+    await ixTogglePick(ixToggleIds[0]);
+    await ixTogglePick(ixToggleIds[2]);
+    assert.equal(await ixMediaReads(), ixPickerReads, 'selecting media issues no query');
+    assert.equal(await page.locator('#adminMediaModal [data-adm-media-card][aria-selected="true"]').count(), 2, 'selected picker cards announce aria-selected');
+    await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 2);
+    const ixGalleryUrls = await ixItemUrls();
+    assert.equal(ixGalleryUrls.length, 2, 'multi-select appends one gallery row per selected item');
+    assert.ok(ixGalleryUrls.every((url) => url.indexOf('/uploads/') !== -1), 'gallery rows carry canonical URLs');
+
+    const ixThumbPath = await page.evaluate(() => {
+      const input = document.querySelector('#adminContent [data-adm-path$=".thumbnail"]');
+      return input ? input.getAttribute('data-adm-path') : null;
+    });
+    assert.ok(ixThumbPath, 'the project thumbnail field exists');
+    await page.locator('#adminContent [data-adm-mediabrowse="' + ixThumbPath + '"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick-toggle]').count(), 0, 'a single-value field offers no multi-select');
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    const ixThumbValue = await page.locator('#adminContent [data-adm-path="' + ixThumbPath + '"]').inputValue();
+    assert.ok(ixThumbValue.indexOf('/uploads/') !== -1, 'a single-value field receives exactly one canonical URL');
+    assert.equal((await ixItemUrls()).length, 2, 'a single-value pick never touches the gallery rows');
+
+    for (let ixRound = 0; ixRound < 3; ixRound += 1) {
+      await page.locator('#adminContent [data-adm-mediabrowse="' + ixItemsTarget + '"]').click();
+      await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+      await page.locator('#adminMediaCancel').click();
+      await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    }
+    const ixReadsBeforeStress = await ixMediaReads();
+    await page.locator('#adminContent [data-adm-mediabrowse="' + ixItemsTarget + '"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length >= 3);
+    await ixTogglePick(ixToggleIds[1]);
+    await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 3);
+    const ixStressUrls = await ixItemUrls();
+    assert.equal(new Set(ixStressUrls).size, 3, 'three open/close cycles still append exactly one row for one action');
+    const ixReadsAfterStress = await ixMediaReads();
+    assert.ok(ixReadsAfterStress <= ixReadsBeforeStress + 1, 'reopening the picker never multiplies queries (' + ixReadsBeforeStress + ' -> ' + ixReadsAfterStress + ')');
+
+    // ---- Batch 5 Group 6: bulk delete and the save shortcut ---------------
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-card').length >= 3);
+    await page.evaluate(() => {
+      const media = window.CrabbieAdminMedia;
+      media.bulkDeleteMedia = async (items) => {
+        window.__routerBulkCalls.push({ ids: items.map((item) => item.id) });
+        return items.map((item, index) => ({
+          id: item.id,
+          title: item.title,
+          result: index === 0 ? { success: true } : { success: false, blocked: true, error: 'Referenced by a portfolio block' }
+        }));
+      };
+    });
+    const ixStorageBeforeBulk = await page.evaluate(() => (window.__routerStorageWrites || []).length);
+    const ixCardIds = await page.$$eval('#adminContent [data-adm-media-card]', (els) => els.map((el) => el.getAttribute('data-adm-media-card')));
+    assert.equal(ixCardIds.length >= 3, true, 'the media page lists every loaded row');
+    await page.locator('#adminContent [data-adm-media-card="' + ixCardIds[0] + '"]').click();
+    await page.locator('#adminContent [data-adm-media-card="' + ixCardIds[1] + '"]').click();
+    assert.equal(await page.locator('#adminContent [data-adm-bulk-count]').innerText(), '2 selected', 'selecting cards fills the bulk bar');
+    assert.equal(await page.locator('#adminContent [data-adm-media-card][aria-selected="true"]').count(), 2, 'selected manager cards announce aria-selected');
+    await page.locator('#adminContent [data-adm-bulk-delete]').click();
+    await page.waitForFunction(() => (window.__routerBulkCalls || []).length === 1);
+    assert.deepEqual(await page.evaluate(() => window.__routerBulkCalls.map((call) => call.ids)), [[ixCardIds[0], ixCardIds[1]]], 'bulk delete hands every selected file to the per-file lifecycle');
+    assert.equal(await page.evaluate(() => (window.__routerStorageWrites || []).length), ixStorageBeforeBulk, 'bulk delete never removes objects straight from Storage');
+    await page.waitForFunction(() => {
+      const summary = document.querySelector('#adminContent [data-adm-bulk-summary]');
+      return Boolean(summary) && summary.textContent === 'Bulk delete — deleted: 1, blocked: 1.';
+    });
+    assert.equal(await page.locator('#adminContent [data-adm-bulk-summary]').isVisible(), true, 'the mixed result summary is announced in a live region');
+
+    // Ctrl/Cmd+S saves only the current dirty target, once per key event.
+    await page.evaluate(() => { window.location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-path$=".title"]')));
+    if (await page.locator('#adminConfirmModal.open').count() > 0) {
+      await page.locator('#adminConfirmOk').click();
+      await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
+    }
+    const ixDiscard = page.locator('#adminContent [data-adm-discard]');
+    if (await ixDiscard.count() > 0) {
+      await ixDiscard.first().click();
+      await page.waitForFunction(() => Boolean(document.querySelector('#adminConfirmModal.open')));
+      await page.locator('#adminConfirmOk').click();
+      await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
+    }
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.keyboard.press('Control+s');
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => (window.__routerWrites || []).length), 0, 'a clean draft is never written by the shortcut');
+
+    const ixTitleField = page.locator('#adminContent [data-adm-path$=".title"]').first();
+    await ixTitleField.fill('Shortcut saved title');
+    await page.keyboard.press('Control+s');
+    await page.waitForFunction(() => (window.__routerWrites || []).length === 1);
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites.map((write) => write.table + ':' + write.operation)), ['portfolio_projects:update'], 'the shortcut writes the current module only');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Shortcut saved title', 'the shortcut save reaches the database fixture');
+    await page.waitForTimeout(500);
+
+    await ixTitleField.fill('Second shortcut title');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.keyboard.press('Control+s');
+    await page.keyboard.press('Control+s');
+    await page.waitForFunction(() => (window.__routerWrites || []).length === 1);
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => (window.__routerWrites || []).length), 1, 'two key events never produce two saves');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Second shortcut title', 'exactly one shortcut save landed');
+
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await ixTitleField.evaluate((el) => el.dispatchEvent(new Event('input', { bubbles: true })));
+    await page.keyboard.press('Control+s');
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => (window.__routerWrites || []).length), 1, 'the shortcut is blocked while a modal is open');
+    await page.locator('#adminMediaCancel').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+
+    await ixTitleField.fill('Conflicting shortcut title');
+    await page.evaluate(() => { window.__routerWrites = []; window.__routerWriteError = { table: 'portfolio_projects', operation: 'update', message: 'stale row version', code: '' }; });
+    await page.keyboard.press('Control+s');
+    await page.waitForFunction(() => (window.__routerWrites || []).length === 1);
+    await page.waitForTimeout(600);
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Second shortcut title', 'a conflicting save never overwrites the stored row');
+    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'a conflicting save keeps the draft dirty');
+    console.log('PASS media drop, picker multi-select, bulk delete and the save shortcut stay single-action (SDK fixture)');
+
 // P4_END
 
   }

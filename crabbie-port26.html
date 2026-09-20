@@ -4602,9 +4602,10 @@ return '<div class="adm-block" data-open="' + (b.open ? 'true' : 'false') + '"><
 function renderMediaItemsEditor(block, path, label){
 var items = block.items || [];
 var rows = items.map(function(m, i){
-return '<div class="adm-media-item"><div class="mi-thumb">🖼</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">URL</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="url" value="' + esc(m.url || '') + '"></label><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc(m.alt || '') + '"></label></div><div class="mi-actions"><button type="button" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '">⎘</button><button type="button" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '">✕</button></div></div></div>';
+var src = m.url || '';
+return '<div class="adm-media-item"><div class="mi-thumb">' + (src ? '<img src="' + esc(src) + '" alt="' + esc(m.alt || '') + '" loading="lazy">' : '🖼') + '</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">URL</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="url" value="' + esc(m.url || '') + '"></label><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc(m.alt || '') + '"></label></div><div class="mi-actions"><button type="button" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '">⎘</button><button type="button" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '">✕</button></div></div></div>';
 }).join('');
-return '<div>' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-mi-add="' + path + '">' + esc(tAdmin('btn.addMedia')) + '</button>';
+return '<div>' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-mi-add="' + path + '">' + esc(tAdmin('btn.addMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + path + '.items">Add from library</button>';
 }
 
 function renderAdminAssets(){
@@ -4974,6 +4975,7 @@ var listClass = mediaPage.view === 'list' ? ' view-list' : '';
 var selection = mediaPage.selected || [];
 return '<div class="adm-list" style="margin-bottom:16px; position:static; max-height:none;">' + mediaViewToolbarHtml() + uploadStatusHtml() +
   (summary ? '<p class="af-hint" data-adm-media-filtersummary="1">Filtered by ' + esc(summary) + '</p>' : '') + '</div>' +
+  (lastBulkSummary ? '<p class="af-hint" role="status" aria-live="polite" data-adm-bulk-summary="1">' + esc(lastBulkSummary) + '</p>' : '') +
   '<div class="adm-bulk-bar" role="status" aria-live="polite" data-adm-bulk-bar="1"' + (selection.length ? '' : ' hidden') + '><span data-adm-bulk-count="1">' + selection.length + ' selected</span>' +
   '<button type="button" class="adm-btn-sm danger" data-adm-bulk-delete="1">Delete selected</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-bulk-clear="1">Clear selection</button></div>' +
@@ -5061,6 +5063,19 @@ adminContent.addEventListener('click', function(event){
     if(copyTarget) copyMediaUrl(copyTarget.url);
     return;
   }
+  var bulkClearBtn = event.target.closest('[data-adm-bulk-clear]');
+  if(bulkClearBtn){ mediaPage.selected = []; renderAdmin('media'); return; }
+  var bulkDeleteBtn = event.target.closest('[data-adm-bulk-delete]');
+  if(bulkDeleteBtn){ bulkDeleteSelectedMedia(); return; }
+  var cardEl = event.target.closest('[data-adm-media-card]');
+  if(cardEl && !event.target.closest('button') && !event.target.closest('a') && !event.target.closest('input')){
+    var selectionApi = window.CrabbieAdminMedia || {};
+    if(typeof selectionApi.toggleSelection === 'function'){
+      mediaPage.selected = selectionApi.toggleSelection(mediaPage.selected, cardEl.getAttribute('data-adm-media-card'));
+      renderAdmin('media');
+    }
+    return;
+  }
   var openBtn = event.target.closest('[data-adm-media-open]');
   if(openBtn){
     var openItem = mediaItemById(openBtn.getAttribute('data-adm-media-open'));
@@ -5081,6 +5096,24 @@ adminContent.addEventListener('change', function(event){
   mediaPage.page = 1;
   loadMediaPage({ page: 1 });
 });
+adminContent.addEventListener('dragover', function(event){
+  var zone = event.target.closest('[data-adm-media-drop]');
+  if(!zone) return;
+  event.preventDefault();
+  zone.classList.add('adm-dropzone-active');
+});
+adminContent.addEventListener('dragleave', function(event){
+  var zone = event.target.closest('[data-adm-media-drop]');
+  if(zone) zone.classList.remove('adm-dropzone-active');
+});
+adminContent.addEventListener('drop', function(event){
+  var zone = event.target.closest('[data-adm-media-drop]');
+  if(!zone) return;
+  event.preventDefault();
+  zone.classList.remove('adm-dropzone-active');
+  uploadDroppedFiles((event.dataTransfer && event.dataTransfer.files) || [], { type: 'mediaTab' });
+});
+
 
 adminContent.addEventListener('input', function(event){
   var input = event.target.closest('[data-adm-media-search]');
@@ -5695,16 +5728,23 @@ async function handleMediaUploadSelected(e){
 var activeMediaTarget = null;
 function mediaPickerCards(){
 var rows = ADMIN_DRAFT.media || [];
+var selected = mediaPage.selected || [];
 if(!rows.length){
   var note = mediaPage.state === 'loading' ? 'Loading media…' : 'No media available yet. Click "Upload file" below to upload an image!';
   return '<div style="grid-column:1/-1;padding:30px 10px;text-align:center;color:var(--berry-soft);font-weight:700;">' + note + '</div>';
 }
+var multiple = activeMediaTargetIsMultiple();
 return rows.map(function(m){
   var src = m.thumbnailUrl || m.url;
+  var isSelected = selected.indexOf(m.id) !== -1;
   var thumb = (m.type === 'image' && src)
-    ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+    ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
     : esc(m.type === 'image' ? '🖼' : '▶');
-  return '<div class="adm-media-card"><div class="adm-media-thumb">' + thumb + '</div><div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div><div class="mb-actions"><button type="button" class="adm-btn-sm primary" data-adm-pick="' + esc(m.id) + '">Use this</button></div></div></div>';
+  return '<div class="adm-media-card' + (isSelected ? ' selected' : '') + '" style="position:relative;" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (isSelected ? 'true' : 'false') + '">' +
+    '<div class="adm-media-thumb">' + thumb + '</div>' +
+    '<div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div>' +
+    '<div class="mb-actions">' + (multiple ? '<label class="adm-media-pickbox" style="position:absolute;top:4px;right:4px;z-index:3;"><input type="checkbox" style="width:18px;height:18px;margin:4px;cursor:pointer;" data-adm-pick-toggle="' + esc(m.id) + '"' + (isSelected ? ' checked' : '') + ' aria-label="Select ' + esc(m.title) + '"></label>' : '') +
+    '<button type="button" class="adm-btn-sm primary" data-adm-pick="' + esc(m.id) + '">' + (multiple ? 'Add this' : 'Use this') + '</button></div></div></div>';
 }).join('');
 }
 
@@ -5714,8 +5754,11 @@ var grid = document.getElementById('adminMediaPickerGrid');
 if(!grid) return;
 var pages = Math.max(1, mediaPage.pageCount || 1);
 var total = mediaPage.total || (ADMIN_DRAFT.media || []).length;
-var pager = '<div style="grid-column:1/-1;" class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-pick-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>Previous</button><span>Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-pick-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>Next</button></div>';
-grid.innerHTML = mediaPickerCards() + pager;
+var selected = mediaPage.selected || [];
+var multiple = activeMediaTargetIsMultiple();
+var footer = '<div style="grid-column:1/-1;" class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-pick-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>Previous</button><span>Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-pick-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>Next</button>' +
+  (multiple ? '<button type="button" class="adm-btn-sm primary" data-adm-pick-apply="1"' + (selected.length ? '' : ' disabled') + '>Use selected (' + selected.length + ')</button>' : '') + '</div>';
+grid.innerHTML = mediaPickerCards() + footer;
 }
 
 var activeMediaTarget = null;
@@ -5723,6 +5766,7 @@ function openMediaPicker(targetPath){
 var modal = document.getElementById('adminMediaModal');
 if(!modal) return;
 activeMediaTarget = targetPath || null;
+mediaPage.selected = [];
 renderMediaPickerGrid();
 modal.classList.add('open');
 if(mediaPage.state === 'idle' || !(ADMIN_DRAFT.media || []).length){ loadMediaPage({ page: mediaPage.page, onLoaded: function(){ renderMediaPickerGrid(); } }); }
@@ -5862,6 +5906,150 @@ document.addEventListener('keydown', function(event){
 });
 }
 
+/* --------------------------- interactions helpers ------------------------- */
+/** Drops reuse the Batch 4 uploader: one serialized task per accepted file. */
+async function uploadDroppedFiles(fileList, context){
+var media = window.CrabbieAdminMedia || {};
+var files = typeof media.acceptedDropFiles === 'function' ? media.acceptedDropFiles(fileList) : [];
+if(!files.length){ toast(typeof media.dropMessage === 'function' ? media.dropMessage(files) : 'No supported files in that drop.'); return 0; }
+for(var i = 0; i < files.length; i += 1){
+  currentUploadContext = context || { type: 'mediaTab' };
+  await handleMediaUploadSelected({ target: { files: [files[i]], value: '' } });
+}
+return files.length;
+}
+
+function activeMediaBlock(){
+if(!activeMediaTarget) return null;
+var parts = String(activeMediaTarget).split('.');
+var index = parts.lastIndexOf('blocks');
+if(index === -1) return null;
+var blocks = getByPath(ADMIN_DRAFT, parts.slice(0, index + 1).join('.'));
+if(!Array.isArray(blocks)) return null;
+return blocks[Number(parts[index + 1])] || null;
+}
+
+/** Only gallery-style targets accept many items; every other target is single. */
+function activeMediaTargetIsMultiple(){
+var media = window.CrabbieAdminMedia || {};
+var block = activeMediaBlock();
+if(block && typeof media.blockAcceptsMultiple === 'function') return Boolean(media.blockAcceptsMultiple(block.type));
+if(!activeMediaTarget) return false;
+var parts = String(activeMediaTarget).split('.');
+return parts[parts.length - 1] === 'items';
+}
+
+function closeMediaPickerModal(){
+var modal = document.getElementById('adminMediaModal');
+if(modal) modal.classList.remove('open');
+}
+
+/** Multi targets append correctly shaped gallery rows; single targets take one URL. */
+function applyMediaPickerItems(items){
+var media = window.CrabbieAdminMedia || {};
+var picked = (Array.isArray(items) ? items : []).filter(function(entry){ return entry && entry.url; });
+if(!activeMediaTarget || !picked.length) return false;
+var multiple = activeMediaTargetIsMultiple();
+var urls = picked.map(function(entry){ return entry.url; });
+if(multiple){
+  var gallery = typeof media.galleryItemsFor === 'function' ? media.galleryItemsFor(urls) : urls.map(function(url){ return { url: url, alt: '', caption: '' }; });
+  var existing = getByPath(ADMIN_DRAFT, activeMediaTarget);
+  var rows = Array.isArray(existing) ? existing.slice() : [];
+  gallery.forEach(function(row){
+    if(!rows.some(function(candidate){ return candidate && candidate.url === row.url; })) rows.push(row);
+  });
+  setByPath(ADMIN_DRAFT, activeMediaTarget, rows);
+} else {
+  var result = typeof media.pickerResultFor === 'function' ? media.pickerResultFor(urls, { multiple: false }) : { value: urls[0] };
+  setByPath(ADMIN_DRAFT, activeMediaTarget, result.value);
+}
+markDirty(activeMediaTarget);
+mediaPage.selected = [];
+closeMediaPickerModal();
+renderAdmin(currentRoute.adminModule || 'dashboard');
+toast(multiple ? ('Added ' + picked.length + ' media item' + (picked.length === 1 ? '' : 's') + '.') : (tAdmin('toast.selectedMedia') + (picked[0].title || '')));
+return true;
+}
+
+/** Every selected file goes through the single-file Batch 3 lifecycle. */
+async function bulkDeleteSelectedMedia(){
+var media = window.CrabbieAdminMedia || {};
+var selected = mediaPage.selected || [];
+var items = selected.map(function(id){ return mediaItemById(id); }).filter(Boolean);
+if(!items.length || typeof media.bulkDeleteMedia !== 'function') return;
+try{
+  requireAdminReady();
+  var results = await media.bulkDeleteMedia(items, {});
+  var summary = typeof media.bulkMediaSummary === 'function' ? media.bulkMediaSummary(results) : null;
+  var message = (summary && typeof media.bulkSummaryMessage === 'function') ? media.bulkSummaryMessage(summary) : 'Bulk delete finished.';
+  mediaPage.selected = [];
+  lastBulkSummary = message;
+  toast(message);
+  await loadMediaPage({ page: mediaPage.page });
+}catch(err){
+  toast('Bulk delete failed: ' + (err && err.message ? err.message : 'Unknown error'));
+}
+}
+
+/* ---------------------------- Ctrl/Cmd + S ------------------------------- */
+var saveShortcutInFlight = false;
+var lastBulkSummary = '';
+
+function dirtySaveTargets(){
+var targets = ADMIN_UI.dirtyTargets || {};
+var scopes = [];
+Object.keys(targets).forEach(function(key){
+  var target = targets[key] || {};
+  var scope = target.scope || (key.indexOf('.') !== -1 ? key.split('.')[0] : key);
+  if(scope && scopes.indexOf(scope) === -1) scopes.push(scope);
+});
+if(!scopes.length && ADMIN_UI.dirty) scopes.push(currentAdminSaveScope(currentRoute && currentRoute.adminModule));
+return scopes;
+}
+
+function adminAnyModalOpen(){
+return Boolean(document.querySelector('#adminMediaModal.open, #adminMediaPreviewModal.open, #adminConfirmModal.open'));
+}
+
+function adminUploadBusy(){
+return Boolean(uploadTask && (uploadTask.status === 'queued' || uploadTask.status === 'uploading' || uploadTask.status === 'retrying'));
+}
+
+function handleAdminSaveShortcut(event){
+var media = window.CrabbieAdminMedia || {};
+if(typeof media.keyboardSaveDecision !== 'function') return;
+var decision = media.keyboardSaveDecision({
+  key: event.key,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
+  loadState: ADMIN_UI.loadState,
+  dirty: Boolean(ADMIN_UI.dirty),
+  savedTargets: dirtySaveTargets(),
+  hasOpenModal: adminAnyModalOpen(),
+  busy: saveShortcutInFlight || adminUploadBusy()
+});
+if(decision.action !== 'save'){
+  /* The browser's own save dialog must never appear for the shortcut, but a
+     blocked decision never touches the draft. */
+  if(decision.reason !== 'not-save-shortcut') event.preventDefault();
+  return;
+}
+event.preventDefault();
+saveShortcutInFlight = true;
+setAdminSaveStatus('saving');
+setTimeout(function(){
+  saveShortcutInFlight = false;
+  doSaveCommit(tAdmin('toast.saved'), decision.targets[0]);
+}, prefersReduced() ? 0 : 380);
+}
+
+function wireAdminKeyboardShortcuts(){
+if(document.documentElement.dataset.saveShortcutWired === '1') return;
+document.documentElement.dataset.saveShortcutWired = '1';
+document.addEventListener('keydown', handleAdminSaveShortcut);
+}
+wireAdminKeyboardShortcuts();
+
 function wireMediaPicker(){
 var modal = document.getElementById('adminMediaModal');
 var grid = document.getElementById('adminMediaPickerGrid');
@@ -5874,14 +6062,30 @@ if(pager){
   loadMediaPage({ page: mediaPage.page, onLoaded: function(){ renderMediaPickerGrid(); } });
   return;
 }
+var toggle = e.target.closest('[data-adm-pick-toggle]');
+if(toggle){
+  var toggleApi = window.CrabbieAdminMedia || {};
+  if(typeof toggleApi.toggleSelection === 'function'){
+    mediaPage.selected = toggleApi.toggleSelection(mediaPage.selected, toggle.getAttribute('data-adm-pick-toggle'));
+  }
+  renderMediaPickerGrid();
+  return;
+}
+var applyBtn = e.target.closest('[data-adm-pick-apply]');
+if(applyBtn){
+  var picked = (ADMIN_DRAFT.media || []).filter(function(x){ return (mediaPage.selected || []).indexOf(x.id) !== -1; });
+  if(picked.length) applyMediaPickerItems(picked);
+  return;
+}
 var t = e.target.closest('[data-adm-pick]'); if(!t) return;
 var id = t.getAttribute('data-adm-pick');
 var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
-if(m && activeMediaTarget){
+if(!m) return;
+if(!activeMediaTarget){ toast(tAdmin('toast.mediaSelected') + ': ' + m.title); closeMediaPickerModal(); return; }
+if(activeMediaTargetIsMultiple()){ mediaPage.selected = [id]; applyMediaPickerItems([m]); return; }
 setByPath(ADMIN_DRAFT, activeMediaTarget, m.url);
 markDirty(activeMediaTarget); toast(tAdmin('toast.selectedMedia') + m.title);
-modal.classList.remove('open'); renderAdmin(currentRoute.adminModule || 'dashboard');
-} else if(m){ toast(tAdmin('toast.mediaSelected') + ': ' + m.title); modal.classList.remove('open'); }
+closeMediaPickerModal(); renderAdmin(currentRoute.adminModule || 'dashboard');
 });
 grid.addEventListener('error', function(event){
   var img = event.target;
@@ -5891,6 +6095,16 @@ grid.addEventListener('error', function(event){
   img.dataset.fallbackApplied = '1';
   img.src = original;
 }, true);
+grid.addEventListener('dragover', function(event){
+  event.preventDefault();
+  grid.classList.add('adm-dropzone-active');
+});
+grid.addEventListener('dragleave', function(){ grid.classList.remove('adm-dropzone-active'); });
+grid.addEventListener('drop', function(event){
+  event.preventDefault();
+  grid.classList.remove('adm-dropzone-active');
+  uploadDroppedFiles((event.dataTransfer && event.dataTransfer.files) || [], { type: 'picker', path: activeMediaTarget });
+});
 var cancel = document.getElementById('adminMediaCancel');
 if(cancel) cancel.addEventListener('click', function(){ modal.classList.remove('open'); });
 modal.addEventListener('click', function(e){ if(e.target === modal) modal.classList.remove('open'); });
