@@ -4590,7 +4590,7 @@ function auditFor(listKey, rec){
   var A = window.CrabbieAdminDataAudit; if(!A || !rec) return null;
   if(listKey === 'portfolio') return A.auditPortfolioRecord(rec);
   if(listKey === 'assets') return A.auditAssetRecord(rec);
-  if(listKey === 'commissions') return A.auditCommissionRecord(rec, { formIds: (ADMIN_DRAFT.forms || []).map(function(f){ return f.id; }) });
+  if(listKey === 'commissions') return A.auditCommissionRecord(rec, { formIds: (ADMIN_DRAFT.forms || []).map(function(f){ return f.slug || f.id; }) });
   return null;
 }
 function healthBadge(audit){
