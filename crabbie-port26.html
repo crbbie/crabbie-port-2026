@@ -2999,17 +2999,9 @@ if(prevView !== null && prevView !== view) scrollMemory[prevView] = window.scrol
 if(view === 'project-detail') renderProject(route.id);
 if(view === 'free-asset-detail') renderAsset(route.id);
 if(view === 'admin'){
-  var adminUser = window.CrabbieAuthService ? window.CrabbieAuthService.getAdmin() : null;
-  var loginShell = document.getElementById('adminLoginShell');
-  var realShell = document.getElementById('adminRealShell');
-  if(!adminUser){
-    if(loginShell) loginShell.style.display = 'flex';
-    if(realShell) realShell.style.display = 'none';
-  } else {
-    if(loginShell) loginShell.style.display = 'none';
-    if(realShell) realShell.style.display = '';
-    renderAdmin(route.adminModule || 'dashboard');
-  }
+  /* Prototype state is never authenticated CMS data: until one complete live
+     hydration succeeds the shell shows a loading or retry panel instead. */
+  if(syncAdminShellVisibility()) renderAdmin(route.adminModule || 'dashboard');
 }
 $$('.view').forEach(function(v){ v.classList.toggle('is-active', v.getAttribute('data-view') === view); });
 document.body.classList.toggle('is-route-loading', view === 'loading');
@@ -3036,6 +3028,7 @@ if(comingBackFromDetail && typeof restore === 'number') window.scrollTo(0, resto
 if(!opts.noFocus) focusView(view);
 prevView = view;
 currentRoute = route;
+lastAppliedHash = location.hash;
 }
 function routeFromLocation(){
 var raw = location.hash.replace(/^#/, '');
@@ -3043,7 +3036,37 @@ var path = location.pathname.replace(/^\/+|\/+$/g, '');
 if(!raw && (path === 'admin' || path.indexOf('admin/') === 0)) raw = path;
 return parseRoute(raw);
 }
-function handleHash(){ applyRoute(routeFromLocation()); }
+function adminExitBlocked(nextRoute){
+var fromAdmin = !!(currentRoute && currentRoute.view === 'admin');
+var toAdmin = !!(nextRoute && nextRoute.view === 'admin');
+var G = window.CrabbieAdminDraftGuard;
+if(G && G.shouldBlockAdminExit) return G.shouldBlockAdminExit({ dirty: ADMIN_UI.dirty, fromAdmin: fromAdmin, toAdmin: toAdmin });
+return ADMIN_UI.dirty && fromAdmin && !toAdmin;
+}
+function handleHash(){
+var nextRoute = routeFromLocation();
+if(adminExitBlocked(nextRoute)){
+/* The browser already moved: restore the admin route, ask once through the
+   existing discard dialog, then replay the pending route exactly once. */
+var pendingHash = location.hash;
+var restoreHash = lastAppliedHash == null ? '' : lastAppliedHash;
+try{ history.replaceState(null, '', location.pathname + location.search + restoreHash); }catch(e){}
+confirmDiscard(function(){
+try{ history.replaceState(null, '', location.pathname + location.search + restoreHash); }catch(e){}
+if(!pendingHash || location.hash === pendingHash) applyRoute(nextRoute); else location.hash = pendingHash;
+});
+return;
+}
+applyRoute(nextRoute);
+}
+window.addEventListener('beforeunload', function(event){
+var G = window.CrabbieAdminDraftGuard;
+var inAdmin = !!(currentRoute && currentRoute.view === 'admin');
+var warn = G && G.shouldSetBeforeUnload ? G.shouldSetBeforeUnload({ dirty: ADMIN_UI.dirty, inAdmin: inAdmin }) : ADMIN_UI.dirty;
+if(!warn) return;
+event.preventDefault();
+event.returnValue = '';
+});
 function navigate(path, opts){
 opts = opts || {};
 var hash = '#' + path;
@@ -3627,6 +3650,14 @@ var currentAdminLang = 'vi';
 var savedAdminLang = readStore(ADMIN_LANG_KEY);
 if(savedAdminLang === 'vi' || savedAdminLang === 'en') currentAdminLang = savedAdminLang;
 function tAdmin(key){ var dict = ADMIN_I18N[currentAdminLang] || ADMIN_I18N.en; if(dict[key] != null) return dict[key]; if(ADMIN_I18N.en[key] != null) return ADMIN_I18N.en[key]; return key; }
+ADMIN_I18N.en['load.loading'] = 'Loading live CMS data…';
+ADMIN_I18N.en['load.error'] = 'Live CMS data could not be loaded';
+ADMIN_I18N.en['load.errorHint'] = 'Editing and saving stay disabled until one complete live snapshot loads.';
+ADMIN_I18N.en['load.retry'] = 'Retry loading';
+ADMIN_I18N.vi['load.loading'] = 'Đang tải dữ liệu CMS…';
+ADMIN_I18N.vi['load.error'] = 'Không tải được dữ liệu CMS';
+ADMIN_I18N.vi['load.errorHint'] = 'Chỉnh sửa và lưu bị tạm khóa cho đến khi tải xong toàn bộ dữ liệu thật.';
+ADMIN_I18N.vi['load.retry'] = 'Tải lại';
 function applyAdminLangToDom(root){ (root || document).querySelectorAll('[data-t]').forEach(function(el){ var key = el.getAttribute('data-t'); el.textContent = tAdmin(key); }); }
 function setAdminLang(lang, announce){
 if(lang !== 'vi' && lang !== 'en') lang = 'vi';
@@ -3792,9 +3823,15 @@ navigation: [
 }
 var ADMIN_DATA = buildAdminData();
 var ADMIN_DRAFT = clone(ADMIN_DATA);
+function initialAdminSelection(data){
+return { portfolio: data.portfolio[0] && data.portfolio[0].id, assets: data.assets[0] && data.assets[0].id, commissions: data.commissions[0] ? data.commissions[0].id : null, forms: data.forms[0] ? data.forms[0].id : null, requests: data.requests[0] ? data.requests[0].id : null };
+}
 var ADMIN_UI = {
 dirty: false,
-selection: { portfolio: ADMIN_DATA.portfolio[0] && ADMIN_DATA.portfolio[0].id, assets: ADMIN_DATA.assets[0] && ADMIN_DATA.assets[0].id, commissions: ADMIN_DATA.commissions[0] ? ADMIN_DATA.commissions[0].id : null, forms: ADMIN_DATA.forms[0] ? ADMIN_DATA.forms[0].id : null, requests: ADMIN_DATA.requests[0] ? ADMIN_DATA.requests[0].id : null },
+/* idle | loading | ready | error: only 'ready' exposes editors and mutations. */
+loadState: 'idle',
+loadError: '',
+selection: initialAdminSelection(ADMIN_DATA),
 subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'settings' },
 settingsGroup: 'Branding'
 };
@@ -3853,6 +3890,7 @@ function currentAdminSaveScope(module){
 async function doSaveCommit(msg, scope){
   setAdminSaveStatus('saving');
   try {
+    requireAdminReady();
     if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.persistAdminData)){
       throw new Error('Admin persistence service is unavailable.');
     }
@@ -3879,6 +3917,106 @@ async function doSaveCommit(msg, scope){
 }
 function doDiscard(){ ADMIN_DRAFT = clone(ADMIN_DATA); ADMIN_UI.dirty = false; setAdminSaveStatus('saved'); refreshStickySaveBar(); }
 function refreshStickySaveBar(){ var bar = document.getElementById('admStickySave'); if(!bar) return; if(ADMIN_UI.dirty) bar.classList.add('visible'); else bar.classList.remove('visible'); }
+/* ---------- Admin draft safety: one live snapshot, one load state ---------- */
+var lastAppliedHash = null;
+function requireAdminReady(){
+if(ADMIN_UI.loadState !== 'ready') throw new Error('Admin data is not ready for mutation.');
+if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.assertAdminReadyForMutation) window.CrabbieAdminCrud.assertAdminReadyForMutation();
+}
+function applyAdminLoadStateToShell(){
+var ready = ADMIN_UI.loadState === 'ready';
+if(adminTopSave){ adminTopSave.disabled = !ready; adminTopSave.style.display = ready ? '' : 'none'; }
+if(!ready){ var barEl = document.getElementById('admStickySave'); if(barEl) barEl.classList.remove('visible'); }
+}
+function setAdminLoadState(state, errorMessage){
+ADMIN_UI.loadState = state;
+ADMIN_UI.loadError = state === 'error' ? (errorMessage || '') : '';
+if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.setAdminLoadState) window.CrabbieAdminCrud.setAdminLoadState(state);
+applyAdminLoadStateToShell();
+}
+function renderAdminLoadStatePanel(){
+if(!adminContent) return;
+var state = ADMIN_UI.loadState;
+var isError = state === 'error';
+var body = '<div class="adm-panel" id="adminLoadState" data-load-state="' + esc(state) + '"><h3>' + esc(isError ? tAdmin('load.error') : tAdmin('load.loading')) + '</h3>';
+if(isError){
+if(ADMIN_UI.loadError) body += '<p class="af-hint">' + esc(ADMIN_UI.loadError) + '</p>';
+body += '<p class="af-hint">' + esc(tAdmin('load.errorHint')) + '</p><div style="margin-top:12px;"><button type="button" class="adm-btn-sm primary" data-adm-retry="1">' + esc(tAdmin('load.retry')) + '</button></div>';
+}
+body += '</div>';
+adminContent.innerHTML = '<div class="adm-workspace">' + body + '</div>';
+applyAdminLoadStateToShell();
+var retryBtn = adminContent.querySelector('[data-adm-retry]');
+if(retryBtn) retryBtn.addEventListener('click', retryAdminHydration);
+}
+async function hydrateAdminSnapshot(){
+if(ADMIN_UI.loadState === 'loading') return false;
+if(ADMIN_UI.dirty) return false;
+if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData)){
+setAdminLoadState('error', 'Admin data service is unavailable.');
+renderAdminRoute();
+return false;
+}
+setAdminLoadState('loading');
+renderAdminRoute();
+try{
+var live = await window.CrabbieAdminCrud.loadAllAdminData();
+if(!live) throw new Error('Admin hydration returned no snapshot.');
+/* Atomic swap: only one complete live snapshot may replace admin state. */
+ADMIN_DATA = live;
+ADMIN_DRAFT = clone(live);
+ADMIN_UI.selection = initialAdminSelection(live);
+ADMIN_UI.dirty = false;
+setAdminLoadState('ready');
+setAdminSaveStatus('saved');
+refreshStickySaveBar();
+renderAdminRoute();
+return true;
+}catch(err){
+console.error('Admin hydration failed:', err);
+setAdminLoadState('error', err && err.message ? err.message : 'Unknown error');
+renderAdminRoute();
+return false;
+}
+}
+function retryAdminHydration(){
+if(ADMIN_UI.loadState === 'loading') return;
+if(ADMIN_UI.dirty){ confirmDiscard(function(){ hydrateAdminSnapshot(); }); return; }
+hydrateAdminSnapshot();
+}
+function resetAdminSessionState(){
+ADMIN_DATA = buildAdminData();
+ADMIN_DRAFT = clone(ADMIN_DATA);
+ADMIN_UI.selection = initialAdminSelection(ADMIN_DATA);
+ADMIN_UI.dirty = false;
+ADMIN_UI.subtab = { portfolio:'items', assets:'items', commissions:'items', settings:'settings' };
+ADMIN_UI.settingsGroup = 'Branding';
+ADMIN_UI.loadError = '';
+if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.resetAdminReadiness) window.CrabbieAdminCrud.resetAdminReadiness();
+setAdminLoadState('idle');
+setAdminSaveStatus('saved');
+refreshStickySaveBar();
+}
+function syncAdminShellVisibility(){
+var adminUser = window.CrabbieAuthService ? window.CrabbieAuthService.getAdmin() : null;
+var loginShell = document.getElementById('adminLoginShell');
+var realShell = document.getElementById('adminRealShell');
+if(!adminUser){
+if(loginShell) loginShell.style.display = 'flex';
+if(realShell) realShell.style.display = 'none';
+return false;
+}
+if(loginShell) loginShell.style.display = 'none';
+if(realShell) realShell.style.display = '';
+return true;
+}
+function renderAdminRoute(){
+var module = (currentRoute && currentRoute.adminModule) || 'dashboard';
+if(!syncAdminShellVisibility()) return;
+if(ADMIN_UI.loadState === 'ready'){ renderAdmin(module); return; }
+renderAdminLoadStatePanel();
+}
+
 function confirmDiscard(onOk){
 if(!ADMIN_UI.dirty){ onOk && onOk(); return; }
 var modal = document.getElementById('adminConfirmModal'); if(!modal){ onOk && onOk(); return; }
@@ -4062,6 +4200,8 @@ return '<details class="adm-advanced"><summary>' + esc(tAdmin('advanced.viOverri
 }
 
 function renderAdmin(module){
+/* Editors and mutations exist only after one complete live hydration. */
+if(ADMIN_UI.loadState !== 'ready'){ renderAdminLoadStatePanel(); return; }
 if(!adminContent) return;
 if(ADMIN_MODULES.indexOf(module) === -1) module = 'dashboard';
 adminHeading.textContent = tAdmin('nav.' + module);
@@ -4342,7 +4482,7 @@ return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae
 }
 
 function renderAdminAbout(){
-var p = ADMIN_DRAFT.pages.about;
+var p = (ADMIN_DRAFT.pages && ADMIN_DRAFT.pages.about) || {};
 var base = 'pages.about';
 var A = window.CrabbieAdminDataAudit;
 var aboutAudit = A ? A.auditPageRecord(p, 'about', { settings: ADMIN_DRAFT.settings }) : null;
@@ -4350,7 +4490,7 @@ return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(
 }
 
 function renderAdminTerms(){
-var p = ADMIN_DRAFT.pages.terms;
+var p = (ADMIN_DRAFT.pages && ADMIN_DRAFT.pages.terms) || {};
 var base = 'pages.terms';
 var A = window.CrabbieAdminDataAudit;
 var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.settings }) : null;
@@ -4456,6 +4596,7 @@ confirmDelete(name, async function(){
 var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
 try{
+  requireAdminReady();
   if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.deleteRecord)){
     throw new Error('Admin delete service is unavailable.');
   }
@@ -4766,6 +4907,7 @@ var name = btn.getAttribute('data-adm-media-name') || 'this media';
 var m = (ADMIN_DRAFT.media || []).find(function(x){ return x.id === id; });
 confirmDelete(name, async function(){
   try{
+    requireAdminReady();
     if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile)){
       throw new Error('Media delete service is unavailable.');
     }
@@ -4873,6 +5015,7 @@ async function handleMediaUploadSelected(e){
   currentUploadContext = null;
   toast('Uploading ' + file.name + '…');
   try {
+    requireAdminReady();
     if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile)){
       throw new Error('Media upload service is unavailable.');
     }
@@ -5604,42 +5747,28 @@ apply: function(pages, nav, settings){
 }
 };
 window.CrabbieAdminAuth = {
-notify: async function(adminUser){
-  if(adminUser && window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData){
-    var liveData = await window.CrabbieAdminCrud.loadAllAdminData();
-    if(liveData){
-      if(liveData.portfolio) { ADMIN_DATA.portfolio = liveData.portfolio; ADMIN_DRAFT.portfolio = clone(liveData.portfolio); }
-      if(liveData.assets) { ADMIN_DATA.assets = liveData.assets; ADMIN_DRAFT.assets = clone(liveData.assets); }
-      if(liveData.portfolioCategories) { ADMIN_DATA.portfolioCategories = liveData.portfolioCategories; ADMIN_DRAFT.portfolioCategories = clone(liveData.portfolioCategories); }
-      if(liveData.assetCategories) { ADMIN_DATA.assetCategories = liveData.assetCategories; ADMIN_DRAFT.assetCategories = clone(liveData.assetCategories); }
-      if(liveData.commissions) { ADMIN_DATA.commissions = liveData.commissions; ADMIN_DRAFT.commissions = clone(liveData.commissions); }
-      if(liveData.forms) { ADMIN_DATA.forms = liveData.forms; ADMIN_DRAFT.forms = clone(liveData.forms); }
-      if(liveData.pages) { ADMIN_DATA.pages = liveData.pages; ADMIN_DRAFT.pages = clone(liveData.pages); }
-      if(liveData.navigation) { ADMIN_DATA.navigation = liveData.navigation; ADMIN_DRAFT.navigation = clone(liveData.navigation); }
-      if(liveData.settings) { ADMIN_DATA.settings = Object.assign(ADMIN_DATA.settings, liveData.settings); ADMIN_DRAFT.settings = clone(ADMIN_DATA.settings); }
-      if(liveData.requests) { ADMIN_DATA.requests = liveData.requests; ADMIN_DRAFT.requests = clone(liveData.requests); }
-      if(liveData.media) { ADMIN_DATA.media = liveData.media; ADMIN_DRAFT.media = clone(liveData.media); }
-    }
+/* Unsaved admin work is owned here, so auth events can never clobber it. */
+isDirty: function(){ return ADMIN_UI.dirty; },
+notify: async function(payload){
+  var info = payload || {};
+  var adminUser = info.adminUser || null;
+  if(!adminUser){
+    resetAdminSessionState();
+    syncAdminShellVisibility();
+    return;
   }
-  if(currentRoute.view === 'admin'){
-    var loginShell = document.getElementById('adminLoginShell');
-    var realShell = document.getElementById('adminRealShell');
-    if(!adminUser){
-      if(loginShell) loginShell.style.display = 'flex';
-      if(realShell) realShell.style.display = 'none';
-    } else {
-      if(loginShell) loginShell.style.display = 'none';
-      if(realShell) realShell.style.display = '';
-      renderAdmin(currentRoute.adminModule || 'dashboard');
-    }
+  syncAdminShellVisibility();
+  if(info.hydrate){
+    await hydrateAdminSnapshot();
+    return;
   }
+  /* Background events (TOKEN_REFRESHED, USER_UPDATED) update session state
+     only: no CMS reload, no ADMIN_DATA/ADMIN_DRAFT replacement, no re-render. */
+  if(ADMIN_UI.loadState !== 'ready') renderAdminRoute();
 }
 };
 
 boot();
-if (window.CrabbieAuthService && window.CrabbieAuthService.getAdmin()) {
-  window.CrabbieAdminAuth.notify(window.CrabbieAuthService.getAdmin());
-}
 // The audit engine loads as an ES module (src/admin-data-audit.js); once it is
 // ready, refresh the admin view so badges/checklists appear without a reload.
 window.__crabbieAuditReady = function(){

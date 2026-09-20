@@ -51,8 +51,16 @@ const sdkFixture = `
 export function createClient(){
   let session = null;
   const subscribers = [];
+  // Tests can drive auth events directly (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, ...).
+  window.__routerEmit = (event, withSession) => subscribers.forEach(fn => fn(event, withSession === false ? null : session));
   const query = table => new Proxy({}, { get: (_, key) => key === 'then'
-    ? (done) => Promise.resolve({data: (window.__routerRows || {})[table] || [], error: null}).then(done)
+    ? (done) => {
+        (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
+        const failed = window.__routerFail === table;
+        return Promise.resolve(failed
+          ? {data: null, error: {message: 'Fixture forced failure'}}
+          : {data: (window.__routerRows || {})[table] || [], error: null}).then(done);
+      }
     : (...args) => {
         if (['upsert', 'insert', 'update', 'delete'].includes(key)) {
           (window.__routerWrites ||= []).push({table, operation: key});
@@ -71,6 +79,9 @@ export function createClient(){
         if(email === 'invalid@example.test') return {data: {user: null, session: null}, error: {message: 'Invalid login credentials'}};
         const user = {id: 'router-test-user', app_metadata: {role: email === 'admin@example.test' ? 'admin' : 'user'}, user_metadata: {role: 'admin'}};
         session = {user};
+        // Real supabase-js notifies SIGNED_IN from signInWithPassword, and the
+        // login() path notifies too; the auth policy must dedupe them.
+        window.__routerEmit('SIGNED_IN');
         return {data: {user, session}, error: null};
       },
       signOut: async () => {session = null; subscribers.forEach(fn => fn('SIGNED_OUT', null)); return {error: null}}
@@ -216,6 +227,27 @@ try {
     console.log('PASS failed login, metadata-only role denied, authorized login, single submit listener, logout and navigation (SDK fixture)');
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAdminDataAudit));
+    // Seed authoritative live rows so the admin health checks run on live data
+    // instead of relying on prototype fallback (which is exactly the bug fixed).
+    await page.evaluate(() => {
+      window.__routerRows = {
+        portfolio_projects: [{slug:'color-fiesta',title:'Color Fiesta',description:'Fixture description',tags:['ART'],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:0}],
+        free_assets: [{slug:'petal-pack',title:'Petal pack',description:'Fixture asset description',tags:['brush'],thumbnail_path:'',file_path:'https://example.test/seed.zip',file_type:'ZIP',availability:'available',metadata:{},featured:false,published:true,sort_order:0}],
+        commission_services: [{slug:'bust-up',title:'Bust up',description:'Fixture service description',price:70,currency:'USD',availability:'open',form_slug:'emails',thumbnail_path:'',featured:false,published:true,details:{deliveryEstimate:'2 weeks',isOtherService:false},sort_order:0}],
+        commission_forms: [{slug:'emails',title:'Fixture form',description:'Fixture form',published:true,fields:[]}],
+        cms_categories: [],
+        cms_pages: [
+          {slug:'about',title:'About fixture',content:'Fixture about content',published:true,data:{name:'Fixture artist',bio:'Fixture bio',skills:[],experience:[],links:[]}},
+          {slug:'terms',title:'Terms fixture',content:'# 1. Contact\n\nFixture terms content long enough to render.',published:true,data:{}}
+        ],
+        cms_navigation: [{id:'00000000-0000-0000-0000-0000000000aa',title:'Portfolio',url:'#portfolio',published:true,sort_order:0}],
+        site_settings: [{key:'branding',value:{title:'CRABBIE'}}],
+        commission_requests: [],
+        media: []
+      };
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+    });
     await page.locator('#adminEmail').fill('admin@example.test');
     await page.locator('#adminPassword').fill('synthetic-router-test-password');
     await page.locator('#adminLoginBtn').click();
@@ -320,6 +352,12 @@ try {
     assert.deepEqual(scopedWrites['navigation'], ['cms_navigation']);
     assert.deepEqual(scopedWrites['settings'], ['site_settings']);
     assert.deepEqual(scopedWrites['requests'], ['commission_requests']);
+    // Leaving the admin area with unsaved edits is now guarded: discard the
+    // draft explicitly through the sticky bar before public CMS rendering.
+    await page.locator('#admStickySave [data-adm-discard]').click();
+    await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => !document.getElementById('admStickySave').classList.contains('visible'));
     await page.evaluate(() => {
       window.CrabbiePortfolio.apply([{
         slug:'color-fiesta',title:'DB title',desc:'DB description',cat:'Illustration',tags:[],
@@ -394,6 +432,131 @@ try {
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
     console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
+
+    // ---- Prompt 1/5: admin draft safety ---------------------------------------
+    const seedEmptyAdminRows = async () => page.evaluate(() => {
+      window.__routerRows = {};
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+      window.__routerLoginCalls = 0;
+    });
+    const loginAdmin = async () => {
+      await page.locator('#adminEmail').fill('admin@example.test');
+      await page.locator('#adminPassword').fill('synthetic-router-test-password');
+      await page.locator('#adminLoginBtn').click();
+    };
+    const goToAdminModule = async (module) => {
+      await page.evaluate(name => { location.hash = '#admin/' + name; }, module);
+      await page.locator('#adminNav [data-admin-module="' + module + '"][aria-current="page"]').waitFor({state: 'visible'});
+    };
+
+    // Test 1: one failed hydration query must reject the whole snapshot.
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminDraftGuard));
+    await page.evaluate(() => {
+      window.__routerRows = { portfolio_projects: [{slug:'color-fiesta',title:'Color Fiesta',tags:[],content:{},published:true}] };
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = 'cms_categories';
+    });
+    await loginAdmin();
+    await page.locator('#adminLoadState[data-load-state="error"]').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()), 'error');
+    assert.equal(await page.locator('[data-adm-save]').count(), 0, 'Failed hydration must not expose Save controls');
+    assert.equal(await page.locator('[data-adm-path]').count(), 0, 'Failed hydration must not render editors over prototype data');
+    assert.equal(await page.locator('#adminTopSave').isVisible(), false, 'Failed hydration must hide the top Save button');
+    const blockedSave = await page.evaluate(async () => {
+      try { await window.CrabbieAdminCrud.persistAdminData({ portfolio: [] }, 'portfolio'); return 'written'; }
+      catch (err) { return err.message; }
+    });
+    assert.equal(blockedSave, 'Admin data is not ready for mutation.');
+    const blockedDelete = await page.evaluate(async () => {
+      try { await window.CrabbieAdminCrud.deleteRecord('portfolio', 'color-fiesta'); return 'deleted'; }
+      catch (err) { return err.message; }
+    });
+    assert.equal(blockedDelete, 'Admin data is not ready for mutation.');
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites), [], 'No Supabase write may happen before a live snapshot');
+    console.log('PASS failed admin hydration sets error, hides editors and refuses every mutation with zero writes (SDK fixture)');
+
+    // Retry: one complete pass reaches ready and loads live rows.
+    await page.evaluate(() => { window.__routerFail = null; window.__routerQueryCount = {}; });
+    await page.locator('[data-adm-retry]').click();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    assert.equal(await page.evaluate(() => window.__routerQueryCount.cms_categories), 1, 'One retry must hydrate exactly once');
+    assert.equal(await page.locator('#adminLoadState').count(), 0, 'Ready state must replace the load panel');
+    await goToAdminModule('portfolio');
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Color Fiesta', 'Retry must load live rows, not prototype rows');
+    assert.equal(await page.locator('#adminTopSave').isVisible(), true);
+    console.log('PASS admin hydration retry reaches ready with live rows after one query pass (SDK fixture)');
+
+    // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
+    await page.evaluate(() => { window.__routerQueryCount = {}; window.__routerEmit('SIGNED_IN'); });
+    await page.waitForTimeout(80);
+    assert.deepEqual(await page.evaluate(() => window.__routerQueryCount), {}, 'A repeated SIGNED_IN must not reload CMS tables');
+    assert.equal(await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()), 'ready');
+
+    // Test 4: a token refresh while dirty updates session state only.
+    await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Unsaved draft title');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/);
+    await page.evaluate(() => { window.__routerQueryCount = {}; window.__routerEmit('TOKEN_REFRESHED'); });
+    await page.waitForTimeout(80);
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Unsaved draft title', 'TOKEN_REFRESHED must not replace the draft');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'TOKEN_REFRESHED must not clear the dirty state');
+    assert.deepEqual(await page.evaluate(() => window.__routerQueryCount), {}, 'TOKEN_REFRESHED must not reload CMS tables');
+    assert.equal(await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()), 'ready');
+    console.log('PASS TOKEN_REFRESHED keeps the dirty draft, the dirty flag and performs no hydration (SDK fixture)');
+
+    // Test 6: dirty admin navigation and unload protection.
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => location.hash), '#admin/portfolio', 'A dirty exit must restore the admin route while asking');
+    await page.locator('#adminConfirmCancel').click();
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active').dataset.view), 'admin');
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Unsaved draft title', 'Cancelling must preserve the draft');
+    assert.equal(await page.evaluate(() => {
+      const event = new Event('beforeunload', {cancelable: true});
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    }), true, 'Unsaved admin work must warn before unload');
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => document.querySelector('.view.is-active').dataset.view === 'home');
+    assert.equal(await page.evaluate(() => {
+      const event = new Event('beforeunload', {cancelable: true});
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    }), false, 'A clean draft must not warn before unload');
+    console.log('PASS dirty admin exit prompts once, is cancellable and warns before unload (SDK fixture)');
+
+    // Test 2/3: successful empty tables must clear every prototype collection.
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await seedEmptyAdminRows();
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    assert.equal(await page.evaluate(() => window.__routerQueryCount.cms_categories), 1, 'Initial authentication must hydrate exactly once');
+    await goToAdminModule('portfolio');
+    assert.equal(await page.locator('[data-adm-path^="portfolio."]').count(), 0, 'Empty Supabase portfolio must not keep prototype records');
+    assert.equal(await page.locator('.adm-record').count(), 0, 'Empty portfolio must render an empty list');
+    const navCounts = await page.evaluate(() => {
+      const counts = {};
+      document.querySelectorAll('#adminNav [data-count]').forEach(el => { counts[el.getAttribute('data-count')] = el.textContent; });
+      return counts;
+    });
+    assert.deepEqual(navCounts, { portfolio: '0', assets: '0', commissions: '0', requests: '0' });
+    for (const module of ['assets', 'commissions', 'requests', 'media']) {
+      await goToAdminModule(module);
+      assert.equal(await page.locator('.adm-record, .adm-req-row, .adm-media-card').count(), 0, 'Empty ' + module + ' must render no records');
+    }
+    await goToAdminModule('about');
+    assert.equal(await page.locator('[data-adm-path="pages.about.title"]').inputValue(), '', 'Prototype About page must not survive an empty snapshot');
+    await goToAdminModule('terms');
+    assert.equal(await page.locator('[data-adm-path="pages.terms.title"]').inputValue(), '', 'Prototype Terms page must not survive an empty snapshot');
+    await goToAdminModule('settings');
+    assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), '', 'Prototype settings must not survive an empty snapshot');
+    console.log('PASS empty Supabase tables clear portfolio, assets, commissions, requests, media, pages and settings (SDK fixture)');
   }
 } finally {
   if (browser) await browser.close();
