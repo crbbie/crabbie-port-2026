@@ -105,6 +105,7 @@ button{font:inherit; color:inherit;}
 .vlc-thumb{position:relative; flex:0 0 128px; height:76px; border-radius:12px; overflow:hidden; background:linear-gradient(160deg, var(--pink-soft) 0%, var(--purple-light) 100%);}
 .vlc-play{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:26px; text-shadow:0 2px 10px rgba(0,0,0,.45);}
 .vlc-tiktok-badge{display:flex; align-items:center; justify-content:center; font-size:34px; color:#fff; background:linear-gradient(150deg,#25F4EE 0%, #010101 45%, #FE2C55 100%);}
+.adm-video-preview{width:min(100%,520px); margin-top:10px;} .adm-video-preview-card{display:grid;gap:8px;} .adm-video-preview-card .vlc-thumb{display:block;width:100%;aspect-ratio:16/9;height:auto;flex:none;} .adm-video-preview-card .vlc-thumb img{display:block;width:100%;height:100%;object-fit:cover;}
 .vlc-label{font-family:'Fredoka'; font-weight:600; font-size:13.5px; color:var(--berry); line-height:1.4;}
 .nav{
   max-width:1280px; margin:0 auto;
@@ -1028,7 +1029,8 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 
 .admin-main{ display:flex; flex-direction:column; min-width:0; }
 
-.admin-topbar{ padding: 16px var(--adm-pad-x) 14px; border-bottom: 2px dashed var(--purple-light); background: #fff; display:grid; grid-template-columns: 1fr auto; align-items:center; gap:16px; position: sticky; top: 0; z-index: 5;}
+.admin-topbar{ padding: 16px var(--adm-pad-x) 14px; border-bottom: 2px dashed var(--purple-light); background: #fff; position: sticky; top: 0; z-index: 5;}
+.admin-inner{max-width:1180px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr auto; align-items:center; gap:16px;}
 .admin-topbar .at-left{ display:flex; align-items:center; gap:12px; min-width:0; }
 .admin-topbar .at-eyebrow{font-family:'Fredoka'; font-weight:600; font-size:10px;letter-spacing:.2em; text-transform:uppercase; color: var(--berry-faint);margin-bottom: 2px;}
 .admin-topbar h1{font-family:'Fredoka'; font-weight:700; font-size: 22px;color: var(--berry); letter-spacing:-.01em; line-height:1.15;}
@@ -1072,7 +1074,7 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-quick-actions button:hover{ background: var(--pink-soft); color: var(--berry); border-color: var(--pink); }
 .adm-quick-actions button .qa-ico{ font-size:16px; }
 
-.adm-split{ display:grid; grid-template-columns: 32% minmax(0, 1fr); gap: 18px; align-items:start;}
+.adm-split{ display:grid; grid-template-columns:minmax(260px, 320px) minmax(0, 1fr); gap:18px; align-items:start;}
 @media (max-width: 1000px){ .adm-split{ grid-template-columns: 1fr; } }
 
 .adm-list{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 14px; box-shadow: 0 6px 0 -3px var(--purple-light); position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow:auto;}
@@ -2211,7 +2213,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
           <div class="unavailable" id="adUnavailable"><span class="u-icon">!</span><p>This file is not available for download yet.</p></div>
           <div class="row" id="adDownloadActions" style="justify-content:flex-start;gap:12px;flex-wrap:wrap;">
             <button class="btn btn-purple" type="button" id="adDownload">Download file</button>
-            <button class="btn btn-ghost" type="button" id="adDriveDownload">Open in Google Drive ↗</button>
+            <button class="btn btn-purple" type="button" id="adDriveDownload">Open in Google Drive ↗</button>
           </div>
         </div>
       </div>
@@ -3044,7 +3046,7 @@ function publicVideoCard(url, label){
 var tiktokThumbCache = {};
 function upgradeTikTokThumbs(root){
   var scope = root && root.querySelectorAll ? root : document;
-  Array.prototype.forEach.call(scope.querySelectorAll('.video-link-card[data-tiktok-url]:not([data-tiktok-done]), .adm-video-preview[data-tiktok-url]:not([data-tiktok-done])'), function(card){
+  Array.prototype.forEach.call(scope.querySelectorAll('.video-link-card[data-tiktok-url]:not([data-tiktok-done]), .adm-video-preview-card[data-tiktok-url]:not([data-tiktok-done])'), function(card){
     var url = card.getAttribute('data-tiktok-url'); if(!url) return;
     card.setAttribute('data-tiktok-done', '1');
     var cached = tiktokThumbCache[url];
@@ -4216,6 +4218,7 @@ function markDirty(path){
 if(typeof path === 'string' && path) markAdminTarget(adminTargetFromPath(path));
 else markAdminStructuralDirty();
 setAdminDirtyFlag();
+refreshAuditPanels(currentRoute && currentRoute.adminModule);
 }
 function resetAdminDirtyState(){
 ADMIN_UI.dirtyTargets = {};
@@ -4753,6 +4756,11 @@ function refreshAuditPanels(module){
   }
   var pubWrap = document.getElementById('admPublishWarningWrap');
   if(pubWrap) pubWrap.innerHTML = publishWarningHtml(audit, published);
+  if(audit && (module === 'portfolio' || module === 'assets' || module === 'commissions')){
+    var selectedRow = document.querySelector('[data-adm-select="' + module + '"][data-adm-id="' + sel + '"]');
+    var oldBadge = selectedRow && selectedRow.querySelector('.health-incomplete, .health-placeholder, .health-warning, .health-complete');
+    if(oldBadge){ var badgeTmp = document.createElement('div'); badgeTmp.innerHTML = healthBadge(audit); oldBadge.replaceWith(badgeTmp.firstChild); }
+  }
 }
 function confirmPublishGuard(audit, onConfirm){
   var modal = document.getElementById('adminConfirmModal');
@@ -4920,9 +4928,9 @@ return '<div class="adm-block-media">' + mediaPreviewHtml(path, getByPath(ADMIN_
 }
 function adminVideoLinkPreviewHtml(url){
   var yt = ytVideoId(url);
-  if(yt) return '<div class="adm-video-preview"><img src="https://i.ytimg.com/vi/' + yt + '/hqdefault.jpg" alt="YouTube preview" loading="lazy" style="width:160px;height:90px;object-fit:cover;border-radius:10px;"><span class="af-hint">YouTube video · preview shown publicly</span></div>';
+  if(yt) return '<div class="adm-video-preview-card"><span class="vlc-thumb"><img src="https://i.ytimg.com/vi/' + yt + '/hqdefault.jpg" alt="YouTube preview" loading="lazy"></span><span class="af-hint">YouTube video · preview shown publicly</span></div>';
   var tt = tiktokVideoIdFrom(url);
-  if(tt) return '<div class="adm-video-preview" data-tiktok-url="' + esc(url) + '"><span class="vlc-thumb vlc-tiktok-badge" style="display:inline-flex;width:160px;height:90px;border-radius:10px;">♪</span><span class="af-hint">♪ TikTok video · real thumbnail loads when available</span></div>';
+  if(tt) return '<div class="adm-video-preview-card" data-tiktok-url="' + esc(url) + '"><span class="vlc-thumb vlc-tiktok-badge">♪</span><span class="af-hint">♪ TikTok video · real thumbnail loads when available</span></div>';
   return '';
 }
 function renderProjectBlock(projectId, b, index){
@@ -5044,7 +5052,7 @@ var rows = list.map(function(r){
 return '<div class="adm-record" role="option" data-adm-select="forms" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
 }).join('');
 var editor = rec ? renderRequestFormEditor(rec) : '<div class="adm-editor"><h2>Select a form</h2></div>';
-return '<div class="adm-list" style="margin-bottom:16px;"><div class="adm-list-toolbar"><input type="search" data-adm-search="forms"><button type="button" class="adm-btn-sm primary" data-adm-new="forms">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor;
+return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="forms"><button type="button" class="adm-btn-sm primary" data-adm-new="forms">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
 }
 
 function renderRequestFormEditor(rec){
@@ -5709,6 +5717,21 @@ if(el.type === 'checkbox' && v && /\.published$/.test(path) && !getByPath(ADMIN_
   }
 }
 setByPath(ADMIN_DRAFT, path, v);
+if(el.type === 'checkbox' && v && /\.(featured)$/.test(path)){
+  var featuredParts = path.split('.'); var featuredList = featuredParts[0]; var featuredId = featuredParts[1];
+  var featuredLimit = featuredList === 'portfolio' ? 5 : (featuredList === 'assets' ? 8 : 0);
+  var featureEngine = window.CrabbieAdminFeatured;
+  if(featuredLimit && featureEngine && typeof featureEngine.enforceFeaturedLimit === 'function'){
+    var featureResult = featureEngine.enforceFeaturedLimit(ADMIN_DRAFT[featuredList], featuredId, featuredLimit);
+    if(featureResult.evictedId){
+      var evicted = ADMIN_DRAFT[featuredList].filter(function(record){ return record.id === featureResult.evictedId; })[0];
+      if(evicted) evicted.featured = false;
+      markDirty(featuredList + '.' + featureResult.evictedId + '.featured');
+      toast('Home limit reached — ' + ((evicted && evicted.title) || 'an older item') + ' was removed from Featured.');
+    }
+  }
+  markDirty(path); renderAdmin(module); return;
+}
 markDirty(path);
 refreshAuditPanels(module);
 /* A field-type change swaps the option editor: re-render from the draft. */
@@ -6735,7 +6758,7 @@ return text.replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUppe
 }
 function portfolioIsImageCard(record){ return !!(record && record.cardMode === 'image'); }
 function syncPortfolioCardMode(card, record){
-if(!card || !record || !(card.closest && card.closest('#pfGrid'))) return;
+if(!card || !record) return;
 var imageOnly = portfolioIsImageCard(record);
 card.classList.toggle('is-image-card', imageOnly);
 if(imageOnly){
@@ -6853,7 +6876,19 @@ apply: function(records){
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', portfolioFilterGroup(record));
   });
-  if(typeof filterState !== 'undefined' && filterState.pf){
+  var homeWorks = document.getElementById('worksGrid');
+  if(homeWorks){
+    homeWorks.innerHTML = '';
+    records.filter(function(record){ return record.published === true && record.featured === true; }).slice(0, 5).forEach(function(record, index){
+      var card = document.createElement('a');
+      card.className = 'work ' + ['work-hero','work-a','work-b','work-c','work-d'][index];
+      card.setAttribute('href', '#project/' + encodeURIComponent(record.slug));
+      card.setAttribute('data-project', record.slug);
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioBadgeLabel(record)) + '</span></div><div class="thumb">' + (publicImage(record.thumbnail, record.title) || '') + '</div><div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
+      homeWorks.appendChild(card); syncPortfolioCardMode(card, record);
+    });
+  }
+if(typeof filterState !== 'undefined' && filterState.pf){
     filterState.pf.cards = $$('#pfGrid [data-cat]');
     applyFilter('pf');
   }
@@ -6926,7 +6961,16 @@ apply: function(records){
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
   });
-  if(typeof filterState !== 'undefined' && filterState.fa){
+  var homeAssets = document.getElementById('assetsGrid');
+  if(homeAssets){
+    homeAssets.innerHTML = '';
+    records.filter(function(record){ return record.published === true && record.featured === true; }).slice(0, 8).forEach(function(record){
+      var card = document.createElement('a'); card.className = 'item'; card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug)); card.setAttribute('data-asset', record.slug);
+      card.innerHTML = assetBadgeMarkup(record) + '<div class="item-preview">' + (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span></div><div class="item-name">' + esc(record.title || record.slug) + '</div><div class="item-cat">' + esc(record.cat || 'Other') + '</div>';
+      homeAssets.appendChild(card); syncAssetBadge(card, record);
+    });
+  }
+if(typeof filterState !== 'undefined' && filterState.fa){
     filterState.fa.cards = $$('#faGrid [data-cat]');
     applyFilter('fa');
   }

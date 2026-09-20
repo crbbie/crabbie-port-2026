@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -3184,6 +3184,29 @@ try {
     assert.deepEqual(await dlVisible(), { direct: false, drive: false, notice: true }, 'neither toggle shows the unavailable notice');
     console.log('PASS category clouds and filters, flower badges, and download combinations (SDK fixture)');
 
+    // ---- Pass 6: Featured Home membership, defensive caps, and Drive CTA ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply(Array.from({length: 6}, (_, i) => ({
+        slug: 'home-project-' + i, title: 'Home project ' + i, desc: '', cat: 'Illustration',
+        tags: [], thumbnail: '', cover: '', blocks: [], featured: true, published: true, year: String(2020 + i)
+      })).concat([{slug:'home-hidden', title:'Hidden', desc:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', blocks:[], featured:false, published:true}]));
+      window.CrabbieAssets.apply(Array.from({length: 9}, (_, i) => ({
+        slug:'home-asset-' + i, title:'Home asset ' + i, cat:'Brushes', format:'PNG', availability:'available',
+        downloadUrl:'https://example.test/' + i + '.zip', showDirectDownload:true, showDriveDownload:false,
+        flowerTag:'', featured:true, published:true, tags:[], thumbnail:'', icon:'★'
+      })).concat([{slug:'asset-hidden',title:'Hidden asset',cat:'Brushes',format:'PNG',availability:'available',featured:false,published:true,tags:[],thumbnail:'',icon:'★'}]));
+      location.hash = '#home';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    assert.equal(await page.locator('#worksGrid [data-project]').count(), 5, 'Home renders only five featured published portfolio records');
+    assert.equal(await page.locator('#worksGrid [data-project="home-hidden"]').count(), 0, 'unfeatured portfolio prototypes never survive Home hydration');
+    assert.equal(await page.locator('#assetsGrid [data-asset]').count(), 8, 'Home renders only eight featured published asset records');
+    assert.equal(await page.locator('#assetsGrid [data-asset="asset-hidden"]').count(), 0, 'unfeatured asset prototypes never survive Home hydration');
+    await page.evaluate(() => { window.CrabbieAssets.apply([{slug:'drive-only', title:'Drive only', cat:'Brushes', format:'ZIP', availability:'available', downloadUrl:'', driveUrl:'https://drive.google.com/file/d/abc/view', showDirectDownload:false, showDriveDownload:true, featured:false, published:true, tags:[], thumbnail:'', icon:'★'}]); });
+    await page.evaluate(() => { location.hash = '#asset/drive-only'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.ok((await page.locator('#adDriveDownload').getAttribute('class')).includes('btn-purple'), 'Google Drive uses the purple candy CTA class');
+    console.log('PASS featured Home membership caps and purple Google Drive CTA (SDK fixture)');
 // P4_END
 
   }
