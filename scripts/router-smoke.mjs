@@ -1619,6 +1619,114 @@ try {
     assert.equal(shapeReads, 6, 'no fan-out: one panel query plus one per explicit load');
     console.log('PASS media query shape is one scoped server query per load (SDK fixture)');
 
+    // ---- Batch 5 Group 4: media toolbar, filters and grid/list views ------
+    const mgrReads = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length);
+    const mgrLastRead = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.range).slice(-1)[0]);
+    const mgrWaitReads = (count) => page.waitForFunction((target) => ((window.__routerReads || []).filter((read) => read.table === 'media' && read.range).length) === target, count);
+    const mgrTitles = async (selector) => page.$$eval('#adminContent ' + selector + ' .mb-title', (els) => els.map((el) => el.textContent));
+
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      const rows = [];
+      const files = [
+        ['image/png', 'art0.png'], ['image/gif', 'loop1.gif'], ['video/mp4', 'clip1.mp4'],
+        ['audio/mpeg', 'tune1.mp3'], ['application/pdf', 'spec1.pdf']
+      ];
+      files.forEach((entry, index) => rows.push({
+        id: '00000000-0000-4000-8000-0000000009' + String(70 + index),
+        bucket_id: 'media', storage_path: 'uploads/' + entry[1], original_name: entry[1],
+        mime_type: entry[0], size_bytes: 1024 * (index + 1), alt_text: 'alt ' + index, sha256: null,
+        deletion_status: 'active', deleted_at: null, deletion_error: null,
+        created_at: '2026-02-0' + (index + 1) + 'T00:00:00Z'
+      }));
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = rows;
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerStorageWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/media'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-card').length > 0);
+    const mgrPanelReads = await mgrReads();
+    assert.equal(mgrPanelReads, 1, 'the media panel still loads exactly one page on open');
+    assert.equal(await page.locator('#adminContent [data-adm-media-toolbar="1"]').count(), 1, 'the toolbar is rendered once');
+    assert.equal(await page.locator('#adminContent [data-adm-media-drop="1"]').count(), 1, 'the media grid is the drop target');
+
+    const mgrGridTitles = await mgrTitles('.adm-media-card');
+    assert.equal(mgrGridTitles.length, 5, 'the page renders every loaded row');
+    await page.locator('#adminContent [data-adm-media-view="list"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-row').length > 0);
+    assert.equal(await mgrReads(), mgrPanelReads, 'grid -> list issues zero queries');
+    assert.deepEqual(await mgrTitles('.adm-media-row'), mgrGridTitles, 'grid -> list reuses the loaded rows');
+    assert.equal(await page.locator('#adminContent [data-adm-media-view="list"]').getAttribute('aria-pressed'), 'true', 'the list toggle reports pressed');
+    assert.equal(await page.locator('#adminContent [data-adm-media-view="grid"]').getAttribute('aria-pressed'), 'false', 'the grid toggle reports released');
+    assert.equal(await page.locator('#adminContent [data-adm-media-pageinfo="1"]').innerText(), 'Page 1 / 1 · 5 files', 'a view switch never changes the page');
+    assert.equal(await page.locator('#adminContent [data-adm-media-filtersummary="1"]').count(), 0, 'a view switch adds no filter summary');
+
+    await page.locator('#adminContent [data-adm-media-view="grid"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-card').length > 0);
+    assert.equal(await mgrReads(), mgrPanelReads, 'list -> grid issues zero queries');
+    assert.deepEqual(await mgrTitles('.adm-media-card'), mgrGridTitles, 'list -> grid reuses the loaded rows');
+
+    await page.locator('#adminContent [data-adm-media-search]').fill('petal');
+    await mgrWaitReads(mgrPanelReads + 1);
+    const mgrSearchRead = await mgrLastRead();
+    assert.ok(mgrSearchRead.filters.some((filter) => filter[0] === 'original_name.ilike' && filter[1] === '%petal%'), 'search reaches the server query');
+    assert.ok(mgrSearchRead.filters.some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active'), 'search keeps the active-only filter');
+    assert.deepEqual(mgrSearchRead.range, [0, 29], 'a search restarts at page one');
+    assert.equal(await page.locator('#adminContent [data-adm-media-filtersummary="1"]').innerText(), 'Filtered by “petal”', 'the active filter is announced');
+
+    await page.locator('#adminContent [data-adm-media-filter="type"]').selectOption('image');
+    await mgrWaitReads(mgrPanelReads + 2);
+    const mgrTypeRead = await mgrLastRead();
+    assert.ok(mgrTypeRead.filters.some((filter) => filter[0] === 'or' && filter[1].indexOf('mime_type.like.image/') !== -1), 'the type filter is applied by the server');
+    assert.ok(mgrTypeRead.filters.some((filter) => filter[0] === 'original_name.ilike'), 'the type change keeps the search predicate');
+    assert.deepEqual(mgrTypeRead.range, [0, 29], 'a type change restarts at page one');
+
+    await page.locator('#adminContent [data-adm-media-filter="sort"]').selectOption('oldest');
+    await mgrWaitReads(mgrPanelReads + 3);
+    const mgrSortRead = await mgrLastRead();
+    assert.deepEqual(mgrSortRead.order, { column: 'created_at', ascending: true }, 'the sort control reaches the query order');
+
+    await page.locator('#adminContent [data-adm-media-filter="from"]').fill('2026-01-01');
+    await mgrWaitReads(mgrPanelReads + 4);
+    await page.locator('#adminContent [data-adm-media-filter="to"]').fill('2026-12-31');
+    await mgrWaitReads(mgrPanelReads + 5);
+    const mgrDateRead = await mgrLastRead();
+    assert.ok(mgrDateRead.filters.some((filter) => filter[0] === 'created_at.gte' && filter[1] === '2026-01-01T00:00:00.000Z'), 'the from date reaches the query');
+    assert.ok(mgrDateRead.filters.some((filter) => filter[0] === 'created_at.lte' && filter[1] === '2026-12-31T23:59:59.999Z'), 'the to date reaches the query');
+
+    await page.locator('#adminContent [data-adm-media-clear]').click();
+    await mgrWaitReads(mgrPanelReads + 6);
+    const mgrClearedRead = await mgrLastRead();
+    assert.equal(mgrClearedRead.filters.some((filter) => filter[0] === 'original_name.ilike'), false, 'clearing removes the search predicate');
+    assert.equal(mgrClearedRead.filters.some((filter) => filter[0] === 'or'), false, 'clearing removes the type predicate');
+    assert.equal(mgrClearedRead.filters.some((filter) => /created_at\.(gte|lte)/.test(filter[0])), false, 'clearing removes the date range');
+    assert.ok(mgrClearedRead.filters.some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active'), 'clearing keeps the active-only filter');
+    assert.deepEqual(mgrClearedRead.order, { column: 'created_at', ascending: false }, 'clearing restores the default order');
+    assert.equal(await page.locator('#adminContent [data-adm-media-search]').inputValue(), '', 'the search box is reset');
+    assert.equal(await page.locator('#adminContent [data-adm-media-filter="type"]').inputValue(), 'all', 'the type filter is reset');
+    assert.equal(await page.locator('#adminContent [data-adm-media-filter="sort"]').inputValue(), 'newest', 'the sort is reset');
+    assert.equal(await page.locator('#adminContent [data-adm-media-filter="from"]').inputValue(), '', 'the from date is reset');
+    assert.equal(await mgrReads(), mgrPanelReads + 6, 'six query controls issued exactly six queries');
+
+    for (const viewport of [{width: 1440, height: 900, label: 'desktop'}, {width: 820, height: 1180, label: 'tablet'}, {width: 390, height: 844, label: 'mobile'}]) {
+      await page.setViewportSize({width: viewport.width, height: viewport.height});
+      await page.waitForTimeout(120);
+      const box = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+        toolbar: document.querySelector('#adminContent [data-adm-media-toolbar="1"]') !== null
+      }));
+      assert.ok(box.scrollWidth <= box.clientWidth + 4, viewport.label + ' media manager has no horizontal overflow (' + box.scrollWidth + '/' + box.clientWidth + ')');
+      assert.equal(box.toolbar, true, viewport.label + ' keeps the media toolbar mounted');
+    }
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS media toolbar filters server-side once and grid/list reuse the loaded page (SDK fixture)');
+
 // P4_END
 
   }

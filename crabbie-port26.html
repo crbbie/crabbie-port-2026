@@ -4901,28 +4901,74 @@ var cls = uploadTask.status === 'failed' ? ' failed' : '';
 return '<div class="adm-upload-status' + cls + '" data-adm-upload-status="' + esc(uploadTask.status) + '"><span>' + esc(label) + '</span>' + (active ? '<button type="button" class="adm-btn-sm" data-adm-upload-cancel="1">Cancel</button>' : '') + '</div>';
 }
 
+function mediaViewToolbarHtml(){
+var media = window.CrabbieAdminMedia || {};
+var typeOptions = (media.MEDIA_TYPE_FILTERS || []).map(function(entry){ return '<option value="' + esc(entry.value) + '"' + (mediaPage.type === entry.value ? ' selected' : '') + '>' + esc(entry.label) + '</option>'; }).join('');
+var sortOptions = (media.MEDIA_SORTS || []).map(function(entry){ return '<option value="' + esc(entry.value) + '"' + (mediaPage.sort === entry.value ? ' selected' : '') + '>' + esc(entry.label) + '</option>'; }).join('');
+var busy = mediaPage.state === 'loading' ? ' aria-busy="true"' : '';
+return '<div class="adm-media-toolbar" role="toolbar" aria-label="Media library controls"' + busy + ' data-adm-media-toolbar="1">' +
+  '<button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button>' +
+  '<input type="search" data-adm-media-search="1" value="' + esc(mediaPage.search || '') + '" placeholder="Search filenames" aria-label="Search media by filename">' +
+  '<select data-adm-media-filter="type" aria-label="Filter by media type">' + typeOptions + '</select>' +
+  '<select data-adm-media-filter="sort" aria-label="Sort media">' + sortOptions + '</select>' +
+  '<input type="date" data-adm-media-filter="from" value="' + esc(mediaPage.from || '') + '" aria-label="Uploaded from (UTC)">' +
+  '<input type="date" data-adm-media-filter="to" value="' + esc(mediaPage.to || '') + '" aria-label="Uploaded to (UTC)">' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-clear="1">Clear filters</button>' +
+  '<div class="adm-view-toggle" role="group" aria-label="Media view">' +
+    '<button type="button" class="adm-btn-sm" data-adm-media-view="grid" aria-pressed="' + (mediaPage.view === 'grid') + '">Grid</button>' +
+    '<button type="button" class="adm-btn-sm" data-adm-media-view="list" aria-pressed="' + (mediaPage.view === 'list') + '">List</button>' +
+  '</div></div>';
+}
+
+function mediaViewItemHtml(m){
+var src = m.thumbnailUrl || m.url;
+var selected = (mediaPage.selected || []).indexOf(m.id) !== -1;
+var actions = '<div class="mb-actions">' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-preview="' + esc(m.id) + '">Preview</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-copy="' + esc(m.id) + '">Copy URL</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-media-alt="' + esc(m.id) + '">Alt text</button>' +
+  '<button type="button" class="adm-btn-sm danger" data-adm-media-del="' + esc(m.id) + '" data-adm-media-name="' + esc(m.title) + '">' + esc(tAdmin('btn.delete')) + '</button></div>';
+if(mediaPage.view === 'list'){
+  var rowThumb = (m.type === 'image' && src)
+    ? '<img class="adm-media-row-thumb" src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" loading="lazy">'
+    : '<span class="adm-media-row-thumb adm-media-row-icon" aria-hidden="true">' + esc(m.type === 'video' ? '▶' : (m.type === 'audio' ? '♪' : '📄')) + '</span>';
+  return '<div class="adm-media-row" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (selected ? 'true' : 'false') + '">' + rowThumb +
+    '<div class="adm-media-row-main"><div class="mb-title">' + esc(m.title) + '</div><div class="mb-meta">' + esc(m.type) + ' · ' + esc(m.size || '') + '</div></div>' + actions + '</div>';
+}
+var cardThumb = (m.type === 'image' && src)
+  ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+  : esc(m.type === 'video' ? '▶' : (m.type === 'audio' ? '♪' : '📄'));
+return '<div class="adm-media-card" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (selected ? 'true' : 'false') + '"><div class="adm-media-thumb">' + cardThumb + '</div>' +
+  '<div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div>' +
+  '<div class="adm-meta"><span class="adm-badge published">' + esc(m.type) + '</span><span>' + esc(m.size || '') + '</span></div>' + actions + '</div></div>';
+}
+
 function renderAdminMedia(){
 var rows = ADMIN_DRAFT.media || [];
-var panelState = mediaPage.state;
-var cards = rows.map(function(m){
-  var src = m.thumbnailUrl || m.url;
-  var thumb = (m.type === 'image' && src)
-    ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
-    : esc(m.type === 'image' ? '🖼' : '▶');
-  return '<div class="adm-media-card"><div class="adm-media-thumb">' + thumb + '</div><div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div><div class="mb-meta"><span class="adm-badge published">' + esc(m.type) + '</span><span>' + esc(m.size || '') + '</span></div><div class="mb-actions"><button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm danger" data-adm-media-del="' + esc(m.id) + '" data-adm-media-name="' + esc(m.title) + '">' + esc(tAdmin('btn.delete')) + '</button></div></div></div>';
-}).join('');
 var body;
-if(panelState === 'error'){
+if(mediaPage.state === 'error'){
   body = '<div style="grid-column:1/-1;" class="adm-panel-state error"><p>' + esc(mediaPage.error || 'Media could not be loaded.') + '</p><button type="button" class="adm-btn-sm" data-adm-media-retry="1">Try again</button></div>';
-} else if(panelState === 'loading' && !rows.length){
-  body = '<div style="grid-column:1/-1;" class="adm-panel-state">Loading media…</div>';
+} else if(mediaPage.state === 'loading' && !rows.length){
+  body = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--berry-soft);font-weight:700;">Loading media…</div>';
+} else if(!rows.length){
+  body = '<div style="grid-column:1/-1;padding:40px 20px;text-align:center;color:var(--berry-soft);font-weight:700;">No media matches this view.</div>';
 } else {
-  body = cards || '<div style="grid-column:1/-1;padding:40px 20px;text-align:center;color:var(--berry-soft);font-weight:700;">No media uploaded yet. Click Upload to add your first file!</div>';
+  body = rows.map(mediaViewItemHtml).join('');
 }
+var media = window.CrabbieAdminMedia || {};
 var total = mediaPage.total || rows.length;
 var pages = Math.max(1, mediaPage.pageCount || 1);
-var pager = '<div class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-media-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span>Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-media-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
-return '<div class="adm-list" style="margin-bottom:16px; position:static; max-height:none;"><div class="adm-list-toolbar"><button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button><input type="search" data-adm-media-search="1" value="' + esc(mediaPage.search || '') + '" placeholder="Search filenames"></div>' + uploadStatusHtml() + '</div><div class="adm-media-grid">' + body + '</div>' + pager;
+var summary = typeof media.mediaFilterSummary === 'function' ? media.mediaFilterSummary(mediaPage) : '';
+var listClass = mediaPage.view === 'list' ? ' view-list' : '';
+var selection = mediaPage.selected || [];
+return '<div class="adm-list" style="margin-bottom:16px; position:static; max-height:none;">' + mediaViewToolbarHtml() + uploadStatusHtml() +
+  (summary ? '<p class="af-hint" data-adm-media-filtersummary="1">Filtered by ' + esc(summary) + '</p>' : '') + '</div>' +
+  '<div class="adm-bulk-bar" role="status" aria-live="polite" data-adm-bulk-bar="1"' + (selection.length ? '' : ' hidden') + '><span data-adm-bulk-count="1">' + selection.length + ' selected</span>' +
+  '<button type="button" class="adm-btn-sm danger" data-adm-bulk-delete="1">Delete selected</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-bulk-clear="1">Clear selection</button></div>' +
+  '<div class="adm-media-grid' + listClass + '" data-adm-media-drop="1" role="listbox" aria-multiselectable="true" aria-label="Media library">' + body + '</div>' +
+  '<div class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-media-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span data-adm-media-pageinfo="1">Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-media-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
 }
 
 function renderAdminSettings(){
@@ -4960,10 +5006,80 @@ return '<div class="adm-list"><div class="adm-list-toolbar"><input type="search"
 /* ==========================================================
    ADMIN EVENT WIRING
    ========================================================== */
+/* One delegated handler set on the stable admin root: re-rendering replaces the
+   markup but never the wiring, so a media action can only fire once. */
+function mediaItemById(id){
+return (ADMIN_DRAFT.media || []).filter(function(item){ return item.id === id; })[0] || null;
+}
+
+function installMediaUiDelegation(){
+if(!adminContent || adminContent.dataset.mediaUiWired === '1') return;
+adminContent.dataset.mediaUiWired = '1';
+var searchTimer = null;
+
+adminContent.addEventListener('click', function(event){
+  var viewBtn = event.target.closest('[data-adm-media-view]');
+  if(viewBtn){
+    /* View switching re-renders the loaded page: no refetch, no reset. */
+    mediaPage.view = viewBtn.getAttribute('data-adm-media-view') === 'list' ? 'list' : 'grid';
+    renderAdmin('media');
+    return;
+  }
+  var clearBtn = event.target.closest('[data-adm-media-clear]');
+  if(clearBtn){
+    mediaPage.search = ''; mediaPage.type = 'all'; mediaPage.sort = 'newest'; mediaPage.from = ''; mediaPage.to = '';
+    mediaPage.page = 1;
+    loadMediaPage({ page: 1 });
+    return;
+  }
+  var pageBtn = event.target.closest('[data-adm-media-page]');
+  if(pageBtn){
+    var dir = pageBtn.getAttribute('data-adm-media-page');
+    mediaPage.page = dir === 'prev' ? Math.max(1, mediaPage.page - 1) : mediaPage.page + 1;
+    loadMediaPage({ page: mediaPage.page });
+    return;
+  }
+  var retryBtn = event.target.closest('[data-adm-media-retry]');
+  if(retryBtn){ loadMediaPage({ page: mediaPage.page }); return; }
+  var openBtn = event.target.closest('[data-adm-media-open]');
+  if(openBtn){
+    var openItem = mediaItemById(openBtn.getAttribute('data-adm-media-open'));
+    if(openItem && openItem.url) window.open(openItem.url, '_blank', 'noopener');
+    return;
+  }
+  var uploadBtn = event.target.closest('[data-adm-media-upload]');
+  if(uploadBtn){ triggerMediaUpload({ type: 'mediaTab' }); }
+});
+
+adminContent.addEventListener('change', function(event){
+  var filter = event.target.closest('[data-adm-media-filter]');
+  if(!filter) return;
+  var key = filter.getAttribute('data-adm-media-filter');
+  if(['type', 'sort', 'from', 'to'].indexOf(key) === -1) return;
+  /* A query control restarts at page one and issues exactly one query. */
+  mediaPage[key] = filter.value;
+  mediaPage.page = 1;
+  loadMediaPage({ page: 1 });
+});
+
+adminContent.addEventListener('input', function(event){
+  var input = event.target.closest('[data-adm-media-search]');
+  if(!input) return;
+  if(searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(function(){
+    searchTimer = null;
+    mediaPage.search = input.value;
+    mediaPage.page = 1;
+    loadMediaPage({ page: 1 });
+  }, 300);
+});
+}
+
 function wireAdminContent(module){
 /* A paged panel loads itself the first time its module is shown. */
 if(module === 'requests' && reqFilter.state === 'idle') loadRequestsPage();
 if(module === 'media' && mediaPage.state === 'idle') loadMediaPage({ page: 1 });
+installMediaUiDelegation();
 if(!adminContent) return;
 $$('[data-adm-subtab]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
@@ -5317,30 +5433,6 @@ btn.addEventListener('click', async function(){
   else toast(tAdmin('toast.refreshed'));
 });
 });
-$$('[data-adm-media-page]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){
-var dir = btn.getAttribute('data-adm-media-page');
-if(dir === 'prev') mediaPage.page = Math.max(1, mediaPage.page - 1); else mediaPage.page++;
-loadMediaPage({ page: mediaPage.page });
-});
-});
-$$('[data-adm-media-retry]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){ loadMediaPage({ page: mediaPage.page }); });
-});
-$$('[data-adm-media-search]', adminContent).forEach(function(input){
-if(input.dataset.wired === '1') return;
-input.dataset.wired = '1';
-var timer = null;
-input.addEventListener('input', function(){
-  if(timer) clearTimeout(timer);
-  timer = setTimeout(function(){
-    timer = null;
-    mediaPage.search = input.value;
-    mediaPage.page = 1;
-    loadMediaPage({ page: 1 });
-  }, 300);
-});
-});
 $$('[data-adm-upload-cancel]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   if(typeof uploadCancel === 'function'){
@@ -5363,18 +5455,6 @@ grid.addEventListener('error', function(event){
   img.dataset.fallbackApplied = '1';
   img.src = original;
 }, true);
-});
-$$('[data-adm-media-open]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){
-var id = btn.getAttribute('data-adm-media-open');
-var m = (ADMIN_DRAFT.media || []).filter(function(x){ return x.id === id; })[0];
-if(m && m.url) window.open(m.url, '_blank', 'noopener');
-});
-});
-$$('[data-adm-media-upload]', adminContent).forEach(function(btn){
-btn.addEventListener('click', function(){
-triggerMediaUpload({ type: 'mediaTab' });
-});
 });
 $$('[data-adm-mediaupload]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
