@@ -232,8 +232,63 @@ try {
   if (!livePublic) await context.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({ contentType: 'text/javascript', body: sdkFixture }));
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+
+  /**
+   * Boot diagnostics: when a wait times out the page state is snapshotted and
+   * printed immediately, so a broken admin boot is visible instead of only the
+   * timeout. Timeouts, assertions and test expectations stay untouched.
+   */
+  const bootDiagnostics = async (target, label) => {
+    let snapshot;
+    try {
+      snapshot = await target.evaluate(() => ({
+        url: location.href,
+        hash: location.hash,
+        readyState: document.readyState,
+        activeViews: Array.from(document.querySelectorAll('.view.is-active')).map((view) => view.dataset.view),
+        totalViews: document.querySelectorAll('.view').length,
+        adminShell: {
+          loginShell: Boolean(document.querySelector('#adminLoginShell')),
+          realShell: Boolean(document.querySelector('#adminRealShell'))
+        },
+        globals: {
+          CrabbieAuthService: typeof window.CrabbieAuthService,
+          CrabbieAdminAuth: typeof window.CrabbieAdminAuth,
+          CrabbieAdminCrud: typeof window.CrabbieAdminCrud,
+          CrabbieAdminMedia: typeof window.CrabbieAdminMedia,
+          CrabbieAdminMediaUI: typeof window.CrabbieAdminMediaUI,
+          CrabbieAdminUsageProvider: typeof window.CrabbieAdminUsageProvider,
+          CrabbieSupabase: typeof window.CrabbieSupabase,
+          supabaseConfig: Boolean(window.__CRABBIE_SUPABASE_CONFIG__)
+        },
+        loadState: (window.CrabbieAdminCrud && typeof window.CrabbieAdminCrud.getAdminLoadState === 'function')
+          ? window.CrabbieAdminCrud.getAdminLoadState() : null,
+        routerQueryCount: window.__routerQueryCount || null,
+        scriptSrcs: Array.from(document.scripts).map((script) => script.src || '(inline)')
+      }));
+    } catch (err) {
+      snapshot = { evaluateFailed: String((err && err.message) || err) };
+    }
+    return { label, snapshot, pageErrors: errors.slice(0, 5), consoleErrors: consoleErrors.slice(0, 8), failedRequests: failedRequests.slice(0, 8) };
+  };
+
+  /** Every waitForFunction in this suite reports page state on timeout. */
+  const rawWaitForFunction = page.waitForFunction.bind(page);
+  page.waitForFunction = async (fn, arg, options) => {
+    try {
+      return await rawWaitForFunction(fn, arg, options);
+    } catch (err) {
+      const report = await bootDiagnostics(page, 'waitForFunction timeout');
+      console.error('BOOT DIAGNOSTICS:\n' + JSON.stringify(report, null, 2));
+      throw err;
+    }
+  };
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.stack || error.message));
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  page.on('requestfailed', (request) => failedRequests.push({ url: request.url(), error: ((request.failure() || {}).errorText) || 'request failed' }));
   const cases = [
     ['/', 'home'], ['/#home', 'home'], ['/#portfolio', 'portfolio'],
     ['/#free-assets', 'free-assets'], ['/#commissions', 'commissions'],
