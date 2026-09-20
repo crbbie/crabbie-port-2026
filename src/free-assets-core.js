@@ -19,6 +19,9 @@ export function mapFreeAsset(row, fallback = {}) {
     update: meta.update ?? '',
     availability: row.availability ?? '',
     downloadUrl: row.file_path ?? '',
+    driveUrl: meta.driveUrl ?? '',
+    showDirectDownload: meta.showDirectDownload !== false,
+    showDriveDownload: !!meta.showDriveDownload,
     flowerTag: meta.flowerTag ?? null,
     filterCat: meta.filterCat ?? '',
     tags: Array.isArray(meta.tags) ? meta.tags : []
