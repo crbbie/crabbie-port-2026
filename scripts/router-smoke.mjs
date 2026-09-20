@@ -1037,7 +1037,7 @@ try {
     assert.match(staleAttempt.message, /another session|reload/i);
     assert.equal(staleAttempt.draftTitle, 'Stale title', 'the local draft survives a conflict');
     assert.equal(staleAttempt.baseline, '2020-01-01T00:00:00Z', 'a failed save must not advance the baseline');
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'color-fiesta').title), 'Edited once', 'newer database data is not overwritten');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'edited-once').title), 'Edited once', 'newer database data is not overwritten');
     console.log('PASS a stale save is rejected as a conflict and never overwrites newer data (SDK fixture)');
 
     // Test 10: a reorder is one bounded order-only write, not one write per row.
