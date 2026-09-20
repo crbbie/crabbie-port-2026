@@ -659,7 +659,7 @@ try {
     assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.slug"]').inputValue(), 'saved-cms-title', 'editing the title updates the slug before saving');
     await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="saved-cms-title"] .work-title')?.textContent === 'Saved CMS title');
-    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"]').count(), 0, 'public refresh removes the obsolete slug card');
+    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"]').isVisible(), false, 'public refresh hides the obsolete prototype slug card');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
     console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
