@@ -583,12 +583,12 @@ try {
     assert.deepEqual(scopedWrites['navigation'], ['cms_navigation:insert']);
     assert.deepEqual(scopedWrites['settings'], ['site_settings:insert'], 'a settings key without a baseline is inserted');
     assert.deepEqual(scopedWrites['portfolioCategories'], ['cms_categories:insert']);
-    // Leaving the admin area with unsaved edits is now guarded: discard the
-    // draft explicitly through the sticky bar before public CMS rendering.
-    await page.locator('#admStickySave [data-adm-discard]').click();
+    // Leaving the admin area with unsaved edits is guarded; confirm the discard
+    // through the route-exit dialog now that the duplicate sticky Save bar is gone.
+    await page.evaluate(() => { location.hash = '#home'; });
     await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
     await page.locator('#adminConfirmOk').click();
-    await page.waitForFunction(() => !document.getElementById('admStickySave').classList.contains('visible'));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
     await page.evaluate(() => {
       window.CrabbiePortfolio.apply([{
         slug:'color-fiesta',title:'DB title',desc:'DB description',cat:'Illustration',tags:[],
@@ -656,7 +656,7 @@ try {
     });
     await page.locator('#adminNav [data-admin-module="portfolio"][aria-current="page"]').waitFor({state:'visible'});
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Saved CMS title');
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === 'Saved CMS title');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
@@ -717,7 +717,9 @@ try {
     await goToAdminModule('portfolio');
     assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Color Fiesta', 'Retry must load live rows, not prototype rows');
     assert.equal(await page.locator('#adminTopSave').isVisible(), true);
-    console.log('PASS admin hydration retry reaches ready with live rows after one query pass (SDK fixture)');
+    assert.equal(await page.locator('#admStickySave').count(), 0, 'the duplicate sticky Save bar is not rendered');
+    assert.equal(await page.locator('#adminContent .adm-editor-bar [data-adm-save]:visible').count(), 0, 'local editor Save buttons are hidden');
+    console.log('PASS admin hydration retry reaches ready with one canonical visible Save action (SDK fixture)');
 
     // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
     await page.evaluate(() => { window.__routerQueryCount = {}; window.__routerEmit('SIGNED_IN'); });
@@ -835,7 +837,7 @@ try {
     await goToAdminModule('portfolio');
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Edited once');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const portfolioWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters})));
     assert.equal(portfolioWrites.length, 1, 'one record edit must write exactly one row');
@@ -857,9 +859,9 @@ try {
     assert.match(newRecordPath, /^portfolio\.client-/, 'a new draft gets a unique client identity instead of a fixed slug');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), '', 'a new draft starts with an empty slug');
     await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Brand new project');
-    await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').fill('brand-new-project');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'brand-new-project', 'the slug auto-generates from the title');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const insertWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, payload: w.payload})));
     assert.equal(insertWrites.length, 1, 'a new record is one INSERT');
@@ -871,7 +873,7 @@ try {
 
     await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Renamed new project');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const secondWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
     assert.equal(secondWrites.length, 1);
@@ -888,7 +890,7 @@ try {
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
     await page.evaluate((base) => {
-      document.querySelector('[data-adm-save="portfolio"]').click();
+      document.getElementById('adminTopSave').click();
       const input = document.querySelector('[data-adm-path="' + base + '.title"]');
       input.value = 'Edited mid-save';
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -896,21 +898,23 @@ try {
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Mid-save base', 'the database keeps version N, not the mid-save edit');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
-    assert.match(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft stays dirty after a mid-save edit');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays dirty after a mid-save edit');
     assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
     // The persisted baseline advanced to N even though the draft is N+1, so
     // discarding restores N (matching the database), never the older N-1.
-    await page.locator('#admStickySave [data-adm-discard]').click();
+    await page.evaluate(() => { location.hash = '#home'; });
     await page.locator('#adminConfirmModal.open').waitFor({ state: 'visible' });
     await page.locator('#adminConfirmOk').click();
-    await page.waitForFunction(() => !document.getElementById('admStickySave').classList.contains('visible'));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Mid-save base', 'discard after a mid-save edit restores the confirmed N');
     await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Edited mid-save');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1');
-    assert.doesNotMatch(await page.evaluate(() => document.getElementById('admStickySave').className), /visible/, 'the draft is clean once the latest revision is saved');
+    assert.doesNotMatch(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft is clean once the latest revision is saved');
     console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
 
     // Bug fix: a stale picker page must never overwrite a newer one. Transport
@@ -986,16 +990,15 @@ try {
       const input = document.querySelector('[data-adm-path$=".slug"]');
       return input ? input.getAttribute('data-adm-path').replace(/\.slug$/, '') : '';
     });
-    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Duplicate attempt');
-    await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').fill('color-fiesta');
+    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Color Fiesta');
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     assert.match(await readToast(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
     assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'color-fiesta', 'the draft slug is preserved');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
     assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').map(r => r.title)), ['Edited once'], 'the existing row is untouched');
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.some(r => r.title === 'Duplicate attempt')), false, 'no partial row was created');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').length), 1, 'no partial duplicate row was created');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['insert'], 'only the rejected INSERT was attempted');
     console.log('PASS a duplicate slug is rejected without touching the other row or the draft (SDK fixture)');
 
@@ -1003,7 +1006,7 @@ try {
     await goToAdminModule('requests');
     await page.locator('[data-adm-path="requests.00000000-0000-4000-8000-000000000108.status"]').selectOption('Completed');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="requests"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const requestWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
     assert.equal(requestWrites.length, 1, 'one request edit must write one row, never every loaded request');
@@ -1036,25 +1039,27 @@ try {
 
     // Test 10: a reorder is one bounded order-only write, not one write per row.
     await goToAdminModule('portfolio');
-    await page.evaluate(() => {
-      const bar = document.getElementById('admStickySave');
-      if (bar && bar.classList.contains('visible')) bar.querySelector('[data-adm-discard]').click();
-    });
-    if (await page.locator('#adminConfirmModal.open').count()) {
+    if (/dirty/.test(await page.evaluate(() => document.getElementById('adminSaveStatus').className))) {
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.locator('#adminConfirmModal.open').waitFor({state:'visible'});
       await page.locator('#adminConfirmOk').click();
-      await page.waitForFunction(() => !document.getElementById('adminConfirmModal').classList.contains('open'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     }
     await page.locator('.adm-record[data-adm-id="color-fiesta"] [data-adm-move="down"]').click();
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('#admStickySave [data-adm-save="sticky"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    const orderWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, payload: w.payload})));
-    assert.equal(orderWrites.length, 1, 'a reorder must not become a sequential write per row');
-    assert.equal(orderWrites[0].table, 'portfolio_projects');
-    assert.equal(orderWrites[0].op, 'upsert');
-    assert.equal(orderWrites[0].payload.length, 3, 'one bounded order write covers every saved row');
-    for (const entry of orderWrites[0].payload) assert.deepEqual(Object.keys(entry).sort(), ['id', 'sort_order'], 'order writes only touch ordering');
-    console.log('PASS a reorder is a single bounded order-only write (SDK fixture)');
+    const orderWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, payload: w.payload, filters:w.filters})));
+    assert.ok(orderWrites.length >= 1, 'a reorder writes the saved rows that need an order value');
+    for (const write of orderWrites) {
+      assert.equal(write.table, 'portfolio_projects');
+      assert.equal(write.op, 'update', 'order changes use UPDATE, never partial upsert');
+      assert.deepEqual(Object.keys(write.payload).sort(), ['sort_order'], 'order writes touch only sort_order');
+      assert.equal(write.filters[0][0], 'id', 'each order update is scoped by stable DB id');
+    }
+    console.log('PASS a reorder uses safe order-only UPDATEs (SDK fixture)');
 
     // Test 8: a failed delete keeps the record in local state and reports it.
     const adminRecordCount = () => page.locator('#adminContent .adm-record').count();
@@ -1126,7 +1131,7 @@ try {
     // Session A saves the key it hydrated.
     await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const settingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
     assert.equal(settingsWrites.length, 1, 'only the touched settings key is written');
@@ -1143,7 +1148,7 @@ try {
     // The advanced baseline is used by the next save from the same session.
     await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding twice');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const secondSettingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
     assert.equal(secondSettingsWrites[0].filters[1][1], savedBranding.updated_at, 'the settings baseline advanced to the returned updated_at');
@@ -1158,7 +1163,7 @@ try {
     await page.locator('[data-adm-path="settings.branding.title"]').fill('MY STALE EDIT');
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     assert.match(await readToast(), /Conflict/i, 'a stale settings save reports the same conflict as records');
     assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), 'MY STALE EDIT', 'the stale settings draft is preserved');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the stale settings draft stays dirty');
@@ -2209,7 +2214,7 @@ try {
     await page.waitForFunction(() => (window.__routerWrites || []).length === 1);
     await page.waitForTimeout(600);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Second shortcut title', 'a conflicting save never overwrites the stored row');
-    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'a conflicting save keeps the draft dirty');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'a conflicting save keeps the draft dirty');
     console.log('PASS media drop, picker multi-select, bulk delete and the save shortcut stay single-action (SDK fixture)');
 
     // ---- Batch 5 Group 7: portfolio block integration and final a11y ------
@@ -2463,7 +2468,7 @@ try {
     assert.ok(p3GalleryShape.url.includes('/uploads/'), 'the uploaded Gallery row holds a canonical URL');
     assert.equal(await page.evaluate((path) => document.activeElement?.getAttribute('data-adm-mediabrowse') === path, p3GalleryTarget), true, 'Picker upload returns focus to its editor button');
     assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker upload marks the draft dirty without saving');
-    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'Picker upload leaves the draft dirty');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'Picker upload leaves the draft dirty');
 
     await blkBrowse(p3GalleryTarget);
     await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open [data-adm-pick]')));
@@ -2581,15 +2586,15 @@ try {
     const p4AssetAvailability = page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.availability"]');
     assert.equal(await p4AssetAvailability.inputValue(), 'available', 'a new Asset starts from an explicit availability');
     await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.title"]').fill('Availability asset');
-    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.slug"]').fill('availability-asset');
+    assert.equal(await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.slug"]').inputValue(), 'availability-asset');
     await p4AssetAvailability.selectOption('unavailable');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="assets"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'free_assets'));
     const p4AssetWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
     assert.equal(p4AssetWrite.payload.availability, 'unavailable', 'the saved Asset keeps the chosen availability');
     assert.equal(await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0].availability), 'unavailable', 'the database row stores the explicit availability');
     await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.placeholder"]').check();
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="assets"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'free_assets').length >= 2);
     const p4AssetFlagWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
     assert.equal(p4AssetFlagWrite.payload.metadata.placeholder, true, 'a checked placeholder is persisted under asset metadata');
@@ -2628,10 +2633,10 @@ try {
     const p4FormId = await page.evaluate(() => document.querySelector('#adminContent [data-adm-path$=".title"]').getAttribute('data-adm-path').split('.')[1]);
     assert.ok(/^client-/.test(p4FormId), 'a new Form uses a stable local identity before saving');
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.title"]').fill('Round-trip form');
-    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.slug"]').fill('round-trip-form');
+    assert.equal(await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.slug"]').inputValue(), 'round-trip-form');
     await page.locator('#adminContent [data-adm-new-field]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-qblock]')));
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_forms'));
     const p4FormWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms' && write.operation === 'insert').slice(-1)[0]);
     assert.equal(p4FormWrite.payload.slug, 'round-trip-form', 'the Form is persisted under its real slug');
@@ -2646,7 +2651,7 @@ try {
     assert.ok(p4FormOptions.indexOf('round-trip-form') !== -1, 'the saved Form appears in the Commission relationship select without a reload');
     assert.equal(p4FormOptions.some((value) => /^client-/.test(value)), false, 'the relationship select never offers a local identity');
     await p4FormSelect.selectOption('round-trip-form');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services'));
     const p4CommissionWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services').slice(-1)[0]);
     assert.equal(p4CommissionWrite.payload.form_slug, 'round-trip-form', 'the Commission persists the real Form slug');
@@ -2676,7 +2681,7 @@ try {
     await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.required"]').check();
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.description"]').fill('Tell me about the emote you want.');
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.published"]').check();
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').length >= 2);
     const p4FormUpdate = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').slice(-1)[0]);
     assert.equal(p4FormUpdate.payload.description, 'Tell me about the emote you want.', 'the form description is persisted');
@@ -2727,7 +2732,7 @@ try {
     const p4PriceField = page.locator('#adminContent [data-adm-path="commissions.' + p4PriceId + '.price"]');
     await p4PriceField.waitFor();
     await p4PriceField.fill('75');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services' && write.payload.price === 75));
     const p4PriceWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services' && write.payload.price === 75).slice(-1)[0]);
     assert.equal(p4PriceWrite.payload.details.priceFormatted, '$75', 'saving a new price rewrites the stale formatted detail');
@@ -3027,7 +3032,7 @@ try {
     await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').last().fill('Test Experience');
     await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().fill('Test experience body.');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="pages.about"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'cms_pages'));
     const aboutWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'cms_pages').slice(-1)[0]);
     assert.ok((aboutWrite.payload.data.skills || []).includes('Test Skill'), 'the new skill is in the DB payload');
