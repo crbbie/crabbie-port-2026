@@ -2706,6 +2706,8 @@ try {
     assert.equal(p4FormUpdate.payload.fields[0].placeholder, 'Pick one', 'placeholder is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].type, 'select', 'the field type is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].label, 'Preferred package', 'the field label is persisted');
+    const p4StoredFormRow = await page.evaluate(() => window.__routerRows.commission_forms.find((row) => row.slug === 'round-trip-form'));
+    assert.deepEqual(p4StoredFormRow.fields[0].options, ['Mini', 'Full', 'Deluxe'], 'the field edit reaches the database row, not just the write payload');
     const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.find((row) => row.slug === 'round-trip-form'));
     const p4SavedServicesD = await page.evaluate(() => window.__routerRows.commission_services);
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -2721,19 +2723,14 @@ try {
     await loginAdmin();
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
     await goAdmin('commissions');
-    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
-    const hydratedRoundTripForm = await page.evaluate(() => {
-      const form = (window.ADMIN_DRAFT?.forms || []).find((row) => row.slug === 'round-trip-form');
-      return form ? { slug:form.slug, fields:form.fields } : null;
+    await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="forms"]')));
+    const roundTripRowFound = await page.evaluate(() => {
+      const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="forms"]'), (candidate) => candidate.innerText.indexOf('Round-trip form') !== -1);
+      if (row) row.click();
+      return Boolean(row);
     });
-    assert.ok(hydratedRoundTripForm, 'the saved form hydrates back into the admin draft');
-    assert.equal(hydratedRoundTripForm.fields[0].type, 'select', 'the authored field type survives hydration');
-    assert.deepEqual(hydratedRoundTripForm.fields[0].options, ['Mini','Full','Deluxe'], 'the authored options survive hydration');
-    await page.evaluate(() => {
-      ADMIN_UI.subtab.commissions = 'forms';
-      ADMIN_UI.selection.forms = 'round-trip-form';
-      renderAdmin('commissions');
-    });
+    assert.ok(roundTripRowFound, 'the saved form hydrates back into the admin list');
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-options-path]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".description"]').first().inputValue(), 'Tell me about the emote you want.', 'the description survives a reload');
     assert.equal(await page.locator('#adminContent [data-adm-path$=".published"]').first().isChecked(), true, 'the published flag survives a reload');
@@ -2928,7 +2925,7 @@ try {
     await page.evaluate(() => {
       window.CrabbiePortfolio.apply([{slug:'titled-blocks',title:'Titled',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
         blocks:[
-          {id:'b1',type:'text',text:'Hello',sectionTitle:'Concept'},
+          {id:'b1',type:'text',text:'Hello **bold** and *italic*\n\nSecond para',sectionTitle:'Concept',textSize:'large'},
           {id:'b2',type:'quote',text:'Nice words',sectionTitle:''},
           {id:'b3',type:'image-text',text:'More',url:'',sectionTitle:'Final thoughts'}
         ],credits:'',year:''}]);
@@ -2940,6 +2937,9 @@ try {
     assert.ok(blockHeadings.some((text) => text.includes('Final thoughts')), 'the author section title renders');
     const detailText = await page.locator('[data-view="project-detail"]').innerText();
     assert.doesNotMatch(detailText, /\b01 text\b|\b02 image\b|\b03 quote\b|\bimage-text\b|\bbefore-after\b/i, 'no raw internal block type leaks publicly');
+    assert.equal(await page.locator('[data-view="project-detail"] .cms strong').count(), 1, 'markdown bold renders');
+    assert.equal(await page.locator('[data-view="project-detail"] .cms em').count(), 1, 'markdown italic renders');
+    assert.ok((await page.locator('[data-view="project-detail"] .cms.rt-size-large').count()) >= 1, 'the text size preset renders');
     console.log('PASS block section titles render and raw block type names never leak (SDK fixture)');
 
     // ---- Patch 5 C: YouTube / TikTok links render visual previews ----
@@ -2957,6 +2957,7 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-view="project-detail"] .video-link-card').length === 2);
     assert.equal(await page.locator('[data-view="project-detail"] .video-link-card img[src*="i.ytimg.com"]').count(), 1, 'a YouTube link renders a real derived thumbnail');
     assert.equal(await page.locator('[data-view="project-detail"] .video-link-card.vlc-tiktok').count(), 1, 'a TikTok link renders a branded preview card');
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card.vlc-tiktok').getAttribute('data-tiktok-url'), 'https://www.tiktok.com/@crabbie/video/7301234567890123456', 'the TikTok card exposes its URL for the real-thumbnail upgrade (offline fallback keeps the branded card)');
     assert.equal(await page.locator('[data-view="project-detail"] .link-pill[href="https://example.test/gallery"]').count(), 1, 'an ordinary link still renders as an ordinary link');
     console.log('PASS YouTube/TikTok links render visual previews and ordinary links keep working (SDK fixture)');
 
@@ -3011,7 +3012,7 @@ try {
       window.__routerRows.portfolio_projects = [{
         id: '00000000-0000-4000-8000-000000000601', slug: 'media-ui-project', title: 'Media UI project',
         description: 'D', tags: [], thumbnail_path: '', cover_path: '',
-        content: { blocks: [{ type: 'image', open: true, url: '', alt: '', caption: '' }], externalLinks: [{ title: 'Ref', url: 'https://example.test/ref' }] },
+        content: { blocks: [{ type: 'image', open: true, url: '', alt: '', caption: '' }, { type: 'text', open: true, text: 'Hello', textSize: 'large' }], externalLinks: [{ title: 'Ref', url: 'https://example.test/ref' }] },
         featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z'
       }];
       window.__routerRows.cms_pages = [{
@@ -3028,6 +3029,7 @@ try {
     assert.equal(await page.locator('#adminContent input[data-adm-path$=".cover"]').count(), 0, 'media library fields never expose a raw URL textbox');
     assert.ok(await page.locator('#adminContent [data-adm-mediabrowse]').count() > 0, 'choose-media actions remain (content: ' + (await page.locator('#adminContent').innerText()).slice(0, 160).replace(/\s+/g, ' ') + ' | loadState: ' + await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()) + ')');
     assert.equal((await page.locator('#adminContent input[data-adm-block-field="sectionTitle"]').count()) > 0, true, 'every block exposes a Section title field');
+    assert.equal((await page.locator('#adminContent select[data-adm-block-field="textSize"]').count()) > 0, true, 'text blocks expose a Text size preset');
     assert.equal(await page.locator('#adminContent input[data-adm-mi-key="url"]').count(), 0, 'gallery rows never show a URL textbox');
     assert.equal((await page.locator('#adminContent input[data-adm-array-key="url"]').count()) > 0, true, 'authored external URLs keep their editable input');
     assert.doesNotMatch(await page.locator('#adminContent').innerText(), /Vietnamese override|Vietnamese text|instead of automatic translation/, 'no manual Vietnamese override UI remains');
@@ -3083,6 +3085,104 @@ try {
     assert.match(await page.locator('[data-view="about"] .exp-grid').innerText(), /Test Experience/, 'the new experience reaches the public page');
     assert.match(await page.locator('[data-view="about"] .values-grid').innerText(), /Test Value/, 'the new creative value reaches the public page');
     console.log('PASS About CMS groups add, save, reload, and render publicly (SDK fixture)');
+
+    // ---- Patch 5 I: image cards open a lightbox, galleries zoom without navigating ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'normal-a',title:'Normal A',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/a.png',cover:'',blocks:[],credits:'',year:''},
+        {slug:'illustration-x',title:'Illustration X',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/x.png',cover:'',cardMode:'image',blocks:[],credits:'',year:''},
+        {slug:'normal-b',title:'Normal B',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/b.png',cover:'',blocks:[],credits:'',year:''},
+        {slug:'zoom-gallery',title:'Zoom Gallery',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',blocks:[{id:'zg1',type:'gallery',sectionTitle:'Shots',items:[{url:'https://example.test/shot1.png',alt:'Shot 1',caption:''}]}],credits:'',year:''}
+      ]);
+      location.hash = '#portfolio';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.waitForFunction(() => Boolean(document.querySelector('#pfGrid [data-project="illustration-x"].is-image-card')));
+    const imageCard = page.locator('#pfGrid [data-project="illustration-x"]');
+    assert.equal(await imageCard.getAttribute('data-lightbox-src'), 'https://example.test/x.png', 'the image card carries a lightbox source');
+    assert.equal(await imageCard.locator('.work-more').isVisible(), false, 'the image card shows no See more link');
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/x.png', 'clicking the image card opens the full-size image');
+    assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, 'the image card never navigates to a project detail');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.locator('#publicLightboxClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Gallery zoom keeps the project route and shows uncropped art.
+    await page.evaluate(() => { location.hash = '#project/zoom-gallery'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.locator('[data-view="project-detail"] .gallery-zoom').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/shot1.png', 'gallery zoom opens the full-size source');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('publicLightboxImg')).objectFit), 'contain', 'the lightbox never crops');
+    assert.equal(await page.evaluate(() => location.hash), '#project/zoom-gallery', 'gallery zoom never triggers project navigation');
+    await page.mouse.click(10, 10);
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden, null, { timeout: 10000 });
+    // Prev/next skips the image card.
+    await page.evaluate(() => { location.hash = '#project/normal-a'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.locator('#pdNext').click();
+    await page.waitForFunction(() => location.hash === '#project/normal-b');
+    assert.equal(await page.evaluate(() => location.hash), '#project/normal-b', 'detail prev/next skips image cards');
+    console.log('PASS image cards lightbox without navigating and galleries zoom uncropped (SDK fixture)');
+
+    // ---- Patch 5 J: category clouds/filters, flower badges, download buttons ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'feat-chibi',title:'Feat Chibi',desc:'',cat:'Chibi',tags:[],thumbnail:'https://example.test/fc.png',cover:'',featured:true,blocks:[],credits:'',year:''},
+        {slug:'plain-illus',title:'Plain Illus',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/pi.png',cover:'',featured:false,blocks:[],credits:'',year:''}
+      ]);
+      window.CrabbieAssets.apply([
+        {slug:'hot-brush',title:'Hot Brush',cat:'Brushes',format:'PNG',availability:'available',downloadUrl:'https://example.test/hot.zip',showDirectDownload:true,showDriveDownload:false,flowerTag:'HOT',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'feat-plain',title:'Feat Plain',cat:'Icons',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:true,filterCat:'icons',tags:[],thumbnail:'',icon:'★'},
+        {slug:'drive-only',title:'Drive Only',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:false,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'both-dl',title:'Both DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'https://example.test/both.zip',showDirectDownload:true,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'NEW',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'no-dl',title:'No DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'}
+      ]);
+      location.hash = '#portfolio';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    // E+K: real category clouds, FEATURED priority, visible featured styling.
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"] .cloud-tag span').innerText(), 'FEATURED', 'a featured project clouds FEATURED');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"] .cloud-tag span').innerText(), 'ILLUSTRATION', 'a plain project clouds its real category');
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"].is-cms-featured').count(), 1, 'a featured project gets featured card styling');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"].is-cms-featured').count(), 0, 'a plain project gets no featured styling');
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"]:visible').count(), 1, 'the category chip keeps the matching project');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"]:visible').count(), 0, 'the category chip filters out other categories');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    // F+K: flower badges beat nothing, Featured falls back visibly.
+    await page.evaluate(() => { location.hash = '#free-assets'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    assert.equal(await page.locator('#faGrid [data-asset="hot-brush"] .flower-tag span').innerText(), 'HOT', 'an explicit flowerTag renders');
+    assert.match(await page.locator('#faGrid [data-asset="hot-brush"] .item-cat').innerText(), /^brushes$/i, 'the card keeps its taxonomy category beside the badge');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"] .flower-tag span').innerText(), 'FEATURED', 'Featured falls back to a visible badge when no flowerTag is set');
+    await page.locator('#faChips .chip[data-filter="brushes"]').click();
+    assert.equal(await page.locator('#faGrid [data-asset="hot-brush"]:visible').count(), 1, 'the asset category chip keeps matching assets');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"]:visible').count(), 0, 'the asset category chip filters other categories');
+    await page.locator('#faChips .chip[data-filter="all"]').click();
+    // G: download button combinations.
+    const dlVisible = async (id) => ({
+      direct: await page.locator('#adDownload').isVisible(),
+      drive: await page.locator('#adDriveDownload').isVisible(),
+      notice: await page.locator('#adUnavailable').isVisible()
+    });
+    await page.evaluate(() => { location.hash = '#asset/hot-brush'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.deepEqual(await dlVisible(), { direct: true, drive: false, notice: false }, 'direct-only shows just Direct download');
+    await page.evaluate(() => { location.hash = '#asset/drive-only'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: false, drive: true, notice: false }, 'drive-only shows just Google Drive');
+    await page.evaluate(() => { location.hash = '#asset/both-dl'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: true, drive: true, notice: false }, 'both toggles show both buttons');
+    await page.evaluate(() => { location.hash = '#asset/no-dl'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: false, drive: false, notice: true }, 'neither toggle shows the unavailable notice');
+    console.log('PASS category clouds and filters, flower badges, and download combinations (SDK fixture)');
 
 // P4_END
 

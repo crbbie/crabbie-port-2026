@@ -410,6 +410,8 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .blk-body figure > img{display:block;width:100%;height:auto;border-radius:18px;}
 .blk-body figcaption{margin-top:14px;padding:0 4px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;line-height:1.75;color:var(--berry-soft);}
 .cms{font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.8;font-weight:500;color:var(--berry);background:var(--pink-soft);border:2px dashed var(--pink-light);border-radius:16px;padding:18px 22px;}
+.cms.rt-size-small{font-size:14px;line-height:1.7;}
+.cms.rt-size-large{font-size:20px;line-height:1.75;}
 .cms.purple{ background: var(--purple-light); border-color: #d7c8ff; }
 .cms.blue{ background: var(--blue-light); border-color: #bfe2ff; }
 .cms.yellow{ background: var(--yellow-light); border-color: #ffe6a8; }
@@ -3029,22 +3031,72 @@ function publicVideoCard(url, label){
   }
   var tt = tiktokVideoIdFrom(url);
   if(tt){
-    return '<a class="video-link-card vlc-tiktok" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
+    return '<a class="video-link-card vlc-tiktok" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" data-tiktok-url="' + esc(url) + '">' +
       '<span class="vlc-thumb vlc-tiktok-badge">♪</span>' +
       '<span class="vlc-label"><b>TikTok</b> ' + esc(label || 'Watch video') + ' ↗</span></a>';
   }
   return '';
+}
+/* Real TikTok thumbnails arrive late through /api/tiktok-oembed: the branded
+   placeholder above renders first and upgrades in place on success. Failures
+   keep the placeholder, links always open the real TikTok URL. Idempotent and
+   cached per URL so admin re-renders never refetch. */
+var tiktokThumbCache = {};
+function upgradeTikTokThumbs(root){
+  var scope = root && root.querySelectorAll ? root : document;
+  Array.prototype.forEach.call(scope.querySelectorAll('.video-link-card[data-tiktok-url]:not([data-tiktok-done]), .adm-video-preview[data-tiktok-url]:not([data-tiktok-done])'), function(card){
+    var url = card.getAttribute('data-tiktok-url'); if(!url) return;
+    card.setAttribute('data-tiktok-done', '1');
+    var cached = tiktokThumbCache[url];
+    if(cached && cached !== 'failed'){ paintTikTokThumb(card, cached); return; }
+    if(cached === 'failed') return;
+    fetch('/api/tiktok-oembed?url=' + encodeURIComponent(url)).then(function(res){
+      return res.ok ? res.json() : null;
+    }).then(function(data){
+      var thumb = data && data.thumbnail_url;
+      if(thumb){ tiktokThumbCache[url] = thumb; paintTikTokThumb(card, thumb); }
+      else tiktokThumbCache[url] = 'failed';
+    }).catch(function(){ tiktokThumbCache[url] = 'failed'; });
+  });
+}
+function paintTikTokThumb(card, thumb){
+  var holder = card.querySelector('.vlc-thumb') || card;
+  var img = document.createElement('img');
+  img.src = thumb; img.alt = 'TikTok video thumbnail'; img.loading = 'lazy';
+  img.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover;';
+  holder.classList.remove('vlc-tiktok-badge');
+  holder.textContent = '';
+  holder.appendChild(img);
+}
+/* Rich-text mirror of src/public-richtext-core.js for the pre-module renderers:
+   escape first, then bold/italic/paragraphs only. Keep both copies in sync. */
+function richEscapeHtml(text){
+  return String(text == null ? '' : text).replace(/[&<>"']/g, function(c){
+    if(c === '&') return '&amp;'; if(c === '<') return '&lt;'; if(c === '>') return '&gt;'; if(c === '"') return '&quot;'; return '&#39;';
+  });
+}
+function richInlineHtml(text){
+  return richEscapeHtml(text).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
+}
+function richTextHtml(text, size){
+  var mode = (size === 'small' || size === 'large') ? size : 'normal';
+  var raw = String(text == null ? '' : text);
+  if(!raw.trim()) return '';
+  var paras = raw.split(/\n{2,}/).map(function(p){ return p.trim(); }).filter(Boolean);
+  if(!paras.length) return '';
+  return paras.map(function(p){ return '<p class="cms rt-size-' + mode + '">' + richInlineHtml(p) + '</p>'; }).join('');
 }
 function publicBlockBody(block){
   var type = block && block.type;
   var url = safePublicUrl(block && block.url, true);
   var text = visibleCmsValue(block && block.text);
   var caption = visibleCmsValue(block && block.caption);
+  var textSize = block && block.textSize;
   var media = url ? publicImage(url, block.alt || caption) : '';
   if(type === 'heading') return text ? '<h3>' + esc(text) + '</h3>' : '';
-  if(type === 'text' || type === 'caption') return text ? '<p class="cms">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '';
-  if(type === 'image' || type === 'gif') return media ? '<figure>' + media + (caption ? '<figcaption>' + esc(caption) + '</figcaption>' : '') + '</figure>' : '';
-  if(type === 'image-text') return media || text ? '<div class="pd-image-text" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;' + (block.layout === 'right' ? 'flex-direction:row-reverse;' : '') + '">' + (media ? '<div style="flex:1 1 240px;">' + media + '</div>' : '') + (text ? '<p class="cms" style="flex:1 1 240px;">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '') + '</div>' : '';
+  if(type === 'text' || type === 'caption') return richTextHtml(text, textSize);
+  if(type === 'image' || type === 'gif') return media ? '<figure>' + media + (caption ? '<figcaption>' + richInlineHtml(caption) + '</figcaption>' : '') + '</figure>' : '';
+  if(type === 'image-text') return media || text ? '<div class="pd-image-text" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;' + (block.layout === 'right' ? 'flex-direction:row-reverse;' : '') + '">' + (media ? '<div style="flex:1 1 240px;">' + media + '</div>' : '') + (text ? '<div style="flex:1 1 240px;">' + richTextHtml(text, textSize) + '</div>' : '') + '</div>' : '';
   if(type === 'gallery' || type === 'grid'){
     var items = Array.isArray(block.items) ? block.items : [];
     var images = items.map(function(item){
@@ -3053,7 +3105,7 @@ function publicBlockBody(block){
       if(!src) return '';
       var alt = typeof item === 'string' ? '' : (item.alt || '');
       var itemCaption = typeof item === 'string' ? '' : visibleCmsValue(item.caption);
-      return '<figure><button type="button" class="gallery-zoom" data-lightbox-src="' + esc(src) + '" data-lightbox-alt="' + esc(alt || itemCaption) + '" aria-label="Open full-size image"><img src="' + esc(src) + '" alt="' + esc(alt) + '" loading="lazy"></button>' + (itemCaption ? '<figcaption>' + esc(itemCaption) + '</figcaption>' : '') + '</figure>';
+      return '<figure><button type="button" class="gallery-zoom" data-lightbox-src="' + esc(src) + '" data-lightbox-alt="' + esc(alt || itemCaption) + '" aria-label="Open full-size image"><img src="' + esc(src) + '" alt="' + esc(alt) + '" loading="lazy"></button>' + (itemCaption ? '<figcaption>' + richInlineHtml(itemCaption) + '</figcaption>' : '') + '</figure>';
     }).join('');
     return images ? '<div class="ph-gallery">' + images + '</div>' : '';
   }
@@ -3061,8 +3113,8 @@ function publicBlockBody(block){
     /* An authored video URL on YouTube/TikTok renders as a visual preview card
        instead of a broken <video> element or a naked URL. */
     var videoCard = publicVideoCard(block && block.url, caption || (block && block.alt));
-    if(videoCard) return videoCard + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '');
-    return url ? '<video src="' + esc(url) + '" controls preload="metadata" playsinline style="width:100%;max-height:70vh;border-radius:16px;"></video>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+    if(videoCard) return videoCard + (caption ? richTextHtml(caption) : '');
+    return url ? '<video src="' + esc(url) + '" controls preload="metadata" playsinline style="width:100%;max-height:70vh;border-radius:16px;"></video>' + (caption ? richTextHtml(caption) : '') : '';
   }
   if(type === 'youtube'){
     var ytid = ytVideoId(block && block.url);
@@ -3072,9 +3124,9 @@ function publicBlockBody(block){
   if(type === 'before-after'){
     var before = publicImage(block.before, 'Before');
     var after = publicImage(block.after, 'After');
-    return before || after ? '<div class="ba-grid">' + (before ? '<div class="ba-item"><span class="ba-label">BEFORE</span>' + before + '</div>' : '') + (after ? '<div class="ba-item"><span class="ba-label after">AFTER</span>' + after + '</div>' : '') + '</div>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+    return before || after ? '<div class="ba-grid">' + (before ? '<div class="ba-item"><span class="ba-label">BEFORE</span>' + before + '</div>' : '') + (after ? '<div class="ba-item"><span class="ba-label after">AFTER</span>' + after + '</div>' : '') + '</div>' + (caption ? richTextHtml(caption) : '') : '';
   }
-  if(type === 'quote') return text ? '<blockquote class="pd-quote">' + esc(text) + '</blockquote>' + (caption ? '<p class="cms">' + esc(caption) + '</p>' : '') : '';
+  if(type === 'quote') return text ? '<blockquote class="pd-quote">' + esc(text) + '</blockquote>' + (caption ? richTextHtml(caption) : '') : '';
   if(type === 'link'){
     var linkCard = publicVideoCard(block && block.url, text);
     if(linkCard) return linkCard;
@@ -3205,6 +3257,7 @@ if(!opts.noFocus) focusView(view);
 prevView = view;
 currentRoute = route;
 lastAppliedHash = location.hash;
+upgradeTikTokThumbs(document);
 }
 function routeFromLocation(){
 var raw = location.hash.replace(/^#/, '');
@@ -4328,8 +4381,15 @@ async function doSaveCommit(msg, scope){
          target that fails cannot erase what an earlier target saved. */
       var captured = snapshotTargetForSave(target);
       if(target.kind === 'order'){
-        await crud.saveOrder(target.scope, adminListForScope(target.scope));
-        reconcilePersistedTarget(target, captured, null);
+        var orderResult = await crud.saveOrder(target.scope, adminListForScope(target.scope));
+        reconcilePersistedTarget(target, captured, orderResult);
+        /* Order UPDATEs bump updated_at via the DB trigger: advance the live
+           draft baselines (content untouched, dirty untouched) so the next
+           guarded update does not falsely conflict with our own order write. */
+        var baselineApi = window.CrabbiePersistedBaseline;
+        if(baselineApi && typeof baselineApi.advanceBaselinesFromOrder === 'function' && orderResult && Array.isArray(orderResult.rows)){
+          baselineApi.advanceBaselinesFromOrder(adminListForScope(target.scope), orderResult.rows);
+        }
       } else if(target.kind === 'settings'){
         if(!ADMIN_DRAFT.settingsMeta) ADMIN_DRAFT.settingsMeta = {};
         var settingsResult = await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys, ADMIN_DRAFT.settingsMeta);
@@ -4747,6 +4807,7 @@ case 'settings': html = renderAdminSettings(); break;
 }
 adminContent.innerHTML = '<div class="adm-workspace">' + html + '</div>';
 wireAdminContent(module);
+upgradeTikTokThumbs(adminContent);
 try{ adminContent.focus({ preventScroll: true }); }catch(e){}
 }
 
@@ -4861,7 +4922,7 @@ function adminVideoLinkPreviewHtml(url){
   var yt = ytVideoId(url);
   if(yt) return '<div class="adm-video-preview"><img src="https://i.ytimg.com/vi/' + yt + '/hqdefault.jpg" alt="YouTube preview" loading="lazy" style="width:160px;height:90px;object-fit:cover;border-radius:10px;"><span class="af-hint">YouTube video · preview shown publicly</span></div>';
   var tt = tiktokVideoIdFrom(url);
-  if(tt) return '<div class="adm-video-preview"><span class="af-hint">♪ TikTok video · shown publicly as a TikTok preview card</span></div>';
+  if(tt) return '<div class="adm-video-preview" data-tiktok-url="' + esc(url) + '"><span class="vlc-thumb vlc-tiktok-badge" style="display:inline-flex;width:160px;height:90px;border-radius:10px;">♪</span><span class="af-hint">♪ TikTok video · real thumbnail loads when available</span></div>';
   return '';
 }
 function renderProjectBlock(projectId, b, index){
@@ -4871,18 +4932,19 @@ var path = 'portfolio.' + projectId + '.blocks.' + index;
 var body = '';
 function f(label, key, type){ var v = b[key] != null ? b[key] : ''; return '<label class="adm-field"><span class="af-label">' + esc(label) + '</span>' + (type === 'textarea' ? '<textarea data-adm-block-field="' + key + '" data-adm-block-path="' + path + '">' + esc(v) + '</textarea>' : '<input type="text" data-adm-block-field="' + key + '" data-adm-block-path="' + path + '" value="' + esc(v) + '">') + '</label>'; }
 function sel(label, key, opts){ var v = b[key]; return '<label class="adm-field"><span class="af-label">' + esc(label) + '</span><select data-adm-block-field="' + key + '" data-adm-block-path="' + path + '">' + opts.map(function(o){ return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></label>'; }
+function textSizeSel(){ return sel('Text size','textSize',['normal','small','large']); }
 switch(type){
 case 'heading': body = f('Text','text'); break;
-case 'text': body = f('Text','text','textarea'); break;
+case 'text': body = f('Text','text','textarea') + textSizeSel(); break;
 case 'image': body = blockMediaPickHtml(path + '.url', 'Choose image…') + f('Alt','alt') + f('Caption','caption'); break;
-case 'image-text': body = blockMediaPickHtml(path + '.url', 'Choose media…') + f('Text','text','textarea') + sel('Layout','layout',['left','right']); break;
+case 'image-text': body = blockMediaPickHtml(path + '.url', 'Choose media…') + f('Text','text','textarea') + textSizeSel() + sel('Layout','layout',['left','right']); break;
 case 'gallery': case 'grid': body = renderMediaItemsEditor(b, path, 'Media items'); break;
 case 'gif': body = blockMediaPickHtml(path + '.url', 'Choose GIF…') + f('Caption','caption'); break;
 case 'video': body = f('URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>' + blockMediaPickHtml(path + '.url', 'Choose uploaded video…') + f('Caption','caption'); break;
 case 'youtube': body = f('YouTube URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>' + f('Caption','caption'); break;
 case 'before-after': body = blockMediaPickHtml(path + '.before', 'Choose before image…') + blockMediaPickHtml(path + '.after', 'Choose after image…') + f('Caption','caption'); break;
 case 'quote': body = f('Text','text','textarea') + f('Caption','caption'); break;
-case 'caption': body = f('Text','text'); break;
+case 'caption': body = f('Text','text') + textSizeSel(); break;
 case 'link': body = f('Text','text') + f('URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>'; break;
 case 'divider': body = '<p class="af-hint">No extra content.</p>'; break;
 case 'spacer': body = sel('Size','size',['small','medium','large']); break;
@@ -5681,7 +5743,7 @@ arr[i][key] = el.value; markDirty(path);
 if(key === 'url' && el.hasAttribute('data-adm-video-url')){
   var row = el.closest('[data-adm-video-host]');
   var box = row ? row.querySelector('.adm-video-preview') : null;
-  if(box && typeof adminVideoLinkPreviewHtml === 'function') box.innerHTML = adminVideoLinkPreviewHtml(el.value);
+  if(box && typeof adminVideoLinkPreviewHtml === 'function'){ box.innerHTML = adminVideoLinkPreviewHtml(el.value); upgradeTikTokThumbs(box); }
 }
 });
 });
@@ -5718,6 +5780,7 @@ if(key === 'url'){
     var box = host.querySelector('.adm-video-preview');
     if(!box){ box = document.createElement('div'); box.className = 'adm-video-preview'; el.insertAdjacentElement('afterend', box); }
     box.innerHTML = adminVideoLinkPreviewHtml(el.value);
+    upgradeTikTokThumbs(box);
   }
 }
 });

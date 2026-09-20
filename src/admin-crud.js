@@ -225,21 +225,27 @@ export async function saveAdminOrder(scope, list) {
     throw new Error(`Unsupported order target: ${scope}`);
   }
 
-  if (!rows.length) return { success: true, table, count: 0 };
+  if (!rows.length) return { success: true, table, count: 0, rows: [] };
 
   // Order changes are UPDATE-only. A partial upsert ({id, sort_order}) can
   // trigger NOT NULL failures for required columns such as slug/title before
   // ON CONFLICT resolves, which made a record appear saved after refresh while
   // the UI still reported "required field is empty".
+  // Every UPDATE bumps updated_at through the set_updated_at trigger, so the
+  // confirmed stamps are returned: the caller must advance local baselines,
+  // otherwise the next guarded update would falsely conflict with itself.
+  const confirmed = [];
   for (const row of rows) {
     const response = await supabase
       .from(table)
       .update({ sort_order: row.sort_order })
       .eq('id', row.id)
-      .select('id');
+      .select('id, updated_at');
     if (response.error) throw adminWriteError(response.error);
+    if (Array.isArray(response.data)) confirmed.push(...response.data);
+    else if (response.data) confirmed.push(response.data);
   }
-  return { success: true, table, count: rows.length };
+  return { success: true, table, count: rows.length, rows: confirmed };
 }
 
 export async function deleteAdminRecord(listKey, target) {

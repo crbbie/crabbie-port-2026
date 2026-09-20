@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { reconcileSavedTarget } from './admin-persisted-baseline-core.js';
+import { reconcileSavedTarget, advanceBaselinesFromOrder } from './admin-persisted-baseline-core.js';
 
 function recordTarget(scope, recordId) {
   return { kind: 'record', scope, recordId };
@@ -130,6 +130,35 @@ function recordTarget(scope, recordId) {
   assert.equal(reconcileSavedTarget(saved, { kind: 'order', scope: 'portfolio' }, null, {}), false);
   assert.equal(reconcileSavedTarget(saved, { kind: 'bogus', scope: 'portfolio' }, {}, {}), false);
   assert.deepEqual(saved.portfolio, [{ id: 'a', title: 'A' }], 'guarded calls leave everything alone');
+}
+
+// Order writes bump updated_at through the DB trigger: the confirmed stamps
+// travel into both the persisted baseline and the live draft baseline, so a
+// later guarded update never conflicts with our own order write.
+{
+  const saved = { forms: [{ id: 'f', dbId: 'uuid-f', slug: 'f', title: 'F', originalUpdatedAt: '2026-01-01T00:00:00Z' }] };
+  const captured = [{ id: 'f', dbId: 'uuid-f', slug: 'f', title: 'F', originalUpdatedAt: '2026-01-01T00:00:00Z' }];
+  const ok = reconcileSavedTarget(saved, { kind: 'order', scope: 'forms' }, captured,
+    { success: true, table: 'commission_forms', count: 1, rows: [{ id: 'uuid-f', updated_at: '2026-02-02T00:00:00Z' }] });
+  assert.equal(ok, true, 'an order write reconciles');
+  assert.equal(saved.forms[0].originalUpdatedAt, '2026-02-02T00:00:00Z', 'the persisted baseline follows the confirmed order stamp');
+  assert.equal(saved.forms[0].title, 'F', 'order reconcile never rewrites content');
+}
+
+// advanceBaselinesFromOrder moves only baselines on the live draft.
+{
+  const draft = [
+    { id: 'f', dbId: 'uuid-f', slug: 'f', title: 'Edited live', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'client-new', dbId: null, slug: '', title: 'Unsaved', originalUpdatedAt: null }
+  ];
+  const advanced = advanceBaselinesFromOrder(draft, [{ id: 'uuid-f', updated_at: '2026-02-02T00:00:00Z' }]);
+  assert.equal(advanced, 1, 'exactly the confirmed row advances');
+  assert.equal(draft[0].originalUpdatedAt, '2026-02-02T00:00:00Z', 'the live baseline matches the database');
+  assert.equal(draft[0].title, 'Edited live', 'live content is never overwritten by a baseline advance');
+  assert.equal(draft[1].originalUpdatedAt, null, 'records without a DB id are skipped');
+  assert.equal(advanceBaselinesFromOrder(null, []), 0, 'bad input advances nothing');
+  assert.equal(advanceBaselinesFromOrder(draft, null), 0, 'a missing response advances nothing');
+  assert.equal(advanceBaselinesFromOrder(draft, [{ id: 'uuid-f' }]), 0, 'a response without a stamp advances nothing');
 }
 
 console.log('Admin persisted baseline core tests passed.');

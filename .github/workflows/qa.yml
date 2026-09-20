@@ -2,7 +2,7 @@ name: QA
 
 on:
   push:
-    branches: [main, fix/admin-ux-roundtrip]
+    branches: [main]
   workflow_dispatch:
 
 jobs:

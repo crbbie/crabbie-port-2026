@@ -44,7 +44,8 @@ function findRecordIndex(list, entry) {
  * Advances the persisted baseline for one successfully written target.
  * `captured` is the version-N snapshot taken before the write; `result` is
  * the adapter's confirmed response ({ row } for records, { savedKeys } for
- * settings, anything for order). Returns true when the baseline advanced.
+ * settings, { rows } with confirmed {id, updated_at} pairs for order).
+ * Returns true when the baseline advanced.
  */
 export function reconcileSavedTarget(saved, target, captured, result) {
   if (!saved || !target || typeof target !== 'object') return false;
@@ -52,7 +53,19 @@ export function reconcileSavedTarget(saved, target, captured, result) {
 
   if (target.kind === 'order') {
     if (!Array.isArray(captured)) return false;
-    saved[target.scope] = cloneJson(captured);
+    var reconciled = cloneJson(captured);
+    /* Order UPDATEs bump updated_at through the set_updated_at trigger, so
+       the confirmed stamps travel into the baseline; contents stay version N. */
+    if (Array.isArray(outcome.rows)) {
+      var stamps = {};
+      outcome.rows.forEach(function (row) {
+        if (row && typeof row.id === 'string' && typeof row.updated_at === 'string' && row.updated_at) stamps[row.id] = row.updated_at;
+      });
+      reconciled.forEach(function (entry) {
+        if (entry && typeof entry === 'object' && entry.dbId && stamps[entry.dbId]) entry.originalUpdatedAt = stamps[entry.dbId];
+      });
+    }
+    saved[target.scope] = reconciled;
     return true;
   }
 
@@ -88,4 +101,29 @@ export function reconcileSavedTarget(saved, target, captured, result) {
   if (index === -1) list.push(entry);
   else list[index] = entry;
   return true;
+}
+
+/**
+ * Advances live-draft concurrency baselines after a confirmed order write.
+ * Only originalUpdatedAt moves, and only from the confirmed {id, updated_at}
+ * pairs — editable content and dirty state are never touched, so a newer
+ * unsaved draft keeps its values while the next guarded update uses a
+ * baseline that matches the database. Returns the number of records advanced.
+ */
+export function advanceBaselinesFromOrder(list, rows) {
+  if (!Array.isArray(list) || !Array.isArray(rows)) return 0;
+  var stamps = {};
+  rows.forEach(function (row) {
+    if (row && typeof row.id === 'string' && typeof row.updated_at === 'string' && row.updated_at) stamps[row.id] = row.updated_at;
+  });
+  var advanced = 0;
+  list.forEach(function (record) {
+    if (!record || typeof record !== 'object') return;
+    var stamp = record.dbId && stamps[record.dbId];
+    if (typeof stamp === 'string' && stamp) {
+      record.originalUpdatedAt = stamp;
+      advanced += 1;
+    }
+  });
+  return advanced;
 }
