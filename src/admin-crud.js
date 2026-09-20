@@ -1,24 +1,20 @@
 import { supabase, isConfigured } from './supabase-client.js';
-import {
-  formatPortfolioRow,
-  formatAssetRow,
-  formatCommissionRow,
-  formatNavigationRow,
-  formatPageRow,
-  formatSettingRow
-} from './admin-crud-core.js';
-import { formatMediaItem } from './admin-media-core.js';
 import { deleteMediaFile } from './admin-media.js';
-import { formatRequestRowForAdmin, mapAdminStatusToDbStatus } from './commission-requests-core.js';
 import { mapAdminHydrationResults } from './admin-hydration-core.js';
 import { canMutateAdmin } from './admin-draft-guard-core.js';
-
-function assertSupabaseResult(result, label) {
-  if (result && result.error) {
-    throw new Error(`${label}: ${result.error.message}`);
-  }
-  return result;
-}
+import {
+  adminTableForScope,
+  buildAdminWritePlan,
+  planCategoryOrderWrites,
+  planRecordOrderWrites,
+  planSettingsWrites,
+  adminWriteError,
+  concurrencyConflictError,
+  missingRecordError,
+  isConcurrencyConflictResponse,
+  applySuccessfulSave,
+  recordDbId
+} from './admin-record-save-core.js';
 
 // Single-owner readiness for admin writes. Only one complete successful live
 // hydration may enable mutations; a failed hydration blocks every write.
@@ -99,214 +95,123 @@ export async function loadAllAdminDataFromSupabase() {
   }
 }
 
-export async function persistAdminDataToSupabase(draft, scope = 'all') {
-  assertAdminReadyForMutation();
-  if (!isConfigured || !supabase) {
-    throw new Error('Supabase is not configured.');
-  }
+/* ---------------------------------------------------------------------------
+ * Prompt 2: record-scoped writes.
+ *
+ * A normal editor save writes exactly one record:
+ *   - a record with a DB uuid is UPDATEd through that uuid only
+ *   - a record without a DB uuid is INSERTed (never upsert-by-slug)
+ *   - every update carries the hydrated updated_at baseline, so a save that
+ *     loses a race changes zero rows and is reported as a conflict
+ *   - no collection is ever re-upserted for a single-record edit
+ * ------------------------------------------------------------------------- */
 
-  const save = (name) => scope === 'all' || scope === name;
-  const categoryIds = { portfolio: new Map(), asset: new Map() };
-  (draft.portfolioCategories || []).forEach((rec) => { if (rec.dbId) categoryIds.portfolio.set(rec.slug || rec.id, rec.dbId); });
-  (draft.assetCategories || []).forEach((rec) => { if (rec.dbId) categoryIds.asset.set(rec.slug || rec.id, rec.dbId); });
-  const persistCategoryList = async (kind, list) => {
-    if (!Array.isArray(list)) return;
-    for (let idx = 0; idx < list.length; idx++) {
-      const rec = list[idx];
-      const payload = {
-        kind,
-        slug: rec.slug || rec.id,
-        title: rec.title || 'Untitled category',
-        published: !!rec.published,
-        sort_order: idx
-      };
-      let categoryRes;
-      if (rec.dbId && String(rec.dbId).length > 30) {
-        categoryRes = await supabase
-          .from('cms_categories')
-          .update(payload)
-          .eq('id', rec.dbId)
-          .select('id,slug')
-          .single();
-      } else {
-        categoryRes = await supabase
-          .from('cms_categories')
-          .upsert(payload, { onConflict: 'kind,slug' })
-          .select('id,slug')
-          .single();
-      }
-      assertSupabaseResult(categoryRes, `${kind} category save failed`);
-      if (!categoryRes.data || !categoryRes.data.id) {
-        throw new Error(`${kind} category save failed: no id returned.`);
-      }
-      rec.dbId = categoryRes.data.id;
-      rec.slug = categoryRes.data.slug;
-      rec.id = categoryRes.data.slug;
-      categoryIds[kind].set(rec.slug, rec.dbId);
-    }
-  };
+const RECORD_SELECT = 'id, slug, updated_at';
+const DELETABLE_SCOPES = new Set(['portfolio', 'assets', 'commissions', 'forms', 'navigation', 'requests']);
 
-  if (save('portfolioCategories')) await persistCategoryList('portfolio', draft.portfolioCategories);
-  if (save('assetCategories')) await persistCategoryList('asset', draft.assetCategories);
-
-  // 1. Portfolio Projects
-  if (save('portfolio') && Array.isArray(draft.portfolio)) {
-    const portfolioRows = draft.portfolio.map((p, idx) => {
-      const category = (draft.portfolioCategories || []).find((cat) => (cat.slug || cat.id) === p.category);
-      const row = formatPortfolioRow({ ...p, category: category ? category.title : p.category }, idx);
-      row.category_id = categoryIds.portfolio.get(p.category) || null;
-      row.content = { ...(row.content || {}), categorySlug: p.category || '' };
-      return row;
-    });
-    const { error: pErr } = await supabase.from('portfolio_projects').upsert(portfolioRows, { onConflict: 'slug' });
-    if (pErr) throw new Error(`Portfolio save failed: ${pErr.message}`);
-  }
-
-  // 2. Free Assets
-  if (save('assets') && Array.isArray(draft.assets)) {
-    const assetRows = draft.assets.map((a, idx) => {
-      const category = (draft.assetCategories || []).find((cat) => (cat.slug || cat.id) === a.category);
-      const row = formatAssetRow({ ...a, category: category ? category.title : a.category }, idx);
-      row.category_id = categoryIds.asset.get(a.category) || null;
-      row.metadata = { ...(row.metadata || {}), categorySlug: a.category || '' };
-      return row;
-    });
-    const { error: aErr } = await supabase.from('free_assets').upsert(assetRows, { onConflict: 'slug' });
-    if (aErr) throw new Error(`Assets save failed: ${aErr.message}`);
-  }
-
-  // 3. Commission Services
-  if (save('commissions') && Array.isArray(draft.commissions)) {
-    const commRows = draft.commissions.map((c, idx) => formatCommissionRow(c, idx));
-    const { error: cErr } = await supabase.from('commission_services').upsert(commRows, { onConflict: 'slug' });
-    if (cErr) throw new Error(`Commissions save failed: ${cErr.message}`);
-  }
-
-  // 4. Commission Forms
-  if (save('forms') && Array.isArray(draft.forms)) {
-    const formRows = draft.forms.map((f) => ({
-      slug: f.slug || f.id,
-      title: f.title,
-      description: f.description || '',
-      fields: f.fields || [],
-      published: !!f.published
-    }));
-    const { error: fErr } = await supabase.from('commission_forms').upsert(formRows, { onConflict: 'slug' });
-    if (fErr) throw new Error(`Forms save failed: ${fErr.message}`);
-  }
-
-  // 5. Pages
-  if (draft.pages && (save('pages.about') || save('pages.terms'))) {
-    if (save('pages.about') && draft.pages.about) {
-      const { error: abErr } = await supabase.from('cms_pages').upsert([formatPageRow('about', draft.pages.about)], { onConflict: 'slug' });
-      if (abErr) throw new Error(`About page save failed: ${abErr.message}`);
-    }
-    if (save('pages.terms') && draft.pages.terms) {
-      const { error: tmErr } = await supabase.from('cms_pages').upsert([formatPageRow('terms', draft.pages.terms)], { onConflict: 'slug' });
-      if (tmErr) throw new Error(`Terms page save failed: ${tmErr.message}`);
-    }
-  }
-
-  // 6. Navigation
-  if (save('navigation') && Array.isArray(draft.navigation)) {
-    for (let idx = 0; idx < draft.navigation.length; idx++) {
-      const n = draft.navigation[idx];
-      const isUUID = n.id && n.id.length > 30;
-      if (isUUID) {
-        const navRes = await supabase
-          .from('cms_navigation')
-          .upsert([{ id: n.id, title: n.title, url: n.url, published: !!n.published, sort_order: idx }], { onConflict: 'id' });
-        assertSupabaseResult(navRes, 'Navigation save failed');
-      } else {
-        const navRes = await supabase
-          .from('cms_navigation')
-          .insert([{ title: n.title, url: n.url, published: !!n.published, sort_order: idx }])
-          .select('id');
-        assertSupabaseResult(navRes, 'Navigation insert failed');
-        const inserted = navRes.data;
-        if (!inserted || !inserted[0] || !inserted[0].id) {
-          throw new Error('Navigation insert failed: no id returned.');
-        }
-        n.id = inserted[0].id;
-      }
-    }
-  }
-
-  // 7. Settings
-  if (save('settings') && draft.settings) {
-    const settingKeys = Object.keys(draft.settings);
-    const settingRows = settingKeys.map((k) => formatSettingRow(k, draft.settings[k]));
-    const { error: sErr } = await supabase.from('site_settings').upsert(settingRows, { onConflict: 'key' });
-    if (sErr) throw new Error(`Settings save failed: ${sErr.message}`);
-  }
-
-  // 8. Requests notes / status
-  if (save('requests') && Array.isArray(draft.requests)) {
-    for (const r of draft.requests) {
-      if (r.id && r.id.length > 30) {
-        const requestRes = await supabase.from('commission_requests').update({
-          status: mapAdminStatusToDbStatus(r.status),
-          admin_notes: r.notes || ''
-        }).eq('id', r.id);
-        assertSupabaseResult(requestRes, `Request save failed (${r.id})`);
-      }
-    }
-  }
-
-  return { success: true };
+async function insertAdminRow(plan) {
+  const response = await supabase.from(plan.table).insert(plan.payload).select(RECORD_SELECT).maybeSingle();
+  if (response.error) throw adminWriteError(response.error);
+  if (!response.data) throw missingRecordError(plan.scope);
+  return response.data;
 }
 
-export async function deleteAdminRecord(listKey, id) {
+async function updateAdminRow(plan) {
+  let request = supabase.from(plan.table).update(plan.payload).eq('id', plan.dbId);
+  if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
+  const response = await request.select(RECORD_SELECT).maybeSingle();
+  if (response.error) throw adminWriteError(response.error);
+  // A guarded update that matched no row means another session changed it first.
+  if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError(plan.scope);
+  return response.data;
+}
+
+export async function saveAdminRecord(scope, record, options = {}) {
   assertAdminReadyForMutation();
-  if (!isConfigured || !supabase) {
-    throw new Error('Supabase is not configured.');
-  }
-  if (!id) {
-    throw new Error('Cannot delete a record without an id.');
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  if (!record || typeof record !== 'object') throw new Error('Nothing to save.');
+
+  const plan = buildAdminWritePlan(scope, record, options);
+  const row = plan.mode === 'insert' ? await insertAdminRow(plan) : await updateAdminRow(plan);
+  // Only a confirmed database response may advance the local baseline.
+  applySuccessfulSave(record, row);
+  return { success: true, mode: plan.mode, table: plan.table, row };
+}
+
+export async function saveAdminSettings(settings, keys) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+
+  const rows = planSettingsWrites(settings, keys);
+  if (!rows.length) return { success: true, table: 'site_settings', count: 0 };
+
+  // site_settings is a key/value singleton table (primary key = key), so one
+  // keyed upsert can only replace the row it names.
+  const response = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' }).select('key');
+  if (response.error) throw adminWriteError(response.error);
+  return { success: true, table: 'site_settings', count: rows.length };
+}
+
+/**
+ * Ordering changes genuinely affect several rows, so they stay a single bounded
+ * write: order-only payloads ({ id, sort_order }) for rows that already exist.
+ * Rows that are not in the database yet keep their order on their next save.
+ */
+export async function saveAdminOrder(scope, list) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+
+  let table = null;
+  let rows = null;
+  if (scope === 'portfolio' || scope === 'assets' || scope === 'commissions' || scope === 'forms' || scope === 'navigation') {
+    table = adminTableForScope(scope);
+    rows = planRecordOrderWrites(list);
+  } else if (scope === 'portfolioCategories' || scope === 'assetCategories') {
+    table = 'cms_categories';
+    rows = planCategoryOrderWrites(scope === 'portfolioCategories' ? 'portfolio' : 'asset', list);
+  } else {
+    throw new Error(`Unsupported order target: ${scope}`);
   }
 
-  const isUUID = id.length > 30;
-  let result = null;
+  if (!rows.length) return { success: true, table, count: 0 };
 
-  if (listKey === 'portfolio') {
-    result = isUUID
-      ? await supabase.from('portfolio_projects').delete().eq('id', id)
-      : await supabase.from('portfolio_projects').delete().eq('slug', id);
-  } else if (listKey === 'assets') {
-    result = isUUID
-      ? await supabase.from('free_assets').delete().eq('id', id)
-      : await supabase.from('free_assets').delete().eq('slug', id);
-  } else if (listKey === 'commissions') {
-    result = isUUID
-      ? await supabase.from('commission_services').delete().eq('id', id)
-      : await supabase.from('commission_services').delete().eq('slug', id);
-  } else if (listKey === 'forms') {
-    result = isUUID
-      ? await supabase.from('commission_forms').delete().eq('id', id)
-      : await supabase.from('commission_forms').delete().eq('slug', id);
-  } else if (listKey === 'navigation') {
-    result = isUUID
-      ? await supabase.from('cms_navigation').delete().eq('id', id)
-      : await supabase.from('cms_navigation').delete().eq('url', id);
-  } else if (listKey === 'media') {
-    const mediaResult = await deleteMediaFile(id);
+  const response = await supabase.from(table).upsert(rows, { onConflict: 'id' }).select('id');
+  if (response.error) throw adminWriteError(response.error);
+  return { success: true, table, count: rows.length };
+}
+
+export async function deleteAdminRecord(listKey, target) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+
+  if (listKey === 'media') {
+    const mediaId = typeof target === 'string' ? target : (target && target.id);
+    if (!mediaId) throw new Error('Cannot delete a media item without an id.');
+    const mediaResult = await deleteMediaFile(mediaId, target && typeof target === 'object' ? target.storagePath : null);
     if (!mediaResult || !mediaResult.success) {
       throw new Error(mediaResult && mediaResult.error ? mediaResult.error : 'Media delete failed.');
     }
-    return { success: true };
-  } else if (listKey === 'requests') {
-    result = await supabase.from('commission_requests').delete().eq('id', id);
-  } else {
-    throw new Error(`Unsupported delete target: ${listKey}`);
+    return { success: true, table: 'media' };
   }
 
-  assertSupabaseResult(result, `Delete failed (${listKey})`);
-  return { success: true };
+  if (!DELETABLE_SCOPES.has(listKey)) throw new Error(`Unsupported delete target: ${listKey}`);
+  const table = adminTableForScope(listKey);
+  // Deletes use the stable DB uuid, never a slug and never an id-length guess.
+  const dbId = recordDbId(target);
+  if (!dbId) throw new Error('This record has not been saved to the database yet.');
+
+  const response = await supabase.from(table).delete().eq('id', dbId).select('id');
+  if (response.error) throw adminWriteError(response.error);
+  const deleted = Array.isArray(response.data) ? response.data : [];
+  if (!deleted.length) throw missingRecordError(listKey);
+  return { success: true, table, dbId };
 }
 
 window.CrabbieAdminCrud = {
   loadAllAdminData: loadAllAdminDataFromSupabase,
-  persistAdminData: persistAdminDataToSupabase,
+  saveRecord: saveAdminRecord,
+  saveSettings: saveAdminSettings,
+  saveOrder: saveAdminOrder,
   deleteRecord: deleteAdminRecord,
   setAdminLoadState,
   getAdminLoadState,
