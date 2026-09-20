@@ -5571,8 +5571,18 @@ btn.addEventListener('click', function(){ confirmDiscard(function(){ renderAdmin
 $$('[data-adm-preview]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var kind = btn.getAttribute('data-adm-preview');
-if(kind === 'project'){ var id = btn.getAttribute('data-adm-id'); if(PROJECTS[id]) navigate('project/' + id); else navigate('portfolio'); }
-else if(kind === 'asset'){ var aid = btn.getAttribute('data-adm-id'); if(ASSETS[aid]) navigate('asset/' + aid); else navigate('free-assets'); }
+if(kind === 'project'){
+  var id = btn.getAttribute('data-adm-id');
+  var projectDraft = (ADMIN_DRAFT.portfolio || []).filter(function(r){ return r.id === id || r.slug === id; })[0];
+  var projectSlug = projectDraft && projectDraft.slug ? projectDraft.slug : id;
+  if(PROJECTS[projectSlug]) navigate('project/' + encodeURIComponent(projectSlug)); else navigate('portfolio');
+}
+else if(kind === 'asset'){
+  var aid = btn.getAttribute('data-adm-id');
+  var assetDraft = (ADMIN_DRAFT.assets || []).filter(function(r){ return r.id === aid || r.slug === aid; })[0];
+  var assetSlug = assetDraft && assetDraft.slug ? assetDraft.slug : aid;
+  if(ASSETS[assetSlug]) navigate('asset/' + encodeURIComponent(assetSlug)); else navigate('free-assets');
+}
 else if(kind === 'commissions') navigate('commissions');
 else if(kind === 'about') navigate('about');
 else if(kind === 'terms') navigate('terms');
