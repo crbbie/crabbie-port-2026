@@ -7,6 +7,7 @@ export function mapPortfolioProject(row, fallback = {}) {
     title: row.title ?? '',
     desc: row.description ?? '',
     cat: content.cat ?? '',
+    cardMode: content.cardMode === 'image' ? 'image' : 'project',
     tags: Array.isArray(row.tags) ? row.tags : [],
     cover: row.cover_path ?? '',
     thumbnail: row.thumbnail_path ?? '',
