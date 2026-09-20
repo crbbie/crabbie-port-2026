@@ -62,6 +62,25 @@ import {
   assert.ok(cleared.missing.includes('media'));
   assert.ok(cleared.critical.includes('published-without-file'));
 
+  const driveOnly = auditAssetRecord(Object.assign({}, noFile, {
+    thumbnail: 't.png',
+    downloadUrl: '',
+    showDirectDownload: false,
+    driveUrl: 'https://drive.google.com/file/d/example/view',
+    showDriveDownload: true
+  }));
+  assert.ok(!driveOnly.missing.includes('media'), 'an enabled Google Drive button satisfies the public download requirement');
+  assert.ok(!driveOnly.critical.includes('published-without-file'));
+
+  const hiddenDownloads = auditAssetRecord(Object.assign({}, noFile, {
+    thumbnail: 't.png',
+    downloadUrl: 'https://x/f.zip',
+    showDirectDownload: false,
+    driveUrl: 'https://drive.google.com/file/d/example/view',
+    showDriveDownload: false
+  }));
+  assert.ok(hiddenDownloads.missing.includes('media'), 'stored URLs do not count when both public download buttons are disabled');
+
   // placeholder metadata fields are detected
   const withPlaceholders = auditAssetRecord(Object.assign({}, noFile, { thumbnail: 't.png', media: 'https://x/f.zip', downloadUrl: 'https://x/f.zip', license: '[LICENSE CONTENT FROM CMS]', credit: '[CREDIT REQUIREMENT]', version: '[VERSION]', updateNote: '[UPDATE NOTE]', dateAdded: '[DATE]' }));
   assert.equal(withPlaceholders.status, 'warning'); // file present, nothing required missing, placeholders found
