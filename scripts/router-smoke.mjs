@@ -71,8 +71,10 @@ export function createClient(){
     }
     if (!state.op) {
       (window.__routerQueryCount ||= {})[table] = ((window.__routerQueryCount ||= {})[table] || 0) + 1;
+      (window.__routerReads ||= []).push({table, filters: state.filters.slice()});
       if (window.__routerFail === table) return {data: null, error: {message: 'Fixture forced failure'}};
-      const rows = rowsFor(table).slice();
+      const filters = state.filters.slice();
+      const rows = rowsFor(table).filter((row) => filters.every(([column, value]) => row[column] === value));
       return state.single ? {data: rows[0] || null, error: null} : {data: rows, error: null};
     }
     const matches = (row) => state.filters.every(([column, value]) => row[column] === value);
@@ -125,9 +127,37 @@ export function createClient(){
   } });
   return {
     from: table => query(table),
-    storage: {from: () => ({getPublicUrl: path => ({data: {publicUrl: 'https://router-test.supabase.co/' + path}})})},
+    storage: {from: bucket => ({
+      getPublicUrl: path => ({data: {publicUrl: 'https://router-test.supabase.co/' + path}}),
+      upload: async (path, file, options) => {
+        (window.__routerStorageWrites ||= []).push({bucket, operation: 'upload', path});
+        if (window.__routerStorageUploadError) {
+          const error = window.__routerStorageUploadError;
+          window.__routerStorageUploadError = null;
+          return {data: null, error};
+        }
+        const objects = (window.__routerStorageObjects ||= []);
+        if (!objects.some(entry => entry.path === path)) objects.push({name: path.split('/').pop(), path});
+        return {data: {path}, error: null};
+      },
+      remove: async paths => {
+        (window.__routerStorageWrites ||= []).push({bucket, operation: 'remove', paths});
+        if (window.__routerStorageRemoveError) {
+          const error = window.__routerStorageRemoveError;
+          window.__routerStorageRemoveError = null;
+          return {data: null, error};
+        }
+        window.__routerStorageObjects = (window.__routerStorageObjects || []).filter(entry => !paths.includes(entry.path));
+        return {data: paths.map(path => ({name: path})), error: null};
+      },
+      list: async prefix => ({
+        data: (window.__routerStorageObjects || []).filter(entry => entry.path.startsWith(prefix)).map(entry => ({name: entry.name})),
+        error: null
+      })
+    })},
     auth: {
       getSession: async () => ({data: {session}, error: null}),
+      getUser: async () => (session && session.user ? {data: {user: session.user}, error: null} : {data: {user: null}, error: null}),
       onAuthStateChange: callback => {subscribers.push(callback); return {data: {subscription: {unsubscribe(){}}}}},
       signInWithPassword: async ({email}) => {
         window.__routerLoginCalls = (window.__routerLoginCalls || 0) + 1;
@@ -894,6 +924,187 @@ try {
     assert.deepEqual(await settingsRow(), { title: 'OTHER SESSION', updated_at: '2026-09-09T00:00:00Z' }, 'the newer stored value is not overwritten');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['update'], 'the stale save attempted one guarded update only');
     console.log('PASS a stale settings save is rejected and the newer value survives (SDK fixture)');
+
+    // ---- Prompt 3: media safety, storage integrity, destructive actions -----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminMedia && window.CrabbieAdminMedia.deleteMediaFile));
+    const MEDIA_UNUSED = '00000000-0000-4000-8000-000000000201';
+    const MEDIA_THUMB = '00000000-0000-4000-8000-000000000202';
+    const MEDIA_BLOCK = '00000000-0000-4000-8000-000000000203';
+    const MEDIA_TOMBSTONE = '00000000-0000-4000-8000-000000000204';
+    const MEDIA_FLAKY = '00000000-0000-4000-8000-000000000205';
+    const mediaRow = (id, path, name, status) => ({
+      id, bucket_id: 'media', storage_path: path, original_name: name, mime_type: 'image/png',
+      size_bytes: 2048, alt_text: name, created_at: '2026-02-01T00:00:00Z',
+      deletion_status: status || 'active', deleted_at: null, deletion_error: null
+    });
+
+    await page.evaluate((rows) => {
+      window.__routerRows = {
+        media: rows,
+        portfolio_projects: [{
+          id: '00000000-0000-4000-8000-000000000301', slug: 'color-fiesta', title: 'Color Fiesta', description: 'D',
+          tags: [], published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z',
+          thumbnail_path: 'https://router-test.supabase.co/uploads/202_used-thumb.png', cover_path: '',
+          content: { blocks: [{ type: 'gallery', items: [{ url: 'https://router-test.supabase.co/uploads/203_used-block.png', alt: 'x', caption: '' }] }] }
+        }],
+        free_assets: [], commission_services: [], commission_forms: [], cms_categories: [], cms_pages: [],
+        cms_navigation: [], site_settings: [], commission_requests: []
+      };
+      window.__routerStorageObjects = [
+        { name: '201_unused.png', path: 'uploads/201_unused.png' },
+        { name: '202_used-thumb.png', path: 'uploads/202_used-thumb.png' },
+        { name: '203_used-block.png', path: 'uploads/203_used-block.png' },
+        { name: '205_flaky.png', path: 'uploads/205_flaky.png' }
+      ];
+      window.__routerStorageWrites = [];
+      window.__routerWrites = [];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+      window.__routerWriteError = null;
+      window.__routerStorageRemoveError = null;
+    }, [
+      mediaRow(MEDIA_UNUSED, 'uploads/201_unused.png', 'unused.png'),
+      mediaRow(MEDIA_THUMB, 'uploads/202_used-thumb.png', 'used-thumb.png'),
+      mediaRow(MEDIA_BLOCK, 'uploads/203_used-block.png', 'used-block.png'),
+      mediaRow(MEDIA_TOMBSTONE, 'uploads/204_pending.png', 'pending.png', 'pending'),
+      mediaRow(MEDIA_FLAKY, 'uploads/205_flaky.png', 'flaky.png')
+    ]);
+
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+
+    // Test 8: normal hydration only reads active media.
+    const mediaRead = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').pop());
+    assert.deepEqual(mediaRead.filters, [['deletion_status', 'active']], 'media hydration is restricted to active rows');
+    await goToAdminModule('media');
+    assert.equal(await page.locator('.adm-media-card').count(), 4, 'a tombstoned row is never listed as active media');
+
+    // Test 2: a referenced thumbnail blocks the deletion outright.
+    await clearToast();
+    await page.evaluate(() => { window.__routerWrites = []; window.__routerStorageWrites = []; });
+    await page.locator('[data-adm-media-del="' + MEDIA_THUMB + '"]').click();
+    await page.locator('#adminConfirmOk').click();
+    const blockedToast = await readToast();
+    assert.match(blockedToast, /cannot be deleted/i, 'referenced media is reported as blocked');
+    assert.match(blockedToast, /thumbnail/i, 'the message names where the file is used');
+    assert.equal(await page.evaluate(() => window.__routerStorageWrites.length), 0, 'no Storage call is made for referenced media');
+    assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'media').length), 0, 'no media row change is made for referenced media');
+    assert.equal(await page.evaluate((id) => window.__routerRows.media.find((row) => row.id === id).deletion_status, MEDIA_THUMB), 'active');
+    assert.equal(await page.locator('.adm-media-card').count(), 4, 'the referenced file stays in the library');
+
+    // Test 3: a nested block/gallery reference blocks the deletion too.
+    await clearToast();
+    await page.locator('[data-adm-media-del="' + MEDIA_BLOCK + '"]').click();
+    await page.locator('#adminConfirmOk').click();
+    const nestedToast = await readToast();
+    assert.match(nestedToast, /cannot be deleted/i);
+    assert.match(nestedToast, /block 1/i, 'the message points at the block that uses the file');
+    assert.equal(await page.evaluate(() => window.__routerStorageWrites.length), 0, 'a nested reference still blocks storage removal');
+    console.log('PASS media used inside portfolio blocks and galleries cannot be deleted (SDK fixture)');
+
+    // Test 1 + Test 17: an unused file completes the audited deletion lifecycle.
+    await clearToast();
+    await page.evaluate(() => { window.__routerWrites = []; window.__routerStorageWrites = []; });
+    await page.locator('[data-adm-media-del="' + MEDIA_UNUSED + '"]').click();
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction((id) => !window.__routerRows.media.some((row) => row.id === id), MEDIA_UNUSED);
+    const mediaOps = await page.evaluate(() => window.__routerWrites.map((write) => write.table + ':' + write.operation));
+    const storageOps = await page.evaluate(() => window.__routerStorageWrites.map((write) => write.operation + ':' + (write.paths || []).join(',')));
+    assert.deepEqual(storageOps, ['remove:uploads/201_unused.png'], 'the storage object is removed exactly once');
+    assert.ok(mediaOps.indexOf('media:update') !== -1, 'the row is tombstoned before storage removal');
+    assert.ok(mediaOps.indexOf('media:delete') !== -1, 'the row is deleted only after storage removal');
+    assert.ok(mediaOps.indexOf('admin_audit_log:insert') !== -1, 'destructive media actions are audited');
+    const auditActions = await page.evaluate(() => window.__routerRows.admin_audit_log.map((row) => row.action));
+    assert.deepEqual(auditActions.slice(-3), ['media_delete_requested', 'media_storage_deleted', 'media_delete_finalized'], 'the audit trail records the lifecycle');
+    assert.equal(await page.locator('.adm-media-card').count(), 3, 'the deleted card leaves the library');
+    console.log('PASS an unused media file completes the audited deletion lifecycle (SDK fixture)');
+
+    // Test 4: a failed storage removal leaves a recoverable tombstone.
+    await page.evaluate(() => {
+      window.__routerStorageRemoveError = { message: 'network down' };
+      window.__routerWrites = [];
+      window.__routerStorageWrites = [];
+    });
+    await clearToast();
+    await page.locator('[data-adm-media-del="' + MEDIA_FLAKY + '"]').click();
+    await page.locator('#adminConfirmOk').click();
+    assert.match(await readToast(), /incomplete/i, 'the failure is reported as incomplete, never as deleted');
+    const pendingRow = await page.evaluate((id) => window.__routerRows.media.find((row) => row.id === id), MEDIA_FLAKY);
+    assert.equal(pendingRow.deletion_status, 'pending', 'a failed storage removal keeps a recoverable tombstone');
+    assert.match(pendingRow.deletion_error, /network down/);
+    assert.equal(await page.locator('.adm-media-card').count(), 2, 'the pending file is no longer listed as active media');
+    assert.equal(await page.evaluate(() => window.__routerStorageObjects.some((entry) => entry.path === 'uploads/205_flaky.png')), true, 'the object is still there for the retry');
+
+    // Test 6: storage removal succeeds but the final row cleanup fails.
+    const retryFail = await page.evaluate(async (id) => {
+      window.__routerWriteError = { table: 'media', operation: 'delete', message: 'row delete failed' };
+      const result = await window.CrabbieAdminMedia.retryMediaDeletion(id);
+      return { result, row: window.__routerRows.media.find((row) => row.id === id), objectPresent: window.__routerStorageObjects.some((entry) => entry.path === 'uploads/205_flaky.png') };
+    }, MEDIA_FLAKY);
+    assert.equal(retryFail.result.success, false);
+    assert.equal(retryFail.result.pending, true);
+    assert.equal(retryFail.objectPresent, false, 'the retry removed the storage object first');
+    assert.equal(retryFail.row.deletion_status, 'storage_removed', 'a failed finalize never returns the row to active');
+    assert.match(retryFail.row.deletion_error, /row delete failed/);
+    console.log('PASS a failed final row cleanup keeps a non-active recoverable tombstone (SDK fixture)');
+
+    // Test 5 + Test 7: the retry finishes safely and stays idempotent.
+    const retryOk = await page.evaluate(async (id) => {
+      const result = await window.CrabbieAdminMedia.retryMediaDeletion(id);
+      return { result, present: window.__routerRows.media.some((row) => row.id === id) };
+    }, MEDIA_FLAKY);
+    assert.equal(retryOk.result.success, true);
+    assert.equal(retryOk.result.status, 'deleted');
+    assert.equal(retryOk.present, false, 'the retried deletion is finalized');
+    const retryAgain = await page.evaluate((id) => window.CrabbieAdminMedia.retryMediaDeletion(id), MEDIA_FLAKY);
+    assert.equal(retryAgain.success, true);
+    assert.equal(retryAgain.alreadyFinalized, true, 'retrying an already-finalized deletion is a harmless no-op');
+    const missingObjectRetry = await page.evaluate(async (id) => {
+      window.__routerStorageRemoveError = { message: 'Object not found', statusCode: '404' };
+      const result = await window.CrabbieAdminMedia.retryMediaDeletion(id);
+      return { result, present: window.__routerRows.media.some((row) => row.id === id) };
+    }, MEDIA_TOMBSTONE);
+    assert.equal(missingObjectRetry.result.success, true);
+    assert.equal(missingObjectRetry.present, false, 'a storage object that is already gone does not block finalization');
+    console.log('PASS retries finalize safely, tolerate a missing object and stay idempotent (SDK fixture)');
+
+    // Test 16: every media mutation respects the Batch 1 readiness gate.
+    const mediaGates = await page.evaluate(async () => {
+      window.CrabbieAdminCrud.setAdminLoadState('idle');
+      const attempt = async (fn) => {
+        try { await fn(); return 'allowed'; } catch (err) { return err.message; }
+      };
+      const results = {
+        upload: await attempt(() => window.CrabbieAdminMedia.uploadMediaFile({ name: 'x.png', type: 'image/png', size: 10 })),
+        remove: await attempt(() => window.CrabbieAdminMedia.deleteMediaFile('00000000-0000-4000-8000-000000000202')),
+        retry: await attempt(() => window.CrabbieAdminMedia.retryMediaDeletion('00000000-0000-4000-8000-000000000202'))
+      };
+      window.CrabbieAdminCrud.setAdminLoadState('ready');
+      return results;
+    });
+    for (const name of Object.keys(mediaGates)) {
+      assert.equal(mediaGates[name], 'Admin data is not ready for mutation.', name + ' must respect the load-state gate');
+    }
+    console.log('PASS media upload, delete and retry all refuse to run while not ready (SDK fixture)');
+
+    // Test 14 + Test 15: the integrity diagnostic is read-only and conservative.
+    const diagnostics = await page.evaluate(async () => {
+      window.__routerRows.media = [
+        { id: 'keep', storage_path: 'uploads/keep.png', original_name: 'keep.png', deletion_status: 'active' },
+        { id: 'gone', storage_path: 'uploads/gone.png', original_name: 'gone.png', deletion_status: 'active' }
+      ];
+      window.__routerStorageObjects = [{ name: 'keep.png', path: 'uploads/keep.png' }, { name: 'orphan.png', path: 'uploads/orphan.png' }];
+      const report = await window.CrabbieAdminMedia.diagnoseMediaIntegrity();
+      report.remainingObjects = window.__routerStorageObjects.length;
+      return report;
+    });
+    assert.deepEqual(diagnostics.missingObjects.map((entry) => entry.id), ['gone'], 'an active row whose object is missing is detected');
+    assert.deepEqual(diagnostics.orphanObjects.map((entry) => entry.storagePath), ['uploads/orphan.png'], 'a storage object with no media row is reported as a candidate');
+    assert.deepEqual(diagnostics.pendingCleanup, []);
+    assert.equal(diagnostics.remainingObjects, 2, 'the diagnostic never deletes anything');
+    console.log('PASS the media integrity diagnostic reports missing objects and orphan candidates only (SDK fixture)');
   }
 } finally {
   if (browser) await browser.close();
