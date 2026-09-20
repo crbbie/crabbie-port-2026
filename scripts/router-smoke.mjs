@@ -2697,7 +2697,7 @@ try {
     assert.equal(p4FormUpdate.payload.fields[0].placeholder, 'Pick one', 'placeholder is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].type, 'select', 'the field type is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].label, 'Preferred package', 'the field label is persisted');
-    const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.slice(-1)[0]);
+    const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.find((row) => row.slug === 'round-trip-form'));
     const p4SavedServicesD = await page.evaluate(() => window.__routerRows.commission_services);
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
