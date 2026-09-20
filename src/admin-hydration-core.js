@@ -43,6 +43,7 @@ function mapPortfolioRow(row) {
     title: row.title,
     description: row.description || '',
     category: content.categorySlug || (row.category && row.category.slug) || content.cat || 'illustration',
+    cardMode: content.cardMode === 'image' ? 'image' : 'project',
     tags: Array.isArray(row.tags) ? row.tags : [],
     thumbnail: row.thumbnail_path || '',
     cover: row.cover_path || '',
