@@ -227,8 +227,18 @@ export async function saveAdminOrder(scope, list) {
 
   if (!rows.length) return { success: true, table, count: 0 };
 
-  const response = await supabase.from(table).upsert(rows, { onConflict: 'id' }).select('id');
-  if (response.error) throw adminWriteError(response.error);
+  // Order changes are UPDATE-only. A partial upsert ({id, sort_order}) can
+  // trigger NOT NULL failures for required columns such as slug/title before
+  // ON CONFLICT resolves, which made a record appear saved after refresh while
+  // the UI still reported "required field is empty".
+  for (const row of rows) {
+    const response = await supabase
+      .from(table)
+      .update({ sort_order: row.sort_order })
+      .eq('id', row.id)
+      .select('id');
+    if (response.error) throw adminWriteError(response.error);
+  }
   return { success: true, table, count: rows.length };
 }
 
