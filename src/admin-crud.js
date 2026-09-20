@@ -10,6 +10,8 @@ import {
 import { formatMediaItem } from './admin-media-core.js';
 import { deleteMediaFile } from './admin-media.js';
 import { formatRequestRowForAdmin, mapAdminStatusToDbStatus } from './commission-requests-core.js';
+import { mapAdminHydrationResults } from './admin-hydration-core.js';
+import { canMutateAdmin } from './admin-draft-guard-core.js';
 
 function assertSupabaseResult(result, label) {
   if (result && result.error) {
@@ -18,8 +20,35 @@ function assertSupabaseResult(result, label) {
   return result;
 }
 
+// Single-owner readiness for admin writes. Only one complete successful live
+// hydration may enable mutations; a failed hydration blocks every write.
+let adminLoadState = 'idle';
+
+export function setAdminLoadState(state) {
+  adminLoadState = state;
+}
+
+export function getAdminLoadState() {
+  return adminLoadState;
+}
+
+export function resetAdminReadiness() {
+  adminLoadState = 'idle';
+}
+
+export function assertAdminReadyForMutation() {
+  if (!canMutateAdmin(adminLoadState)) {
+    throw new Error('Admin data is not ready for mutation.');
+  }
+}
+
 export async function loadAllAdminDataFromSupabase() {
-  if (!isConfigured || !supabase) return null;
+  if (!isConfigured || !supabase) {
+    adminLoadState = 'error';
+    throw new Error('Supabase is not configured.');
+  }
+
+  adminLoadState = 'loading';
 
   try {
     const [
@@ -46,226 +75,32 @@ export async function loadAllAdminDataFromSupabase() {
       supabase.from('media').select('*').order('created_at', { ascending: false })
     ]);
 
-    [
-      [pRes, 'Portfolio load failed'],
-      [aRes, 'Free Assets load failed'],
-      [categoriesRes, 'Categories load failed'],
-      [cRes, 'Commission Services load failed'],
-      [fRes, 'Commission Forms load failed'],
-      [pagesRes, 'CMS Pages load failed'],
-      [navRes, 'Navigation load failed'],
-      [settingsRes, 'Site Settings load failed'],
-      [reqRes, 'Commission Requests load failed'],
-      [mediaRes, 'Media load failed']
-    ].forEach(([res, label]) => assertSupabaseResult(res, label));
+    const snapshot = mapAdminHydrationResults({
+      portfolio: pRes,
+      assets: aRes,
+      categories: categoriesRes,
+      commissions: cRes,
+      forms: fRes,
+      pages: pagesRes,
+      navigation: navRes,
+      settings: settingsRes,
+      requests: reqRes,
+      media: mediaRes
+    }, (path) => supabase.storage.from('media').getPublicUrl(path).data.publicUrl);
 
-    const result = {};
-
-    if (pRes.data && pRes.data.length) {
-      result.portfolio = pRes.data.map((row) => {
-        const content = row.content || {};
-        return {
-          id: row.slug,
-          slug: row.slug,
-          title: row.title,
-          description: row.description || '',
-          category: content.categorySlug || (row.category && row.category.slug) || content.cat || 'illustration',
-          tags: Array.isArray(row.tags) ? row.tags : [],
-          thumbnail: row.thumbnail_path || '',
-          cover: row.cover_path || '',
-          featured: !!row.featured,
-          published: !!row.published,
-          placeholder: !!content.placeholder,
-          viState: 'pending',
-          externalLinks: content.externalLinks || [],
-          blocks: content.blocks || [],
-          credits: content.credits || '',
-          year: content.year || '',
-          intro: content.intro || '',
-          sketch: content.sketch || '',
-          process: content.process || '',
-          body: content.body || '',
-          quote: content.quote || '',
-          link: content.link || '',
-          linkLabel: content.linkLabel || '',
-          titleCopy: { en: row.title, vi: '', viOverride: false },
-          descriptionCopy: { en: row.description || '', vi: '', viOverride: false }
-        };
-      });
-    }
-
-    if (aRes.data && aRes.data.length) {
-      result.assets = aRes.data.map((row) => {
-        const m = row.metadata || {};
-        return {
-          id: row.slug,
-          slug: row.slug,
-          title: row.title,
-          description: row.description || '',
-          category: m.categorySlug || (row.category && row.category.slug) || (m.cat || 'other').toLowerCase(),
-          tags: Array.isArray(m.tags) ? m.tags : [],
-          assetType: (m.cat || 'other').toLowerCase(),
-          icon: m.icon || '★',
-          flowerTag: m.flowerTag || null,
-          filterCat: m.filterCat || '',
-          thumbnail: row.thumbnail_path || '',
-          media: row.file_path || '',
-          mediaType: 'image',
-          downloadUrl: row.file_path || m.downloadUrl || '',
-          fileFormat: row.file_type || m.format || 'PNG',
-          license: m.license || '[LICENSE CONTENT FROM CMS]',
-          credit: m.credit || '[CREDIT REQUIREMENT]',
-          version: m.version || '[VERSION]',
-          updateNote: m.update || '[UPDATE NOTE]',
-          dateAdded: m.date || '[DATE]',
-          featured: !!row.featured,
-          published: !!row.published,
-          placeholder: true,
-          availability: row.availability || 'available',
-          titleCopy: { en: row.title, vi: '', viOverride: false },
-          descriptionCopy: { en: row.description || '', vi: '', viOverride: false }
-        };
-      });
-    }
-
-    if (categoriesRes.data && categoriesRes.data.length) {
-      const mapCategory = (row) => ({
-        id: row.slug,
-        dbId: row.id,
-        slug: row.slug,
-        title: row.title,
-        published: !!row.published,
-        sortOrder: row.sort_order || 0,
-        titleCopy: { en: row.title, vi: '', viOverride: false }
-      });
-      result.portfolioCategories = categoriesRes.data
-        .filter((row) => row.kind === 'portfolio')
-        .map(mapCategory);
-      result.assetCategories = categoriesRes.data
-        .filter((row) => row.kind === 'asset')
-        .map(mapCategory);
-    }
-
-    if (cRes.data && cRes.data.length) {
-      result.commissions = cRes.data.map((row) => {
-        const d = row.details || {};
-        const avail = row.availability === 'waitlist' ? 'inquiry' : row.availability;
-        return {
-          id: row.slug,
-          slug: row.slug,
-          title: row.title,
-          description: row.description || '',
-          price: d.priceFormatted ? d.priceFormatted.replace('$', '') : String(row.price || ''),
-          currency: row.currency || 'USD',
-          availability: avail,
-          form: row.form_slug || d.formType || 'illustration',
-          featured: !!row.featured,
-          published: !!row.published,
-          formLabel: d.formLabel || '',
-          priceFormatted: d.priceFormatted || '',
-          priceNote: d.priceNote || '',
-          previewLabel: d.previewLabel || '',
-          previewVariant: d.previewVariant || '',
-          chips: Array.isArray(d.chips) ? d.chips : [],
-          commercialRule: d.commercialRule || '',
-          extraCharacterFee: d.extraCharacter || '',
-          backgroundFee: d.backgroundRule || '',
-          rushFee: d.rush || '+20%',
-          privateFee: d.privateFee || '+20%',
-          tax: d.tax || '5%',
-          delivery: d.deliveryEstimate || '',
-          includedFiles: d.includedFiles || '',
-          canvas: d.canvas || '',
-          extraNotes: d.extraNotes || '',
-          alternatePrice: d.alternatePrice || '',
-          alternateCurrency: d.alternateCurrency || '',
-          isOtherService: d.isOtherService !== undefined ? d.isOtherService : true,
-          addons: [],
-          customFields: [],
-          thumbnail: row.thumbnail_path || '',
-          titleCopy: { en: row.title, vi: '', viOverride: false },
-          descriptionCopy: { en: row.description || '', vi: '', viOverride: false }
-        };
-      });
-    }
-
-    if (fRes.data && fRes.data.length) {
-      result.forms = fRes.data.map((row) => ({
-        id: row.slug,
-        slug: row.slug,
-        title: row.title,
-        description: row.description || '',
-        published: !!row.published,
-        fields: Array.isArray(row.fields) ? row.fields : [],
-        titleCopy: { en: row.title, vi: '', viOverride: false },
-        descriptionCopy: { en: row.description || '', vi: '', viOverride: false }
-      }));
-    }
-
-    if (pagesRes.data && pagesRes.data.length) {
-      result.pages = {};
-      pagesRes.data.forEach((row) => {
-        const d = row.data || {};
-        if (row.slug === 'about') {
-          result.pages.about = {
-            title: row.title,
-            content: row.content,
-            published: !!row.published,
-            profileImage: d.profileImage || '',
-            name: d.name || 'Crabbie',
-            bio: d.bio || '',
-            experience: d.experience || [],
-            skills: d.skills || [],
-            links: d.links || [],
-            titleCopy: { en: row.title, vi: '', viOverride: false },
-            contentCopy: { en: row.content, vi: '', viOverride: false }
-          };
-        } else if (row.slug === 'terms') {
-          result.pages.terms = {
-            title: row.title,
-            content: row.content,
-            published: !!row.published,
-            titleCopy: { en: row.title, vi: '', viOverride: false },
-            contentCopy: { en: row.content, vi: '', viOverride: false }
-          };
-        }
-      });
-    }
-
-    if (navRes.data && navRes.data.length) {
-      result.navigation = navRes.data.map((row) => ({
-        id: row.id,
-        title: row.title,
-        url: row.url,
-        published: !!row.published
-      }));
-    }
-
-    if (settingsRes.data && settingsRes.data.length) {
-      result.settings = {};
-      settingsRes.data.forEach((row) => {
-        result.settings[row.key] = row.value || {};
-      });
-    }
-
-    if (reqRes.data) {
-      result.requests = reqRes.data.map(formatRequestRowForAdmin);
-    }
-
-    if (mediaRes.data) {
-      result.media = mediaRes.data.map((row) =>
-        formatMediaItem(row, (p) => supabase.storage.from('media').getPublicUrl(p).data.publicUrl)
-      );
-    }
-
-    return result;
+    adminLoadState = 'ready';
+    return snapshot;
   } catch (err) {
+    // A failed complete hydration must never fall back to partial or prototype
+    // admin data: every mutation stays blocked until a full retry succeeds.
+    adminLoadState = 'error';
     console.error('Error loading admin data from Supabase:', err);
-    return null;
+    throw err;
   }
 }
 
 export async function persistAdminDataToSupabase(draft, scope = 'all') {
+  assertAdminReadyForMutation();
   if (!isConfigured || !supabase) {
     throw new Error('Supabase is not configured.');
   }
@@ -422,6 +257,7 @@ export async function persistAdminDataToSupabase(draft, scope = 'all') {
 }
 
 export async function deleteAdminRecord(listKey, id) {
+  assertAdminReadyForMutation();
   if (!isConfigured || !supabase) {
     throw new Error('Supabase is not configured.');
   }
@@ -471,5 +307,9 @@ export async function deleteAdminRecord(listKey, id) {
 window.CrabbieAdminCrud = {
   loadAllAdminData: loadAllAdminDataFromSupabase,
   persistAdminData: persistAdminDataToSupabase,
-  deleteRecord: deleteAdminRecord
+  deleteRecord: deleteAdminRecord,
+  setAdminLoadState,
+  getAdminLoadState,
+  resetAdminReadiness,
+  assertAdminReadyForMutation
 };
