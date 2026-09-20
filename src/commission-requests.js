@@ -70,24 +70,26 @@ export async function submitCommissionRequest(formData = {}) {
   return { success: true };
 }
 
-export async function fetchAdminCommissionRequests() {
+export async function fetchAdminCommissionRequests(options = {}) {
   if (!isConfigured || !supabase) {
     throw new Error('Supabase is not configured.');
   }
 
-  const { data, error } = await supabase
-    .from('commission_requests')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`Failed to fetch commission requests: ${error.message}`);
-  }
-  if (!Array.isArray(data)) {
-    throw new Error('Failed to fetch commission requests: invalid response.');
+  // Prompt 4: one page per call. The whole request table is never downloaded.
+  const crud = typeof window !== 'undefined' ? window.CrabbieAdminCrud : null;
+  if (!crud || typeof crud.loadRequestPage !== 'function') {
+    throw new Error('Admin request paging is unavailable.');
   }
 
-  return data.map(formatRequestRowForAdmin);
+  const page = await crud.loadRequestPage({
+    page: options.page,
+    pageSize: options.pageSize,
+    status: options.status,
+    commission: options.commission,
+    search: options.search
+  });
+
+  return page.items;
 }
 
 export async function updateCommissionRequestStatus(id, status, notes = '') {

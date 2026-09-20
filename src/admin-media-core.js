@@ -61,6 +61,49 @@ export function resolveUploadContentType(file) {
   return byExtension || declared || 'application/octet-stream';
 }
 
+export const THUMBNAIL_WIDTH = 480;
+export const THUMBNAIL_QUALITY = 70;
+// Files below this size are already cheap to download; transforming them would
+// only add a second failure mode.
+export const THUMBNAIL_MIN_SOURCE_BYTES = 250 * 1024;
+
+/** Supabase Image Transformation options (same object, never a new file). */
+export const THUMBNAIL_TRANSFORM = Object.freeze({ width: THUMBNAIL_WIDTH, quality: THUMBNAIL_QUALITY, resize: 'cover' });
+
+// Only still raster artwork is transformed. Animated GIF, SVG (vector), ICO,
+// PDF, video and audio always render/download their canonical original.
+const RASTER_THUMBNAIL_EXTENSIONS = Object.freeze(['png', 'jpg', 'jpeg', 'webp', 'avif', 'bmp']);
+
+export function canUseThumbnail(item) {
+  if (!item || item.type !== 'image') return false;
+  const extension = fileExtension(item.title || item.storagePath || '');
+  if (!RASTER_THUMBNAIL_EXTENSIONS.includes(extension)) return false;
+  const size = Number(item.sizeBytes);
+  if (Number.isFinite(size) && size > 0 && size < THUMBNAIL_MIN_SOURCE_BYTES) return false;
+  return true;
+}
+
+/** Thumbnail URL for grid/picker cards, or '' when the original must be used. */
+export function thumbnailUrlFor(item, getRenderUrl) {
+  if (typeof getRenderUrl !== 'function' || !canUseThumbnail(item)) return '';
+  const path = item.storagePath || '';
+  if (!path) return '';
+  return getRenderUrl(path) || '';
+}
+
+/**
+ * Card image sources: `src` is the small representation when one is safe,
+ * `original` is always the full-resolution canonical URL (preview/download and
+ * the fallback when a transformation is unavailable).
+ */
+export function mediaImageSources(item, { getRenderUrl, getPublicUrl } = {}) {
+  const path = (item && item.storagePath) || '';
+  let original = (item && item.url) || '';
+  if (!original && path && typeof getPublicUrl === 'function') original = getPublicUrl(path) || '';
+  const thumbnail = thumbnailUrlFor(item, getRenderUrl);
+  return { src: thumbnail || original, original, isThumbnail: Boolean(thumbnail) };
+}
+
 export function sanitizeStorageFileName(originalName = 'unnamed_file') {
   const cleanName = String(originalName).trim().replace(/^.*[\\\/]/, '');
   const lastDot = cleanName.lastIndexOf('.');
@@ -101,7 +144,7 @@ export function getMediaType(mimeType = '', fileName = '') {
   return 'file';
 }
 
-export function formatMediaItem(row = {}, getPublicUrlFn) {
+export function formatMediaItem(row = {}, getPublicUrlFn, getThumbnailUrlFn) {
   const storagePath = row.storage_path || row.storagePath || '';
   let url = row.url || '';
   if (!url && storagePath && typeof getPublicUrlFn === 'function') {
@@ -112,16 +155,28 @@ export function formatMediaItem(row = {}, getPublicUrlFn) {
   const mimeType = row.mime_type || row.mimeType || '';
   const sizeBytes = row.size_bytes != null ? row.size_bytes : row.sizeBytes;
 
-  return {
+  const item = {
     id: row.id || storagePath,
     storagePath,
     title,
     url,
     type: getMediaType(mimeType, title),
     size: typeof row.size === 'string' ? row.size : formatFileSize(sizeBytes),
+    sizeBytes: Number.isFinite(Number(sizeBytes)) ? Number(sizeBytes) : null,
+    mimeType,
+    extension: fileExtension(title || storagePath),
+    sha256: row.sha256 || null,
+    deletionStatus: row.deletion_status || null,
     alt: row.alt_text || row.alt || '',
-    createdAt: row.created_at || row.createdAt || ''
+    createdAt: row.created_at || row.createdAt || '',
+    thumbnailUrl: ''
   };
+
+  // Prompt 4: a small card representation of the same object, never a new file.
+  item.thumbnailUrl = (getThumbnailUrlFn && canUseThumbnail(item))
+    ? (getThumbnailUrlFn(storagePath, THUMBNAIL_TRANSFORM) || '')
+    : '';
+  return item;
 }
 
 export function validateUploadFile(file, options = {}) {

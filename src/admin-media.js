@@ -8,6 +8,15 @@ import {
   resolveUploadContentType
 } from './admin-media-core.js';
 import {
+  selectList,
+  paginationRange,
+  pagedSummary,
+  mediaFilterSpec,
+  MEDIA_PAGE_SIZE
+} from './admin-query-core.js';
+import { uploadMediaWithPipeline, toMediaItem } from './admin-media-upload.js';
+import { uploadTaskLabel, classifyUploadFailure } from './admin-upload-core.js';
+import {
   MEDIA_DELETION_STATUS,
   MEDIA_DELETED_STATE,
   mediaDeletionStatus,
@@ -54,10 +63,6 @@ async function requireAdminUser() {
   return userData.user;
 }
 
-function publicUrlFor(path) {
-  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
 /** Best-effort audit trail: a logging failure never breaks the operation. */
 async function writeMediaAudit(user, action, fields = {}) {
   try {
@@ -74,7 +79,7 @@ async function writeMediaAudit(user, action, fields = {}) {
 
 async function fetchMediaRow(id) {
   if (!id) return null;
-  const { data, error } = await supabase.from('media').select('*').eq('id', id).maybeSingle();
+  const { data, error } = await supabase.from('media').select(selectList('media')).eq('id', id).maybeSingle();
   if (error) throw new Error(`Media lookup failed: ${error.message}`);
   return data || null;
 }
@@ -170,69 +175,22 @@ async function runMediaDeletionLifecycle(row, user) {
   return { success: true, status: mediaDeletionStatus(current) };
 }
 
-export async function uploadMediaFile(file, altText = '') {
+export async function uploadMediaFile(file, altText = '', hooks = {}) {
   assertMediaMutationReady();
   if (!isConfigured || !supabase) {
     throw new Error('Supabase client is not configured.');
   }
 
-  const check = validateUploadFile(file);
-  if (!check.valid) {
-    throw new Error(check.error);
-  }
-
+  // Digest, dedupe, strategy split, retry/cancel and the media row all live in
+  // the pipeline so both upload paths share one safety contract.
   await requireAdminUser();
+  const result = await uploadMediaWithPipeline(file, { altText, hooks });
 
-  const storagePath = `${UPLOAD_PREFIX}/${sanitizeStorageFileName(file.name)}`;
-
-  const { error: uploadErr } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .upload(storagePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      // The bucket enforces the same MIME allowlist server-side.
-      contentType: resolveUploadContentType(file)
-    });
-
-  if (uploadErr) {
-    const isRls = uploadErr.message?.toLowerCase().includes('row-level security') ||
-                  uploadErr.message?.toLowerCase().includes('policy') ||
-                  uploadErr.message?.toLowerCase().includes('unauthorized') ||
-                  uploadErr.statusCode === 403 ||
-                  uploadErr.statusCode === '403';
-    const isMime = uploadErr.message?.toLowerCase().includes('mime type');
-    const prefix = isRls ? 'Storage upload failed (RLS / access denied)'
-      : isMime ? 'Storage upload failed (unsupported file type)'
-      : 'Storage upload failed';
-    throw new Error(`${prefix}: ${uploadErr.message}`);
-  }
-
-  const { data: mediaRow, error: dbErr } = await supabase
-    .from('media')
-    .insert({
-      bucket_id: MEDIA_BUCKET,
-      storage_path: storagePath,
-      original_name: file.name,
-      mime_type: resolveUploadContentType(file),
-      size_bytes: file.size,
-      alt_text: altText || file.name
-    })
-    .select()
-    .single();
-
-  if (dbErr) {
-    // Clean up the uploaded object when the database row cannot be created.
-    try {
-      await removeStorageObject(storagePath);
-    } catch (_) {}
-    const isRls = dbErr.message?.toLowerCase().includes('row-level security') ||
-                  dbErr.message?.toLowerCase().includes('policy') ||
-                  dbErr.code === '42501';
-    const prefix = isRls ? 'Media record creation failed (RLS / access denied)' : 'Media record creation failed';
-    throw new Error(`${prefix}: ${dbErr.message}`);
-  }
-
-  return formatMediaItem(mediaRow, publicUrlFor);
+  return Object.assign({}, result.media, {
+    deduplicated: Boolean(result.deduplicated),
+    sha256: result.sha256 || null,
+    task: result.task || null
+  });
 }
 
 /**
@@ -258,7 +216,7 @@ export async function deleteMediaFile(id, storagePath, adminState) {
       if (!usageState) {
         return { success: false, error: 'Media usage could not be verified, so the file was not deleted. Reload the admin page and try again.' };
       }
-      const usages = findMediaUsage(formatMediaItem(row, publicUrlFor), usageState);
+      const usages = findMediaUsage(toMediaItem(row), usageState);
       if (usages.length) {
         await writeMediaAudit(user, 'media_delete_blocked', { mediaId: row.id, storagePath: row.storage_path, details: { usageCount: usages.length, usages } });
         return { success: false, blocked: true, usages, error: mediaUsageMessage(usages) };
@@ -314,22 +272,30 @@ export async function diagnoseMediaIntegrity() {
 }
 
 /** Normal library listing: only active media (tombstones stay hidden). */
-export async function listMediaFiles() {
+/** One page of active media (never the whole library). */
+export async function loadMediaPage(options = {}) {
+  const range = paginationRange(options.page, options.pageSize || MEDIA_PAGE_SIZE, MEDIA_PAGE_SIZE);
+  const spec = mediaFilterSpec({ search: options.search });
+
+  let query = supabase
+    .from('media')
+    .select(selectList('media'), { count: 'exact' })
+    .eq('deletion_status', spec.deletionStatus);
+  if (spec.search) query = query.ilike('original_name', '%' + spec.search + '%');
+
+  const { data, error, count } = await query.order('created_at', { ascending: false }).range(range.from, range.to);
+  if (error) throw new Error('Media load failed: ' + error.message);
+
+  const items = (Array.isArray(data) ? data : []).map((row) => toMediaItem(row));
+  return { dataset: 'media', items, count, filters: spec, ...pagedSummary({ count, page: range.page, pageSize: range.pageSize }) };
+}
+
+/** Convenience wrapper used by panels that only need the first page. */
+export async function listMediaFiles(options = {}) {
   if (!isConfigured || !supabase) return [];
-
   try {
-    const { data, error } = await supabase
-      .from('media')
-      .select('*')
-      .eq('deletion_status', MEDIA_DELETION_STATUS.ACTIVE)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Media list failed: ${error.message}`);
-    }
-    if (!Array.isArray(data)) return [];
-
-    return data.map((row) => formatMediaItem(row, publicUrlFor));
+    const page = await loadMediaPage(options);
+    return page.items;
   } catch (err) {
     console.warn('Failed to list media files:', err.message);
     return [];
@@ -343,6 +309,9 @@ if (typeof window !== 'undefined') {
     retryMediaDeletion,
     diagnoseMediaIntegrity,
     listMediaFiles,
+    loadMediaPage,
+    uploadTaskLabel,
+    classifyUploadFailure,
     findMediaUsage,
     formatMediaItem,
     formatFileSize,

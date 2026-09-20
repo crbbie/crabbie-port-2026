@@ -7,7 +7,11 @@ import {
   validateUploadFile,
   isSupportedMediaFile,
   resolveUploadContentType,
-  SUPPORTED_MEDIA_MIME_TYPES
+  SUPPORTED_MEDIA_MIME_TYPES,
+  canUseThumbnail,
+  thumbnailUrlFor,
+  mediaImageSources,
+  THUMBNAIL_TRANSFORM
 } from './admin-media-core.js';
 
 // 1. sanitizeStorageFileName
@@ -98,6 +102,51 @@ import {
   assert.equal(resolveUploadContentType({ name: 'blob' }), 'application/octet-stream');
   assert.ok(SUPPORTED_MEDIA_MIME_TYPES.includes('image/avif'));
   assert.ok(SUPPORTED_MEDIA_MIME_TYPES.includes('application/zip'));
+}
+
+// 7. Prompt 4: richer media item mapping from the explicit column list
+{
+  const dbRow = {
+    id: 'media-9', storage_path: 'uploads/9_art.png', original_name: 'art.png', mime_type: 'image/png',
+    size_bytes: 4 * 1024 * 1024, alt_text: 'art', created_at: '2026-01-01T00:00:00Z',
+    sha256: 'deadbeef', deletion_status: 'active'
+  };
+  const item = formatMediaItem(dbRow, (path) => 'https://cdn/' + path, (path) => 'https://cdn/render/' + path + '?width=480');
+  assert.equal(item.sizeBytes, 4 * 1024 * 1024);
+  assert.equal(item.mimeType, 'image/png');
+  assert.equal(item.extension, 'png');
+  assert.equal(item.sha256, 'deadbeef');
+  assert.equal(item.deletionStatus, 'active');
+  assert.equal(item.url, 'https://cdn/uploads/9_art.png', 'the canonical original URL is unchanged');
+  assert.equal(item.thumbnailUrl, 'https://cdn/render/uploads/9_art.png?width=480');
+  assert.equal(item.size, '4.0 MB');
+  assert.equal(THUMBNAIL_TRANSFORM.resize, 'cover');
+}
+
+// 8. Thumbnail strategy: still raster only, original everywhere else
+{
+  const build = (over) => Object.assign({ id: 'x', storagePath: 'uploads/x.png', title: 'x.png', url: 'https://cdn/x.png', type: 'image', sizeBytes: 3 * 1024 * 1024 }, over);
+  assert.equal(canUseThumbnail(build({})), true);
+  assert.equal(canUseThumbnail(build({ title: 'anim.gif' })), false, 'animated GIF keeps the original');
+  assert.equal(canUseThumbnail(build({ title: 'vector.svg' })), false, 'SVG is never rasterised');
+  assert.equal(canUseThumbnail(build({ title: 'small.png', sizeBytes: 1024 })), false, 'already small files use the original');
+  assert.equal(canUseThumbnail(build({ title: 'clip.mp4', type: 'video' })), false);
+  assert.equal(canUseThumbnail(build({ title: 'guide.pdf', type: 'file' })), false);
+  assert.equal(canUseThumbnail(null), false);
+
+  const render = (path) => 'https://cdn/render/' + path;
+  assert.equal(thumbnailUrlFor(build({}), render), 'https://cdn/render/uploads/x.png');
+  assert.equal(thumbnailUrlFor(build({ title: 'anim.gif' }), render), '');
+  assert.equal(thumbnailUrlFor(build({}), null), '', 'no transformation support means no thumbnail URL');
+
+  const big = mediaImageSources(build({}), { getRenderUrl: render, getPublicUrl: (path) => 'https://cdn/' + path });
+  assert.equal(big.isThumbnail, true);
+  assert.equal(big.src, 'https://cdn/render/uploads/x.png');
+  assert.equal(big.original, 'https://cdn/x.png', 'the full original stays available');
+
+  const gif = mediaImageSources(build({ title: 'anim.gif', url: 'https://cdn/anim.gif' }), { getRenderUrl: render, getPublicUrl: (path) => 'https://cdn/' + path });
+  assert.equal(gif.isThumbnail, false);
+  assert.equal(gif.src, 'https://cdn/anim.gif', 'the original is the fallback');
 }
 
 console.log('Admin media core tests passed.');

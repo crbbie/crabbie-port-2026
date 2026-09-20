@@ -1,6 +1,16 @@
 import { supabase, isConfigured } from './supabase-client.js';
 import { deleteMediaFile } from './admin-media.js';
-import { mapAdminHydrationResults } from './admin-hydration-core.js';
+import { mapAdminHydrationResults, recordIdentityFromRow } from './admin-hydration-core.js';
+import { formatRequestRowForAdmin } from './commission-requests-core.js';
+import {
+  pageAfterDelete,
+  selectList,
+  paginationRange,
+  pagedSummary,
+  requestFilterSpec,
+  REQUESTS_PAGE_SIZE,
+  MEDIA_PAGE_SIZE
+} from './admin-query-core.js';
 import { canMutateAdmin } from './admin-draft-guard-core.js';
 import {
   adminTableForScope,
@@ -49,6 +59,10 @@ export async function loadAllAdminDataFromSupabase() {
   adminLoadState = 'loading';
 
   try {
+    // Prompt 4: the atomic core hydration carries only small CMS/config data,
+    // always with explicit columns. commission_requests and media are paged
+    // datasets that load on their own (see loadAdminRequestPage / media panel)
+    // so a large inbox or library can never block or inflate the CMS snapshot.
     const [
       pRes,
       aRes,
@@ -57,20 +71,16 @@ export async function loadAllAdminDataFromSupabase() {
       fRes,
       pagesRes,
       navRes,
-      settingsRes,
-      reqRes,
-      mediaRes
+      settingsRes
     ] = await Promise.all([
-      supabase.from('portfolio_projects').select('*, category:cms_categories(slug,title)').order('sort_order', { ascending: true }),
-      supabase.from('free_assets').select('*, category:cms_categories(slug,title)').order('sort_order', { ascending: true }),
-      supabase.from('cms_categories').select('*').order('kind', { ascending: true }).order('sort_order', { ascending: true }),
-      supabase.from('commission_services').select('*').order('sort_order', { ascending: true }),
-      supabase.from('commission_forms').select('*'),
-      supabase.from('cms_pages').select('*'),
-      supabase.from('cms_navigation').select('*').order('sort_order', { ascending: true }),
-      supabase.from('site_settings').select('*'),
-      supabase.from('commission_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('media').select('*').eq('deletion_status', 'active').order('created_at', { ascending: false })
+      supabase.from('portfolio_projects').select(selectList('portfolio_projects')).order('sort_order', { ascending: true }),
+      supabase.from('free_assets').select(selectList('free_assets')).order('sort_order', { ascending: true }),
+      supabase.from('cms_categories').select(selectList('cms_categories')).order('kind', { ascending: true }).order('sort_order', { ascending: true }),
+      supabase.from('commission_services').select(selectList('commission_services')).order('sort_order', { ascending: true }),
+      supabase.from('commission_forms').select(selectList('commission_forms')),
+      supabase.from('cms_pages').select(selectList('cms_pages')),
+      supabase.from('cms_navigation').select(selectList('cms_navigation')).order('sort_order', { ascending: true }),
+      supabase.from('site_settings').select(selectList('site_settings'))
     ]);
 
     const snapshot = mapAdminHydrationResults({
@@ -81,9 +91,7 @@ export async function loadAllAdminDataFromSupabase() {
       forms: fRes,
       pages: pagesRes,
       navigation: navRes,
-      settings: settingsRes,
-      requests: reqRes,
-      media: mediaRes
+      settings: settingsRes
     }, (path) => supabase.storage.from('media').getPublicUrl(path).data.publicUrl);
 
     adminLoadState = 'ready';
@@ -108,11 +116,15 @@ export async function loadAllAdminDataFromSupabase() {
  *   - no collection is ever re-upserted for a single-record edit
  * ------------------------------------------------------------------------- */
 
-const RECORD_SELECT = 'id, slug, updated_at';
+const SLUGGED_TABLES = new Set(['portfolio_projects', 'free_assets', 'commission_services', 'commission_forms', 'cms_pages', 'cms_categories']);
+// Only tables that really have a slug column may select it back.
+function recordSelectFor(table) {
+  return SLUGGED_TABLES.has(table) ? 'id, slug, updated_at' : 'id, updated_at';
+}
 const DELETABLE_SCOPES = new Set(['portfolio', 'assets', 'commissions', 'forms', 'navigation', 'requests']);
 
 async function insertAdminRow(plan) {
-  const response = await supabase.from(plan.table).insert(plan.payload).select(RECORD_SELECT).maybeSingle();
+  const response = await supabase.from(plan.table).insert(plan.payload).select(recordSelectFor(plan.table)).maybeSingle();
   if (response.error) throw adminWriteError(response.error);
   if (!response.data) throw missingRecordError(plan.scope);
   return response.data;
@@ -121,7 +133,7 @@ async function insertAdminRow(plan) {
 async function updateAdminRow(plan) {
   let request = supabase.from(plan.table).update(plan.payload).eq('id', plan.dbId);
   if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
-  const response = await request.select(RECORD_SELECT).maybeSingle();
+  const response = await request.select(recordSelectFor(plan.table)).maybeSingle();
   if (response.error) throw adminWriteError(response.error);
   // A guarded update that matched no row means another session changed it first.
   if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError(plan.scope);
@@ -254,8 +266,72 @@ export async function deleteAdminRecord(listKey, target) {
   return { success: true, table, dbId };
 }
 
+/**
+ * Prompt 4: paged secondary datasets.
+ * Commission requests never load as a whole table. One page is fetched with an
+ * exact count, ordered server-side and filtered server-side.
+ */
+export async function loadAdminRequestPage(options = {}) {
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+
+  const range = paginationRange(options.page, options.pageSize || REQUESTS_PAGE_SIZE);
+  const spec = requestFilterSpec({ status: options.status, search: options.search });
+
+  let query = supabase
+    .from('commission_requests')
+    .select(selectList('commission_requests'), { count: 'exact' });
+
+  if (spec.status) query = query.eq('status', spec.status);
+  // jsonb answer filter: request rows store the service title in answers.service
+  if (spec.commission) query = query.eq('answers->>service', spec.commission);
+  if (spec.search) {
+    const pattern = '%' + spec.search + '%';
+    query = query.or(`client_name.ilike.${pattern},client_email.ilike.${pattern},contact.ilike.${pattern}`);
+  }
+
+  const { data, error, count } = await query.order('created_at', { ascending: false }).range(range.from, range.to);
+  if (error) throw new Error(`Commission Requests load failed: ${error.message}`);
+
+  const rows = (Array.isArray(data) ? data : []).map((row) => ({
+    ...formatRequestRowForAdmin(row),
+    ...recordIdentityFromRow(row)
+  }));
+
+  return {
+    dataset: 'requests',
+    items: rows,
+    count,
+    filters: spec,
+    ...pagedSummary({ count, page: range.page, pageSize: range.pageSize })
+  };
+}
+
+/** Head-count only: badges and dashboards never download a whole table. */
+export async function countAdminRows(datasets) {
+  if (!isConfigured || !supabase) return {};
+  const wanted = Array.isArray(datasets) ? datasets : [datasets];
+  const result = {};
+  await Promise.all(wanted.map(async (dataset) => {
+    try {
+      if (dataset === 'requests') {
+        const { count, error } = await supabase.from('commission_requests').select('id', { count: 'exact', head: true });
+        if (!error) result.requests = count;
+      } else if (dataset === 'media') {
+        const { count, error } = await supabase.from('media').select('id', { count: 'exact', head: true }).eq('deletion_status', 'active');
+        if (!error) result.media = count;
+      }
+    } catch (err) {
+      // An unknown count stays unknown; it must never look like zero rows.
+    }
+  }));
+  return result;
+}
+
 window.CrabbieAdminCrud = {
   loadAllAdminData: loadAllAdminDataFromSupabase,
+  loadRequestPage: loadAdminRequestPage,
+  countRows: countAdminRows,
+  pageAfterDelete,
   saveRecord: saveAdminRecord,
   saveSettings: saveAdminSettings,
   saveOrder: saveAdminOrder,
