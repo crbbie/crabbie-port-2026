@@ -15,7 +15,8 @@ import {
   missingRecordError,
   isConcurrencyConflictResponse,
   applySuccessfulSave,
-  normalizeSlug
+  normalizeSlug,
+  slugFromTitle
 } from './admin-record-save-core.js';
 
 // --- scope -> table mapping -------------------------------------------------
@@ -36,6 +37,9 @@ assert.equal(isNewAdminRecord({ id: 'client-1', dbId: null, slug: '' }), true);
 assert.equal(isNewAdminRecord({ id: 'color-fiesta', dbId: 'uuid-1' }), false);
 assert.equal(normalizeSlug('  my-slug  '), 'my-slug');
 assert.equal(normalizeSlug(null), '');
+assert.equal(slugFromTitle('  Ủa là ao  '), 'ua-la-ao');
+assert.equal(slugFromTitle('Project Miku tettt'), 'project-miku-tettt');
+assert.equal(slugFromTitle('Đẹp quá!!!'), 'dep-qua');
 
 // --- Test 4/5: INSERT for new records, UPDATE by stable DB ID for existing --
 const newProject = buildAdminWritePlan('portfolio', { id: 'client-1', dbId: null, slug: 'brand-new', title: 'New', category: 'illustration', tags: [] }, { sortOrder: 3 });
@@ -67,10 +71,11 @@ assert.equal(existingForm.table, 'commission_forms');
 assert.equal(existingForm.mode, 'update');
 assert.equal(existingForm.originalUpdatedAt, null, 'a missing baseline stays null rather than invented');
 
-// --- Test 3: a new record must never reuse another record's slug -----------
-assert.throws(() => buildAdminWritePlan('portfolio', { id: 'client-2', dbId: null, slug: '' }, {}), /slug/i);
-assert.throws(() => buildAdminWritePlan('assets', { id: 'client-3', dbId: null, slug: '   ' }, {}), /slug/i);
-assert.throws(() => buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', slug: '' }, {}), /slug/i, 'an existing record must keep a slug');
+// --- Test 3: empty slugs are deterministically generated from the title ----
+assert.equal(buildAdminWritePlan('portfolio', { id: 'client-2', dbId: null, slug: '', title: 'Ủa là ao' }, {}).payload.slug, 'ua-la-ao');
+assert.equal(buildAdminWritePlan('assets', { id: 'client-3', dbId: null, slug: '   ', title: 'Cute Brush Pack' }, {}).payload.slug, 'cute-brush-pack');
+assert.equal(buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', slug: '', title: 'Color Fiesta' }, {}).payload.slug, 'color-fiesta');
+assert.throws(() => buildAdminWritePlan('portfolio', { id: 'client-empty', dbId: null, slug: '', title: '' }, {}), /title|slug/i);
 
 // --- Test 2: saving one request touches only that request ------------------
 const requestPlan = buildAdminWritePlan('requests', { id: 'req-uuid', dbId: 'req-uuid', originalUpdatedAt: '2026-02-02T00:00:00Z', status: 'Completed', notes: 'Done' });
@@ -134,7 +139,10 @@ assert.match(duplicate.detail, /unique constraint/);
 assert.equal(classifyAdminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "cms_categories_kind_slug_key"' }).code, 'duplicate_slug');
 assert.equal(classifyAdminWriteError({ message: 'row-level security policy violated' }).code, 'permission_denied');
 assert.equal(classifyAdminWriteError({ code: '42501', message: 'permission denied' }).code, 'permission_denied');
-assert.equal(classifyAdminWriteError({ code: '23502', message: 'null value in column "slug"' }).code, 'missing_field');
+const missingField = classifyAdminWriteError({ code: '23502', message: 'null value in column "slug" violates not-null constraint' });
+assert.equal(missingField.code, 'missing_field');
+assert.equal(missingField.field, 'slug');
+assert.match(missingField.message, /slug/i);
 assert.equal(classifyAdminWriteError({ message: 'fetch failed' }).code, 'unknown');
 assert.match(classifyAdminWriteError({ message: 'fetch failed' }).message, /fetch failed/);
 const wrapped = adminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "x"' });
@@ -179,6 +187,6 @@ const categoryInsert = buildAdminWritePlan('assetCategories', { id: 'client-9', 
 assert.equal(categoryInsert.mode, 'insert');
 assert.equal(categoryInsert.payload.kind, 'asset');
 assert.equal(categoryInsert.payload.sort_order, 2);
-assert.throws(() => buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '' }, {}), /slug/i);
+assert.equal(buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '', title: 'Cute Stuff' }, {}).payload.slug, 'cute-stuff');
 
 console.log('Admin record save core tests passed.');
