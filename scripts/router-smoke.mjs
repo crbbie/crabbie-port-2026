@@ -847,7 +847,7 @@ try {
     assert.equal(portfolioWrites[0].op, 'update', 'an existing record is UPDATEd, never re-upserted');
     assert.deepEqual(portfolioWrites[0].filters, [['id', '00000000-0000-4000-8000-000000000101'], ['updated_at', '2026-01-01T00:00:00Z']], 'the write is scoped by DB id and the hydrated baseline');
     const portfolioRowsAfter = await page.evaluate(() => window.__routerRows.portfolio_projects.map(r => ({slug: r.slug, title: r.title, updated_at: r.updated_at})));
-    assert.equal(portfolioRowsAfter.find(r => r.slug === 'color-fiesta').title, 'Edited once');
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'edited-once').title, 'Edited once', 'the stored slug follows the edited title');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').title, 'Second project', 'an untouched record must not be rewritten');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').updated_at, '2026-01-02T00:00:00Z', 'an untouched record keeps its timestamp');
     console.log('PASS one portfolio edit sends one UPDATE scoped by DB id + baseline (SDK fixture)');
@@ -898,8 +898,9 @@ try {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }, newRecordPath);
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Mid-save base', 'the database keeps version N, not the mid-save edit');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'mid-save-base').title), 'Mid-save base', 'the database keeps version N, including its auto slug, not the mid-save edit');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'edited-mid-save', 'the newer auto slug also survives the in-flight response');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays dirty after a mid-save edit');
     assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
     // The persisted baseline advanced to N even though the draft is N+1, so
@@ -915,7 +916,7 @@ try {
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'edited-mid-save').title), 'Edited mid-save', 'a follow-up save persists version N+1 with its auto slug');
     assert.doesNotMatch(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft is clean once the latest revision is saved');
     console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
 
@@ -992,15 +993,15 @@ try {
       const input = document.querySelector('[data-adm-path$=".slug"]');
       return input ? input.getAttribute('data-adm-path').replace(/\.slug$/, '') : '';
     });
-    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Color Fiesta');
+    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Second project');
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
     await page.locator('#adminTopSave').click();
     assert.match(await readToast(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
-    assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'color-fiesta', 'the draft slug is preserved');
+    assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'second-project', 'the generated duplicate slug is preserved in the unsaved draft');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
-    assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').map(r => r.title)), ['Edited once'], 'the existing row is untouched');
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').length), 1, 'no partial duplicate row was created');
+    assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'second-project').map(r => r.title)), ['Second project'], 'the existing row is untouched');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'second-project').length), 1, 'no partial duplicate row was created');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['insert'], 'only the rejected INSERT was attempted');
     console.log('PASS a duplicate slug is rejected without touching the other row or the draft (SDK fixture)');
 
