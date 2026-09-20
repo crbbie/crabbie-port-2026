@@ -46,6 +46,14 @@ import {
   const b = auditPortfolioRecord(draft);
   assert.equal(b.status, 'complete');
   assert.equal(b.missing.length, 0);
+
+  const imageCard = auditPortfolioRecord({
+    id:'p3', slug:'single-illus', title:'Single illustration', category:'illustration',
+    cardMode:'image', thumbnail:'image.png', cover:'', description:'', tags:['illus'], year:'2026', blocks:[]
+  });
+  assert.equal(imageCard.status, 'complete', 'image-only cards do not require a project cover, description, or content blocks');
+  assert.deepEqual(imageCard.required, ['title', 'slug', 'category', 'thumbnail']);
+  assert.ok(!imageCard.warnings.includes('no-content-blocks'));
 }
 
 // 3. Free asset: missing download → high-priority when published
