@@ -2060,6 +2060,157 @@ try {
     assert.equal(await page.locator('#admStickySave').isVisible(), true, 'a conflicting save keeps the draft dirty');
     console.log('PASS media drop, picker multi-select, bulk delete and the save shortcut stay single-action (SDK fixture)');
 
+    // ---- Batch 5 Group 7: portfolio block integration and final a11y ------
+    const blkSeed = ['art0.png', 'loop1.gif', 'clip1.mp4', 'tune1.mp3'];
+    const blkBrowse = (target) => page.evaluate((path) => {
+      const button = document.querySelector('#adminContent [data-adm-mediabrowse="' + path + '"]');
+      if (!button) throw new Error('media button missing for ' + path);
+      button.click();
+    }, target);
+    const blkPickFirst = () => page.evaluate(() => {
+      document.querySelector('#adminMediaModal.open [data-adm-pick]').click();
+    });
+    const blkBlockPath = (target) => target.slice(0, target.lastIndexOf('.'));
+    const blkFieldValue = (target) => page.evaluate((path) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
+      return input ? input.value : null;
+    }, blkBlockPath(target));
+
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate((files) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = files.map((name, index) => ({
+        id: '00000000-0000-4000-8000-0000000008' + String(80 + index),
+        bucket_id: 'media', storage_path: 'uploads/' + name, original_name: name,
+        mime_type: index === 0 ? 'image/png' : (index === 1 ? 'image/gif' : (index === 2 ? 'video/mp4' : 'audio/mpeg')),
+        size_bytes: 4096, alt_text: 'alt ' + index, sha256: null,
+        deletion_status: 'active', deleted_at: null, deletion_error: null,
+        created_at: '2026-04-0' + (index + 1) + 'T00:00:00Z'
+      }));
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000402', slug: 'blocks-project', title: 'Blocks project',
+        description: 'Every media block', category: 'illustration', tags: [], thumbnail_path: '', cover_path: '',
+        content: { blocks: [
+          { type: 'image', open: true, url: '', alt: '', caption: '' },
+          { type: 'image-text', open: true, url: '', text: '', layout: 'left' },
+          { type: 'gallery', open: true, items: [] },
+          { type: 'grid', open: true, items: [] },
+          { type: 'gif', open: true, url: '', caption: '' },
+          { type: 'video', open: true, url: '', caption: '' },
+          { type: 'before-after', open: true, before: '', after: '', caption: '' }
+        ] },
+        featured: false, published: true, placeholder: false, sort_order: 1,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerReads = [];
+      window.__routerQueryCount = {};
+      window.__routerWrites = [];
+      window.__routerStorageWrites = [];
+    }, blkSeed);
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.evaluate(() => { window.location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-block-field]').length > 0);
+
+    const blkTypes = await page.$$eval('#adminContent .adm-block .ab-type', (els) => els.map((el) => el.textContent));
+    assert.equal(blkTypes.length, 7, 'every media block type renders');
+    const blkTargets = await page.$$eval('#adminContent [data-adm-mediabrowse]', (els) => els.map((el) => el.getAttribute('data-adm-mediabrowse')));
+    ['url', 'items', 'before', 'after'].forEach((field) => {
+      assert.ok(blkTargets.some((target) => target.endsWith('.' + field)), 'the media library is wired into ' + field + ' fields');
+    });
+    assert.equal(blkTargets.filter((target) => target.endsWith('.items')).length, 2, 'gallery and grid both browse their items array');
+    assert.equal(blkTargets.filter((target) => target.endsWith('.before')).length, 1, 'before-after exposes a separate before target');
+    assert.equal(blkTargets.filter((target) => target.endsWith('.after')).length, 1, 'before-after exposes a separate after target');
+    assert.equal(blkTargets.filter((target) => target.endsWith('.url')).length, 4, 'image, image-text, gif and video each browse one URL field');
+
+    const blkImageTarget = blkTargets.filter((target) => target.endsWith('.url'))[0];
+    await blkBrowse(blkImageTarget);
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    assert.equal(await page.locator('#adminMediaModal [data-adm-pick-toggle]').count(), 0, 'an image block field stays single-select');
+    await blkPickFirst();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    const blkImageValue = await blkFieldValue(blkImageTarget);
+    assert.ok(blkImageValue && blkImageValue.indexOf('/uploads/') !== -1, 'an image block stores one canonical URL');
+    assert.equal(await page.locator('#adminContent [data-adm-mi-path]').count(), 0, 'a single-value block never becomes an array');
+    assert.equal(await page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]').length, blkBlockPath(blkImageTarget)), 1, 'the manual URL input stays in place');
+
+    for (const itemsTarget of blkTargets.filter((target) => target.endsWith('.items'))) {
+      await blkBrowse(itemsTarget);
+      await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-pick-toggle]').length >= 2);
+      const blkToggleIds = await page.$$eval('#adminMediaModal [data-adm-pick-toggle]', (els) => els.map((el) => el.getAttribute('data-adm-pick-toggle')));
+      await page.evaluate((ids) => {
+        ids.forEach((id) => document.querySelector('#adminMediaModal [data-adm-pick-toggle="' + id + '"]').click());
+        document.querySelector('#adminMediaModal.open [data-adm-pick-apply]').click();
+      }, [blkToggleIds[0], blkToggleIds[1]]);
+      await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+      const blockPath = blkBlockPath(itemsTarget);
+      await page.waitForFunction((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]').length === 2, blockPath);
+      const rows = await page.evaluate((path) => Array.prototype.slice.call(document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]')).map((input) => input.value), blockPath);
+      assert.equal(rows.length, 2, 'a media-list block receives every selected item');
+      assert.ok(rows.every((url) => url.indexOf('/uploads/') !== -1), 'media-list rows carry canonical URLs');
+    }
+
+    const blkReadField = (blockPath, field) => page.evaluate((args) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="' + args.field + '"]');
+      return input ? input.value : null;
+    }, { path: blockPath, field });
+    const blkBeforeTarget = blkTargets.filter((entry) => entry.endsWith('.before'))[0];
+    const blkAfterTarget = blkTargets.filter((entry) => entry.endsWith('.after'))[0];
+    assert.equal(blkBlockPath(blkBeforeTarget), blkBlockPath(blkAfterTarget), 'before and after belong to the same block');
+    const blkPickNth = (position) => page.evaluate((index) => {
+      const buttons = document.querySelectorAll('#adminMediaModal.open [data-adm-pick]');
+      if (!buttons[index]) throw new Error('picker item ' + index + ' is missing');
+      buttons[index].click();
+    }, position);
+    for (const pair of [[blkBeforeTarget, 'before', 0], [blkAfterTarget, 'after', 1]]) {
+      await blkBrowse(pair[0]);
+      await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+      await blkPickNth(pair[2]);
+      await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+      const value = await blkReadField(blkBlockPath(pair[0]), pair[1]);
+      assert.ok(value && value.indexOf('/uploads/') !== -1, 'the ' + pair[1] + ' image is stored on its own field');
+    }
+    const blkBeforeValue = await blkReadField(blkBlockPath(blkBeforeTarget), 'before');
+    const blkAfterValue = await blkReadField(blkBlockPath(blkAfterTarget), 'after');
+    assert.notEqual(blkBeforeValue, blkAfterValue, 'before and after keep separate media');
+    assert.ok(blkBeforeValue.indexOf('/uploads/') !== -1 && blkAfterValue.indexOf('/uploads/') !== -1, 'both before and after hold library URLs');
+
+    const blkGifPath = blkBlockPath(blkTargets.filter((target) => target.endsWith('.url'))[2]);
+    await page.evaluate((path) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
+      input.value = 'https://example.test/manual.gif';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, blkGifPath);
+    await page.evaluate(() => { document.querySelectorAll('#adminContent [data-adm-block-toggle]')[4].click(); });
+    await page.waitForFunction((args) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="url"]');
+      return Boolean(input) && input.value === args.value;
+    }, { path: blkGifPath, value: 'https://example.test/manual.gif' });
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse="' + blkGifPath + '.url"]').count(), 1, 'the library button sits next to the manual URL input');
+    console.log('PASS manual block URLs still work beside the media library buttons (SDK fixture)');
+
+    await page.evaluate((target) => {
+      const button = document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]');
+      button.focus();
+      button.click();
+    }, blkImageTarget);
+    await page.waitForFunction(() => document.querySelectorAll('#adminMediaModal.open [data-adm-media-card][role="option"]').length >= 1);
+    assert.equal(await page.evaluate(() => document.querySelector('#adminMediaModal.open').getAttribute('aria-modal')), 'true', 'the picker dialog is announced as modal');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    assert.equal(await page.evaluate((target) => document.activeElement === document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]'), blkImageTarget), true, 'Escape closes the picker and returns focus to its trigger');
+
+    for (const viewport of [{width: 1440, height: 900, label: 'desktop'}, {width: 820, height: 1180, label: 'tablet'}, {width: 390, height: 844, label: 'mobile'}]) {
+      await page.setViewportSize({width: viewport.width, height: viewport.height});
+      await page.waitForTimeout(120);
+      const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+      assert.ok(box.scrollWidth <= box.clientWidth + 4, viewport.label + ' portfolio block editor has no horizontal overflow (' + box.scrollWidth + '/' + box.clientWidth + ')');
+    }
+    await page.setViewportSize({width: 1280, height: 800});
+    assert.equal(await page.locator('#adminContent [data-adm-block-field][data-adm-block-path]').count() >= 7, true, 'every media block keeps its editable fields');
+    console.log('PASS the media library is wired into every portfolio media block (SDK fixture)');
+
 // P4_END
 
   }

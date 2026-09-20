@@ -4573,6 +4573,11 @@ return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num
 return '<div>' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-link-add="' + base + '.externalLinks">' + esc(tAdmin('btn.addLink')) + '</button>';
 }
 
+/** Block fields keep their manual URL input and gain a library button. */
+function blockMediaPickHtml(path, label){
+return '<div class="adm-block-media"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(label || 'Choose from library…') + '</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.upload')) + '</button></div>';
+}
 function renderProjectBlock(projectId, b, index){
 var type = b.type; var label = BLOCK_LABELS[type] || type;
 var preview = (b.text || b.caption || b.url || b.label || '').toString().slice(0, 48);
@@ -4583,13 +4588,13 @@ function sel(label, key, opts){ var v = b[key]; return '<label class="adm-field"
 switch(type){
 case 'heading': body = f('Text','text'); break;
 case 'text': body = f('Text','text','textarea'); break;
-case 'image': body = f('URL','url') + f('Alt','alt') + f('Caption','caption'); break;
-case 'image-text': body = f('Media','url') + f('Text','text','textarea') + sel('Layout','layout',['left','right']); break;
+case 'image': body = f('URL','url') + f('Alt','alt') + f('Caption','caption') + blockMediaPickHtml(path + '.url', 'Choose image…'); break;
+case 'image-text': body = f('Media','url') + f('Text','text','textarea') + sel('Layout','layout',['left','right']) + blockMediaPickHtml(path + '.url', 'Choose media…'); break;
 case 'gallery': case 'grid': body = renderMediaItemsEditor(b, path, 'Media items'); break;
-case 'gif': body = f('URL','url') + f('Caption','caption'); break;
-case 'video': body = f('URL','url') + f('Caption','caption'); break;
+case 'gif': body = f('URL','url') + f('Caption','caption') + blockMediaPickHtml(path + '.url', 'Choose GIF…'); break;
+case 'video': body = f('URL','url') + f('Caption','caption') + blockMediaPickHtml(path + '.url', 'Choose video…'); break;
 case 'youtube': body = f('URL','url') + f('Caption','caption'); break;
-case 'before-after': body = f('Before','before') + f('After','after') + f('Caption','caption'); break;
+case 'before-after': body = f('Before','before') + f('After','after') + f('Caption','caption') + blockMediaPickHtml(path + '.before', 'Choose before image…') + blockMediaPickHtml(path + '.after', 'Choose after image…'); break;
 case 'quote': body = f('Text','text','textarea') + f('Caption','caption'); break;
 case 'caption': body = f('Text','text'); break;
 case 'link': body = f('Text','text') + f('URL','url'); break;
@@ -5762,10 +5767,12 @@ grid.innerHTML = mediaPickerCards() + footer;
 }
 
 var activeMediaTarget = null;
+var pickerTriggerEl = null;
 function openMediaPicker(targetPath){
 var modal = document.getElementById('adminMediaModal');
 if(!modal) return;
 activeMediaTarget = targetPath || null;
+pickerTriggerEl = document.activeElement;
 mediaPage.selected = [];
 renderMediaPickerGrid();
 modal.classList.add('open');
@@ -5902,7 +5909,9 @@ modal.addEventListener('click', function(event){
 document.addEventListener('keydown', function(event){
   if(event.key !== 'Escape') return;
   var opened = document.getElementById('adminMediaPreviewModal');
-  if(opened && opened.classList.contains('open')){ event.preventDefault(); closeMediaPreview(); }
+  if(opened && opened.classList.contains('open')){ event.preventDefault(); closeMediaPreview(); return; }
+  var picker = document.getElementById('adminMediaModal');
+  if(picker && picker.classList.contains('open')){ event.preventDefault(); closeMediaPickerModal(); }
 });
 }
 
@@ -5942,6 +5951,8 @@ return parts[parts.length - 1] === 'items';
 function closeMediaPickerModal(){
 var modal = document.getElementById('adminMediaModal');
 if(modal) modal.classList.remove('open');
+if(pickerTriggerEl && pickerTriggerEl.isConnected && pickerTriggerEl.focus) pickerTriggerEl.focus();
+pickerTriggerEl = null;
 }
 
 /** Multi targets append correctly shaped gallery rows; single targets take one URL. */
@@ -6106,8 +6117,8 @@ grid.addEventListener('drop', function(event){
   uploadDroppedFiles((event.dataTransfer && event.dataTransfer.files) || [], { type: 'picker', path: activeMediaTarget });
 });
 var cancel = document.getElementById('adminMediaCancel');
-if(cancel) cancel.addEventListener('click', function(){ modal.classList.remove('open'); });
-modal.addEventListener('click', function(e){ if(e.target === modal) modal.classList.remove('open'); });
+if(cancel) cancel.addEventListener('click', function(){ closeMediaPickerModal(); });
+modal.addEventListener('click', function(e){ if(e.target === modal) closeMediaPickerModal(); });
 
 var uploadBtn = document.getElementById('adminMediaModalUpload');
 if(uploadBtn && uploadBtn.dataset.wired !== '1'){
