@@ -101,11 +101,16 @@ export function auditPortfolioRecord(rec = {}) {
   });
 }
 
-const assetDownload = (rec) => rec.downloadUrl !== undefined ? rec.downloadUrl : rec.media;
+const directAssetDownload = (rec) => rec.downloadUrl !== undefined ? rec.downloadUrl : rec.media;
+const assetHasPublicDownload = (rec = {}) => {
+  const directEnabled = rec.showDirectDownload !== false;
+  const driveEnabled = !!rec.showDriveDownload;
+  return (directEnabled && !isBlank(directAssetDownload(rec))) || (driveEnabled && !isBlank(rec.driveUrl));
+};
 
 export function auditAssetRecord(rec = {}) {
   const required = ['title', 'slug', 'category', 'thumbnail', 'media', 'description', 'fileFormat', 'license', 'availability'];
-  const hasDownload = !isBlank(assetDownload(rec));
+  const hasDownload = assetHasPublicDownload(rec);
   const missing = required.filter((k) => {
     if (k === 'media') return !hasDownload;
     return isBlank(rec[k]);
@@ -118,7 +123,7 @@ export function auditAssetRecord(rec = {}) {
     status: 'complete',
     required,
     missing,
-    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'media', 'downloadUrl', 'license', 'credit', 'version', 'updateNote', 'dateAdded']),
+    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'media', 'downloadUrl', 'driveUrl', 'license', 'credit', 'version', 'updateNote', 'dateAdded']),
     warnings,
     critical
   });
@@ -277,7 +282,7 @@ export function auditSiteData(data = {}) {
   return {
     portfolio: summarize(portfolio, audits.portfolio),
     assets: Object.assign(summarize(assets, assetsAudit), {
-      missingFiles: assets.filter((r) => r.published && isBlank(assetDownload(r))).length
+      missingFiles: assets.filter((r) => r.published && !assetHasPublicDownload(r)).length
     }),
     commissions: Object.assign(summarize(commissions, audits.commissions), {
       missingForms: audits.commissions.filter((a) => a.critical.includes('no-form-mapping')).length
