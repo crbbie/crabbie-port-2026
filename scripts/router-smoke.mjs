@@ -2173,12 +2173,13 @@ try {
       await page.locator('#adminConfirmOk').click();
       await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
     }
-    const ixDiscard = page.locator('#adminContent [data-adm-discard]');
-    if (await ixDiscard.count() > 0) {
-      await ixDiscard.first().click();
-      await page.waitForFunction(() => Boolean(document.querySelector('#adminConfirmModal.open')));
+    if (/dirty/.test(await page.evaluate(() => document.getElementById('adminSaveStatus').className))) {
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.locator('#adminConfirmModal.open').waitFor({state:'visible'});
       await page.locator('#adminConfirmOk').click();
-      await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     }
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.keyboard.press('Control+s');
