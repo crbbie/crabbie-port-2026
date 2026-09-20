@@ -1415,6 +1415,10 @@ try {
     const hydrationRowReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => !read.head).map((read) => read.table));
     assert.equal(hydrationRowReads.includes('commission_requests'), false, 'initial hydration does not fetch requests rows');
     assert.equal(hydrationRowReads.includes('media'), false, 'initial hydration does not fetch media rows');
+    await page.waitForFunction(() => {
+      const tables = (window.__routerReads || []).filter((read) => read.head).map((read) => read.table);
+      return tables.includes('commission_requests') && tables.includes('media');
+    });
     const headReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.head).map((read) => read.table).sort());
     assert.deepEqual(headReads, ['commission_requests', 'media'], 'badges use head counts only');
     console.log('PASS initial admin hydration loads no request or media rows (SDK fixture)');
