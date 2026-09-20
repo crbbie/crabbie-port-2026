@@ -4,7 +4,10 @@ import {
   formatFileSize,
   getMediaType,
   formatMediaItem,
-  validateUploadFile
+  validateUploadFile,
+  isSupportedMediaFile,
+  resolveUploadContentType,
+  SUPPORTED_MEDIA_MIME_TYPES
 } from './admin-media-core.js';
 
 // 1. sanitizeStorageFileName
@@ -67,6 +70,34 @@ import {
   assert.equal(validateUploadFile({ size: 1000 }).valid, true);
   assert.equal(validateUploadFile({ size: 60 * 1024 * 1024 }).valid, false);
   assert.match(validateUploadFile({ size: 60 * 1024 * 1024 }).error, /exceeds 50MB/);
+}
+
+// 6. Explicit supported-media policy (client pre-check; bucket rules are authoritative)
+{
+  assert.equal(isSupportedMediaFile({ name: 'art.png', type: 'image/png' }).supported, true);
+  assert.equal(isSupportedMediaFile({ name: 'art.png', type: 'application/octet-stream' }).supported, true, 'an allowed extension is enough');
+  assert.equal(isSupportedMediaFile({ name: 'clip.mp4' }).supported, true);
+  assert.equal(isSupportedMediaFile({ name: 'guide.pdf', type: 'application/pdf' }).supported, true);
+  assert.equal(isSupportedMediaFile({ name: 'petal-pack.zip' }).supported, true, 'free-asset downloads still upload');
+  assert.equal(isSupportedMediaFile({ name: 'notes.txt', type: 'text/plain' }).supported, false);
+  assert.equal(isSupportedMediaFile({ name: 'page.html', type: 'text/html' }).supported, false);
+  assert.equal(isSupportedMediaFile({ name: 'payload.exe' }).reason, 'executable');
+  assert.equal(isSupportedMediaFile({ size: 10 }).unverified, true, 'a size-only legacy object stays valid');
+
+  const rejected = validateUploadFile({ name: 'notes.txt', type: 'text/plain', size: 10 });
+  assert.equal(rejected.valid, false);
+  assert.match(rejected.error, /Allowed: images/);
+  assert.equal(validateUploadFile({ name: 'petal-pack.zip', type: 'application/zip', size: 10 }).valid, true);
+  assert.equal(validateUploadFile({ name: 'art.webp', size: 10 }).valid, true);
+  assert.equal(validateUploadFile({ name: 'payload.exe', size: 10 }).valid, false);
+  assert.match(validateUploadFile({ name: 'payload.exe', size: 10 }).error, /Executables are not allowed/i);
+
+  assert.equal(resolveUploadContentType({ name: 'art.png', type: '' }), 'image/png');
+  assert.equal(resolveUploadContentType({ name: 'pack.zip', type: 'application/zip' }), 'application/zip');
+  assert.equal(resolveUploadContentType({ name: 'art.png', type: 'text/html' }), 'image/png', 'an unsupported declared type falls back to the extension');
+  assert.equal(resolveUploadContentType({ name: 'blob' }), 'application/octet-stream');
+  assert.ok(SUPPORTED_MEDIA_MIME_TYPES.includes('image/avif'));
+  assert.ok(SUPPORTED_MEDIA_MIME_TYPES.includes('application/zip'));
 }
 
 console.log('Admin media core tests passed.');

@@ -3,6 +3,64 @@
  * Pure functions for media processing, formatting, and validation.
  */
 
+// Explicit supported-media policy. The Storage bucket enforces the same set
+// server-side (see the media deletion safety migration): the client check is
+// only a fast, friendly pre-check and never a security boundary.
+export const SUPPORTED_MEDIA_MIME_TYPES = Object.freeze([
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml', 'image/avif', 'image/bmp',
+  'image/x-icon', 'image/vnd.microsoft.icon',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/aac',
+  'application/pdf', 'application/zip', 'application/x-zip-compressed'
+]);
+
+export const MEDIA_MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB, matches the bucket file_size_limit
+
+export const SUPPORTED_MEDIA_EXTENSIONS = Object.freeze([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico',
+  'mp4', 'webm', 'mov',
+  'mp3', 'wav', 'ogg', 'm4a', 'aac',
+  'pdf', 'zip'
+]);
+
+const MIME_TYPE_BY_EXTENSION = Object.freeze({
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac',
+  pdf: 'application/pdf', zip: 'application/zip'
+});
+
+const EXECUTABLE_EXTENSIONS = /^(exe|bat|cmd|sh|ps1|msi|dll|scr|vbs|com|jar|app|deb|rpm|apk)$/i;
+
+export function fileExtension(name) {
+  const clean = String(name || '').trim().replace(/^.*[\\/]/, '');
+  const dot = clean.lastIndexOf('.');
+  return dot > 0 ? clean.slice(dot + 1).toLowerCase() : '';
+}
+
+export function isSupportedMediaFile(file) {
+  const name = file && file.name ? String(file.name) : '';
+  const type = file && typeof file.type === 'string' ? file.type.toLowerCase().trim() : '';
+  const extension = fileExtension(name);
+  if (extension && EXECUTABLE_EXTENSIONS.test(extension)) return { supported: false, reason: 'executable' };
+  // Legacy callers validate a size-only object; real browser uploads always
+  // carry a name, and the bucket policy is authoritative either way.
+  if (!name && !type) return { supported: true, unverified: true };
+  if (type && SUPPORTED_MEDIA_MIME_TYPES.includes(type)) return { supported: true };
+  if (extension && SUPPORTED_MEDIA_EXTENSIONS.includes(extension)) return { supported: true };
+  return { supported: false, reason: 'unsupported' };
+}
+
+/** The content type sent to Storage: the declared type when allowed, else the
+ *  extension's type, so server-side bucket MIME rules can always apply. */
+export function resolveUploadContentType(file) {
+  const declared = file && typeof file.type === 'string' ? file.type.toLowerCase().trim() : '';
+  if (declared && SUPPORTED_MEDIA_MIME_TYPES.includes(declared)) return declared;
+  const byExtension = MIME_TYPE_BY_EXTENSION[fileExtension(file && file.name)];
+  return byExtension || declared || 'application/octet-stream';
+}
+
 export function sanitizeStorageFileName(originalName = 'unnamed_file') {
   const cleanName = String(originalName).trim().replace(/^.*[\\\/]/, '');
   const lastDot = cleanName.lastIndexOf('.');
@@ -67,7 +125,7 @@ export function formatMediaItem(row = {}, getPublicUrlFn) {
 }
 
 export function validateUploadFile(file, options = {}) {
-  const maxSizeBytes = options.maxSizeBytes || 50 * 1024 * 1024; // 50MB default
+  const maxSizeBytes = options.maxSizeBytes || MEDIA_MAX_UPLOAD_BYTES;
   if (!file || typeof file !== 'object') {
     return { valid: false, error: 'No file provided.' };
   }
@@ -78,8 +136,14 @@ export function validateUploadFile(file, options = {}) {
     const mb = Math.round(maxSizeBytes / (1024 * 1024));
     return { valid: false, error: `File size exceeds ${mb}MB limit.` };
   }
-  if (file.name && /\.(exe|bat|cmd|sh|ps1|msi|dll|scr|vbs|com)$/i.test(file.name)) {
-    return { valid: false, error: 'Unsupported file type. Executables are not allowed.' };
+  // Explicit allowlist (extensions AND declared types) instead of an
+  // executable blacklist; the Storage bucket enforces the same set.
+  const support = isSupportedMediaFile(file);
+  if (!support.supported) {
+    if (support.reason === 'executable') {
+      return { valid: false, error: 'Unsupported file type. Executables are not allowed.' };
+    }
+    return { valid: false, error: 'Unsupported file type. Allowed: images (PNG, JPEG, GIF, WebP, SVG, AVIF, BMP, ICO), video (MP4, WebM, MOV), audio (MP3, WAV, OGG, M4A, AAC), PDF and ZIP.' };
   }
   return { valid: true };
 }
