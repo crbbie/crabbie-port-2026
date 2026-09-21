@@ -3066,11 +3066,11 @@ try {
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
     assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
 
-    // Initial pets: bottom band only, base count leaves room to spawn more.
+    // Initial pets: a single pet rests in the bottom band on load.
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
-    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 3, 'desktop starts with three pets (room to spawn more)');
-    assert.equal(await page.locator('#crabbiePetLayer img[src*="/assets/decorations/pet/"]').count(), 3, 'the pet uses the reorganised decoration asset');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'exactly one pet exists on load');
+    assert.equal(await page.locator('#crabbiePetLayer img[src*="/assets/decorations/pet/"]').count(), 1, 'the pet uses the reorganised decoration asset');
     const petBand = await page.evaluate(() => {
       const nav = document.querySelector('.nav-shell');
       const navH = nav ? nav.getBoundingClientRect().height : 90;
@@ -3113,6 +3113,29 @@ try {
     assert.deepEqual(afterState.map((p) => p.id), beforeState.map((p) => p.id), 'existing pet DOM nodes survive a click-spawn');
     assert.equal(afterState.every((p, i) => Number.isFinite(p.x) && Number.isFinite(p.y) && Math.abs(p.y - beforeState[i].y) < 20 && Math.abs(p.x - beforeState[i].x) < 60 && !(p.x === 0 && p.y === 0)), true, 'existing pets keep their place (no corner jump) when a new pet spawns');
     assert.equal(await page.evaluate(() => Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).some((el) => /NaN|Infinity/.test(el.style.transform))), false, 'no pet transform is NaN/Infinity');
+
+    // FIFO: pets spawn one per click and the sixth replaces the oldest.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    for (let i = 0; i < 4; i += 1) {
+      const n = await page.locator('#crabbiePetLayer .crabbie-pet').count();
+      await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+      await page.waitForFunction((c) => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === c + 1, n);
+    }
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 5, 'clicking grows the pack to five pets');
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').dataset.oldest = '1'; });
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 5);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 5, 'the sixth spawn never exceeds the five-pet cap');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet[data-oldest="1"]').count(), 0, 'the oldest pet leaves first (FIFO)');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet.is-dropping').count() >= 1, true, 'the replacement pet drops in from above');
+    assert.equal(await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left), y: Math.round(r.top) };
+      }).every((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    }), true, 'every remaining pet has a valid position');
 
     // A plain click (press + release, no movement) must not drag/pin/move the pet.
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });

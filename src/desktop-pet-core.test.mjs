@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { PET_LIMITS, PET_GROUND_GAP, petCountFor, initialPetCount, petGroundY, spawnPetX, initialWanderDir, pickDialogueIndex, clampPosition, nextWanderX, randomInt } from './desktop-pet-core.js';
+import { PET_LIMITS, PET_GROUND_GAP, petCountFor, initialPetCount, planPetSpawn, nextTurnDelayMs, petGroundY, spawnPetX, initialWanderDir, pickDialogueIndex, clampPosition, nextWanderX, randomInt } from './desktop-pet-core.js';
 
 // Pet counts: mobile is capped at one, desktop honours the configured max.
 assert.equal(petCountFor(390, 5), 1, 'mobile shows exactly one pet');
@@ -8,10 +8,17 @@ assert.equal(petCountFor(1440, 99), PET_LIMITS.desktop, 'desktop max is hard-cap
 assert.equal(petCountFor(1440, 0), 1, 'a zero/invalid max never removes every pet');
 assert.equal(petCountFor(1440, 3), 3, 'a lower configured max is respected');
 
-// Initial count leaves room for click-spawn up to the cap.
-assert.equal(initialPetCount(1440, 5), 3, 'desktop starts with three pets');
-assert.equal(initialPetCount(1440, 2), 2, 'a lower cap limits the initial count');
+// Exactly one pet exists on load; the rest come from interaction.
+assert.equal(initialPetCount(1440, 5), 1, 'desktop starts with a single pet');
+assert.equal(initialPetCount(1440, 2), 1, 'a lower cap still starts with one pet');
 assert.equal(initialPetCount(390, 5), 1, 'mobile starts with one pet');
+
+// FIFO spawn plan: add below the cap, replace the oldest at the cap.
+assert.deepEqual(planPetSpawn(0, 5), { removeOldest: false, add: true }, 'the first pet is added');
+assert.deepEqual(planPetSpawn(4, 5), { removeOldest: false, add: true }, 'a fifth pet is added without removal');
+assert.deepEqual(planPetSpawn(5, 5), { removeOldest: true, add: true }, 'the sixth pet replaces the oldest');
+assert.deepEqual(planPetSpawn(5, 0), { removeOldest: false, add: false }, 'a zero cap spawns nothing');
+assert.deepEqual(planPetSpawn(5, 1), { removeOldest: true, add: true }, 'a one-pet cap replaces the oldest');
 
 // Dialogue selection never repeats the previous line when alternatives exist.
 const dialogues = Array.from({ length: 15 }, (_, i) => ({ text: 'line ' + i }));
@@ -51,6 +58,10 @@ assert.ok(randomInt(2, 2) === 2, 'a single-value range returns that value');
 for (let i = 0; i < 100; i += 1) {
   const value = randomInt(3, 7);
   assert.ok(value >= 3 && value <= 7, 'randomInt stays within range');
+}
+for (let i = 0; i < 100; i += 1) {
+  const delay = nextTurnDelayMs();
+  assert.ok(delay >= 1800 && delay <= 5200, 'turn delays stay within the independent-movement range');
 }
 
 // Ground band: pets rest near the bottom, never above the navigation bar.

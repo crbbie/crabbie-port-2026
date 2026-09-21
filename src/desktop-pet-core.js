@@ -6,7 +6,8 @@
 
 export const PET_LIMITS = Object.freeze({ desktop: 5, mobile: 1 });
 export const PET_GROUND_GAP = 0;
-export const PET_INITIAL_DESKTOP = 3;
+/* Only one pet exists on load; every further pet is spawned by interaction. */
+export const PET_INITIAL_DESKTOP = 1;
 
 /** Pets allowed at a viewport width. Mobile is capped hard at one pet. */
 export function petCountFor(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
@@ -17,13 +18,28 @@ export function petCountFor(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
 }
 
 /**
- * How many pets appear on first load. Fewer than the cap so clicking can add
- * more (each new pet drops in) up to `maxDesktop`.
+ * How many pets exist on first load: exactly one. The rest are spawned one at a
+ * time by clicking a pet, up to the cap.
  */
 export function initialPetCount(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
   const cap = petCountFor(viewportWidth, maxDesktop);
-  if (viewportWidth < 720) return 1;
   return Math.min(cap, PET_INITIAL_DESKTOP);
+}
+
+/**
+ * FIFO spawn plan for one interaction. Below the cap a new pet is simply added;
+ * at the cap the oldest pet leaves first so at most `cap` pets ever exist.
+ */
+export function planPetSpawn(currentCount, cap) {
+  const limit = Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0;
+  const count = Number.isFinite(currentCount) ? Math.max(0, Math.floor(currentCount)) : 0;
+  if (limit <= 0) return { removeOldest: false, add: false };
+  return { removeOldest: count >= limit, add: true };
+}
+
+/** A random pause before a pet changes direction, so pets do not move in step. */
+export function nextTurnDelayMs(random = Math.random) {
+  return randomInt(1800, 5200, random);
 }
 
 /**

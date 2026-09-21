@@ -5,7 +5,7 @@
  * browser wiring (audio element, DOM layers, pointer/rAF movement) and is
  * exposed as window.CrabbieSiteMotion so the SPA can apply CMS settings.
  */
-import { petCountFor, pickDialogueIndex, clampPosition, nextWanderX, randomInt, petGroundY, spawnPetX, initialWanderDir, initialPetCount } from './desktop-pet-core.js';
+import { petCountFor, pickDialogueIndex, clampPosition, nextWanderX, randomInt, petGroundY, spawnPetX, initialWanderDir, initialPetCount, planPetSpawn, nextTurnDelayMs } from './desktop-pet-core.js';
 
 const CANDY_SRC = ['/assets/decorations/candy/candy1.svg', '/assets/decorations/candy/candy2.svg'];
 const PET_SRC = '/assets/decorations/pet/Desktop-Pet.gif';
@@ -369,7 +369,8 @@ function createPet(options) {
     x, y: metrics.groundY, baseY: metrics.groundY, targetY: metrics.groundY,
     lastValidX: x, lastValidY: metrics.groundY,
     dir: initialWanderDir(x, metrics.width),
-    speed: randomInt(14, 28),
+    speed: randomInt(10, 34),
+    nextTurnAt: 0,
     pinned: false, dragging: false, pointerActive: false, pointerMoved: false, startPointer: null, dragOffset: null,
     dialogueIndex: -1, bubbleTimer: null, dropTimer: null
   };
@@ -389,6 +390,22 @@ function removePet(pet) {
   if (i !== -1) petState.pets.splice(i, 1);
 }
 
+/**
+ * Spawn one pet from an interaction. Below the cap a new pet is added; at the
+ * cap the oldest pet leaves first (FIFO) so at most `cap` pets ever exist.
+ */
+function spawnPetFromInteraction() {
+  if (!petState.enabled || isReduced() || isAdminView() || window.innerWidth < 720) return;
+  const cap = petCountFor(window.innerWidth, petState.maxDesktop);
+  /* A one-pet cap never replaces the only pet: a click is just dialogue. */
+  if (cap <= 1) return;
+  const plan = planPetSpawn(petState.pets.length, cap);
+  if (!plan.add) return;
+  if (plan.removeOldest && petState.pets.length) removePet(petState.pets[0]);
+  createPet({ drop: true });
+  petState.desired = Math.min(cap, petState.pets.length);
+}
+
 function wirePet(pet) {
   pet.el.addEventListener('click', (event) => {
     if (pet.pointerMoved) { pet.pointerMoved = false; return; }
@@ -398,10 +415,8 @@ function wirePet(pet) {
     pet.el.classList.add('is-pet-jelly');
     setTimeout(() => pet.el.classList.remove('is-pet-jelly'), 520);
     showDialogue(pet);
-    if (!isReduced() && window.innerWidth >= 720 && petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) {
-      petState.desired = Math.min(petState.maxDesktop, petState.pets.length + 1);
-      setTimeout(() => { if (petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) reconcilePets(); }, 420);
-    }
+    /* Every click spawns the next pet; the clicked pet never disappears. */
+    spawnPetFromInteraction();
   });
   pet.el.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); pet.el.click(); }
@@ -469,6 +484,11 @@ function petTick(time) {
   petState.pets.forEach((pet) => {
     if (pet.dragging) return;
     if (!pet.pinned && active) {
+      /* Each pet turns on its own schedule so they never march in step. */
+      if (time >= pet.nextTurnAt) {
+        pet.dir = Math.random() < 0.5 ? -1 : 1;
+        pet.nextTurnAt = time + nextTurnDelayMs();
+      }
       const step = nextWanderX(pet.x, pet.dir, pet.speed, dt, metrics.width, pet.size);
       if (Number.isFinite(step.x)) pet.x = step.x;
       pet.dir = step.dir;
