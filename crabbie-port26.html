@@ -94,6 +94,9 @@ body{
   --text-body: var(--berry);
   --text-decorative: var(--pink-hot);
   --text-muted: var(--berry-soft);
+  /* Form question/field labels read as their own role so they stand apart from
+     the answer/input text. */
+  --text-field-label: var(--purple-hot);
 }
 
 body::before{
@@ -424,11 +427,26 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pf-w{ grid-column: span 3; grid-row: span 2; }
 .pf-l .work-title{ font-size: 22px; }
 #pfGrid .work.is-image-card{cursor:zoom-in;overflow:hidden;background:var(--pink-soft);}
-#pfGrid .work.is-image-card .cloud-tag,
 #pfGrid .work.is-image-card .meta{display:none !important;}
 #pfGrid .work.is-image-card .thumb{inset:0;border-radius:25px;}
 #pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
 #pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
+/* Image card label: the cloud-tag shape is clipped by the card overflow, so for
+   image cards it becomes a soft candy blob inside the card carrying the title. */
+#pfGrid .work.is-image-card .cloud-tag{
+  top:auto; bottom:12px; left:12px; height:auto; min-width:0; min-height:0;
+  max-width:calc(100% - 24px); display:inline-grid; place-items:center;
+  padding:7px 16px; transform:rotate(-1.5deg); z-index:4;
+  background:linear-gradient(180deg,#ffd1e3 0%, var(--pink-hot) 100%);
+  border:2px solid #fff; border-radius:16px 18px 18px 6px;
+  box-shadow:0 4px 0 rgba(217,74,128,.35), 0 10px 18px -10px rgba(217,74,128,.55);
+}
+#pfGrid .work.is-image-card .cloud-tag::before{ display:none; }
+#pfGrid .work.is-image-card .cloud-tag span{
+  white-space:normal; overflow-wrap:anywhere; text-align:left;
+  font-size:12.5px; line-height:1.25; letter-spacing:.02em;
+  text-shadow:0 1px 2px rgba(217,74,128,.45);
+}
 
 /* PROJECT DETAIL */
 .pd-hero{display:grid; grid-template-columns: 1fr 1.05fr;gap: 46px; align-items:center; margin-bottom: 62px;}
@@ -591,6 +609,22 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .consent .consent-text ul{ margin: 6px 0 8px 18px; }
 .consent .consent-text li{ margin-bottom: 3px; }
 .form-actions{ display:flex; gap: 14px; flex-wrap: wrap; align-items:center; }
+/* Success panel: a clear, padded card well separated from the submit buttons. */
+.brief-result{
+  margin-top: 38px;
+  padding: 26px 28px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, #fff 0%, var(--pink-soft) 100%);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 3px var(--pink-light), 0 10px 0 -4px var(--pink-light), 0 24px 40px -20px rgba(217,74,128,.5);
+  scroll-margin-top: 120px;
+}
+.brief-result[hidden]{ display:none !important; }
+.brief-result h3{ font-family:var(--font-display); font-weight:700; font-size: clamp(22px, 3vw, 30px); color: var(--text-display); margin-bottom: 10px; }
+.brief-note{ font-size: 15px; font-weight: 700; color: var(--text-body); margin-bottom: 12px; }
+.brief-notice{ font-size: 13.5px; font-weight: 600; line-height: 1.6; color: var(--text-muted); background:#fff; border: 2px dashed var(--pink-light); border-radius: 16px; padding: 12px 16px; margin-bottom: 16px; }
+.brief-text{ white-space: pre-wrap; word-break: break-word; font-family: var(--font-body); font-size: 13px; line-height: 1.6; color: var(--text-body); background:#fff; border: 2px solid var(--pink-light); border-radius: 16px; padding: 16px 18px; max-height: 320px; overflow:auto; margin-bottom: 18px; }
+.brief-actions{ display:flex; gap: 12px; flex-wrap: wrap; align-items:center; }
 .direct-card{margin-top: 40px;display:grid; grid-template-columns: 1fr auto; gap: 30px; align-items:center;background: linear-gradient(160deg, #ffe0ee 0%, #f0e0ff 100%);border: 4px solid #fff; border-radius: 36px;padding: 36px 42px;box-shadow: 0 0 0 4px var(--purple), 0 12px 0 -4px var(--purple-light), 0 30px 48px -22px rgba(138,92,255,.5);}
 .direct-card h3{font-family:var(--font-display); font-weight:700; font-size: 24px;color: var(--purple-hot); margin-bottom: 8px;}
 .direct-card p{ font-size: 14px; font-weight: 700; color: var(--berry-soft); margin-bottom: 6px; }
@@ -716,7 +750,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .page{ padding: 40px 0 70px; }
   .form-shell{ padding: 34px 26px 30px; border-radius: 32px; }
   .form-shell::before{ border-radius: 24px; inset: 9px; }
-  .form-grid{ grid-template-columns: 1fr; gap: 0; }
+  .form-grid{ grid-template-columns: 1fr 1fr; gap: 0 16px; }
   .ph-row{ grid-template-columns: 1fr; }
   .ph-gallery{ grid-template-columns: repeat(2, 1fr); }
   .ph-gallery .g-a{ grid-column: span 2; grid-row: auto; aspect-ratio: 4/3; }
@@ -733,6 +767,9 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .tos-body{ padding: 22px 20px; border-radius: 24px; }
   .comm-grid{ grid-template-columns: 1fr; }
   .ad-cta{ padding: 32px 24px; border-radius: 32px; }
+}
+@media (max-width: 380px){
+  .form-grid{ grid-template-columns: 1fr; gap: 0; }
 }
 @media (max-width: 720px){
   .wrap{ padding: 0 20px; }
@@ -1048,7 +1085,6 @@ body:not(.admin-mode) .contact-row .cv,
 body:not(.admin-mode) .acc-btn,
 body:not(.admin-mode) .toast,
 body:not(.admin-mode) .loading-text,
-body:not(.admin-mode) .field label,
 body:not(.admin-mode) .field input[type="text"],
 body:not(.admin-mode) .field input[type="email"],
 body:not(.admin-mode) .field input[type="number"],
@@ -1056,6 +1092,10 @@ body:not(.admin-mode) .field input[type="url"],
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select,
 body:not(.admin-mode) .search-box input{ color:var(--text-body); }
+
+/* Question / field labels: a distinct role so they scan apart from answers. */
+body:not(.admin-mode) .field label{ color:var(--text-field-label); }
+body:not(.admin-mode) .field label .req{ color:var(--text-accent); }
 
 /* Interactive states keep their emphasis; selected states stay legible on
    their coloured pills. */
@@ -1108,10 +1148,34 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 
 /* ---- Public image lightbox ---- */
 .public-lightbox[hidden]{display:none !important;}
-.public-lightbox{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:48px;background:rgba(69,38,73,.78);backdrop-filter:blur(8px);}
-.public-lightbox img{display:block;max-width:min(94vw,1600px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;}
-.public-lightbox-close{position:fixed;top:22px;right:24px;width:46px;height:46px;border-radius:50%;border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+.public-lightbox{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:64px 48px 84px;
+  background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
+.public-lightbox img{display:block;max-width:min(94vw,1600px);max-height:78vh;width:auto;height:auto;object-fit:contain;
+  border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;
+  transform-origin:center center;transition:transform .16s ease;touch-action:none;}
+.public-lightbox-close{position:fixed;top:22px;right:24px;z-index:2;width:46px;height:46px;border-radius:50%;
+  border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);}
 .public-lightbox-close:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+.public-lightbox-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2;display:flex;gap:8px;
+  align-items:center;padding:7px;border-radius:999px;background:rgba(255,255,255,.94);
+  border:2px solid var(--pink-light);box-shadow:0 10px 24px -12px rgba(0,0,0,.45);}
+.public-lightbox-bar button{min-width:40px;height:40px;padding:0 14px;border-radius:999px;cursor:pointer;
+  border:2px solid var(--pink-light);background:#fff;color:var(--pink-hot);font-weight:800;font-size:15px;line-height:1;
+  display:grid;place-items:center;}
+.public-lightbox-bar button:hover{border-color:var(--pink-hot);}
+.public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
+.public-lightbox-caption{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);z-index:2;margin:0;
+  max-width:min(90vw,720px);padding:8px 18px;border-radius:14px;text-align:center;
+  background:rgba(255,255,255,.92);color:var(--berry);font-family:var(--font-body);font-size:13px;line-height:1.5;
+  box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
+.public-lightbox-caption[hidden]{display:none !important;}
+@media (max-width:640px){
+  .public-lightbox{padding:58px 12px 96px;}
+  .public-lightbox img{max-width:96vw;max-height:70vh;border-radius:12px;}
+  .public-lightbox-close{top:14px;right:14px;width:42px;height:42px;font-size:26px;}
+  .public-lightbox-caption{bottom:78px;font-size:12.5px;max-width:94vw;}
+}
 
 /* ---- TOS nav buttons ---- */
 .tos-nav button{display:block; width:100%; text-align:left;padding:9px 12px; border-radius:14px; border:none; background:none;font-family:var(--font-body); font-size:12.5px; font-weight:800; color:var(--berry-soft);transition:.25s; cursor:pointer;}
@@ -1340,7 +1404,19 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-row{display:grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items:start;}
 .adm-row.one{ grid-template-columns: 1fr; }
 .adm-row.three{ grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 720px){ .adm-row, .adm-row.three{ grid-template-columns: 1fr; } }
+/* Mobile admin: short controls stay in two columns; long/reading fields and
+   media pickers span the full width. Very narrow screens fall back to one. */
+@media (max-width: 720px){
+  .adm-row, .adm-row.three{ grid-template-columns: 1fr 1fr; }
+  .adm-row > .adm-field:has(textarea),
+  .adm-row > .adm-field:has(.adm-media-preview),
+  .adm-row > .adm-field:has(.adm-media-actions),
+  .adm-row > .adm-field:has(audio),
+  .adm-row > .adm-field:has(video),
+  .adm-row > .adm-field:has(.adm-upload-status),
+  .adm-row > .adm-field:has(input[type="range"]){ grid-column: 1 / -1; }
+}
+@media (max-width: 380px){ .adm-row, .adm-row.three{ grid-template-columns: 1fr; } }
 .adm-field{ display:flex; flex-direction:column; gap:5px; min-width:0; }
 .adm-field .af-label{font-family:var(--font-decorative); font-weight:600; font-size:11.5px;color: var(--berry); letter-spacing:.02em;}
 .adm-field .af-label .af-req{ color: var(--pink-hot); }
@@ -2349,6 +2425,10 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
   font-family:var(--font-body);font-size:15px;line-height:1.6;margin-bottom:6px;
   color:var(--pv-body,var(--text-body));
 }
+.adm-appearance-preview .apv-field-label{
+  font-family:var(--font-decorative);font-size:14px;font-weight:600;margin-bottom:4px;
+  color:var(--pv-field,var(--text-field-label));
+}
 .adm-appearance-preview .apv-muted{
   font-family:var(--font-body);font-size:13px;color:var(--pv-muted,var(--text-muted));
 }
@@ -2419,7 +2499,7 @@ try{
   if(theme.pink) root.style.setProperty('--pink', theme.pink);
   if(theme.lavender) root.style.setProperty('--purple', theme.lavender);
   root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(theme));
-  var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted' };
+  var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted', fieldLabelColor:'--text-field-label' };
   var tokenCss = '';
   Object.keys(map).forEach(function(k){ if(theme[k]) tokenCss += map[k] + ':' + theme[k] + ';'; });
   if(tokenCss){
@@ -2988,10 +3068,11 @@ try{
         <div class="brief-result" id="briefResult" hidden>
           <h3>Your brief is ready ♡</h3>
           <p class="brief-note">Your commission request was saved. A copy of your brief is below.</p>
+          <p class="brief-notice">Your form has already been received by Crabbie ♡ If you'd like to contact me directly by email for a faster response, you can use the email button below.</p>
           <pre class="brief-text" id="briefText"></pre>
           <div class="brief-actions">
             <button type="button" class="btn btn-purple" id="briefCopy">Copy brief</button>
-            <a class="btn btn-primary" id="briefEmail" href="mailto:crabbie.art@gmail.com">Open email</a>
+            <a class="btn btn-primary" id="briefEmail" href="mailto:crabbie.art@gmail.com">Email me directly (optional)</a>
             <button type="button" class="btn btn-ghost" id="briefEdit">Edit brief</button>
           </div>
         </div>
@@ -3346,6 +3427,12 @@ try{
 <div class="public-lightbox" id="publicLightbox" role="dialog" aria-modal="true" aria-label="Image preview" hidden>
   <button class="public-lightbox-close" id="publicLightboxClose" type="button" aria-label="Close image preview">×</button>
   <img id="publicLightboxImg" alt="">
+  <p class="public-lightbox-caption" id="publicLightboxCaption" hidden></p>
+  <div class="public-lightbox-bar" id="publicLightboxBar" role="group" aria-label="Image zoom controls">
+    <button type="button" id="publicLightboxZoomOut" aria-label="Zoom out">−</button>
+    <button type="button" id="publicLightboxReset" aria-label="Reset zoom">Reset</button>
+    <button type="button" id="publicLightboxZoomIn" aria-label="Zoom in">+</button>
+  </div>
 </div>
 
 <div class="adm-modal" id="adminConfirmModal" role="dialog" aria-modal="true" aria-labelledby="adminConfirmTitle">
@@ -4102,20 +4189,65 @@ if(e.key === 'End') next = list.length - 1;
 e.preventDefault(); setTab(list[next].getAttribute('data-tab'), true);
 });
 }
+function cmsSchemaForTab(tab){
+var map = (typeof window !== 'undefined' && window.__cmsCommissionForms) || {};
+var form = map ? map[tab] : null;
+return (form && Array.isArray(form.fields)) ? form.fields : null;
+}
+function fieldControlById(panel, id){
+if(!panel || id === null || id === undefined) return null;
+var selector = '[data-field-id="' + String(id).replace(/"/g, '') + '"]';
+return panel.querySelector(selector) || panel.querySelector('[data-field-key="' + String(id).replace(/"/g, '') + '"]');
+}
+function readFieldValue(panel, field, index){
+var id = (field && field.id) || ('field-' + index);
+var first = fieldControlById(panel, id);
+if(!first) return '';
+if(first.type === 'checkbox' && !first.name) return first.checked;
+var byName = panel.querySelectorAll('[name="' + (first.name || '') + '"]');
+if(first.type === 'radio' && first.name && byName.length){
+  var checked = panel.querySelector('input[type="radio"][name="' + first.name + '"]:checked');
+  return checked ? checked.value : '';
+}
+if(first.type === 'checkbox' && first.name && byName.length > 1){
+  return Array.prototype.map.call(byName, function(el){ return el.checked ? el.value : ''; }).filter(Boolean);
+}
+if(first.type === 'checkbox') return first.checked;
+return first.value;
+}
 function validateActivePanel(){
 clearAllErrors();
 var panel = activePanel(); if(!panel) return true;
 var firstInvalid = null;
-var name = panel.querySelector('input[data-field-key="name"]');
-if(name){
-  var nv = (name.value || '').trim();
-  if(!nv){ markError(name, 'Please add your name so I know how to address you ♡'); firstInvalid = firstInvalid || name; }
-}
-var email = panel.querySelector('input[type="email"]');
-if(email){
-  var v = (email.value || '').trim();
-  if(!v){ markError(email, 'Please add your email so I can reply ♡'); firstInvalid = firstInvalid || email; }
-  else if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){ markError(email, 'That email looks a little off — mind checking it?'); firstInvalid = firstInvalid || email; }
+var schema = cmsSchemaForTab(activeTab);
+if(schema){
+  schema.forEach(function(field, index){
+    var id = (field && field.id) || ('field-' + index);
+    var type = String((field && field.type) || 'text').toLowerCase();
+    var el = fieldControlById(panel, id);
+    if(!el) return;
+    var raw = readFieldValue(panel, field, index);
+    var present = (type === 'checkbox')
+      ? (Array.isArray(raw) ? raw.length > 0 : raw === true || (typeof raw === 'string' && raw.trim() !== ''))
+      : (raw !== null && raw !== undefined && String(raw).trim() !== '');
+    var label = (field && field.label) || id;
+    if(field && field.required && !present){ markError(el, 'Please complete "' + label + '".'); firstInvalid = firstInvalid || el; return; }
+    if(present && (type === 'email' || (field && field.contactRole === 'email'))){
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(raw).trim())){ markError(el, 'That email looks a little off — mind checking it?'); firstInvalid = firstInvalid || el; }
+    }
+  });
+} else {
+  var requiredControls = panel.querySelectorAll('[required]');
+  Array.prototype.forEach.call(requiredControls, function(el){
+    if(el.disabled) return;
+    var missing = (el.type === 'checkbox') ? !el.checked : !String(el.value || '').trim();
+    if(missing){ markError(el, 'Please complete this field.'); firstInvalid = firstInvalid || el; }
+  });
+  var email = panel.querySelector('input[type="email"]');
+  if(email && !email.disabled){
+    var v = (email.value || '').trim();
+    if(v && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){ markError(email, 'That email looks a little off — mind checking it?'); firstInvalid = firstInvalid || email; }
+  }
 }
 if(consentBox && !consentBox.checked){ markError(consentBox, 'Please agree to the Terms of Service before sending.'); firstInvalid = firstInvalid || consentBox; }
 if(firstInvalid){ firstInvalid.focus(); return false; }
@@ -4129,20 +4261,42 @@ text = text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
 if(!text) text = FALLBACK_LABELS[key] || key;
 return text;
 }
+function fieldDisplayValue(value){
+if(Array.isArray(value)) return value.join(', ');
+if(value === true) return 'yes';
+if(value === false || value === null || value === undefined) return '';
+return String(value);
+}
 function collectFields(panel){
-var rows = []; var seenRadioGroups = {};
+var schema = cmsSchemaForTab(activeTab);
+if(schema){
+  return schema.map(function(field, index){
+    var id = (field && field.id) || ('field-' + index);
+    var raw = readFieldValue(panel, field, index);
+    var value;
+    if(String((field && field.type) || '').toLowerCase() === 'checkbox'){
+      if(Array.isArray(raw)) value = raw.slice();
+      else if(raw === true || raw === 'true') value = true;
+      else if(typeof raw === 'string' && raw.trim() !== '') value = raw.trim();
+      else value = false;
+    } else if(Array.isArray(raw)) value = raw.slice();
+    else if(typeof raw === 'boolean') value = raw;
+    else value = (raw === null || raw === undefined) ? '' : String(raw).trim();
+    return { id: id, label: (field && field.label) || id, value: value };
+  });
+}
+var rows = []; var seen = {};
 $$('input, textarea, select', panel).forEach(function(el){
 if(el.disabled) return;
-var key = el.getAttribute('data-field-key') || el.name; if(!key) return;
+var key = el.getAttribute('data-field-id') || el.getAttribute('data-field-key') || el.name; if(!key) return;
 if(el.type === 'radio'){
-if(seenRadioGroups[el.name]) return; seenRadioGroups[el.name] = true;
+if(seen[el.name]) return; seen[el.name] = true;
 var checked = panel.querySelector('input[type="radio"][name="' + el.name + '"]:checked');
-if(checked) rows.push({ label: labelForKey(el, key), value: checked.value });
+rows.push({ id: key, label: labelForKey(el, key), value: checked ? checked.value : '' });
 return;
 }
-if(el.type === 'checkbox') return;
-var v = (el.value || '').trim(); if(!v) return;
-rows.push({ label: labelForKey(el, key), value: v });
+if(el.type === 'checkbox'){ rows.push({ id: key, label: labelForKey(el, key), value: el.checked ? (el.value || 'yes') : '' }); return; }
+rows.push({ id: key, label: labelForKey(el, key), value: (el.value || '').trim() });
 });
 return rows;
 }
@@ -4154,8 +4308,8 @@ lines.push('Form type: ' + (TAB_LABELS[activeTab] || activeTab));
 if(selectedServiceAvail === 'inquiry') lines.push('Availability: By inquiry');
 lines.push('');
 if(panel){
-var rows = collectFields(panel);
-if(rows.length) rows.forEach(function(r){ lines.push(r.label + ': ' + r.value); });
+var rows = collectFields(panel).filter(function(r){ return fieldDisplayValue(r.value) !== ''; });
+if(rows.length) rows.forEach(function(r){ lines.push(r.label + ': ' + fieldDisplayValue(r.value)); });
 else lines.push('(No extra details filled in yet.)');
 }
 lines.push(''); lines.push('Consent: client confirmed they have read and agree to the Terms of Service.'); lines.push('');
@@ -4194,17 +4348,48 @@ isCommissionSubmitting = true;
 setFormState('preparing');
 
 var panel = activePanel();
-var nameEl = panel ? panel.querySelector('input[data-field-key="name"]') : null;
-var emailEl = panel ? panel.querySelector('input[type="email"]') : null;
-var socialEl = panel ? panel.querySelector('input[data-field-key="social"]') : null;
-
-var clientName = (nameEl ? nameEl.value : '').trim() || 'Client';
-var clientEmail = (emailEl ? emailEl.value : '').trim();
-var clientSocial = (socialEl ? socialEl.value : '').trim();
-
 var fieldRows = panel ? collectFields(panel) : [];
+var valuesById = {};
 var fieldMap = {};
-fieldRows.forEach(function(r){ fieldMap[r.label] = r.value; });
+fieldRows.forEach(function(r){ var key = r.id || r.label; valuesById[key] = r.value; fieldMap[key] = r.value; });
+var schema = cmsSchemaForTab(activeTab);
+var resolved = { name: '', email: '', contact: '' };
+if(schema){
+  schema.forEach(function(field, index){
+    var id = (field && field.id) || ('field-' + index);
+    var text = (valuesById[id] === true) ? '' : String(valuesById[id] === undefined || valuesById[id] === false ? '' : (Array.isArray(valuesById[id]) ? valuesById[id].join(', ') : valuesById[id])).trim();
+    if(field && field.contactRole === 'name' && !resolved.name && text) resolved.name = text;
+    if(field && field.contactRole === 'email' && !resolved.email && text) resolved.email = text;
+  });
+  if(!resolved.name || !resolved.email){
+    schema.forEach(function(field, index){
+      var id = (field && field.id) || ('field-' + index);
+      var text = String(valuesById[id] === true || valuesById[id] === false || valuesById[id] === undefined ? '' : (Array.isArray(valuesById[id]) ? valuesById[id].join(', ') : valuesById[id])).trim();
+      if(!text) return;
+      var key = String(id).toLowerCase();
+      if(!resolved.name && (key === 'name' || key.slice(-5) === '.name')) resolved.name = text;
+      if(!resolved.email && (key === 'email' || key.slice(-6) === '.email' || String((field && field.type) || '').toLowerCase() === 'email')) resolved.email = text;
+    });
+  }
+} else {
+  var legacyName = panel ? panel.querySelector('[data-field-id="name"], input[data-field-key="name"]') : null;
+  var legacyEmail = panel ? panel.querySelector('input[type="email"]') : null;
+  var legacySocial = panel ? panel.querySelector('[data-field-id="social"], input[data-field-key="social"]') : null;
+  resolved.name = legacyName ? String(legacyName.value || '').trim() : '';
+  resolved.email = legacyEmail ? String(legacyEmail.value || '').trim() : '';
+  resolved.contact = legacySocial ? String(legacySocial.value || '').trim() : '';
+}
+if(!resolved.contact && valuesById){
+  Object.keys(valuesById).forEach(function(key){
+    if(/(^|\.)social$/i.test(key) || key === 'contact'){
+      var text = String(valuesById[key] === true || valuesById[key] === false ? '' : (Array.isArray(valuesById[key]) ? valuesById[key].join(', ') : (valuesById[key] || ''))).trim();
+      if(text && !resolved.contact) resolved.contact = text;
+    }
+  });
+}
+var clientName = resolved.name || 'Client';
+var clientEmail = resolved.email;
+var clientSocial = resolved.contact;
 
 try {
   var submitResult = null;
@@ -4229,10 +4414,14 @@ try {
   showBrief();
   toast('Commission request saved successfully ♡');
 } catch(err){
-  console.error('Commission submit error:', err);
+  if(err && (err.code === 'validation' || err.userError === true)){ console.warn('Commission submit validation:', err.message); }
+  else { console.error('Commission submit error (internal detail):', (err && (err.detail || err.message)) || err); }
   setFormState('idle');
   isCommissionSubmitting = false;
-  toast('Could not send request: ' + (err.message || 'Please check the form'));
+  var friendly = (err && (err.code === 'validation' || err.userError === true) && err.message)
+    ? err.message
+    : 'Could not send your request right now. Please check your connection and try again.';
+  toast(friendly);
   hideBrief();
 }
 });
@@ -4328,25 +4517,70 @@ try{ main.focus({ preventScroll: false }); }catch(err){ main.focus(); }
 var publicLightbox = document.getElementById('publicLightbox');
 var publicLightboxImg = document.getElementById('publicLightboxImg');
 var publicLightboxClose = document.getElementById('publicLightboxClose');
-function openPublicLightbox(src, alt){
+var publicLightboxCaption = document.getElementById('publicLightboxCaption');
+var publicLightboxZoomIn = document.getElementById('publicLightboxZoomIn');
+var publicLightboxZoomOut = document.getElementById('publicLightboxZoomOut');
+var publicLightboxReset = document.getElementById('publicLightboxReset');
+var lightboxScale = 1;
+var LIGHTBOX_MIN_SCALE = 1;
+var LIGHTBOX_MAX_SCALE = 4;
+function setLightboxScale(next){
+lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
+if(publicLightboxImg) publicLightboxImg.style.transform = lightboxScale === 1 ? '' : 'scale(' + lightboxScale + ')';
+}
+function openPublicLightbox(src, alt, caption){
 if(!publicLightbox || !publicLightboxImg || !src) return;
 publicLightboxImg.src = src; publicLightboxImg.alt = alt || '';
+setLightboxScale(1);
+if(publicLightboxCaption){
+  var text = caption == null ? '' : String(caption).trim();
+  publicLightboxCaption.textContent = text;
+  publicLightboxCaption.hidden = !text;
+}
 publicLightbox.hidden = false; document.body.style.overflow = 'hidden';
 if(publicLightboxClose) publicLightboxClose.focus();
 }
 function closePublicLightbox(){
 if(!publicLightbox || publicLightbox.hidden) return;
 publicLightbox.hidden = true; document.body.style.overflow = '';
-if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; }
+if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
+if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
+lightboxScale = 1;
 }
 if(publicLightboxClose) publicLightboxClose.addEventListener('click', closePublicLightbox);
-if(publicLightbox) publicLightbox.addEventListener('click', function(e){ if(e.target === publicLightbox) closePublicLightbox(); });
+if(publicLightboxZoomIn) publicLightboxZoomIn.addEventListener('click', function(){ setLightboxScale(lightboxScale + 0.4); });
+if(publicLightboxZoomOut) publicLightboxZoomOut.addEventListener('click', function(){ setLightboxScale(lightboxScale - 0.4); });
+if(publicLightboxReset) publicLightboxReset.addEventListener('click', function(){ setLightboxScale(1); });
+if(publicLightbox){
+  publicLightbox.addEventListener('click', function(e){ if(e.target === publicLightbox) closePublicLightbox(); });
+  publicLightbox.addEventListener('wheel', function(e){
+    if(publicLightbox.hidden) return;
+    e.preventDefault();
+    setLightboxScale(lightboxScale + (e.deltaY < 0 ? 0.2 : -0.2));
+  }, { passive: false });
+  var pinchStart = null;
+  var touchDistance = function(touches){
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+  publicLightbox.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2) pinchStart = { distance: touchDistance(e.touches), scale: lightboxScale };
+  }, { passive: true });
+  publicLightbox.addEventListener('touchmove', function(e){
+    if(e.touches.length === 2 && pinchStart && pinchStart.distance > 0){
+      e.preventDefault();
+      setLightboxScale(pinchStart.scale * (touchDistance(e.touches) / pinchStart.distance));
+    }
+  }, { passive: false });
+  publicLightbox.addEventListener('touchend', function(e){ if(e.touches.length < 2) pinchStart = null; });
+}
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
 
 document.addEventListener('click', function(e){
 var t;
 t = e.target.closest('[data-lightbox-src]');
-if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt')); return; }
+if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption')); return; }
 t = e.target.closest('[data-other-service]');
 if(t){ e.preventDefault(); jelly(t); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
 t = e.target.closest('[data-service]');
@@ -4484,9 +4718,9 @@ var REQ_STATUSES = ['New','Reviewing','Contacted','Accepted','Declined','Complet
 var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','Language','SEO','Footer','Interface'];
 /* Semantic typography color tokens (Admin > Appearance). One default per role;
    these are the only color settings and they never target a single element. */
-var APPEARANCE_COLOR_DEFAULTS = { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098' };
+var APPEARANCE_COLOR_DEFAULTS = { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
 /* The full colour group a saved palette captures (one preset = one theme). */
-var PALETTE_KEYS = ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor'];
+var PALETTE_KEYS = ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
 /* Default desktop-pet dialogue. `url`/`label` are optional; when a url exists the
    bubble renders a safe "Xem thêm" link instead of the raw address. */
 var PET_DIALOGUES_DEFAULT = [
@@ -5521,7 +5755,7 @@ var basic =
 '<div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' +
 '<div class="adm-row" style="margin-top:10px;">' + inputSelect(modeLabel, base + '.cardMode', modeOptions) + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + '</div>' +
 '<div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' +
-(imageOnly ? '' : inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 })) +
+(imageOnly ? inputTextarea(currentAdminLang === 'vi' ? 'Chú thích (hiện trong lightbox)' : 'Caption (shown in the lightbox)', base + '.description', { full:true, minHeight:60, hint: currentAdminLang === 'vi' ? 'Có thể để trống.' : 'Optional — leave empty to hide.' }) : inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 })) +
 '<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.cover'), base + '.cover', { fallbackPath: base + '.thumbnail', clearPaths: [base + '.thumbnail'], hint: currentAdminLang === 'vi' ? 'Ảnh chính duy nhất — thumbnail card tự crop từ ảnh này.' : 'Single main image — the card thumbnail auto-crops from it.' }) + '</div></div>';
 var projectOnly = imageOnly ? '' :
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
@@ -6031,6 +6265,7 @@ function appearancePreviewHtml(){
 return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance-preview" data-adm-appearance-preview="1">' +
   '<span class="apv-label">Decorative label</span>' +
   '<div class="apv-heading">Sweet little heading</div>' +
+  '<p class="apv-field-label">Question / field label</p>' +
   '<p class="apv-body">Body information reads in the Hogfish face so long-form copy stays clear and calm.</p>' +
   '<p class="apv-muted">Secondary / muted helper text.</p>' +
   '<div class="apv-actions"><span class="apv-btn">Button sample</span><span class="apv-nav">Navigation</span></div>' +
@@ -6039,7 +6274,7 @@ return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance
 /* Saved palettes: a preset is the whole colour group, stored in the theme
    settings JSON so no schema migration is needed. */
 function paletteSwatchHtml(colors){
-var keys = ['background','pink','lavender','displayColor','accentColor','decorativeColor'];
+var keys = ['background','pink','lavender','displayColor','accentColor','decorativeColor','mutedColor','fieldLabelColor'];
 return '<span class="adm-palette-swatches">' + keys.map(function(k){
   var c = (colors && colors[k]) || APPEARANCE_COLOR_DEFAULTS[k] || '#ffffff';
   return '<i style="background:' + esc(c) + '"></i>';
@@ -6084,6 +6319,9 @@ return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + 
     '<div class="adm-row three">' +
       inputColor('Decorative / Label', base + '.theme.decorativeColor', { default:d.decorativeColor }) +
       inputColor('Secondary / Muted', base + '.theme.mutedColor', { default:d.mutedColor }) +
+      inputColor(currentAdminLang === 'vi' ? 'Màu câu hỏi / nhãn trường' : 'Question / field label', base + '.theme.fieldLabelColor', { default:d.fieldLabelColor }) +
+    '</div>' +
+    '<div class="adm-row">' +
       '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">Reset to default</button></div>' +
     '</div>' +
   '</div>' +
@@ -6098,7 +6336,7 @@ return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + 
     '<div class="adm-row">' +
       '<div class="adm-field"><span class="af-label">Overlay opacity</span><input type="range" min="0" max="0.9" step="0.05" data-adm-path="' + base + '.theme.backgroundOverlay" value="' + esc(overlay) + '"><span class="af-hint" data-adm-bg-overlay-value="1">' + Math.round(overlay * 100) + '%</span></div>' +
     '</div>' +
-    '<p class="af-hint">Leave the image empty to keep the default pastel gradient. The overlay keeps text readable over photos.</p>' +
+    '<p class="af-hint">Leave the image empty to use the plain white background. The overlay keeps text readable over photos.</p>' +
   '</div>';
 }
 
@@ -6112,6 +6350,7 @@ preview.style.setProperty('--pv-accent', t.accentColor || d.accentColor);
 preview.style.setProperty('--pv-body', t.bodyColor || d.bodyColor);
 preview.style.setProperty('--pv-decorative', t.decorativeColor || d.decorativeColor);
 preview.style.setProperty('--pv-muted', t.mutedColor || d.mutedColor);
+preview.style.setProperty('--pv-field', t.fieldLabelColor || d.fieldLabelColor);
 var img = t.backgroundImage;
 if(img){
   var overlay = appearanceOverlayValue();
@@ -6145,10 +6384,15 @@ var rows = dialogues.map(function(d, i){
       '<label class="adm-field"><span class="af-label">Link label</span><input type="text" data-adm-path="' + p + '.label" value="' + esc(d.label || '') + '" placeholder="Xem thêm"></label>' +
     '</div></div>';
 }).join('');
-return '<div class="adm-section"><h4>Desktop pet dialogue</h4>' +
-  '<p class="af-hint">Shown in the pet speech bubble. A URL becomes a safe link labelled with the link label; the raw address is never shown.</p>' +
-  '<div data-adm-pet-dialogues="1">' + rows + '</div>' +
-  '<button type="button" class="adm-btn-sm purple" data-adm-pet-dialogue-add="1">Add dialogue</button></div>';
+return '<div class="adm-section">' +
+  '<details class="adm-advanced" style="margin-top:0;border-top:0;padding-top:0;">' +
+    '<summary>Desktop pet dialogue (' + dialogues.length + ')</summary>' +
+    '<div class="adm-advanced-body">' +
+      '<p class="af-hint">Shown in the pet speech bubble. A URL becomes a safe link labelled with the link label; the raw address is never shown.</p>' +
+      '<div data-adm-pet-dialogues="1">' + rows + '</div>' +
+      '<button type="button" class="adm-btn-sm purple" data-adm-pet-dialogue-add="1">Add dialogue</button>' +
+    '</div>' +
+  '</details></div>';
 }
 function musicStateHtml(){
   var enabled = Boolean(getByPath(ADMIN_DRAFT, 'settings.music.enabled'));
@@ -6327,7 +6571,7 @@ if(module === 'settings') refreshAppearancePreview();
 $$('[data-adm-appearance-reset]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   var d = APPEARANCE_COLOR_DEFAULTS;
-  var map = { displayColor:d.displayColor, accentColor:d.accentColor, bodyColor:d.bodyColor, decorativeColor:d.decorativeColor, mutedColor:d.mutedColor };
+  var map = { displayColor:d.displayColor, accentColor:d.accentColor, bodyColor:d.bodyColor, decorativeColor:d.decorativeColor, mutedColor:d.mutedColor, fieldLabelColor:d.fieldLabelColor };
   Object.keys(map).forEach(function(key){
     var p = 'settings.theme.' + key;
     setByPath(ADMIN_DRAFT, p, map[key]);
@@ -7701,26 +7945,37 @@ if(!text) return '';
 return text.replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
 }
 function portfolioIsImageCard(record){ return !!(record && record.cardMode === 'image'); }
+function portfolioCardImage(record){
+/* Image cards use the cover as their single visual; project cards use thumbnail. */
+var src = portfolioIsImageCard(record) ? (record.cover || record.thumbnail) : record.thumbnail;
+return publicImage(src, record && record.title);
+}
 function syncPortfolioCardMode(card, record){
 if(!card || !record) return;
 var imageOnly = portfolioIsImageCard(record);
 card.classList.toggle('is-image-card', imageOnly);
 if(imageOnly){
-  var src = safePublicUrl(record.thumbnail, true);
+  var src = safePublicUrl(record.cover || record.thumbnail, true);
   if(src){
     card.setAttribute('href', src);
     card.setAttribute('data-lightbox-src', src);
     card.setAttribute('data-lightbox-alt', record.title || 'Illustration');
     card.setAttribute('aria-label', (record.title || 'Illustration') + ' — open full-size image');
+    /* `description` doubles as the optional image-card caption (no new field). */
+    var caption = String(record.description || '').trim();
+    if(caption) card.setAttribute('data-lightbox-caption', caption);
+    else card.removeAttribute('data-lightbox-caption');
   } else {
     card.setAttribute('href', '#portfolio');
     card.removeAttribute('data-lightbox-src');
     card.removeAttribute('data-lightbox-alt');
+    card.removeAttribute('data-lightbox-caption');
   }
 } else {
   card.setAttribute('href', '#project/' + encodeURIComponent(record.slug || ''));
   card.removeAttribute('data-lightbox-src');
   card.removeAttribute('data-lightbox-alt');
+  card.removeAttribute('data-lightbox-caption');
   card.removeAttribute('aria-label');
 }
 }
@@ -7730,11 +7985,16 @@ function portfolioBadgeLabel(record){
    keep their distinct look through the is-cms-featured class. */
 return prettyTaxonomyLabel(record && (record.cat || record.categorySlug), 'PROJECT').toUpperCase();
 }
+function portfolioCloudLabel(record){
+/* Image cards show their title in the cloud/blob; project cards show category. */
+if(portfolioIsImageCard(record)) return String((record && record.title) || '').toUpperCase();
+return portfolioBadgeLabel(record);
+}
 function syncPortfolioBadge(card, record){
 if(!card || !record) return;
 var cloud = card.querySelector('.cloud-tag');
 if(!cloud){ cloud = document.createElement('div'); cloud.className = 'cloud-tag'; cloud.innerHTML = '<span></span>'; card.insertBefore(cloud, card.firstChild); }
-var span = cloud.querySelector('span'); if(span) span.textContent = portfolioBadgeLabel(record);
+var span = cloud.querySelector('span'); if(span) span.textContent = portfolioCloudLabel(record);
 card.classList.toggle('is-cms-featured', !!record.featured);
 }
 function assetPublicDownloadUrls(record){
@@ -7798,11 +8058,11 @@ apply: function(records){
       card.setAttribute('data-project', record.slug);
       card.setAttribute('data-cat', portfolioFilterGroup(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
-      var img = publicImage(record.thumbnail, record.title);
+      var img = portfolioCardImage(record);
       var thumb = img
         ? '<div class="thumb">' + img + '</div>'
         : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span></div>';
-      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioBadgeLabel(record)) + '</span></div>' +
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioCloudLabel(record)) + '</span></div>' +
         thumb +
         '<div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
       portfolioGrid.appendChild(card);
@@ -7818,7 +8078,7 @@ apply: function(records){
     if(!visible) return;
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
-    var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = publicImage(record.thumbnail, record.title) || '';
+    var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = portfolioCardImage(record) || '';
     syncPortfolioBadge(card, record);
     syncPortfolioCardMode(card, record);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
@@ -7832,7 +8092,7 @@ apply: function(records){
       card.className = 'work ' + ['work-hero','work-a','work-b','work-c','work-d'][index];
       card.setAttribute('href', '#project/' + encodeURIComponent(record.slug));
       card.setAttribute('data-project', record.slug);
-      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioBadgeLabel(record)) + '</span></div><div class="thumb">' + (publicImage(record.thumbnail, record.title) || '') + '</div><div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioCloudLabel(record)) + '</span></div><div class="thumb">' + (portfolioCardImage(record) || '') + '</div><div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
       homeWorks.appendChild(card); syncPortfolioCardMode(card, record);
     });
   }
@@ -7943,25 +8203,31 @@ function renderCmsCommissionField(formSlug, field, index){
   var help = field.help ? '<div class="hint">' + esc(field.help) + '</div>' : '';
   var placeholder = field.placeholder || '';
   var type = String(field.type || 'text').toLowerCase();
-  var full = (key === 'name' || key === 'email') ? '' : ' full';
+  var shortKeys = ['name', 'email'];
+  var shortKey = shortKeys.indexOf(String(key).toLowerCase()) !== -1 || shortKeys.indexOf(String(key).split('.').pop().toLowerCase()) !== -1;
+  var full = (shortKey && (type === 'text' || type === 'email')) ? '' : ' full';
   var control = '';
+  var keyAttrs = ' data-field-key="' + esc(key) + '" data-field-id="' + esc(key) + '"';
 
-  if(type === 'textarea'){
-    control = '<textarea id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '" placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '></textarea>';
+  if(type === 'checkbox'){
+    var checkLabel = field.checkboxLabel || field.placeholder || field.label || key;
+    control = '<div class="choice-row"><label class="choice"><input type="checkbox" id="' + esc(id) + '" name="' + esc(name) + '"' + keyAttrs + ' value="' + esc(field.checkboxValue || 'yes') + '"' + (required ? ' required' : '') + '><span>' + esc(checkLabel) + '</span></label></div>';
+  } else if(type === 'textarea'){
+    control = '<textarea id="' + esc(id) + '" name="' + esc(name) + '"' + keyAttrs + ' placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '></textarea>';
   } else if(type === 'select'){
     var options = Array.isArray(field.options) ? field.options : [];
-    control = '<select id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '"' + (required ? ' required' : '') + '>' +
+    control = '<select id="' + esc(id) + '" name="' + esc(name) + '"' + keyAttrs + (required ? ' required' : '') + '>' +
       '<option value="">Choose…</option>' +
       options.map(function(opt){ return '<option value="' + esc(opt) + '">' + esc(opt) + '</option>'; }).join('') +
       '</select>';
   } else if(type === 'radio'){
     var radioOptions = Array.isArray(field.options) ? field.options : [];
     control = '<div class="choice-row">' + radioOptions.map(function(opt, i){
-      return '<label class="choice"><input type="radio" name="' + esc(name) + '" data-field-key="' + esc(key) + '" value="' + esc(opt) + '"' + (required ? ' required' : '') + (i === 0 ? ' checked' : '') + '><span>' + esc(opt) + '</span></label>';
+      return '<label class="choice"><input type="radio" name="' + esc(name) + '"' + keyAttrs + ' value="' + esc(opt) + '"' + (required ? ' required' : '') + (i === 0 ? ' checked' : '') + '><span>' + esc(opt) + '</span></label>';
     }).join('') + '</div>';
   } else {
     var inputType = ['email','number','url','tel','date'].indexOf(type) !== -1 ? type : 'text';
-    control = '<input type="' + inputType + '" id="' + esc(id) + '" name="' + esc(name) + '" data-field-key="' + esc(key) + '" placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '>';
+    control = '<input type="' + inputType + '" id="' + esc(id) + '" name="' + esc(name) + '"' + keyAttrs + ' placeholder="' + esc(placeholder) + '"' + (required ? ' required' : '') + '>';
   }
 
   return '<div class="field' + full + '"><label' + (type === 'radio' ? '' : ' for="' + esc(id) + '"') + '>' + esc(label) + req + '</label>' + help + control + '</div>';
@@ -8104,6 +8370,7 @@ apply: function(services, forms){
       }
     });
     TAB_LABELS = nextLabels;
+    try { window.__cmsCommissionForms = formMap; } catch(_) {}
 
     document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn){
       var slug = btn.getAttribute('data-tab');
@@ -8314,6 +8581,7 @@ function applyCmsSiteSettings(settings){
     if(cmsTheme.bodyColor) themeBody.setProperty('--text-body', cmsTheme.bodyColor);
     if(cmsTheme.decorativeColor) themeBody.setProperty('--text-decorative', cmsTheme.decorativeColor);
     if(cmsTheme.mutedColor) themeBody.setProperty('--text-muted', cmsTheme.mutedColor);
+    if(cmsTheme.fieldLabelColor) themeBody.setProperty('--text-field-label', cmsTheme.fieldLabelColor);
   }
   /* The database is the source of truth: always reconcile the background and
      the first-paint cache, so a cleared/absent theme can never be masked by a
