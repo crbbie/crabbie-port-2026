@@ -3560,22 +3560,39 @@ if(SIMPLE_VIEWS.indexOf(head) !== -1) return { view:head, id:null, adminModule:n
 return { view:'404', id:null, adminModule:null };
 }
 
-function titleFor(view, id, adminModule){
-switch(view){
-case 'home': return 'CRABBIE — Art made with candy, petals & the sparkliest of hearts';
-case 'portfolio': return 'Portfolio — CRABBIE';
-case 'project-detail': return ((PROJECTS[id] && PROJECTS[id].title) || 'Project') + ' — CRABBIE';
-case 'free-assets': return 'Free Assets — CRABBIE';
-case 'free-asset-detail': return ((ASSETS[id] && ASSETS[id].title) || 'Asset') + ' — CRABBIE';
-case 'commissions': return 'Commissions — CRABBIE';
-case 'about': return 'About — CRABBIE';
-case 'terms': return 'Terms of Service — CRABBIE';
-case 'contact': return 'Contact — CRABBIE';
-case '404': return 'Page Not Found — CRABBIE';
-case 'loading': return 'Loading… — CRABBIE';
-case 'admin': return 'Admin · ' + tAdmin('nav.' + adminModule) + ' — CRABBIE';
+function cmsPublicSettings(){
+  return (typeof window !== 'undefined' && window.__cmsPublicSettings) || null;
 }
-return 'CRABBIE';
+function titleFor(view, id, adminModule){
+var model = (typeof window !== 'undefined' && window.CrabbieSiteContentModel) || null;
+var pub = cmsPublicSettings();
+var brand = 'CRABBIE';
+var seoTitle = '';
+if(model){
+  brand = model.cmsBrandName(pub || undefined);
+  seoTitle = model.cmsSeoTitle(pub || undefined);
+} else {
+  if(pub && pub.branding && typeof pub.branding.title === 'string' && pub.branding.title.trim()) brand = pub.branding.title.trim();
+  if(pub && pub.seo && typeof pub.seo.title === 'string' && pub.seo.title.trim()) seoTitle = pub.seo.title.trim();
+}
+if(model && typeof model.routeTitleFor === 'function'){
+  return model.routeTitleFor(view, id, { brand: brand, seoTitle: seoTitle, projects: PROJECTS, assets: ASSETS, adminLabel: tAdmin('nav.' + adminModule) });
+}
+if(view === 'home') return seoTitle || (brand + ' — Art made with candy, petals & the sparkliest of hearts');
+if(view === 'admin') return 'Admin · ' + tAdmin('nav.' + adminModule) + ' — ' + brand;
+switch(view){
+case 'portfolio': return 'Portfolio — ' + brand;
+case 'project-detail': return ((PROJECTS[id] && PROJECTS[id].title) || 'Project') + ' — ' + brand;
+case 'free-assets': return 'Free Assets — ' + brand;
+case 'free-asset-detail': return ((ASSETS[id] && ASSETS[id].title) || 'Asset') + ' — ' + brand;
+case 'commissions': return 'Commissions — ' + brand;
+case 'about': return 'About — ' + brand;
+case 'terms': return 'Terms of Service — ' + brand;
+case 'contact': return 'Contact — ' + brand;
+case '404': return 'Page Not Found — ' + brand;
+case 'loading': return 'Loading… — ' + brand;
+}
+return seoTitle || brand;
 }
 
 var prevView = null;
@@ -4719,7 +4736,9 @@ var CONTACT_ROLE_VALUES = [{ value:'none', label:'None' },{ value:'name', label:
 var OPTION_FIELD_TYPES = ['select','radio'];
 var CURRENCIES = ['USD','VND','EUR','GBP','JPY','CAD','AUD'];
 var REQ_STATUSES = ['New','Reviewing','Contacted','Accepted','Declined','Completed'];
-var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','Language','SEO','Footer','Interface'];
+/* Language has no runtime translation support, so the group stays hidden to
+   avoid a fake control. Stored language data is preserved untouched. */
+var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','SEO','Footer','Interface'];
 /* Semantic typography color tokens (Admin > Appearance). One default per role;
    these are the only color settings and they never target a single element. */
 var APPEARANCE_COLOR_DEFAULTS = { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
@@ -5233,7 +5252,23 @@ async function doSaveCommit(msg, scope){
             settingsForWrite[key] = value;
           }
         });
-        var settingsResult = await crud.saveSettings(settingsForWrite, writeKeys, ADMIN_DRAFT.settingsMeta);
+        var settingsResult = null;
+        try {
+          settingsResult = await crud.saveSettings(settingsForWrite, writeKeys, ADMIN_DRAFT.settingsMeta);
+        } catch(settingsErr){
+          /* A later key that conflicts must not erase an earlier key that this
+             same save already confirmed: reconcile the partial savedKeys first. */
+          var partialKeys = (settingsErr && Array.isArray(settingsErr.savedKeys)) ? settingsErr.savedKeys : [];
+          if(partialKeys.length){
+            reconcilePersistedTarget(target, captured, { success: true, savedKeys: partialKeys });
+            ADMIN_DATA.settingsMeta = ADMIN_DATA.settingsMeta || {};
+            var partialMeta = ADMIN_DRAFT.settingsMeta || {};
+            partialKeys.forEach(function(key){
+              if(partialMeta[key]) ADMIN_DATA.settingsMeta[key] = clone(partialMeta[key]);
+            });
+          }
+          throw settingsErr;
+        }
         reconcilePersistedTarget(target, captured, settingsResult);
         /* Baselines the database confirmed travel with the values. */
         if(settingsResult && Array.isArray(settingsResult.savedKeys)){
@@ -6164,6 +6199,7 @@ return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(
 '<div class="adm-section"><h4>What I make</h4><div>' + skillRows + '</div><button type="button" class="adm-btn-sm purple" data-adm-about-add="skills">+ Add skill</button></div>' +
 '<div class="adm-section"><h4>Experience</h4><div>' + expRows + '</div><button type="button" class="adm-btn-sm purple" data-adm-about-add="experience">+ Add experience</button></div>' +
 '<div class="adm-section"><h4>Creative values</h4><div>' + valueRows + '</div><button type="button" class="adm-btn-sm purple" data-adm-about-add="values">+ Add value</button></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.about">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
@@ -6172,7 +6208,7 @@ var p = (ADMIN_DRAFT.pages && ADMIN_DRAFT.pages.terms) || {};
 var base = 'pages.terms';
 var A = window.CrabbieAdminDataAudit;
 var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.settings }) : null;
-return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderAdminContact(){
@@ -6414,6 +6450,7 @@ var subtab = ADMIN_UI.subtab.settings || 'settings';
 var tabs = '<div class="adm-tabs"><button type="button" class="adm-tab" data-adm-subtab="settings:settings" aria-pressed="' + (subtab === 'settings') + '">Settings</button><button type="button" class="adm-tab" data-adm-subtab="settings:navigation" aria-pressed="' + (subtab === 'navigation') + '">Navigation</button></div>';
 if(subtab === 'navigation') return tabs + renderAdminNavigation();
 var group = ADMIN_UI.settingsGroup || 'Branding';
+if(SETTINGS_GROUPS.indexOf(group) === -1) group = 'Branding';
 var groupNav = SETTINGS_GROUPS.map(function(g){ return '<button type="button" data-adm-settings-group="' + g + '" aria-pressed="' + (g === group) + '">' + g + '</button>'; }).join('');
 var body = ''; var base = 'settings'; var s = ADMIN_DRAFT.settings;
 switch(group){
@@ -6421,7 +6458,7 @@ case 'Branding': body = '<div class="adm-row">' + inputText(tAdmin('label.title'
 case 'Typography': body = '<div class="adm-row three">' + inputSelect('Heading Font', base + '.typography.headingFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + inputSelect('Body Font', base + '.typography.bodyFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + inputSelect('Accent Font', base + '.typography.accentFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + '</div>'; break;
 case 'Appearance': body = renderAppearanceBody(base); break;
 case 'Motion': body = '<div class="adm-row three">' +
-    '<div class="adm-field"><span class="af-label">Effects</span>' + inputCheck('Decorations', base + '.motion.decorations') + '<div style="margin-top:8px;">' + inputCheck('Falling Candy', base + '.motion.fallingCandy') + '</div><div style="margin-top:8px;">' + inputCheck('Animation', base + '.motion.animation') + '</div></div>' +
+    '<div class="adm-field"><span class="af-label">Effects</span>' + inputCheck('Falling Candy', base + '.motion.fallingCandy') + '</div>' +
     inputSelect('Candy density', base + '.motion.candyDensity', [{ value:'low', label:'Low' },{ value:'normal', label:'Normal' },{ value:'high', label:'High' }]) +
     '<div class="adm-field"><span class="af-label">Desktop pet</span>' + inputCheck('Enable desktop pet', base + '.motion.pet.enabled') + '<div style="margin-top:8px;">' + inputSelect('Max on desktop', base + '.motion.pet.maxDesktop', [{ value:1, label:'1' },{ value:2, label:'2' },{ value:3, label:'3' },{ value:4, label:'4' },{ value:5, label:'5' }]) + '</div></div>' +
   '</div>' + renderPetDialogueEditor(base); break;
@@ -6431,7 +6468,6 @@ case 'Music': var musicVol = Number(getByPath(ADMIN_DRAFT, base + '.music.volume
     inputText('Music Title', base + '.music.title') +
     '<div class="adm-field"><span class="af-label">Volume</span><input type="range" min="0" max="100" step="1" data-adm-path="' + base + '.music.volume" value="' + musicVol + '"><span class="af-hint" data-adm-music-volume-value="1">' + musicVol + '%</span></div>' +
   '</div>' + mediaField('Audio file', base + '.music.url') + musicStateHtml(); break;
-case 'Language': body = inputSelect('Default Language', base + '.language.defaultLanguage', [{value:'en', label:'en'},{value:'vi', label:'vi'}]); break;
 case 'SEO': body = inputText('SEO Title', base + '.seo.title') + inputTextarea('SEO Description', base + '.seo.description', { minHeight:60 }) + mediaField('Social Image', base + '.seo.socialImage'); break;
 case 'Footer': body = inputTextarea('Footer', base + '.footer.footer', { minHeight:80 }); break;
 case 'Interface': body = '<p class="af-hint">UI copy.</p>'; break;
@@ -8450,12 +8486,29 @@ function applyCmsAboutPage(page){
   var view = document.querySelector('[data-view="about"]');
   if(!view || !page) return;
 
-  var name = visibleCmsValue(page.name);
+  /* Distinct CMS roles: title names the page, name personalizes the hero
+     heading, bio is the hero paragraph, content is the longer page body. */
+  var model = (window.CrabbieSiteContentModel && typeof window.CrabbieSiteContentModel.aboutPublicModel === 'function')
+    ? window.CrabbieSiteContentModel.aboutPublicModel(page)
+    : { heading: null, headingName: '', bio: '', content: '' };
+  var fallbackName = visibleCmsValue(page.name);
+  var fallbackTitle = visibleCmsValue(page.title);
+  var headingHtml = (model.headingName || fallbackName)
+    ? "Hello, I'm <span class=\"hi\">" + esc(model.headingName || fallbackName) + "</span>."
+    : esc(model.heading && model.heading !== 'About' ? model.heading : (fallbackTitle || 'About'));
   var title = view.querySelector('.about-hero .page-title');
-  if(title) title.innerHTML = name ? "Hello, I'm <span class=\"hi\">" + esc(name) + "</span>." : 'About';
+  if(title) title.innerHTML = headingHtml;
 
   var bio = view.querySelector('.about-hero .bio');
-  if(bio) bio.textContent = visibleCmsValue(page.bio || page.content);
+  var bioText = model.bio || visibleCmsValue(page.bio);
+  if(bio) bio.textContent = bioText;
+
+  var sub = view.querySelector('.about-hero .page-sub');
+  var contentText = model.content || visibleCmsValue(page.content);
+  if(sub){
+    if(contentText) { sub.textContent = contentText; sub.style.display = ''; }
+    else { sub.textContent = ''; sub.style.display = 'none'; }
+  }
 
   var profile = view.querySelector('.profile-inner');
   if(profile) profile.innerHTML = publicImage(page.profileImage, name) || 'PROFILE IMAGE';
@@ -8511,36 +8564,66 @@ function applyCmsSiteBackground(theme){
   style.textContent = css;
 }
 
+var __cmsDefaultHeroArt = null;
+function cmsHasKey(group, key){
+  if(window.CrabbieSiteContentModel && typeof window.CrabbieSiteContentModel.hasSettingsKey === 'function') return window.CrabbieSiteContentModel.hasSettingsKey(group, key);
+  return group && typeof group === 'object' && Object.prototype.hasOwnProperty.call(group, key);
+}
+function cmsText(group, key){
+  if(!cmsHasKey(group, key)) return null;
+  var v = group[key];
+  return typeof v === 'string' ? v.trim() : '';
+}
 function applyCmsSiteSettings(settings){
   if(!settings) return;
-
-  if(settings.branding){
+  try { window.__cmsPublicSettings = settings; } catch(_) {}
+  /* A stored empty string clears public; a missing group/key leaves it alone. */
+  if(settings.branding && typeof settings.branding === 'object'){
     var branding = settings.branding;
-    if(branding.title){
+    var brandTitle = cmsText(branding, 'title');
+    if(brandTitle !== null){
       var brand = document.querySelector('#mainNav .brand span');
-      if(brand) brand.textContent = branding.title;
+      if(brand) brand.textContent = brandTitle || 'CRABBIE';
       var heroTitle = document.querySelector('.hero h1 .accent');
-      if(heroTitle) heroTitle.textContent = branding.title;
+      if(heroTitle) heroTitle.textContent = brandTitle || 'CRABBIE';
       var footBrand = document.querySelector('.foot-brand');
-      if(footBrand) footBrand.innerHTML = esc(branding.title) + '<span>.</span>';
+      if(footBrand) footBrand.innerHTML = esc(brandTitle || 'CRABBIE') + '<span>.</span>';
     }
-    if(branding.tagline){
+    var tagline = cmsText(branding, 'tagline');
+    if(tagline !== null){
       var tag = document.querySelector('.hero-tagline');
-      if(tag) tag.textContent = branding.tagline;
+      if(tag){ tag.textContent = tagline; tag.style.display = tagline ? '' : 'none'; }
     }
-    if(branding.intro){
+    var intro = cmsText(branding, 'intro');
+    if(intro !== null){
       var lede = document.querySelector('.hero-lede');
-      if(lede) lede.textContent = branding.intro;
+      if(lede){ lede.textContent = intro; lede.style.display = intro ? '' : 'none'; }
     }
-    if(branding.heroMedia){
+    if(cmsHasKey(branding, 'logo')){
+      var logoUrl = cmsText(branding, 'logo');
+      var brandLink = document.querySelector('#mainNav .brand');
+      if(brandLink){
+        var logoImg = brandLink.querySelector('img[data-cms-logo="1"]');
+        if(logoUrl){
+          if(!logoImg){ logoImg = document.createElement('img'); logoImg.setAttribute('data-cms-logo', '1'); logoImg.alt = ''; logoImg.style.cssText = 'height:26px;width:auto;border-radius:8px;'; brandLink.insertBefore(logoImg, brandLink.firstChild); }
+          logoImg.src = logoUrl;
+        } else if(logoImg && logoImg.parentNode){ logoImg.parentNode.removeChild(logoImg); }
+      }
+    }
+    if(cmsHasKey(branding, 'heroMedia')){
+      var heroMediaUrl = cmsText(branding, 'heroMedia');
       var heroMedia = document.querySelector('.hero-art-inner');
-      if(heroMedia) heroMedia.innerHTML = '<img src="' + esc(branding.heroMedia) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+      if(heroMedia){
+        if(__cmsDefaultHeroArt === null) __cmsDefaultHeroArt = heroMedia.innerHTML;
+        if(heroMediaUrl) heroMedia.innerHTML = '<img src="' + esc(heroMediaUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+        else heroMedia.innerHTML = __cmsDefaultHeroArt || '';
+      }
     }
   }
 
-  if(settings.footer && settings.footer.footer){
+  if(settings.footer && typeof settings.footer === 'object' && cmsHasKey(settings.footer, 'footer')){
     var foot = document.querySelector('.foot-tag');
-    if(foot) foot.textContent = settings.footer.footer;
+    if(foot){ var footText = cmsText(settings.footer, 'footer'); foot.textContent = footText || ''; foot.style.display = footText ? '' : 'none'; }
   }
 
   if(settings.contact){
@@ -8626,17 +8709,25 @@ function applyCmsSiteSettings(settings){
     fontRoot.setProperty('--font-decorative', '"' + accentFont + '","Segoe Print","Comic Sans MS",cursive');
   }
 
-  if(settings.seo){
-    if(settings.seo.title) document.title = settings.seo.title;
-    if(settings.seo.description){
+  if(settings.seo && typeof settings.seo === 'object'){
+    /* The router owns document.title from the CMS baseline (see titleFor):
+       refresh the current route title instead of stamping a stale value. */
+    if(cmsHasKey(settings.seo, 'title') && currentRoute) document.title = titleFor(currentRoute.view, currentRoute.id, currentRoute.adminModule);
+    if(cmsHasKey(settings.seo, 'description')){
       var meta = document.querySelector('meta[name="description"]');
-      if(!meta){ meta = document.createElement('meta'); meta.name = 'description'; document.head.appendChild(meta); }
-      meta.content = settings.seo.description;
+      var seoDesc = cmsText(settings.seo, 'description') || '';
+      if(seoDesc){
+        if(!meta){ meta = document.createElement('meta'); meta.name = 'description'; document.head.appendChild(meta); }
+        meta.content = seoDesc;
+      } else if(meta){ meta.content = ''; }
     }
-    if(settings.seo.socialImage){
+    if(cmsHasKey(settings.seo, 'socialImage')){
       var og = document.querySelector('meta[property="og:image"]');
-      if(!og){ og = document.createElement('meta'); og.setAttribute('property','og:image'); document.head.appendChild(og); }
-      og.content = settings.seo.socialImage;
+      var seoImg = cmsText(settings.seo, 'socialImage') || '';
+      if(seoImg){
+        if(!og){ og = document.createElement('meta'); og.setAttribute('property','og:image'); document.head.appendChild(og); }
+        og.content = seoImg;
+      } else if(og){ og.content = ''; }
     }
   }
 }

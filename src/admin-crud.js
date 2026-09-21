@@ -181,24 +181,32 @@ export async function saveAdminSettings(settings, keys, settingsMeta) {
   // so the key and its baseline both belong in the statement itself.
   // savedKeys reports exactly the keys the database confirmed, so a later key
   // that fails cannot erase the baseline of an earlier key that succeeded.
+  // Each confirmed key reconciles immediately, so a later key that conflicts
+  // can never erase the baseline of an earlier key that already succeeded.
+  // A failure carries the partial savedKeys with it.
   const savedKeys = [];
-  for (const plan of plans) {
-    if (plan.mode === 'update') {
-      let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
-      if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
-      const response = await request.select('key, updated_at').maybeSingle();
-      if (response.error) throw adminWriteError(response.error);
-      if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('settings');
-      applySettingSaveMeta(settingsMeta, plan.key, response.data);
-    } else {
-      // A key that was never loaded is inserted; if another session created it
-      // first, the key conflict is surfaced instead of an overwrite.
-      const response = await supabase.from('site_settings').insert(plan.payload).select('key, updated_at').maybeSingle();
-      if (response.error) throw settingsWriteError(response.error, plan.key);
-      if (!response.data) throw missingRecordError('settings');
-      applySettingSaveMeta(settingsMeta, plan.key, response.data);
+  try {
+    for (const plan of plans) {
+      if (plan.mode === 'update') {
+        let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
+        if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
+        const response = await request.select('key, updated_at').maybeSingle();
+        if (response.error) throw adminWriteError(response.error);
+        if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('settings');
+        applySettingSaveMeta(settingsMeta, plan.key, response.data);
+      } else {
+        // A key that was never loaded is inserted; if another session created it
+        // first, the key conflict is surfaced instead of an overwrite.
+        const response = await supabase.from('site_settings').insert(plan.payload).select('key, updated_at').maybeSingle();
+        if (response.error) throw settingsWriteError(response.error, plan.key);
+        if (!response.data) throw missingRecordError('settings');
+        applySettingSaveMeta(settingsMeta, plan.key, response.data);
+      }
+      savedKeys.push(plan.key);
     }
-    savedKeys.push(plan.key);
+  } catch (err) {
+    if (err && !Array.isArray(err.savedKeys)) err.savedKeys = savedKeys.slice();
+    throw err;
   }
 
   return { success: true, table: 'site_settings', count: plans.length, savedKeys };
