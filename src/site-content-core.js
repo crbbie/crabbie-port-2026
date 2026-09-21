@@ -81,14 +81,18 @@ export function routeTitleFor(view, id, options = {}) {
 }
 
 /* About field roles: title names the page, bio is the hero paragraph,
- * content is the longer page body. Bio must never swallow content. */
+ * content is the longer page body. Bio must never swallow content.
+ * A custom Title (beyond the generic "About") drives the heading so the
+ * editor field is never silently overridden by Name; otherwise Name
+ * personalizes the greeting. Mirrors public-roundtrip-core.js. */
 export function aboutPublicModel(page = {}) {
   const name = typeof page.name === 'string' ? page.name.trim() : '';
   const title = typeof page.title === 'string' ? page.title.trim() : '';
   const bio = typeof page.bio === 'string' ? page.bio.trim() : '';
   const content = typeof page.content === 'string' ? page.content.trim() : '';
+  const customTitle = title && title.toLowerCase() !== 'about' ? title : '';
   return {
-    heading: name ? ("Hello, I'm " + name + '.') : (title || 'About'),
+    heading: customTitle || (name ? ("Hello, I'm " + name + '.') : (title || 'About')),
     headingName: name,
     bio,
     content

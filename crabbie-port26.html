@@ -3640,10 +3640,14 @@ function visibleCmsValue(value){
   var text = String(value == null ? '' : value).trim();
   if(!text) return '';
   /* Only real placeholder syntax blanks a value: ordinary markdown links such
-     as [text](url) are stripped before the check so normal copy never vanishes. */
+     as [text](url) are stripped before the check so normal copy never
+     vanishes. Link-only markdown IS the content and is kept. The bracket
+     check is case-sensitive (all-caps tokens only) so ordinary mixed-case
+     copy like "[Read guide]" is never treated as a placeholder. */
   var withoutLinks = text.replace(/\[[^\]\n]+\]\([^)\n]+\)/g, ' ').trim();
-  var probe = withoutLinks || text;
-  return !/\[[A-Z][A-Z0-9 /&+._-]*\]|^YEAR$/i.test(probe) ? text : '';
+  if(!withoutLinks) return text;
+  var probe = withoutLinks;
+  return !/\[([A-Z][A-Z0-9 /&+._-]*)\]/.test(probe) && !/^YEAR$/.test(probe) ? text : '';
 }
 function safePublicUrl(value, media){
   var raw = visibleCmsValue(value);
@@ -8611,8 +8615,17 @@ apply: function(services, forms){
           var priceEl = card.querySelector('.comm-price'); if(priceEl) priceEl.textContent = s.price || '';
           var miniAlt = s.alternatePriceFormatted || (s.alternatePrice ? String(s.alternatePrice).trim() + (s.alternateCurrency ? ' ' + String(s.alternateCurrency).trim() : '') : '');
           var mini = card.querySelector('.comm-mini'); if(mini) mini.innerHTML = '<span>' + esc(s.price || '') + '</span>' + (String(miniAlt || '').trim() ? '<span>' + esc(miniAlt) + '</span>' : '');
-          var detailFields = [s.deliveryEstimate,s.includedFiles,s.canvas,s.commercialRule,s.extraCharacter,s.backgroundRule,s.tax,s.rush,s.privateFee];
-          card.querySelectorAll('.acc-line b').forEach(function(el, i){ if(i < detailFields.length){ var t = detailFields[i]; var clean = String(t == null ? '' : t).trim(); el.textContent = (clean && clean !== 'undefined' && clean !== 'NaN') ? visibleCmsValue(clean) : ''; } });
+          /* Keyed fee rows: each label stays bound to its field key, so a
+             sparse config (e.g. only Tax) can never misalign values the way
+             an index-based update would. Empty fees render no junk rows. */
+          var feeDefs = [['deliveryEstimate','Delivery estimate'],['includedFiles','Included files'],['canvas','Canvas'],['commercialRule','Commercial rule'],['extraCharacter','Extra character'],['backgroundRule','Background'],['tax','Tax'],['rush','Rush'],['privateFee','Private commission']];
+          var feeRows = feeDefs.map(function(def){
+            var raw = s[def[0]]; var clean = String(raw == null ? '' : raw).trim();
+            if(!clean || clean === 'undefined' || clean === 'NaN') return null;
+            return { key: def[0], label: def[1], value: visibleCmsValue(clean) };
+          }).filter(function(r){ return r && r.value; });
+          var accInner = card.querySelector('.acc-inner');
+          if(accInner) accInner.innerHTML = feeRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r.key) + '"><span>' + esc(r.label) + '</span><b>' + esc(r.value) + '</b></div>'; }).join('');
         }
       }
     });
@@ -8795,17 +8808,28 @@ function applyCmsAboutPage(page){
   if(!view || !page) return;
 
   /* Distinct CMS roles: title names the page, name personalizes the hero
-     heading, bio is the hero paragraph, content is the longer page body. */
+     heading, bio is the hero paragraph, content is the longer page body.
+     A custom Title drives the heading; otherwise Name personalizes the
+     greeting so neither field silently overrides the other. */
   var model = (window.CrabbieSiteContentModel && typeof window.CrabbieSiteContentModel.aboutPublicModel === 'function')
     ? window.CrabbieSiteContentModel.aboutPublicModel(page)
     : { heading: null, headingName: '', bio: '', content: '' };
   var fallbackName = visibleCmsValue(page.name);
   var fallbackTitle = visibleCmsValue(page.title);
-  var headingHtml = (model.headingName || fallbackName)
-    ? "Hello, I'm <span class=\"hi\">" + esc(model.headingName || fallbackName) + "</span>."
-    : esc(model.heading && model.heading !== 'About' ? model.heading : (fallbackTitle || 'About'));
+  /* The model already encodes precedence (custom Title, then Name greeting,
+     then generic Title). Only re-derive when no model heading exists. */
+  var headingName = model.headingName || fallbackName;
+  var resolvedHeading = model.heading;
+  if(!resolvedHeading){
+    var customFallbackTitle = (fallbackTitle && fallbackTitle.toLowerCase() !== 'about') ? fallbackTitle : '';
+    resolvedHeading = customFallbackTitle || (headingName ? ("Hello, I'm " + headingName + '.') : (fallbackTitle || 'About'));
+  }
   var title = view.querySelector('.about-hero .page-title');
-  if(title) title.innerHTML = headingHtml;
+  if(title){
+    if(resolvedHeading.indexOf("Hello, I'm ") === 0 && headingName && resolvedHeading === ("Hello, I'm " + headingName + '.'))
+      title.innerHTML = "Hello, I'm <span class=\"hi\">" + esc(headingName) + "</span>.";
+    else title.textContent = resolvedHeading;
+  }
 
   var bio = view.querySelector('.about-hero .bio');
   var bioText = model.bio || visibleCmsValue(page.bio);
@@ -8819,7 +8843,10 @@ function applyCmsAboutPage(page){
   }
 
   var profile = view.querySelector('.profile-inner');
-  if(profile) profile.innerHTML = publicImage(page.profileImage, name) || 'PROFILE IMAGE';
+  /* Alt comes from the normalized About identity — never a bare `name`
+     reference, which would read the window.name global. */
+  var profileAlt = headingName || fallbackTitle || 'Crabbie';
+  if(profile) profile.innerHTML = publicImage(page.profileImage, profileAlt) || 'PROFILE IMAGE';
   if(Array.isArray(page.skills)){
     var cloud = view.querySelector('.chip-cloud');
     if(cloud) cloud.innerHTML = page.skills.map(function(skill){
@@ -8934,33 +8961,53 @@ function applyCmsSiteSettings(settings){
     if(foot){ var footText = cmsText(settings.footer, 'footer'); foot.textContent = footText || ''; foot.style.display = footText ? '' : 'none'; }
   }
 
-  if(settings.contact){
-    if(settings.contact.email){
-      MAIL = settings.contact.email;
-      document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-        a.href = 'mailto:' + settings.contact.email;
-        if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = settings.contact.email;
-      });
-      var emailStrong = document.querySelector('.email-strong');
-      if(emailStrong) emailStrong.textContent = settings.contact.email;
-      if(directEmailLink) directEmailLink.href = 'mailto:' + settings.contact.email;
+  if(settings.contact && typeof settings.contact === 'object'){
+    /* Present-with-empty clears public; a missing key leaves public alone. */
+    var contactHasEmail = Object.prototype.hasOwnProperty.call(settings.contact, 'email');
+    var contactEmail = contactHasEmail ? String(settings.contact.email == null ? '' : settings.contact.email).trim() : null;
+    if(contactHasEmail){
+      MAIL = contactEmail || '';
+      if(contactEmail){
+        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
+          a.href = 'mailto:' + contactEmail;
+          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = contactEmail;
+        });
+        var emailStrong = document.querySelector('.email-strong');
+        if(emailStrong) emailStrong.textContent = contactEmail;
+        if(directEmailLink) directEmailLink.href = 'mailto:' + contactEmail;
+        var footEmailSet = document.getElementById('footEmail');
+        if(footEmailSet){
+          footEmailSet.textContent = contactEmail;
+          footEmailSet.href = 'mailto:' + contactEmail;
+          footEmailSet.removeAttribute('data-goto');
+        }
+      } else {
+        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
+          a.removeAttribute('href');
+          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = '';
+        });
+        var emailStrongClear = document.querySelector('.email-strong');
+        if(emailStrongClear) emailStrongClear.textContent = '';
+        var footEmailClear = document.getElementById('footEmail');
+        if(footEmailClear){ footEmailClear.textContent = ''; footEmailClear.removeAttribute('href'); }
+      }
     }
-    if(settings.contact.twitter){
-      document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-        a.href = settings.contact.twitter;
-      });
-    }
-    /* Footer contact column follows CMS settings after every public refresh. */
-    var footEmail = document.getElementById('footEmail');
-    if(footEmail && settings.contact.email){
-      footEmail.textContent = settings.contact.email;
-      footEmail.href = 'mailto:' + settings.contact.email;
-      footEmail.removeAttribute('data-goto');
-    }
-    var footTwitter = document.getElementById('footTwitter');
-    if(footTwitter && settings.contact.twitter){
-      footTwitter.href = settings.contact.twitter;
-      footTwitter.removeAttribute('data-goto');
+    var contactHasTwitter = Object.prototype.hasOwnProperty.call(settings.contact, 'twitter');
+    var contactTwitter = contactHasTwitter ? String(settings.contact.twitter == null ? '' : settings.contact.twitter).trim() : null;
+    if(contactHasTwitter){
+      if(contactTwitter){
+        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
+          a.href = contactTwitter;
+        });
+        var footTwitterSet = document.getElementById('footTwitter');
+        if(footTwitterSet){ footTwitterSet.href = contactTwitter; footTwitterSet.removeAttribute('data-goto'); }
+      } else {
+        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
+          a.removeAttribute('href');
+        });
+        var footTwitterClear = document.getElementById('footTwitter');
+        if(footTwitterClear){ footTwitterClear.removeAttribute('href'); }
+      }
     }
   }
 
