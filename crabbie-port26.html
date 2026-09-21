@@ -3777,7 +3777,7 @@ function publicBlockBody(block){
       if(!src) return '';
       var alt = typeof item === 'string' ? '' : (item.alt || '');
       var itemCaption = typeof item === 'string' ? '' : visibleCmsValue(item.caption);
-      return '<figure><button type="button" class="gallery-zoom" data-lightbox-src="' + esc(src) + '" data-lightbox-alt="' + esc(alt || itemCaption) + '" aria-label="Open full-size image"><img src="' + esc(src) + '" alt="' + esc(alt) + '" loading="lazy"></button>' + (itemCaption ? '<figcaption>' + richInlineHtml(itemCaption) + '</figcaption>' : '') + '</figure>';
+      return '<figure><button type="button" class="gallery-zoom" data-lightbox-src="' + esc(src) + '" data-lightbox-alt="' + esc(alt || itemCaption) + '" data-lightbox-caption="' + esc(itemCaption) + '" aria-label="Open full-size image"><img src="' + esc(src) + '" alt="' + esc(alt) + '" loading="lazy"></button>' + (itemCaption ? '<figcaption>' + richInlineHtml(itemCaption) + '</figcaption>' : '') + '</figure>';
     }).join('');
     return images ? '<div class="ph-gallery">' + images + '</div>' : '';
   }

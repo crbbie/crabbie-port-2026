@@ -85,10 +85,16 @@ const hasSubstantialProjectContent = (rec) =>
 
 export function auditPortfolioRecord(rec = {}) {
   const imageOnly = rec.cardMode === 'image';
+  /* Image cards render one main image (the cover; legacy rows may still keep it
+     in `thumbnail`), so they must not be asked for a separate thumbnail.
+     Project cards keep the full field set. */
   const required = imageOnly
-    ? ['title', 'slug', 'category', 'thumbnail']
+    ? ['title', 'slug', 'category', 'cover']
     : ['title', 'slug', 'category', 'thumbnail', 'cover', 'description'];
-  const missing = required.filter((k) => isBlank(rec[k]));
+  const missing = required.filter((k) => {
+    if (imageOnly && k === 'cover') return isBlank(rec.cover) && isBlank(rec.thumbnail);
+    return isBlank(rec[k]);
+  });
   const warnings = [];
   if (isBlank(rec.tags)) warnings.push('no-tags');
   if (isBlank(rec.date) && isBlank(rec.year)) warnings.push('no-date');
@@ -98,7 +104,7 @@ export function auditPortfolioRecord(rec = {}) {
     status: 'complete',
     required,
     missing,
-    placeholders: scanFields(rec, imageOnly ? ['title', 'thumbnail'] : ['title', 'description', 'thumbnail', 'cover']),
+    placeholders: scanFields(rec, imageOnly ? ['title', 'cover', 'thumbnail'] : ['title', 'description', 'thumbnail', 'cover']),
     warnings,
     critical: []
   });
