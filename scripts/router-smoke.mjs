@@ -16,7 +16,7 @@ const publicConfig = livePublic
   ? {url: process.env.SUPABASE_URL, key: process.env.SUPABASE_PUBLISHABLE_KEY}
   : {url: 'https://router-test.supabase.co', key: 'sb_publishable_test_fixture'};
 if (livePublic && (!publicConfig.url || !publicConfig.key)) throw new Error('Public Supabase configuration is missing.');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const rewrites = JSON.parse(await readFile(resolve(root, 'vercel.json'), 'utf8')).rewrites;
 const server = createServer(async (request, response) => {
   try {
@@ -29,7 +29,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const file = resolve(root, '.' + path);
-    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg'].includes(extname(file))) {
+    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg', '.woff2'].includes(extname(file))) {
       response.writeHead(404).end();
       return;
     }
@@ -737,6 +737,14 @@ try {
     });
     assert.equal(formMetrics.inputMin, formMetrics.selectMin, 'text inputs and selects share one control height');
     assert.equal(formMetrics.rowAlign, 'start', 'two-column form rows share one alignment rule');
+    const adminFonts = await page.evaluate(() => ({
+      label: getComputedStyle(document.querySelector('#adminContent .adm-field .af-label')).fontFamily,
+      input: getComputedStyle(document.querySelector('#adminContent .adm-field input[type="text"]')).fontFamily,
+      save: getComputedStyle(document.querySelector('#adminTopSave')).fontFamily
+    }));
+    assert.ok(adminFonts.label.includes('iCiel Be Cool'), 'admin field labels use the secondary face (got ' + adminFonts.label + ')');
+    assert.ok(adminFonts.input.includes('DFVN Hogfish'), 'admin inputs use the main face (got ' + adminFonts.input + ')');
+    assert.ok(adminFonts.save.includes('DFVN Hogfish'), 'the save action uses the main face (got ' + adminFonts.save + ')');
     console.log('PASS admin hydration retry reaches ready with one canonical visible Save action (SDK fixture)');
 
     // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
@@ -3236,6 +3244,18 @@ try {
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign), 'center', 'mobile hero copy centers');
     await page.setViewportSize({ width: 1280, height: 800 });
     assert.ok(['left', 'start'].includes(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign)), 'desktop hero copy stays editorial');
+    // Local brand fonts: display / small / body resolve, no Google Fonts.
+    assert.equal(await page.evaluate(() => document.querySelector('link[href*="fonts.googleapis"]') !== null), false, 'no remote font import remains');
+    const loadedFaces = await page.evaluate(() => ['16px "DFVN Starshines"', '12px "iCiel Be Cool"', '16px "DFVN Hogfish"'].map((spec) => document.fonts.check(spec)));
+    assert.deepEqual(loadedFaces, [true, true, true], 'all three local faces load (got ' + JSON.stringify(loadedFaces) + ')');
+    const fontStacks = await page.evaluate(() => ({
+      hero: getComputedStyle(document.querySelector('.hero h1')).fontFamily,
+      body: getComputedStyle(document.body).fontFamily,
+      badge: getComputedStyle(document.querySelector('.hero-badge')).fontFamily
+    }));
+    assert.ok(fontStacks.hero.includes('DFVN Starshines'), 'headings use the display face (got ' + fontStacks.hero + ')');
+    assert.ok(fontStacks.body.includes('DFVN Hogfish'), 'body uses the main face (got ' + fontStacks.body + ')');
+    assert.ok(fontStacks.badge.includes('iCiel Be Cool'), 'badges use the secondary face (got ' + fontStacks.badge + ')');
 
     // ---- Pass 6: Featured Home membership, defensive caps, and Drive CTA ----
     await page.evaluate(() => {
