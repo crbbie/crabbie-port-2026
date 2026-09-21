@@ -6,6 +6,7 @@ import {
   applyMediaDeletionResult,
   mediaReferenceMatches,
   findMediaUsage,
+  findAuthoritativeMediaReferences,
   mediaUsageMessage,
   isMissingStorageObject,
   buildMediaAuditEntry,
@@ -160,4 +161,67 @@ assert.equal(integrity.pendingCleanup.find((entry) => entry.id === 'pending').er
 assert.deepEqual(auditMediaIntegrity({}), { missingObjects: [], orphanObjects: [], pendingCleanup: [] }, 'the diagnostic is safe to run on empty input');
 assert.deepEqual(auditMediaIntegrity({ mediaRows: [], storagePaths: ['uploads/x.png'] }).orphanObjects.map((entry) => entry.storagePath), ['uploads/x.png']);
 
+// P0-02: externalLinks and link references block deletion.
+{
+  const linked = findMediaUsage(media, {
+    saved: {
+      portfolio: [{ id: 'p', slug: 'p', title: 'P', thumbnail: '', cover: '', blocks: [], link: '', externalLinks: [{ title: 'Ref', url: media.url }] }],
+      assets: [], commissions: [], pages: {}, settings: {}
+    },
+    draft: null
+  });
+  assert.equal(linked.length, 1, 'a portfolio externalLinks reference blocks deletion');
+  assert.match(linked[0].field, /externalLinks/, 'the usage names the externalLinks field');
+}
+{
+  const pageLinked = findMediaUsage(media, {
+    saved: {
+      portfolio: [], assets: [], commissions: [],
+      pages: { about: { title: 'About', profileImage: '', links: [{ label: 'IG', url: media.storagePath }] } },
+      settings: {}
+    },
+    draft: null
+  });
+  assert.equal(pageLinked.length, 1, 'a page links reference blocks deletion');
+}
+{
+  const driveLinked = findMediaUsage(media, {
+    saved: {
+      portfolio: [], commissions: [], pages: {}, settings: {},
+      assets: [{ id: 'pack', slug: 'pack', title: 'Pack', thumbnail: '', downloadUrl: '', media: '', driveUrl: media.url }]
+    },
+    draft: null
+  });
+  assert.equal(driveLinked.length, 1, 'an asset driveUrl reference blocks deletion');
+}
+
 console.log('Admin media safety core tests passed.');
+
+// P0-02 cross-session race: Session A snapshot is stale, Session B saved a new
+// reference. The authoritative bundle (fresh server read) must still block.
+{
+  const staleUsage = findMediaUsage(media, {
+    saved: { portfolio: [], assets: [], commissions: [], pages: {}, settings: {} },
+    draft: null
+  });
+  assert.deepEqual(staleUsage, [], 'the stale session snapshot sees no reference');
+  const authoritative = {
+    portfolio_projects: [{ thumbnail_path: media.url, cover_path: null, content: {} }],
+    free_assets: [],
+    commission_services: [],
+    cms_pages: [],
+    site_settings: []
+  };
+  const fresh = findAuthoritativeMediaReferences(media, authoritative);
+  assert.equal(fresh.length >= 1, true, 'the fresh authoritative check blocks the delete');
+  assert.match(mediaUsageMessage(fresh), /cannot be deleted/i);
+  const unused = findAuthoritativeMediaReferences(media, {
+    portfolio_projects: [], free_assets: [], commission_services: [], cms_pages: [], site_settings: []
+  });
+  assert.deepEqual(unused, [], 'a truly unused file still deletes');
+  const nestedFresh = findAuthoritativeMediaReferences(media, {
+    portfolio_projects: [{ content: { blocks: [{ url: media.storagePath }] } }]
+  });
+  assert.equal(nestedFresh.length, 1, 'jsonb-nested references are detected');
+}
+console.log('Media authoritative cross-session regression tests passed.');

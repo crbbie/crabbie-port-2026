@@ -44,6 +44,18 @@ export function mediaTypeRules(type) {
   return TYPE_RULES[normalizeMediaType(type)] || null;
 }
 
+/** Server-side `or()` predicates for one media type filter. Percent signs stay
+ * raw: the Supabase query builder URL-encodes them, so a pre-encoded `%25`
+ * would reach Postgres as a literal and the filename-extension fallback would
+ * never match. No DOM, no Supabase access. */
+export function mediaTypeServerClauses(type) {
+  const rules = mediaTypeRules(type);
+  if (!rules) return [];
+  const clauses = rules.prefixes.map((prefix) => 'mime_type.like.' + prefix + '%');
+  rules.extensions.forEach((extension) => clauses.push('original_name.ilike.' + '%.' + extension));
+  return clauses;
+}
+
 function cleanDate(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -185,7 +197,7 @@ export function mediaTargetAccept(path, blockType = '') {
   if (/^portfolio\.[^.]+\.(thumbnail|cover)$/.test(target)) return 'image/*';
   if (/^(assets|commissions)\.[^.]+\.thumbnail$/.test(target)) return 'image/*';
   if (target === 'pages.about.profileImage') return 'image/*';
-  if (['settings.branding.logo', 'settings.branding.heroMedia', 'settings.seo.socialImage'].includes(target)) return 'image/*';
+  if (['settings.branding.logo', 'settings.branding.heroMedia', 'settings.seo.socialImage', 'settings.theme.backgroundImage'].includes(target)) return 'image/*';
   return null;
 }
 

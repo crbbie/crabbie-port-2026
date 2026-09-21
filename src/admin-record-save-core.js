@@ -54,11 +54,26 @@ export function normalizeSlug(value) {
   return value == null ? '' : String(value).trim();
 }
 
+export function slugFromTitle(value) {
+  const source = value == null ? '' : String(value).trim();
+  if (!source) return '';
+  return source
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (char) => char === 'Đ' ? 'D' : 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
 function requireSlug(scope, record) {
-  const slug = normalizeSlug(record && record.slug);
-  if (slug) return slug;
-  if (isNewAdminRecord(record)) throw new Error('Enter a slug before saving this new record.');
-  throw new Error('This record needs a slug before it can be saved.');
+  const authored = normalizeSlug(record && record.slug);
+  if (authored) return authored;
+  const generated = slugFromTitle(record && record.title);
+  if (generated) return generated;
+  if (isNewAdminRecord(record)) throw new Error('Enter a title so a slug can be generated before saving this new record.');
+  throw new Error('This record needs a title or slug before it can be saved.');
 }
 
 function pageSlugForScope(scope) {
@@ -139,13 +154,22 @@ export function buildAdminWritePlan(scope, record, options = {}) {
   return plan;
 }
 
-/** Ordering writes: one bounded, order-only payload per saved row. */
+/**
+ * Ordering writes: one bounded, order-only payload per saved row.
+ * Each row carries the hydrated updated_at baseline so the writer can guard
+ * the UPDATE (eq updated_at). A stale reorder then changes zero rows and is
+ * reported as a conflict instead of silently bumping the version.
+ */
 export function planCategoryOrderWrites(kind, list) {
   if (!Array.isArray(list)) return [];
   const rows = [];
   list.forEach((record, index) => {
     const dbId = recordDbId(record);
-    if (dbId) rows.push({ id: dbId, sort_order: index });
+    if (dbId) rows.push({
+      id: dbId,
+      sort_order: index,
+      originalUpdatedAt: typeof record.originalUpdatedAt === 'string' && record.originalUpdatedAt ? record.originalUpdatedAt : null
+    });
   });
   return rows;
 }
@@ -155,7 +179,11 @@ export function planRecordOrderWrites(list) {
   const rows = [];
   list.forEach((record, index) => {
     const dbId = recordDbId(record);
-    if (dbId) rows.push({ id: dbId, sort_order: index });
+    if (dbId) rows.push({
+      id: dbId,
+      sort_order: index,
+      originalUpdatedAt: typeof record.originalUpdatedAt === 'string' && record.originalUpdatedAt ? record.originalUpdatedAt : null
+    });
   });
   return rows;
 }
@@ -215,7 +243,16 @@ export function classifyAdminWriteError(error) {
     return { code: 'missing_reference', message: 'A related record is missing, so this change cannot be saved.', detail };
   }
   if (code === '23502' || /null value in column/i.test(detail)) {
-    return { code: 'missing_field', message: 'A required field is empty, so this change cannot be saved.', detail };
+    const match = detail.match(/null value in column ["']?([^"'\s]+)["']?/i);
+    const field = match ? match[1] : null;
+    return {
+      code: 'missing_field',
+      field,
+      message: field
+        ? `Required field "${field}" is empty. Fill it in and save again.`
+        : 'A required field is empty. Fill the missing field and save again.',
+      detail
+    };
   }
   if (code === '23514' || /check constraint/i.test(detail)) {
     return { code: 'invalid_value', message: 'One of the values is not allowed by the database.', detail };
@@ -234,6 +271,7 @@ export function adminWriteError(error) {
   const wrapped = new Error(info.message);
   wrapped.code = info.code;
   wrapped.detail = info.detail;
+  if (info.field) wrapped.field = info.field;
   return wrapped;
 }
 
@@ -252,6 +290,31 @@ export function missingRecordError(scope) {
 }
 
 /** A guarded update that matched no row means another session changed it first. */
+export function orderPartialError(scope, confirmed, failedId, cause) {
+  const error = concurrencyConflictError(scope);
+  error.partial = true;
+  error.confirmed = Array.isArray(confirmed) ? confirmed.slice() : [];
+  error.confirmedIds = error.confirmed
+    .map((row) => row && row.id)
+    .filter((id) => typeof id === 'string' && id);
+  if (failedId) error.failedId = failedId;
+  if (cause) error.causeDetail = String((cause && cause.message) || cause);
+  return error;
+}
+
+/** Splits a planned order-write list around confirmed {id} rows for recovery. */
+export function splitOrderPartialResult(plannedRows, confirmed) {
+  const done = new Set(
+    (Array.isArray(confirmed) ? confirmed : [])
+      .map((row) => row && row.id)
+      .filter((id) => typeof id === 'string' && id)
+  );
+  const list = Array.isArray(plannedRows) ? plannedRows : [];
+  return {
+    confirmedIds: Array.from(done),
+    pending: list.filter((row) => row && !done.has(row.id)),
+  };
+}
 export function isConcurrencyConflictResponse(response) {
   if (!response || response.error) return false;
   const data = response.data;
@@ -263,8 +326,10 @@ export function isConcurrencyConflictResponse(response) {
 export function applySuccessfulSave(record, row) {
   if (!record || !row) return record;
   if (typeof row.id === 'string' && row.id) record.dbId = row.id;
-  const slug = normalizeSlug(row.slug);
-  if (slug) record.slug = slug;
+  // Do not copy row.slug back into the live draft. The user can edit the title
+  // (and therefore the auto-generated slug) while a save is in flight; the
+  // confirmed version-N slug belongs in ADMIN_DATA via reconcileSavedTarget,
+  // while the live draft must keep its newer version N+1 slug.
   if (typeof row.updated_at === 'string' && row.updated_at) record.originalUpdatedAt = row.updated_at;
   return record;
 }

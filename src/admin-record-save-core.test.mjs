@@ -5,6 +5,7 @@ import {
   isNewAdminRecord,
   buildAdminWritePlan,
   planCategoryOrderWrites,
+  planRecordOrderWrites,
   planNavigationOrderWrites,
   planSettingWrites,
   applySettingSaveMeta,
@@ -12,10 +13,13 @@ import {
   classifyAdminWriteError,
   adminWriteError,
   concurrencyConflictError,
+  orderPartialError,
+  splitOrderPartialResult,
   missingRecordError,
   isConcurrencyConflictResponse,
   applySuccessfulSave,
-  normalizeSlug
+  normalizeSlug,
+  slugFromTitle
 } from './admin-record-save-core.js';
 
 // --- scope -> table mapping -------------------------------------------------
@@ -36,6 +40,9 @@ assert.equal(isNewAdminRecord({ id: 'client-1', dbId: null, slug: '' }), true);
 assert.equal(isNewAdminRecord({ id: 'color-fiesta', dbId: 'uuid-1' }), false);
 assert.equal(normalizeSlug('  my-slug  '), 'my-slug');
 assert.equal(normalizeSlug(null), '');
+assert.equal(slugFromTitle('  Ủa là ao  '), 'ua-la-ao');
+assert.equal(slugFromTitle('Project Miku tettt'), 'project-miku-tettt');
+assert.equal(slugFromTitle('Đẹp quá!!!'), 'dep-qua');
 
 // --- Test 4/5: INSERT for new records, UPDATE by stable DB ID for existing --
 const newProject = buildAdminWritePlan('portfolio', { id: 'client-1', dbId: null, slug: 'brand-new', title: 'New', category: 'illustration', tags: [] }, { sortOrder: 3 });
@@ -67,10 +74,11 @@ assert.equal(existingForm.table, 'commission_forms');
 assert.equal(existingForm.mode, 'update');
 assert.equal(existingForm.originalUpdatedAt, null, 'a missing baseline stays null rather than invented');
 
-// --- Test 3: a new record must never reuse another record's slug -----------
-assert.throws(() => buildAdminWritePlan('portfolio', { id: 'client-2', dbId: null, slug: '' }, {}), /slug/i);
-assert.throws(() => buildAdminWritePlan('assets', { id: 'client-3', dbId: null, slug: '   ' }, {}), /slug/i);
-assert.throws(() => buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', slug: '' }, {}), /slug/i, 'an existing record must keep a slug');
+// --- Test 3: empty slugs are deterministically generated from the title ----
+assert.equal(buildAdminWritePlan('portfolio', { id: 'client-2', dbId: null, slug: '', title: 'Ủa là ao' }, {}).payload.slug, 'ua-la-ao');
+assert.equal(buildAdminWritePlan('assets', { id: 'client-3', dbId: null, slug: '   ', title: 'Cute Brush Pack' }, {}).payload.slug, 'cute-brush-pack');
+assert.equal(buildAdminWritePlan('portfolio', { id: 'color-fiesta', dbId: 'uuid-9', slug: '', title: 'Color Fiesta' }, {}).payload.slug, 'color-fiesta');
+assert.throws(() => buildAdminWritePlan('portfolio', { id: 'client-empty', dbId: null, slug: '', title: '' }, {}), /title|slug/i);
 
 // --- Test 2: saving one request touches only that request ------------------
 const requestPlan = buildAdminWritePlan('requests', { id: 'req-uuid', dbId: 'req-uuid', originalUpdatedAt: '2026-02-02T00:00:00Z', status: 'Completed', notes: 'Done' });
@@ -90,14 +98,20 @@ const categories = [
   { id: 'two', dbId: null, slug: 'two', title: 'Two', published: false },
   { id: 'three', dbId: 'uuid-c', slug: 'three', title: 'Three', published: true }
 ];
-assert.deepEqual(planCategoryOrderWrites('portfolio', categories), [{ id: 'uuid-a', sort_order: 0 }, { id: 'uuid-c', sort_order: 2 }], 'only saved rows, real list positions, order-only payload');
+assert.deepEqual(planCategoryOrderWrites('portfolio', categories), [{ id: 'uuid-a', sort_order: 0, originalUpdatedAt: null }, { id: 'uuid-c', sort_order: 2, originalUpdatedAt: null }], 'only saved rows, real list positions, order-only payload');
 
 const navigation = [
   { id: 'uuid-1', dbId: 'uuid-1', title: 'A', url: '#a' },
   { id: 'local-2', dbId: null, title: 'B', url: '#b' },
   { id: 'uuid-3', dbId: 'uuid-3', title: 'C', url: '#c' }
 ];
-assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_order: 0 }, { id: 'uuid-3', sort_order: 2 }]);
+assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_order: 0, originalUpdatedAt: null }, { id: 'uuid-3', sort_order: 2, originalUpdatedAt: null }]);
+// P0-01: order rows carry the hydrated baseline so the writer can guard them.
+assert.deepEqual(
+  planNavigationOrderWrites([{ id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }]),
+  [{ id: 'uuid-a', sort_order: 0, originalUpdatedAt: '2026-01-01T00:00:00Z' }],
+  'order rows carry the stale-write baseline'
+);
 assert.deepEqual(planCategoryOrderWrites('asset', []), []);
 assert.deepEqual(planNavigationOrderWrites(null), []);
 
@@ -134,7 +148,10 @@ assert.match(duplicate.detail, /unique constraint/);
 assert.equal(classifyAdminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "cms_categories_kind_slug_key"' }).code, 'duplicate_slug');
 assert.equal(classifyAdminWriteError({ message: 'row-level security policy violated' }).code, 'permission_denied');
 assert.equal(classifyAdminWriteError({ code: '42501', message: 'permission denied' }).code, 'permission_denied');
-assert.equal(classifyAdminWriteError({ code: '23502', message: 'null value in column "slug"' }).code, 'missing_field');
+const missingField = classifyAdminWriteError({ code: '23502', message: 'null value in column "slug" violates not-null constraint' });
+assert.equal(missingField.code, 'missing_field');
+assert.equal(missingField.field, 'slug');
+assert.match(missingField.message, /slug/i);
 assert.equal(classifyAdminWriteError({ message: 'fetch failed' }).code, 'unknown');
 assert.match(classifyAdminWriteError({ message: 'fetch failed' }).message, /fetch failed/);
 const wrapped = adminWriteError({ code: '23505', message: 'duplicate key value violates unique constraint "x"' });
@@ -162,6 +179,10 @@ const inserted = { id: 'client-1', dbId: null, slug: 'brand-new' };
 applySuccessfulSave(inserted, { id: 'uuid-new', slug: 'brand-new', updated_at: '2026-04-04T00:00:00Z' });
 assert.equal(inserted.dbId, 'uuid-new', 'a newly inserted record becomes an existing record');
 assert.equal(inserted.originalUpdatedAt, '2026-04-04T00:00:00Z');
+const newerDraft = { id:'client-2', dbId:'uuid-newer', originalUpdatedAt:'2026-01-01T00:00:00Z', slug:'edited-mid-save' };
+applySuccessfulSave(newerDraft, { id:'uuid-newer', slug:'mid-save-base', updated_at:'2026-04-05T00:00:00Z' });
+assert.equal(newerDraft.slug, 'edited-mid-save', 'a confirmed version-N response must not overwrite a newer live draft slug');
+assert.equal(newerDraft.originalUpdatedAt, '2026-04-05T00:00:00Z');
 const savedCategory = { id: 'chibi', dbId: 'uuid-category', originalUpdatedAt: '2026-01-01T00:00:00Z', slug: 'chibi' };
 applySuccessfulSave(savedCategory, { id: 'uuid-category', slug: 'chibi', updated_at: '2026-05-05T00:00:00Z' });
 assert.equal(savedCategory.originalUpdatedAt, '2026-05-05T00:00:00Z', 'a successful category save advances its baseline');
@@ -179,6 +200,36 @@ const categoryInsert = buildAdminWritePlan('assetCategories', { id: 'client-9', 
 assert.equal(categoryInsert.mode, 'insert');
 assert.equal(categoryInsert.payload.kind, 'asset');
 assert.equal(categoryInsert.payload.sort_order, 2);
-assert.throws(() => buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '' }, {}), /slug/i);
+assert.equal(buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '', title: 'Cute Stuff' }, {}).payload.slug, 'cute-stuff');
 
 console.log('Admin record save core tests passed.');
+
+// P0-01 / NEW-P1-02 repro: reorder B,A — B persists, A conflicts.
+{
+  const planned = planRecordOrderWrites([
+    { id: 'b', dbId: 'uuid-b', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }
+  ]);
+  assert.equal(planned.length, 2, 'both rows are planned');
+  // Simulate adapter loop: first row confirmed, second guarded update hits zero rows.
+  const confirmed = [{ id: 'uuid-b', updated_at: '2026-02-02T00:00:00Z' }];
+  const err = orderPartialError('portfolio', confirmed, 'uuid-a');
+  assert.equal(err.code, 'stale_save', 'stale-write protection is preserved');
+  assert.equal(err.partial, true, 'partial outcome is explicit');
+  assert.deepEqual(err.confirmedIds, ['uuid-b'], 'the persisted row is identified');
+  assert.equal(err.failedId, 'uuid-a', 'the conflicting row is identified');
+  const split = splitOrderPartialResult(planned, err.confirmed);
+  assert.deepEqual(split.confirmedIds, ['uuid-b']);
+  assert.deepEqual(split.pending.map((row) => row.id), ['uuid-a'], 'retry path knows exactly what is left');
+  // Local baseline/state must advance for the confirmed row only.
+  const local = [
+    { id: 'b', dbId: 'uuid-b', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }
+  ];
+  const { advanceBaselinesFromOrder } = await import('./admin-persisted-baseline-core.js');
+  const advanced = advanceBaselinesFromOrder(local, err.confirmed);
+  assert.equal(advanced, 1, 'only the confirmed row advances');
+  assert.equal(local[0].originalUpdatedAt, '2026-02-02T00:00:00Z', 'confirmed baseline reconciles');
+  assert.equal(local[1].originalUpdatedAt, '2026-01-01T00:00:00Z', 'conflicted row keeps its stale baseline for retry');
+}
+console.log('Reorder partial-failure regression tests passed.');

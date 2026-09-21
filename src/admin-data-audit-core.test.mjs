@@ -21,6 +21,8 @@ import {
   // conservative: ordinary brackets, mixed case, markdown links, punctuation
   assert.deepEqual(findPlaceholders('see [appendix] and [Info] for details'), []);
   assert.deepEqual(findPlaceholders('[README](https://example.com) guide'), []);
+  assert.deepEqual(findPlaceholders('See [my process](https://example.com/process) for details'), [], 'an ordinary markdown link is never a placeholder');
+  assert.deepEqual(findPlaceholders('[my process](https://example.com) [TODO]'), ['[TODO]'], 'a real placeholder beside a link is still found');
   assert.deepEqual(findPlaceholders('A [2024] release!'), []);
   assert.deepEqual(findPlaceholders('Just a normal sentence.'), []);
 }
@@ -46,6 +48,38 @@ import {
   const b = auditPortfolioRecord(draft);
   assert.equal(b.status, 'complete');
   assert.equal(b.missing.length, 0);
+
+  const imageCard = auditPortfolioRecord({
+    id:'p3', slug:'single-illus', title:'Single illustration', category:'illustration',
+    cardMode:'image', thumbnail:'image.png', cover:'', description:'', tags:['illus'], year:'2026', blocks:[]
+  });
+  assert.equal(imageCard.status, 'complete', 'a legacy thumbnail-only image card is complete');
+  assert.deepEqual(imageCard.required, ['title', 'slug', 'category', 'cover'], 'image cards require one main image, not a separate thumbnail');
+  assert.equal(imageCard.missing.length, 0, 'a legacy thumbnail image card is not missing its main image');
+  assert.ok(!imageCard.warnings.includes('no-content-blocks'));
+
+  // Image card with only the canonical cover set: no thumbnail warning.
+  const coverCard = auditPortfolioRecord({
+    id:'p4', slug:'cover-illus', title:'Cover illustration', category:'illustration',
+    cardMode:'image', thumbnail:'', cover:'cover.png', description:'', tags:['illus'], year:'2026', blocks:[]
+  });
+  assert.equal(coverCard.status, 'complete', 'a cover-only image card is complete');
+  assert.equal(coverCard.missing.includes('thumbnail'), false, 'image cards never report a missing thumbnail');
+  assert.equal(coverCard.missing.length, 0);
+
+  // Image card with no image at all: the main image is genuinely required.
+  const emptyImageCard = auditPortfolioRecord({
+    id:'p5', slug:'empty-illus', title:'Empty illustration', category:'illustration',
+    cardMode:'image', thumbnail:'', cover:'', description:'', tags:[], year:'', blocks:[]
+  });
+  assert.equal(emptyImageCard.missing.includes('cover'), true, 'an image card without any image is incomplete');
+
+  // A project card still requires its thumbnail.
+  const projectNoThumb = auditPortfolioRecord({
+    id:'p6', slug:'proj', title:'Project', category:'illustration',
+    cardMode:'project', thumbnail:'', cover:'c.png', description:'d', tags:['x'], year:'2026', blocks:[{ type:'text' }]
+  });
+  assert.equal(projectNoThumb.missing.includes('thumbnail'), true, 'project cards still validate the thumbnail');
 }
 
 // 3. Free asset: missing download → high-priority when published
@@ -61,6 +95,25 @@ import {
   const cleared = auditAssetRecord(Object.assign({}, noFile, { media: 'stale.zip', downloadUrl: '' }));
   assert.ok(cleared.missing.includes('media'));
   assert.ok(cleared.critical.includes('published-without-file'));
+
+  const driveOnly = auditAssetRecord(Object.assign({}, noFile, {
+    thumbnail: 't.png',
+    downloadUrl: '',
+    showDirectDownload: false,
+    driveUrl: 'https://drive.google.com/file/d/example/view',
+    showDriveDownload: true
+  }));
+  assert.ok(!driveOnly.missing.includes('media'), 'an enabled Google Drive button satisfies the public download requirement');
+  assert.ok(!driveOnly.critical.includes('published-without-file'));
+
+  const hiddenDownloads = auditAssetRecord(Object.assign({}, noFile, {
+    thumbnail: 't.png',
+    downloadUrl: 'https://x/f.zip',
+    showDirectDownload: false,
+    driveUrl: 'https://drive.google.com/file/d/example/view',
+    showDriveDownload: false
+  }));
+  assert.ok(hiddenDownloads.missing.includes('media'), 'stored URLs do not count when both public download buttons are disabled');
 
   // placeholder metadata fields are detected
   const withPlaceholders = auditAssetRecord(Object.assign({}, noFile, { thumbnail: 't.png', media: 'https://x/f.zip', downloadUrl: 'https://x/f.zip', license: '[LICENSE CONTENT FROM CMS]', credit: '[CREDIT REQUIREMENT]', version: '[VERSION]', updateNote: '[UPDATE NOTE]', dateAdded: '[DATE]' }));

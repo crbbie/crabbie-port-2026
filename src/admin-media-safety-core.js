@@ -24,7 +24,8 @@ export const PORTFOLIO_MEDIA_FIELDS = Object.freeze([
 export const ASSET_MEDIA_FIELDS = Object.freeze([
   { field: 'thumbnail', label: 'Thumbnail' },
   { field: 'downloadUrl', label: 'Download file' },
-  { field: 'media', label: 'Download file' }
+  { field: 'media', label: 'Download file' },
+  { field: 'driveUrl', label: 'Drive file' }
 ]);
 
 export const COMMISSION_MEDIA_FIELDS = Object.freeze([
@@ -39,7 +40,8 @@ export const SETTINGS_MEDIA_FIELDS = Object.freeze([
   { path: 'branding.logo', label: 'Branding logo' },
   { path: 'branding.heroMedia', label: 'Hero media' },
   { path: 'music.url', label: 'Music URL' },
-  { path: 'seo.socialImage', label: 'Social image' }
+  { path: 'seo.socialImage', label: 'Social image' },
+  { path: 'theme.backgroundImage', label: 'Website background' }
 ]);
 
 export function positiveLabel(count) {
@@ -111,12 +113,37 @@ function collectFieldUsage(entityType, entityId, record, entityName, fields, med
   });
 }
 
+function collectLinkArrayUsage(entityType, entityId, entityName, links, media, usages) {
+  if (!Array.isArray(links)) return;
+  links.forEach((link, index) => {
+    if (!link || typeof link !== 'object') return;
+    walkStrings(link, (value, path) => {
+      if (!mediaReferenceMatches(value, media)) return;
+      usages.push({
+        entityType,
+        entityId,
+        field: 'externalLinks[' + index + '].' + path,
+        label: entityName + ' · External link ' + (index + 1) + ' ' + path
+      });
+    });
+  });
+}
+
 function collectListUsage(list, entityType, fields, media, usages) {
   if (!Array.isArray(list)) return;
   list.forEach((record, index) => {
     const name = recordName(record, index);
     collectFieldUsage(entityType, recordKey(record, index), record, name, fields, media, usages);
-    if (entityType === 'portfolio') collectBlockUsage(entityType, recordKey(record, index), name, record && record.blocks, media, usages);
+    if (!record || typeof record !== 'object') return;
+    // Authoritative public URL references beyond fixed thumbnail/download
+    // fields: portfolio externalLinks, portfolio link, asset driveUrl is
+    // covered by fields above, page/about links arrays.
+    if (Array.isArray(record.externalLinks)) collectLinkArrayUsage(entityType, recordKey(record, index), name, record.externalLinks, media, usages);
+    if (Array.isArray(record.links)) collectLinkArrayUsage(entityType, recordKey(record, index), name, record.links, media, usages);
+    if (typeof record.link === 'string' && mediaReferenceMatches(record.link, media)) {
+      usages.push({ entityType, entityId: recordKey(record, index), field: 'link', label: name + ' · Link' });
+    }
+    if (entityType === 'portfolio') collectBlockUsage(entityType, recordKey(record, index), name, record.blocks, media, usages);
   });
 }
 
@@ -145,7 +172,12 @@ export function findMediaUsage(media, adminState) {
     collectListUsage(source.commissions, 'commissions', COMMISSION_MEDIA_FIELDS, media, usages);
     if (source.pages && typeof source.pages === 'object') {
       Object.keys(source.pages).forEach((pageKey) => {
-        collectFieldUsage('pages', pageKey, source.pages[pageKey], 'Page · ' + pageKey, PAGE_MEDIA_FIELDS, media, usages);
+        const page = source.pages[pageKey];
+        collectFieldUsage('pages', pageKey, page, 'Page · ' + pageKey, PAGE_MEDIA_FIELDS, media, usages);
+        if (page && typeof page === 'object') {
+          if (Array.isArray(page.links)) collectLinkArrayUsage('pages', pageKey, 'Page · ' + pageKey, page.links, media, usages);
+          if (Array.isArray(page.externalLinks)) collectLinkArrayUsage('pages', pageKey, 'Page · ' + pageKey, page.externalLinks, media, usages);
+        }
       });
     }
     collectSettingsUsage(source.settings, media, usages);
@@ -164,6 +196,38 @@ export function mediaUsageMessage(usages) {
   const list = Array.isArray(usages) ? usages : [];
   if (!list.length) return '';
   return 'This file is still used in ' + positiveLabel(list.length) + ' and cannot be deleted.';
+}
+
+/**
+ * Authoritative cross-session guard (P0-02).
+ * `bundle` is freshly fetched server state near delete time (raw DB rows /
+ * values, not the session's stale snapshot). Any string that contains the
+ * media storage path counts as a live reference — jsonb content included.
+ * Returns matched reference descriptors (empty = unused). Pure, no I/O.
+ */
+export function findAuthoritativeMediaReferences(media, bundle) {
+  const path = media && typeof media.storagePath === 'string' ? media.storagePath.trim() : '';
+  const url = media && typeof media.url === 'string' ? media.url.trim() : '';
+  if (!path && !url) return [];
+  const hits = [];
+  function scan(value, label) {
+    if (typeof value === 'string') {
+      if ((path && value.includes(path)) || (url && value === url)) {
+        hits.push({ entityType: 'authoritative', entityId: label, field: label, label: 'Live database reference · ' + label });
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => scan(entry, label + '[' + index + ']'));
+      return;
+    }
+    if (value && typeof value === 'object') {
+      Object.keys(value).forEach((key) => scan(value[key], label + '.' + key));
+    }
+  }
+  const sources = bundle && typeof bundle === 'object' ? bundle : {};
+  Object.keys(sources).forEach((key) => scan(sources[key], key));
+  return hits;
 }
 
 /* -------------------------------------------------------------------------

@@ -4,7 +4,8 @@ import {
   formatCommissionRequestPayload,
   formatRequestRowForAdmin,
   mapAdminStatusToDbStatus,
-  isConfirmedCommissionSubmission
+  isConfirmedCommissionSubmission,
+  toPublicRequestError
 } from './commission-requests-core.js';
 
 export async function submitCommissionRequest(formData = {}) {
@@ -16,7 +17,10 @@ export async function submitCommissionRequest(formData = {}) {
 
   if (!check.valid) {
     const firstMsg = Object.values(check.errors)[0] || 'Please complete the required fields.';
-    throw new Error(firstMsg);
+    const validationError = new Error(firstMsg);
+    validationError.code = 'validation';
+    validationError.userError = true;
+    throw validationError;
   }
 
   if (!isConfigured || !supabase) {
@@ -64,7 +68,15 @@ export async function submitCommissionRequest(formData = {}) {
     .insert(payload);
 
   if (error) {
-    throw new Error(`Failed to submit request: ${error.message}`);
+    const internal = new Error('Commission request insert failed.');
+    internal.detail = String(error.message || error);
+    internal.code = String(error.code || 'database_error');
+    const pub = toPublicRequestError(internal);
+    const friendly = new Error(pub.message);
+    friendly.userError = false;
+    friendly.detail = pub.detail;
+    friendly.code = 'submit_failed';
+    throw friendly;
   }
 
   return { success: true };
@@ -122,6 +134,7 @@ if (typeof window !== 'undefined') {
     formatCommissionRequestPayload,
     formatRequestRowForAdmin,
     mapAdminStatusToDbStatus,
-    isConfirmedCommissionSubmission
+    isConfirmedCommissionSubmission,
+    toPublicRequestError
   };
 }

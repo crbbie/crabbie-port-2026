@@ -33,7 +33,8 @@ import {
   dropMessage,
   validDimensions,
   mediaLabelPayload,
-  keyboardSaveDecision
+  keyboardSaveDecision,
+  mediaTypeServerClauses
 } from './admin-media-manager-core.js';
 
 // --- Test 1 core: view switch never changes the dataset ---------------------
@@ -146,6 +147,7 @@ assert.equal(mediaTargetAccept('portfolio.p.blocks.4.before', 'before-after'), '
 assert.equal(mediaTargetAccept('settings.music.url'), 'audio/*');
 assert.equal(mediaTargetAccept('assets.asset.downloadUrl'), '*');
 assert.equal(mediaTargetAccept('settings.branding.heroMedia'), 'image/*');
+assert.equal(mediaTargetAccept('settings.theme.backgroundImage'), 'image/*');
 assert.equal(mediaTargetAccept('portfolio.p.blocks.5.url', 'youtube'), null);
 assert.equal(mediaTargetAccept('settings.unknown'), null);
 assert.equal(mediaItemMatchesTarget(mediaRecord('art.png', 'image/png'), 'image/*'), true);
@@ -208,6 +210,28 @@ assert.equal(keyboardSaveDecision({ key: 's', ctrlKey: true, loadState: 'ready',
 assert.equal(keyboardSaveDecision({ key: 's', ctrlKey: true, loadState: 'ready', dirty: true, savedTargets: [] }).reason, 'no-target');
 assert.equal(keyboardSaveDecision({ key: 's', ctrlKey: true, loadState: 'ready', dirty: true, savedTargets: ['portfolio'], hasOpenModal: true }).reason, 'modal-open');
 assert.equal(keyboardSaveDecision({ key: 's', ctrlKey: true, loadState: 'ready', dirty: true, savedTargets: ['portfolio'], busy: true }).reason, 'busy');
+
+// Server-side type predicates: percent signs stay raw because the Supabase
+// builder encodes them; a pre-encoded %25 would reach Postgres as a literal.
+const imageClauses = mediaTypeServerClauses('image');
+assert.ok(imageClauses.includes('mime_type.like.image/%'), 'MIME prefixes keep a raw wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.png'), 'PNG falls back to a raw ilike wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.jpg'), 'JPG falls back to a raw ilike wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.jpeg'), 'JPEG falls back to a raw ilike wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.webp'), 'WEBP falls back to a raw ilike wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.gif'), 'GIF falls back to a raw ilike wildcard');
+assert.ok(imageClauses.includes('original_name.ilike.%.svg'), 'SVG falls back to a raw ilike wildcard');
+assert.equal(imageClauses.some((clause) => clause.includes('%25')), false, 'no clause may carry a double-encoded wildcard');
+const documentClauses = mediaTypeServerClauses('document');
+assert.ok(documentClauses.includes('original_name.ilike.%.pdf'), 'PDF falls back to a raw ilike wildcard');
+assert.ok(documentClauses.includes('original_name.ilike.%.zip'), 'ZIP falls back to a raw ilike wildcard');
+const audioClauses = mediaTypeServerClauses('audio');
+assert.ok(audioClauses.includes('mime_type.like.audio/%'), 'audio MIME prefix keeps a raw wildcard');
+assert.ok(audioClauses.includes('original_name.ilike.%.mp3'), 'MP3 falls back to a raw ilike wildcard');
+const videoClauses = mediaTypeServerClauses('video');
+assert.ok(videoClauses.includes('original_name.ilike.%.mp4'), 'MP4 falls back to a raw ilike wildcard');
+assert.deepEqual(mediaTypeServerClauses('all'), [], 'no filter means no predicate');
+assert.deepEqual(mediaTypeServerClauses('bogus'), [], 'an unknown filter means no predicate');
 
 console.log('Admin media manager core tests passed.');
 

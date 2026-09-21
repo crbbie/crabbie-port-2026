@@ -84,28 +84,42 @@ const hasSubstantialProjectContent = (rec) =>
   !isBlank(rec.intro) || !isBlank(rec.sketch) || !isBlank(rec.process) || !isBlank(rec.body);
 
 export function auditPortfolioRecord(rec = {}) {
-  const required = ['title', 'slug', 'category', 'thumbnail', 'cover', 'description'];
-  const missing = required.filter((k) => isBlank(rec[k]));
+  const imageOnly = rec.cardMode === 'image';
+  /* Image cards render one main image (the cover; legacy rows may still keep it
+     in `thumbnail`), so they must not be asked for a separate thumbnail.
+     Project cards keep the full field set. */
+  const required = imageOnly
+    ? ['title', 'slug', 'category', 'cover']
+    : ['title', 'slug', 'category', 'thumbnail', 'cover', 'description'];
+  const missing = required.filter((k) => {
+    if (imageOnly && k === 'cover') return isBlank(rec.cover) && isBlank(rec.thumbnail);
+    return isBlank(rec[k]);
+  });
   const warnings = [];
   if (isBlank(rec.tags)) warnings.push('no-tags');
   if (isBlank(rec.date) && isBlank(rec.year)) warnings.push('no-date');
-  if (!hasSubstantialProjectContent(rec)) warnings.push('no-content-blocks');
+  if (!imageOnly && !hasSubstantialProjectContent(rec)) warnings.push('no-content-blocks');
   if (rec.placeholder) warnings.push('record-flagged-placeholder');
   return finalize({
     status: 'complete',
     required,
     missing,
-    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'cover']),
+    placeholders: scanFields(rec, imageOnly ? ['title', 'cover', 'thumbnail'] : ['title', 'description', 'thumbnail', 'cover']),
     warnings,
     critical: []
   });
 }
 
-const assetDownload = (rec) => rec.downloadUrl !== undefined ? rec.downloadUrl : rec.media;
+const directAssetDownload = (rec) => rec.downloadUrl !== undefined ? rec.downloadUrl : rec.media;
+const assetHasPublicDownload = (rec = {}) => {
+  const directEnabled = rec.showDirectDownload !== false;
+  const driveEnabled = !!rec.showDriveDownload;
+  return (directEnabled && !isBlank(directAssetDownload(rec))) || (driveEnabled && !isBlank(rec.driveUrl));
+};
 
 export function auditAssetRecord(rec = {}) {
   const required = ['title', 'slug', 'category', 'thumbnail', 'media', 'description', 'fileFormat', 'license', 'availability'];
-  const hasDownload = !isBlank(assetDownload(rec));
+  const hasDownload = assetHasPublicDownload(rec);
   const missing = required.filter((k) => {
     if (k === 'media') return !hasDownload;
     return isBlank(rec[k]);
@@ -118,7 +132,7 @@ export function auditAssetRecord(rec = {}) {
     status: 'complete',
     required,
     missing,
-    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'media', 'downloadUrl', 'license', 'credit', 'version', 'updateNote', 'dateAdded']),
+    placeholders: scanFields(rec, ['title', 'description', 'thumbnail', 'media', 'downloadUrl', 'driveUrl', 'license', 'credit', 'version', 'updateNote', 'dateAdded']),
     warnings,
     critical
   });
@@ -277,7 +291,7 @@ export function auditSiteData(data = {}) {
   return {
     portfolio: summarize(portfolio, audits.portfolio),
     assets: Object.assign(summarize(assets, assetsAudit), {
-      missingFiles: assets.filter((r) => r.published && isBlank(assetDownload(r))).length
+      missingFiles: assets.filter((r) => r.published && !assetHasPublicDownload(r)).length
     }),
     commissions: Object.assign(summarize(commissions, audits.commissions), {
       missingForms: audits.commissions.filter((a) => a.critical.includes('no-form-mapping')).length

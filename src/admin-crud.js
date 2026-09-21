@@ -8,6 +8,7 @@ import {
   paginationRange,
   pagedSummary,
   requestFilterSpec,
+  pendingCountDatasets,
   REQUESTS_PAGE_SIZE,
   MEDIA_PAGE_SIZE
 } from './admin-query-core.js';
@@ -22,6 +23,7 @@ import {
   isUniqueViolation,
   adminWriteError,
   concurrencyConflictError,
+  orderPartialError,
   missingRecordError,
   isConcurrencyConflictResponse,
   applySuccessfulSave,
@@ -174,29 +176,41 @@ export async function saveAdminSettings(settings, keys, settingsMeta) {
   if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
 
   const plans = planSettingWrites(settings, settingsMeta, keys);
-  if (!plans.length) return { success: true, table: 'site_settings', count: 0 };
+  if (!plans.length) return { success: true, table: 'site_settings', count: 0, savedKeys: [] };
 
   // One guarded write per touched key: a settings row is a key/value singleton,
   // so the key and its baseline both belong in the statement itself.
-  for (const plan of plans) {
-    if (plan.mode === 'update') {
-      let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
-      if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
-      const response = await request.select('key, updated_at').maybeSingle();
-      if (response.error) throw adminWriteError(response.error);
-      if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('settings');
-      applySettingSaveMeta(settingsMeta, plan.key, response.data);
-    } else {
-      // A key that was never loaded is inserted; if another session created it
-      // first, the key conflict is surfaced instead of an overwrite.
-      const response = await supabase.from('site_settings').insert(plan.payload).select('key, updated_at').maybeSingle();
-      if (response.error) throw settingsWriteError(response.error, plan.key);
-      if (!response.data) throw missingRecordError('settings');
-      applySettingSaveMeta(settingsMeta, plan.key, response.data);
+  // savedKeys reports exactly the keys the database confirmed, so a later key
+  // that fails cannot erase the baseline of an earlier key that succeeded.
+  // Each confirmed key reconciles immediately, so a later key that conflicts
+  // can never erase the baseline of an earlier key that already succeeded.
+  // A failure carries the partial savedKeys with it.
+  const savedKeys = [];
+  try {
+    for (const plan of plans) {
+      if (plan.mode === 'update') {
+        let request = supabase.from('site_settings').update({ value: plan.payload.value }).eq('key', plan.key);
+        if (plan.originalUpdatedAt) request = request.eq('updated_at', plan.originalUpdatedAt);
+        const response = await request.select('key, updated_at').maybeSingle();
+        if (response.error) throw adminWriteError(response.error);
+        if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('settings');
+        applySettingSaveMeta(settingsMeta, plan.key, response.data);
+      } else {
+        // A key that was never loaded is inserted; if another session created it
+        // first, the key conflict is surfaced instead of an overwrite.
+        const response = await supabase.from('site_settings').insert(plan.payload).select('key, updated_at').maybeSingle();
+        if (response.error) throw settingsWriteError(response.error, plan.key);
+        if (!response.data) throw missingRecordError('settings');
+        applySettingSaveMeta(settingsMeta, plan.key, response.data);
+      }
+      savedKeys.push(plan.key);
     }
+  } catch (err) {
+    if (err && !Array.isArray(err.savedKeys)) err.savedKeys = savedKeys.slice();
+    throw err;
   }
 
-  return { success: true, table: 'site_settings', count: plans.length };
+  return { success: true, table: 'site_settings', count: plans.length, savedKeys };
 }
 
 /**
@@ -220,11 +234,51 @@ export async function saveAdminOrder(scope, list) {
     throw new Error(`Unsupported order target: ${scope}`);
   }
 
-  if (!rows.length) return { success: true, table, count: 0 };
+  if (!rows.length) return { success: true, table, count: 0, rows: [] };
 
-  const response = await supabase.from(table).upsert(rows, { onConflict: 'id' }).select('id');
-  if (response.error) throw adminWriteError(response.error);
-  return { success: true, table, count: rows.length };
+  // Order changes are UPDATE-only. A partial upsert ({id, sort_order}) can
+  // trigger NOT NULL failures for required columns such as slug/title before
+  // ON CONFLICT resolves, which made a record appear saved after refresh while
+  // the UI still reported "required field is empty".
+  // Every UPDATE bumps updated_at through the set_updated_at trigger, so the
+  // confirmed stamps are returned: the caller must advance local baselines,
+  // otherwise the next guarded update would falsely conflict with itself.
+  // Guarded order writes: a row whose updated_at moved since hydration (another
+  // session edited its content) matches zero rows and is reported as a stale
+  // conflict instead of silently bumping the version and rescuing a stale draft.
+  const confirmed = [];
+  for (const row of rows) {
+    let request = supabase
+      .from(table)
+      .update({ sort_order: row.sort_order })
+      .eq('id', row.id);
+    if (row.originalUpdatedAt) request = request.eq('updated_at', row.originalUpdatedAt);
+    let response;
+    try {
+      response = await request.select('id, updated_at');
+    } catch (err) {
+      // A transport failure after earlier rows succeeded is still partial:
+      // carry the confirmed rows so the caller can reconcile baselines.
+      const wrapped = adminWriteError(err);
+      wrapped.partial = true;
+      wrapped.confirmed = confirmed.slice();
+      wrapped.confirmedIds = confirmed.map((entry) => entry.id);
+      wrapped.failedId = row.id;
+      throw wrapped;
+    }
+    if (response.error) {
+      const wrapped = adminWriteError(response.error);
+      wrapped.partial = true;
+      wrapped.confirmed = confirmed.slice();
+      wrapped.confirmedIds = confirmed.map((entry) => entry.id);
+      wrapped.failedId = row.id;
+      throw wrapped;
+    }
+    const data = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
+    if (!data.length) throw orderPartialError(scope, confirmed, row.id);
+    confirmed.push(...data);
+  }
+  return { success: true, table, count: rows.length, rows: confirmed };
 }
 
 export async function deleteAdminRecord(listKey, target) {
@@ -332,6 +386,7 @@ window.CrabbieAdminCrud = {
   loadRequestPage: loadAdminRequestPage,
   countRows: countAdminRows,
   pageAfterDelete,
+  pendingCountDatasets,
   saveRecord: saveAdminRecord,
   saveSettings: saveAdminSettings,
   saveOrder: saveAdminOrder,
@@ -341,3 +396,17 @@ window.CrabbieAdminCrud = {
   resetAdminReadiness,
   assertAdminReadyForMutation
 };
+
+/* First-load race: session restoration may have run before this module
+   arrived, deferring hydration. If an admin is already waiting, start the
+   deferred pass exactly once; the hydration guards still apply. */
+try {
+  const authService = typeof window !== 'undefined' ? window.CrabbieAuthService : null;
+  const bridge = typeof window !== 'undefined' ? window.CrabbieAdminAuth : null;
+  const waiter = authService && typeof authService.getAdmin === 'function' ? authService.getAdmin() : null;
+  if (waiter && bridge && typeof bridge.notify === 'function' && getAdminLoadState() !== 'ready') {
+    bridge.notify({ event: 'CRUD_READY', adminUser: waiter, hydrate: true });
+  }
+} catch (err) {
+  /* The manual reload control remains available as the fallback path. */
+}

@@ -16,7 +16,7 @@ const publicConfig = livePublic
   ? {url: process.env.SUPABASE_URL, key: process.env.SUPABASE_PUBLISHABLE_KEY}
   : {url: 'https://router-test.supabase.co', key: 'sb_publishable_test_fixture'};
 if (livePublic && (!publicConfig.url || !publicConfig.key)) throw new Error('Public Supabase configuration is missing.');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const rewrites = JSON.parse(await readFile(resolve(root, 'vercel.json'), 'utf8')).rewrites;
 const server = createServer(async (request, response) => {
   try {
@@ -29,7 +29,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const file = resolve(root, '.' + path);
-    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg'].includes(extname(file))) {
+    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg', '.woff2'].includes(extname(file))) {
       response.writeHead(404).end();
       return;
     }
@@ -162,7 +162,13 @@ export function createClient(){
     return state.single ? {data: affected[0] || null, error: null} : {data: affected, error: null};
   };
   const query = (table, state = {op: null, filters: [], payload: null, select: '', single: false}) => new Proxy({}, { get: (_, key) => {
-    if (key === 'then') return (done) => Promise.resolve(runQuery(table, state)).then(done);
+    if (key === 'then') return async (done) => {
+      // Optional deterministic gate: lets the router tests hold the
+      // authoritative CMS snapshot open instead of racing a fast fixture.
+      if (window.__routerGate && !window.__routerGateOpen) await window.__routerGate;
+      const result = runQuery(table, state);
+      return done ? done(result) : result;
+    };
     return (...args) => {
       if (['insert', 'update', 'upsert', 'delete'].includes(key)) {
         state.op = key;
@@ -528,6 +534,8 @@ try {
 
     await goAdmin('portfolio');
     await page.locator('#admChecklist').waitFor({state: 'visible'});
+    assert.match(await page.locator('#admChecklist .cl-summary').innerText(), /Missing required fields/, 'the checklist shows an error summary by default');
+    await page.locator('#admChecklist .cl-summary').click();
     const portfolioChecklist = await page.locator('#admChecklist').innerText();
     assert.match(portfolioChecklist, /Thumbnail/);
     assert.match(portfolioChecklist, /Cover/);
@@ -551,28 +559,24 @@ try {
     assert.equal(await page.locator('#admPublishWarning').isVisible(), true);
 
     await goAdmin('assets');
+    await page.locator('#admChecklist .cl-summary').click();
     const assetChecklist = await page.locator('#admChecklist').innerText();
     assert.match(assetChecklist, /Download file/);
     assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Thumbnail'}).count() > 0, true);
     assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Download file'}).count() > 0, true);
     assert.match(assetChecklist, /placeholder/i);
-    const assetThumbnail = page.locator('[data-adm-path$=".thumbnail"]').first();
-    const thumbnailPath = await assetThumbnail.getAttribute('data-adm-path');
-    await assetThumbnail.fill('https://example.test/content-health-preview.png');
-    await page.locator('[data-adm-media-preview="' + thumbnailPath + '"] img').waitFor({state: 'attached'});
-    await page.locator('[data-adm-mediaclear="' + thumbnailPath + '"]').click();
-    assert.equal(await assetThumbnail.inputValue(), '');
-    const assetFile = page.locator('[data-adm-path$=".downloadUrl"]').first();
-    const filePath = await assetFile.getAttribute('data-adm-path');
-    await assetFile.fill('https://example.test/content-health-file.zip');
-    await page.locator('[data-adm-media-preview="' + filePath + '"] .adm-file-chip').waitFor({state: 'visible'});
-    await page.locator('[data-adm-mediaclear="' + filePath + '"]').click();
-    assert.equal(await assetFile.inputValue(), '');
-    assert.equal(await page.locator('[data-adm-mediabrowse="' + filePath + '"]').count(), 1);
-    assert.equal(await page.locator('[data-adm-mediaupload="' + filePath + '"]').count(), 1);
-    assert.equal(await page.locator('[data-adm-mediaopen="' + filePath + '"]').count(), 1);
+    await page.locator('[data-adm-mediabrowse$=".thumbnail"]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    const downloadUrlBrowse = '[data-adm-mediabrowse$=".downloadUrl"]';
+    const downloadUrlPath = await page.locator(downloadUrlBrowse).first().getAttribute('data-adm-mediabrowse');
+    assert.equal(await page.locator('[data-adm-mediabrowse="' + downloadUrlPath + '"]').count(), 1);
+    assert.equal(await page.locator('[data-adm-mediaupload="' + downloadUrlPath + '"]').count(), 1);
+    assert.equal(await page.locator('input[data-adm-path="' + downloadUrlPath + '"]').count(), 0, 'the download URL field is picker-driven, never a raw textbox');
 
     await goAdmin('commissions');
+    await page.locator('#admChecklist .cl-summary').click();
     assert.match(await page.locator('#admChecklist').innerText(), /Thumbnail/);
     assert.equal(await page.locator('[data-adm-path$=".delivery"]').count(), 1);
     for (const module of ['about', 'terms']) {
@@ -615,12 +619,12 @@ try {
     assert.deepEqual(scopedWrites['navigation'], ['cms_navigation:insert']);
     assert.deepEqual(scopedWrites['settings'], ['site_settings:insert'], 'a settings key without a baseline is inserted');
     assert.deepEqual(scopedWrites['portfolioCategories'], ['cms_categories:insert']);
-    // Leaving the admin area with unsaved edits is now guarded: discard the
-    // draft explicitly through the sticky bar before public CMS rendering.
-    await page.locator('#admStickySave [data-adm-discard]').click();
+    // Leaving the admin area with unsaved edits is guarded; confirm the discard
+    // through the route-exit dialog now that the duplicate sticky Save bar is gone.
+    await page.evaluate(() => { location.hash = '#home'; });
     await page.locator('#adminConfirmModal.open').waitFor({state: 'visible'});
     await page.locator('#adminConfirmOk').click();
-    await page.waitForFunction(() => !document.getElementById('admStickySave').classList.contains('visible'));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
     await page.evaluate(() => {
       window.CrabbiePortfolio.apply([{
         slug:'color-fiesta',title:'DB title',desc:'DB description',cat:'Illustration',tags:[],
@@ -688,10 +692,10 @@ try {
     });
     await page.locator('#adminNav [data-admin-module="portfolio"][aria-current="page"]').waitFor({state:'visible'});
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Saved CMS title');
-    await page.locator('[data-adm-path="portfolio.color-fiesta.thumbnail"]').fill('https://example.test/saved-thumb.png');
-    await page.locator('[data-adm-save="portfolio"]').click();
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.slug"]').inputValue(), 'color-fiesta', 'a persisted record keeps its slug when the title changes');
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === 'Saved CMS title');
-    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"] .thumb img').getAttribute('src'), 'https://example.test/saved-thumb.png');
+    assert.equal(await page.locator('#pfGrid [data-project="saved-cms-title"]').count(), 0, 'no dangling card appears under a renamed slug');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
     console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
@@ -751,7 +755,33 @@ try {
     await goToAdminModule('portfolio');
     assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Color Fiesta', 'Retry must load live rows, not prototype rows');
     assert.equal(await page.locator('#adminTopSave').isVisible(), true);
-    console.log('PASS admin hydration retry reaches ready with live rows after one query pass (SDK fixture)');
+    assert.equal(await page.locator('#admStickySave').count(), 0, 'the duplicate sticky Save bar is not rendered');
+    assert.equal(await page.locator('#adminContent .adm-editor-bar [data-adm-save]:visible').count(), 0, 'local editor Save buttons are hidden');
+    const topbarZones = await page.evaluate(() => {
+      const left = document.querySelector('.admin-topbar .at-left').getBoundingClientRect();
+      const right = document.querySelector('.admin-topbar .at-right').getBoundingClientRect();
+      return { leftRight: left.right, rightLeft: right.left, rightRight: right.right, barWidth: document.querySelector('.admin-topbar').getBoundingClientRect().width };
+    });
+    assert.ok(topbarZones.rightLeft >= topbarZones.leftRight, 'topbar actions sit right of the title block');
+    assert.ok(topbarZones.barWidth - topbarZones.rightRight < 120, 'topbar actions hug the right edge');
+    const formMetrics = await page.evaluate(() => {
+      const input = document.querySelector('#adminContent .adm-field input[type="text"]');
+      const select = document.querySelector('#adminContent .adm-field select');
+      const row = document.querySelector('#adminContent .adm-row');
+      const css = (el, prop) => el ? getComputedStyle(el)[prop] : '';
+      return { inputMin: css(input, 'minHeight'), selectMin: css(select, 'minHeight'), rowAlign: css(row, 'alignItems') };
+    });
+    assert.equal(formMetrics.inputMin, formMetrics.selectMin, 'text inputs and selects share one control height');
+    assert.equal(formMetrics.rowAlign, 'start', 'two-column form rows share one alignment rule');
+    const adminFonts = await page.evaluate(() => ({
+      label: getComputedStyle(document.querySelector('#adminContent .adm-field .af-label')).fontFamily,
+      input: getComputedStyle(document.querySelector('#adminContent .adm-field input[type="text"]')).fontFamily,
+      save: getComputedStyle(document.querySelector('#adminTopSave')).fontFamily
+    }));
+    assert.ok(adminFonts.label.includes('iCiel Be Cool'), 'admin field labels use the secondary face (got ' + adminFonts.label + ')');
+    assert.ok(adminFonts.input.includes('DFVN Hogfish'), 'admin inputs use the main face (got ' + adminFonts.input + ')');
+    assert.ok(adminFonts.save.includes('DFVN Hogfish'), 'the save action uses the main face (got ' + adminFonts.save + ')');
+    console.log('PASS admin hydration retry reaches ready with one canonical visible Save action (SDK fixture)');
 
     // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
     await page.evaluate(() => { window.__routerQueryCount = {}; window.__routerEmit('SIGNED_IN'); });
@@ -869,7 +899,7 @@ try {
     await goToAdminModule('portfolio');
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Edited once');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const portfolioWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters})));
     assert.equal(portfolioWrites.length, 1, 'one record edit must write exactly one row');
@@ -877,7 +907,7 @@ try {
     assert.equal(portfolioWrites[0].op, 'update', 'an existing record is UPDATEd, never re-upserted');
     assert.deepEqual(portfolioWrites[0].filters, [['id', '00000000-0000-4000-8000-000000000101'], ['updated_at', '2026-01-01T00:00:00Z']], 'the write is scoped by DB id and the hydrated baseline');
     const portfolioRowsAfter = await page.evaluate(() => window.__routerRows.portfolio_projects.map(r => ({slug: r.slug, title: r.title, updated_at: r.updated_at})));
-    assert.equal(portfolioRowsAfter.find(r => r.slug === 'color-fiesta').title, 'Edited once');
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'color-fiesta').title, 'Edited once', 'the title saves while the persisted slug stays put');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').title, 'Second project', 'an untouched record must not be rewritten');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').updated_at, '2026-01-02T00:00:00Z', 'an untouched record keeps its timestamp');
     console.log('PASS one portfolio edit sends one UPDATE scoped by DB id + baseline (SDK fixture)');
@@ -891,9 +921,9 @@ try {
     assert.match(newRecordPath, /^portfolio\.client-/, 'a new draft gets a unique client identity instead of a fixed slug');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), '', 'a new draft starts with an empty slug');
     await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Brand new project');
-    await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').fill('brand-new-project');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'brand-new-project', 'the slug auto-generates from the title');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const insertWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, payload: w.payload})));
     assert.equal(insertWrites.length, 1, 'a new record is one INSERT');
@@ -905,7 +935,7 @@ try {
 
     await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Renamed new project');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const secondWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
     assert.equal(secondWrites.length, 1);
@@ -915,6 +945,107 @@ try {
     assert.equal(secondWrites[0].filters[1][1], insertedRow.updated_at, 'the local baseline advanced to the returned updated_at');
     console.log('PASS a new record INSERTs once, stores the DB id and UPDATEs afterwards (SDK fixture)');
 
+    // Bug fix: an edit that lands after a save begins is never marked saved.
+    // The click and the follow-up edit run in one task, so the edit is
+    // guaranteed to land while the version N write is still in flight.
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Mid-save base');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await clearToast();
+    await page.evaluate((base) => {
+      document.getElementById('adminTopSave').click();
+      const input = document.querySelector('[data-adm-path="' + base + '.title"]');
+      input.value = 'Edited mid-save';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, newRecordPath);
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Mid-save base', 'the database keeps version N under its stable slug, not the mid-save edit');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'brand-new-project', 'the stable slug survives the in-flight response');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays dirty after a mid-save edit');
+    assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
+    // The persisted baseline advanced to N even though the draft is N+1, so
+    // discarding restores N (matching the database), never the older N-1.
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.locator('#adminConfirmModal.open').waitFor({ state: 'visible' });
+    await page.locator('#adminConfirmOk').click();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Mid-save base', 'discard after a mid-save edit restores the confirmed N');
+    await page.locator('[data-adm-path="' + newRecordPath + '.title"]').fill('Edited mid-save');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => window.__routerWrites.length > 0);
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1 under the stable slug');
+    assert.doesNotMatch(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft is clean once the latest revision is saved');
+    console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
+
+    // Bug fix: a stale picker page must never overwrite a newer one. Transport
+    // is staged with deferreds, but both loads travel the real UI path.
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse]')));
+    await page.evaluate(() => {
+      const media = window.CrabbieAdminMedia;
+      window.__pickerRealLoad = media.loadMediaPage.bind(media);
+      window.__pickerGates = [];
+      let calls = 0;
+      media.loadMediaPage = (opts) => new Promise((resolve, reject) => {
+        calls += 1;
+        window.__pickerGates.push({ call: calls, opts, resolve, reject });
+      });
+    });
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 1);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 2);
+    const pickerItem = (id, title) => ({ id, title, url: 'https://router-test.supabase.co/' + id + '.png', thumbnailUrl: 'https://router-test.supabase.co/' + id + '.png', type: 'image', mimeType: 'image/png', storagePath: id + '.png', size: '1 KB', alt: title });
+    await page.evaluate((item) => {
+      window.__pickerGates[1].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('new-b', 'New B'));
+    await page.waitForFunction(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      return Boolean(grid) && grid.innerText.indexOf('New B') !== -1;
+    });
+    await page.evaluate((item) => {
+      window.__pickerGates[0].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('old-a', 'Old A'));
+    await page.waitForTimeout(250);
+    assert.match(await page.locator('#adminMediaPickerGrid').innerText(), /New B/, 'a late stale picker response never overwrites the newer page');
+    assert.doesNotMatch(await page.locator('#adminMediaPickerGrid').innerText(), /Old A/, 'stale picker items stay out of the grid');
+    // A stale failure after a newer success keeps the successful state too.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.evaluate(() => { window.__pickerGates.length = 0; });
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 1);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    await page.waitForFunction(() => (window.__pickerGates || []).length >= 2);
+    await page.evaluate((item) => {
+      window.__pickerGates[1].resolve({ items: [item], page: 1, total: 1, pageCount: 1 });
+    }, pickerItem('fresh-c', 'Fresh C'));
+    await page.waitForFunction(() => {
+      const grid = document.getElementById('adminMediaPickerGrid');
+      return Boolean(grid) && grid.innerText.indexOf('Fresh C') !== -1;
+    });
+    await page.evaluate(() => { window.__pickerGates[0].reject(new Error('stale transport failure')); });
+    await page.waitForTimeout(250);
+    assert.match(await page.locator('#adminMediaPickerGrid').innerText(), /Fresh C/, 'a stale picker failure never replaces newer successful state');
+    await page.evaluate(() => {
+      window.CrabbieAdminMedia.loadMediaPage = window.__pickerRealLoad;
+      delete window.__pickerRealLoad;
+      delete window.__pickerGates;
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    console.log('PASS stale picker responses and failures never overwrite newer picker state (SDK fixture)');
+
     // Test 3: a duplicate slug is rejected without touching the other row.
     await goToAdminModule('portfolio');
     await page.locator('[data-adm-new="portfolio"]').click();
@@ -922,16 +1053,15 @@ try {
       const input = document.querySelector('[data-adm-path$=".slug"]');
       return input ? input.getAttribute('data-adm-path').replace(/\.slug$/, '') : '';
     });
-    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Duplicate attempt');
-    await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').fill('color-fiesta');
+    await page.locator('[data-adm-path="' + duplicatePath + '.title"]').fill('Second project');
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
-    await page.locator('[data-adm-save="portfolio"]').click();
+    await page.locator('#adminTopSave').click();
     assert.match(await readToast(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
-    assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'color-fiesta', 'the draft slug is preserved');
+    assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'second-project', 'the generated duplicate slug is preserved in the unsaved draft');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
-    assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'color-fiesta').map(r => r.title)), ['Edited once'], 'the existing row is untouched');
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.some(r => r.title === 'Duplicate attempt')), false, 'no partial row was created');
+    assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'second-project').map(r => r.title)), ['Second project'], 'the existing row is untouched');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'second-project').length), 1, 'no partial duplicate row was created');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.operation)), ['insert'], 'only the rejected INSERT was attempted');
     console.log('PASS a duplicate slug is rejected without touching the other row or the draft (SDK fixture)');
 
@@ -939,7 +1069,7 @@ try {
     await goToAdminModule('requests');
     await page.locator('[data-adm-path="requests.00000000-0000-4000-8000-000000000108.status"]').selectOption('Completed');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="requests"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const requestWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
     assert.equal(requestWrites.length, 1, 'one request edit must write one row, never every loaded request');
@@ -972,25 +1102,27 @@ try {
 
     // Test 10: a reorder is one bounded order-only write, not one write per row.
     await goToAdminModule('portfolio');
-    await page.evaluate(() => {
-      const bar = document.getElementById('admStickySave');
-      if (bar && bar.classList.contains('visible')) bar.querySelector('[data-adm-discard]').click();
-    });
-    if (await page.locator('#adminConfirmModal.open').count()) {
+    if (/dirty/.test(await page.evaluate(() => document.getElementById('adminSaveStatus').className))) {
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.locator('#adminConfirmModal.open').waitFor({state:'visible'});
       await page.locator('#adminConfirmOk').click();
-      await page.waitForFunction(() => !document.getElementById('adminConfirmModal').classList.contains('open'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     }
     await page.locator('.adm-record[data-adm-id="color-fiesta"] [data-adm-move="down"]').click();
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('#admStickySave [data-adm-save="sticky"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    const orderWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, payload: w.payload})));
-    assert.equal(orderWrites.length, 1, 'a reorder must not become a sequential write per row');
-    assert.equal(orderWrites[0].table, 'portfolio_projects');
-    assert.equal(orderWrites[0].op, 'upsert');
-    assert.equal(orderWrites[0].payload.length, 3, 'one bounded order write covers every saved row');
-    for (const entry of orderWrites[0].payload) assert.deepEqual(Object.keys(entry).sort(), ['id', 'sort_order'], 'order writes only touch ordering');
-    console.log('PASS a reorder is a single bounded order-only write (SDK fixture)');
+    const orderWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, payload: w.payload, filters:w.filters})));
+    assert.ok(orderWrites.length >= 1, 'a reorder writes the saved rows that need an order value');
+    for (const write of orderWrites) {
+      assert.equal(write.table, 'portfolio_projects');
+      assert.equal(write.op, 'update', 'order changes use UPDATE, never partial upsert');
+      assert.deepEqual(Object.keys(write.payload).sort(), ['sort_order'], 'order writes touch only sort_order');
+      assert.equal(write.filters[0][0], 'id', 'each order update is scoped by stable DB id');
+    }
+    console.log('PASS a reorder uses safe order-only UPDATEs (SDK fixture)');
 
     // Test 8: a failed delete keeps the record in local state and reports it.
     const adminRecordCount = () => page.locator('#adminContent .adm-record').count();
@@ -1062,7 +1194,7 @@ try {
     // Session A saves the key it hydrated.
     await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const settingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({table: w.table, op: w.operation, filters: w.filters, payload: w.payload})));
     assert.equal(settingsWrites.length, 1, 'only the touched settings key is written');
@@ -1079,7 +1211,7 @@ try {
     // The advanced baseline is used by the next save from the same session.
     await page.locator('[data-adm-path="settings.branding.title"]').fill('Edited branding twice');
     await page.evaluate(() => { window.__routerWrites = []; });
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
     const secondSettingsWrites = await page.evaluate(() => window.__routerWrites.map(w => ({op: w.operation, filters: w.filters})));
     assert.equal(secondSettingsWrites[0].filters[1][1], savedBranding.updated_at, 'the settings baseline advanced to the returned updated_at');
@@ -1094,7 +1226,7 @@ try {
     await page.locator('[data-adm-path="settings.branding.title"]').fill('MY STALE EDIT');
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
-    await page.locator('[data-adm-save="settings"]').click();
+    await page.locator('#adminTopSave').click();
     assert.match(await readToast(), /Conflict/i, 'a stale settings save reports the same conflict as records');
     assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), 'MY STALE EDIT', 'the stale settings draft is preserved');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the stale settings draft stays dirty');
@@ -1152,10 +1284,15 @@ try {
     await loginAdmin();
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
 
-    // Test 8: normal hydration only reads active media.
-    const mediaRead = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').pop());
-    assert.deepEqual(mediaRead.filters, [['deletion_status', 'active']], 'media hydration is restricted to active rows');
+    // Test 8: media is lazy-loaded, and the first real library page reads active rows only.
     await goToAdminModule('media');
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) =>
+      read.table === 'media' && (read.filters || []).some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active')
+    ));
+    const mediaRead = await page.evaluate(() => (window.__routerReads || []).filter((read) =>
+      read.table === 'media' && (read.filters || []).some((filter) => filter[0] === 'deletion_status' && filter[1] === 'active')
+    ).pop());
+    assert.deepEqual(mediaRead.filters, [['deletion_status', 'active']], 'the lazy media page is restricted to active rows');
     assert.equal(await page.locator('.adm-media-card').count(), 4, 'a tombstoned row is never listed as active media');
 
     // Test 2: a referenced thumbnail blocks the deletion outright.
@@ -1338,6 +1475,10 @@ try {
     const hydrationRowReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => !read.head).map((read) => read.table));
     assert.equal(hydrationRowReads.includes('commission_requests'), false, 'initial hydration does not fetch requests rows');
     assert.equal(hydrationRowReads.includes('media'), false, 'initial hydration does not fetch media rows');
+    await page.waitForFunction(() => {
+      const tables = (window.__routerReads || []).filter((read) => read.head).map((read) => read.table);
+      return tables.includes('commission_requests') && tables.includes('media');
+    });
     const headReads = await page.evaluate(() => (window.__routerReads || []).filter((read) => read.head).map((read) => read.table).sort());
     assert.deepEqual(headReads, ['commission_requests', 'media'], 'badges use head counts only');
     console.log('PASS initial admin hydration loads no request or media rows (SDK fixture)');
@@ -1585,6 +1726,67 @@ try {
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     console.log('PASS desktop, tablet and mobile admin media views have no horizontal overflow (SDK fixture)');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const workspaceMetrics = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.className = 'adm-workspace';
+      document.getElementById('adminContent').appendChild(probe);
+      const maxW = getComputedStyle(probe).maxWidth || '';
+      probe.remove();
+      const live = document.querySelector('#adminContent .adm-workspace');
+      return { maxW, liveWidth: live ? live.getBoundingClientRect().width : 0 };
+    });
+    assert.ok(workspaceMetrics.maxW.indexOf('1460') !== -1, 'the workspace cap is fluid and wide (got ' + workspaceMetrics.maxW + ')');
+    assert.ok(workspaceMetrics.liveWidth === 0 || workspaceMetrics.liveWidth > 1000, 'the live workspace fills usable width (got ' + workspaceMetrics.liveWidth + 'px)');
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // Bug fix: intrinsic image dimensions must never resize a thumbnail box.
+    // Real app markup + classes with offline SVG data URLs of known sizes.
+    await page.evaluate(() => {
+      const svg = (w, h) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '"><rect width="' + w + '" height="' + h + '" fill="#ff5c9a"/></svg>');
+      const shots = [
+        { label: 'portrait', src: svg(10, 100) },
+        { label: 'landscape', src: svg(100, 10) },
+        { label: 'square', src: svg(40, 40) },
+        { label: 'extreme-portrait', src: svg(4, 120) },
+        { label: 'broken', src: 'data:image/png;base64,NOT-AN-IMAGE' }
+      ];
+      const host = document.createElement('div');
+      host.id = 'thumbRatioProbe';
+      host.setAttribute('style', 'position:fixed;left:-9999px;top:0;width:1200px;');
+      host.innerHTML = '<div class="adm-media-grid">' + shots.map((shot) =>
+        '<div class="adm-media-card"><div class="adm-media-thumb"><img src="' + shot.src + '" data-probe="' + shot.label + '" alt="' + shot.label + '"></div></div>'
+      ).join('') + '</div>';
+      document.body.appendChild(host);
+    });
+    await page.waitForFunction(() => {
+      const imgs = Array.prototype.slice.call(document.querySelectorAll('#thumbRatioProbe img'));
+      return imgs.length === 5 && imgs.every((img) => img.complete);
+    });
+    const thumbProbe = await page.evaluate(() => {
+      const boxes = Array.prototype.map.call(document.querySelectorAll('#thumbRatioProbe .adm-media-thumb'), (box) => {
+        const img = box.querySelector('img');
+        const style = img ? getComputedStyle(img) : null;
+        // The thumb keeps a 2px bottom border under border-box sizing.
+        return {
+          height: box.clientHeight,
+          expected: (box.clientWidth * 10) / 16 - 2,
+          imgPosition: style ? style.position : '',
+          imgFit: style ? style.objectFit : ''
+        };
+      });
+      document.getElementById('thumbRatioProbe').remove();
+      return boxes;
+    });
+    assert.equal(thumbProbe.length, 5, 'portrait, landscape, square, extreme portrait and broken thumbnails are all probed');
+    const thumbHeights = thumbProbe.map((box) => box.height);
+    assert.ok(Math.max.apply(null, thumbHeights) - Math.min.apply(null, thumbHeights) <= 2, 'intrinsic dimensions never resize the grid row');
+    thumbProbe.forEach((box, index) => {
+      assert.ok(Math.abs(box.height - box.expected) <= 2, 'thumbnail box ' + index + ' keeps the 16/10 ratio (' + box.height + 'px vs ' + box.expected.toFixed(1) + 'px)');
+      assert.equal(box.imgPosition, 'absolute', 'thumbnail image ' + index + ' is removed from grid sizing');
+      assert.equal(box.imgFit, 'cover', 'thumbnail image ' + index + ' crops with cover');
+    });
+    console.log('PASS media thumbnails keep a stable ratio for portrait, landscape, square, extreme and broken images (SDK fixture)');
 
     // ---- Batch 5 Group 3: media query shape, one scoped server query ------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -1883,7 +2085,9 @@ try {
     // ---- Batch 5 Group 6: drag/drop reuses the uploader, picker multi ------
     const ixSeed = (index) => '00000000-0000-4000-8000-0000000009' + String(70 + index);
     const ixMediaReads = async () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media').length);
-    const ixItemUrls = () => page.$$eval('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]', (els) => els.map((el) => el.value));
+    const ixItemUrls = () => page.evaluate(() => Array.prototype.map.call(
+      document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img'),
+      (img) => img.getAttribute('src')));
 
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -1973,23 +2177,26 @@ try {
     assert.equal(await page.locator('#adminMediaModal [data-adm-media-card][aria-selected="true"]').count(), 2, 'selected picker cards announce aria-selected');
     await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img').length === 2);
     const ixGalleryUrls = await ixItemUrls();
     assert.equal(ixGalleryUrls.length, 2, 'multi-select appends one gallery row per selected item');
     assert.ok(ixGalleryUrls.every((url) => url.indexOf('/uploads/') !== -1), 'gallery rows carry canonical URLs');
 
     const ixThumbPath = await page.evaluate(() => {
-      const input = document.querySelector('#adminContent [data-adm-path$=".thumbnail"]');
-      return input ? input.getAttribute('data-adm-path') : null;
+      const btn = document.querySelector('#adminContent [data-adm-mediabrowse$=".cover"]');
+      return btn ? btn.getAttribute('data-adm-mediabrowse') : null;
     });
-    assert.ok(ixThumbPath, 'the project thumbnail field exists');
+    assert.ok(ixThumbPath, 'the project main-image field exists');
     await page.locator('#adminContent [data-adm-mediabrowse="' + ixThumbPath + '"]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
     assert.equal(await page.locator('#adminMediaModal [data-adm-pick-toggle]').count(), 0, 'a single-value field offers no multi-select');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    const ixThumbValue = await page.locator('#adminContent [data-adm-path="' + ixThumbPath + '"]').inputValue();
-    assert.ok(ixThumbValue.indexOf('/uploads/') !== -1, 'a single-value field receives exactly one canonical URL');
+    const ixThumbValue = await page.evaluate((target) => {
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + target + '"] img');
+      return preview ? preview.getAttribute('src') : '';
+    }, ixThumbPath);
+    assert.ok(ixThumbValue.indexOf('/uploads/') !== -1, 'a single-value field previews exactly one canonical URL');
     assert.equal((await ixItemUrls()).length, 2, 'a single-value pick never touches the gallery rows');
 
     for (let ixRound = 0; ixRound < 3; ixRound += 1) {
@@ -2004,7 +2211,7 @@ try {
     await ixTogglePick(ixToggleIds[1]);
     await page.locator('#adminMediaModal [data-adm-pick-apply]').click();
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-mi-path][data-adm-mi-key="url"]').length === 3);
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-media-item .mi-thumb img').length === 3);
     const ixStressUrls = await ixItemUrls();
     assert.equal(new Set(ixStressUrls).size, 3, 'three open/close cycles still append exactly one row for one action');
     const ixReadsAfterStress = await ixMediaReads();
@@ -2048,12 +2255,13 @@ try {
       await page.locator('#adminConfirmOk').click();
       await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
     }
-    const ixDiscard = page.locator('#adminContent [data-adm-discard]');
-    if (await ixDiscard.count() > 0) {
-      await ixDiscard.first().click();
-      await page.waitForFunction(() => Boolean(document.querySelector('#adminConfirmModal.open')));
+    if (/dirty/.test(await page.evaluate(() => document.getElementById('adminSaveStatus').className))) {
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.locator('#adminConfirmModal.open').waitFor({state:'visible'});
       await page.locator('#adminConfirmOk').click();
-      await page.waitForFunction(() => !document.querySelector('#adminConfirmModal.open'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => { location.hash = '#admin/portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     }
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.keyboard.press('Control+s');
@@ -2092,7 +2300,7 @@ try {
     await page.waitForFunction(() => (window.__routerWrites || []).length === 1);
     await page.waitForTimeout(600);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Second shortcut title', 'a conflicting save never overwrites the stored row');
-    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'a conflicting save keeps the draft dirty');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'a conflicting save keeps the draft dirty');
     console.log('PASS media drop, picker multi-select, bulk delete and the save shortcut stay single-action (SDK fixture)');
 
     // ---- Batch 5 Group 7: portfolio block integration and final a11y ------
@@ -2107,9 +2315,10 @@ try {
     });
     const blkBlockPath = (target) => target.slice(0, target.lastIndexOf('.'));
     const blkFieldValue = (target) => page.evaluate((path) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
-      return input ? input.value : null;
-    }, blkBlockPath(target));
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + path + '"] img');
+      const chip = document.querySelector('#adminContent [data-adm-media-preview="' + path + '"] .adm-file-chip');
+      return (preview && preview.getAttribute('src')) || (chip && chip.title) || null;
+    }, target);
 
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -2168,7 +2377,7 @@ try {
     const blkImageValue = await blkFieldValue(blkImageTarget);
     assert.ok(blkImageValue && blkImageValue.indexOf('/uploads/') !== -1, 'an image block stores one canonical URL');
     assert.equal(await page.locator('#adminContent [data-adm-mi-path]').count(), 0, 'a single-value block never becomes an array');
-    assert.equal(await page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]').length, blkBlockPath(blkImageTarget)), 1, 'the manual URL input stays in place');
+    assert.equal(await page.locator('#adminContent [data-adm-media-preview="' + blkImageTarget + '"] img').count(), 1, 'the picked image shows a preview instead of a raw URL input');
 
     for (const itemsTarget of blkTargets.filter((target) => target.endsWith('.items'))) {
       await blkBrowse(itemsTarget);
@@ -2182,15 +2391,23 @@ try {
       assert.equal(await page.locator('#adminMediaModal [data-adm-pick-apply]').innerText(), 'Use selected (2)', 'Picker count matches the two records being applied');
       await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
       const blockPath = blkBlockPath(itemsTarget);
-      await page.waitForFunction((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]').length === 2, blockPath);
-      const rows = await page.evaluate((path) => Array.prototype.slice.call(document.querySelectorAll('#adminContent [data-adm-mi-path="' + path + '"][data-adm-mi-key="url"]')).map((input) => input.value), blockPath);
+      await page.waitForFunction((path) => Array.prototype.filter.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + path + '"]'),
+        (btn) => Boolean(btn.closest('.adm-media-item').querySelector('.mi-thumb img'))
+      ).length >= 2, blockPath);
+      const rows = await page.evaluate((path) => Array.prototype.map.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + path + '"]'),
+        (btn) => btn.closest('.adm-media-item').querySelector('.mi-thumb img')?.getAttribute('src') || '').filter(Boolean), blockPath);
       assert.equal(rows.length, 2, 'a media-list block receives every selected item');
       assert.ok(rows.every((url) => url.indexOf('/uploads/') !== -1), 'media-list rows carry canonical URLs');
     }
 
     const blkReadField = (blockPath, field) => page.evaluate((args) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="' + args.field + '"]');
-      return input ? input.value : null;
+      const pick = document.querySelector('#adminContent [data-adm-mediabrowse="' + args.path + '.' + args.field + '"]');
+      if (!pick) return null;
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + args.path + '.' + args.field + '"] img');
+      const chip = document.querySelector('#adminContent [data-adm-media-preview="' + args.path + '.' + args.field + '"] .adm-file-chip');
+      return (preview && preview.getAttribute('src')) || (chip && chip.textContent) || '';
     }, { path: blockPath, field });
     const blkBeforeTarget = blkTargets.filter((entry) => entry.endsWith('.before'))[0];
     const blkAfterTarget = blkTargets.filter((entry) => entry.endsWith('.after'))[0];
@@ -2214,18 +2431,24 @@ try {
     assert.ok(blkBeforeValue.indexOf('/uploads/') !== -1 && blkAfterValue.indexOf('/uploads/') !== -1, 'both before and after hold library URLs');
 
     const blkGifPath = blkBlockPath(blkTargets.filter((target) => target.endsWith('.url'))[2]);
+    const blkVideoPath = blkBlockPath(blkTargets.filter((target) => target.endsWith('.url'))[3]);
     await page.evaluate((path) => {
       const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
-      input.value = 'https://example.test/manual.gif';
+      input.value = 'https://youtu.be/dQw4w9WgXcQ';
       input.dispatchEvent(new Event('input', { bubbles: true }));
-    }, blkGifPath);
-    await page.evaluate(() => { document.querySelectorAll('#adminContent [data-adm-block-toggle]')[4].click(); });
-    await page.waitForFunction((args) => {
-      const input = document.querySelector('#adminContent [data-adm-block-path="' + args.path + '"][data-adm-block-field="url"]');
-      return Boolean(input) && input.value === args.value;
-    }, { path: blkGifPath, value: 'https://example.test/manual.gif' });
-    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse="' + blkGifPath + '.url"]').count(), 1, 'the library button sits next to the manual URL input');
-    console.log('PASS manual block URLs still work beside the media library buttons (SDK fixture)');
+    }, blkVideoPath);
+    const blkVideoPreview = await page.evaluate((path) => {
+      const input = document.querySelector('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]');
+      const host = input ? input.closest('.adm-block-body') : null;
+      return host ? host.querySelector('.adm-video-preview img')?.getAttribute('src') || '' : '';
+    }, blkVideoPath);
+    assert.ok(blkVideoPreview.indexOf('i.ytimg.com/vi/dQw4w9WgXcQ/') !== -1, 'an authored YouTube URL shows its local video preview');
+    // Library-backed blocks (image / image-text / gif / before-after) expose a
+    // preview + picker only: the canonical URL never becomes a raw textbox.
+    assert.equal(await page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-block-path="' + path + '"][data-adm-block-field="url"]').length, blkGifPath), 0, 'the gif block URL is picker-driven, never a raw textbox');
+    assert.equal(await page.locator('#adminContent [data-adm-media-preview="' + blkGifPath + '.url"]').count(), 1, 'the gif block keeps a media preview surface');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse="' + blkGifPath + '.url"]').count(), 1, 'the gif block keeps its library action');
+    console.log('PASS block video URLs keep working and library blocks stay picker-driven (SDK fixture)');
 
     await page.evaluate((target) => {
       const button = document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]');
@@ -2238,12 +2461,66 @@ try {
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
     assert.equal(await page.evaluate((target) => document.activeElement === document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]'), blkImageTarget), true, 'Escape closes the picker and returns focus to its trigger');
 
+    // P2-08: a closed portfolio block opens fully by keyboard (Enter/Space),
+    // with the same single-toggle behavior as a mouse click.
+    const blkKeyState = await page.evaluate(() => {
+      const head = document.querySelector('#adminContent [data-adm-block-toggle]');
+      if (!head) return null;
+      const block = head.closest('.adm-block');
+      const body = block ? block.querySelector('.adm-block-body') : null;
+      return {
+        role: head.getAttribute('role'),
+        tabbable: head.getAttribute('tabindex'),
+        expanded: head.getAttribute('aria-expanded'),
+        open: block ? block.getAttribute('data-open') : null,
+        bodyHidden: body ? body.hidden : null
+      };
+    });
+    assert.ok(blkKeyState, 'a portfolio block header exists');
+    assert.equal(blkKeyState.role, 'button', 'the block header exposes a button role');
+    assert.equal(blkKeyState.tabbable, '0', 'the block header is keyboard-focusable');
+    assert.equal(blkKeyState.expanded, 'true', 'an open block reports aria-expanded=true');
+    await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').focus());
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('#adminContent [data-adm-block-toggle]').getAttribute('aria-expanded') === 'false');
+    assert.equal(await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').closest('.adm-block').querySelector('.adm-block-body').hidden), true, 'Enter closes the block exactly once');
+    await page.keyboard.press(' ');
+    await page.waitForFunction(() => document.querySelector('#adminContent [data-adm-block-toggle]').getAttribute('aria-expanded') === 'true');
+    assert.equal(await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').closest('.adm-block').querySelector('.adm-block-body').hidden), false, 'Space reopens a closed block by keyboard');
+    console.log('PASS portfolio block headers toggle by keyboard with aria-expanded (SDK fixture)');
+
     for (const viewport of [{width: 1440, height: 900, label: 'desktop'}, {width: 820, height: 1180, label: 'tablet'}, {width: 390, height: 844, label: 'mobile'}]) {
       await page.setViewportSize({width: viewport.width, height: viewport.height});
       await page.waitForTimeout(120);
       const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
       assert.ok(box.scrollWidth <= box.clientWidth + 4, viewport.label + ' portfolio block editor has no horizontal overflow (' + box.scrollWidth + '/' + box.clientWidth + ')');
     }
+    // UI-04: the jump helper follows the stacked layout breakpoint (<=1000px),
+    // so a 768px tablet gets the quick path to the editor; desktop does not.
+    await page.evaluate(() => { window.location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-split').length > 0);
+    for (const probe of [{width: 1280, jumpbar: false, label: 'desktop 1280'}, {width: 1000, jumpbar: true, label: 'stacked 1000'}, {width: 768, jumpbar: true, label: 'tablet 768'}, {width: 390, jumpbar: true, label: 'mobile 390'}, {width: 320, jumpbar: true, label: 'narrow 320'}]) {
+      await page.setViewportSize({width: probe.width, height: 800});
+      await page.waitForTimeout(150);
+      const jumpVisible = await page.evaluate(() => {
+        const bar = document.querySelector('#adminContent .adm-jumpbar');
+        if (!bar) return false;
+        return window.getComputedStyle(bar).display !== 'none';
+      });
+      assert.equal(jumpVisible, probe.jumpbar, probe.label + ' jumpbar visibility matches the stacked layout');
+    }
+    console.log('PASS the admin jump helper tracks the stacked layout at tablet widths (SDK fixture)');
+    // UI-02: pastel CTA buttons keep dark text (never regress to white-on-pastel).
+    const ctaColors = await page.evaluate(() => {
+      const read = (sel) => {
+        const el = document.querySelector(sel);
+        return el ? window.getComputedStyle(el).color : null;
+      };
+      return { navCta: read('.nav-cta'), btnYellow: read('.btn-yellow') };
+    });
+    assert.equal(ctaColors.navCta, 'rgb(74, 31, 67)', 'the nav CTA keeps dark text on its pastel background');
+    if (ctaColors.btnYellow) assert.equal(ctaColors.btnYellow, 'rgb(74, 31, 67)', 'the yellow button keeps dark text on pastel');
+    console.log('PASS pastel CTA buttons keep dark readable text (SDK fixture)');
     await page.setViewportSize({width: 1280, height: 800});
     assert.equal(await page.locator('#adminContent [data-adm-block-field][data-adm-block-path]').count() >= 7, true, 'every media block keeps its editable fields');
     console.log('PASS the media library is wired into every portfolio media block (SDK fixture)');
@@ -2269,7 +2546,13 @@ try {
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-mediabrowse$=".items"]')));
     const p3GalleryTarget = blkTargets.find((target) => target.includes('.blocks.2.items'));
     const p3GridTarget = blkTargets.find((target) => target.includes('.blocks.3.items'));
-    const p3RowCount = (target) => page.evaluate((path) => document.querySelectorAll('#adminContent [data-adm-mi-path="' + path.slice(0, -6) + '"][data-adm-mi-key="url"]').length, target);
+    const p3RowCount = (target) => page.evaluate((path) => {
+      const blockPath = path.slice(0, -6);
+      return Array.prototype.filter.call(
+        document.querySelectorAll('#adminContent [data-adm-mi-replace="' + blockPath + '"]'),
+        (btn) => Boolean(btn.closest('.adm-media-item'))
+      ).length;
+    }, target);
     const p3GalleryBefore = await p3RowCount(p3GalleryTarget);
     await page.locator('#adminContent [data-adm-mi-key="alt"]').first().fill('Existing artwork');
     await blkBrowse(p3GalleryTarget);
@@ -2312,7 +2595,7 @@ try {
     const [p3GalleryChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
     await p3GalleryChooser.setFiles({ name: 'picker-gallery-new.png', mimeType: 'image/png', buffer: Buffer.from([41, 42, 43, 44, 45]) });
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    await page.waitForFunction((expected) => document.querySelectorAll('#adminContent [data-adm-mi-key="url"]').length >= expected, p3GalleryBefore + 3);
+    await page.waitForFunction((expected) => document.querySelectorAll('#adminContent .adm-media-item').length >= expected, p3GalleryBefore + 3);
     assert.equal(await p3RowCount(p3GalleryTarget), p3GalleryBefore + 1, 'direct Picker upload appends one Gallery row');
     const p3GalleryShape = await page.evaluate((path) => {
       const draft = window.CrabbieAdminUsageProvider().draft;
@@ -2325,7 +2608,7 @@ try {
     assert.ok(p3GalleryShape.url.includes('/uploads/'), 'the uploaded Gallery row holds a canonical URL');
     assert.equal(await page.evaluate((path) => document.activeElement?.getAttribute('data-adm-mediabrowse') === path, p3GalleryTarget), true, 'Picker upload returns focus to its editor button');
     assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker upload marks the draft dirty without saving');
-    assert.equal(await page.locator('#admStickySave').isVisible(), true, 'Picker upload leaves the draft dirty');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'Picker upload leaves the draft dirty');
 
     await blkBrowse(p3GalleryTarget);
     await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open [data-adm-pick]')));
@@ -2365,12 +2648,15 @@ try {
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
     assert.equal(await p3RowCount(p3GridTarget), p3GridBefore + 1, 'Picker drag/drop appends one structured Grid row');
     assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker drag/drop does not auto-save');
-    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-path$=".thumbnail"]').first().getAttribute('data-adm-path');
+    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-mediabrowse$=".cover"]').first().getAttribute('data-adm-mediabrowse');
     await blkBrowse(p3ThumbnailTarget);
     const [p3SingleChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
     await p3SingleChooser.setFiles({ name: 'picker-single.png', mimeType: 'image/png', buffer: Buffer.from([61, 62, 63, 64, 65]) });
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
-    const p3SingleValue = await page.locator('#adminContent [data-adm-path="' + p3ThumbnailTarget + '"]').inputValue();
+    const p3SingleValue = await page.evaluate((target) => {
+      const preview = document.querySelector('#adminContent [data-adm-media-preview="' + target + '"] img');
+      return preview ? preview.getAttribute('src') : '';
+    }, p3ThumbnailTarget);
     assert.equal(typeof p3SingleValue, 'string', 'direct Picker upload keeps a single-value target a string');
     assert.ok(p3SingleValue.includes('/uploads/'), 'single-value direct upload uses the canonical URL');
     await page.evaluate(() => { location.hash = '#admin/media'; });
@@ -2440,13 +2726,18 @@ try {
     const p4AssetAvailability = page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.availability"]');
     assert.equal(await p4AssetAvailability.inputValue(), 'available', 'a new Asset starts from an explicit availability');
     await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.title"]').fill('Availability asset');
-    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.slug"]').fill('availability-asset');
+    assert.equal(await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.slug"]').inputValue(), 'availability-asset');
     await p4AssetAvailability.selectOption('unavailable');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="assets"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'free_assets'));
     const p4AssetWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
     assert.equal(p4AssetWrite.payload.availability, 'unavailable', 'the saved Asset keeps the chosen availability');
     assert.equal(await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0].availability), 'unavailable', 'the database row stores the explicit availability');
+    await page.locator('#adminContent [data-adm-path="assets.' + p4AssetId + '.placeholder"]').check();
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'free_assets').length >= 2);
+    const p4AssetFlagWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
+    assert.equal(p4AssetFlagWrite.payload.metadata.placeholder, true, 'a checked placeholder is persisted under asset metadata');
     const p4SavedAssetRow = await page.evaluate(() => window.__routerRows.free_assets.filter((row) => row.slug === 'availability-asset')[0]);
     const p4SavedServicesB = await page.evaluate(() => window.__routerRows.commission_services);
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -2469,6 +2760,7 @@ try {
     });
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-path$=".availability"]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".availability"]').first().inputValue(), 'unavailable', 'a reload keeps the stored availability');
+    assert.equal(await page.locator('#adminContent [data-adm-path$=".placeholder"]').first().isChecked(), true, 'a reload keeps the stored placeholder flag');
     console.log('PASS a new Asset keeps an explicit availability across save and reload (SDK fixture)');
 
     // ---- Patch 4 C: a new Form is selectable by slug without a reload ----
@@ -2481,10 +2773,10 @@ try {
     const p4FormId = await page.evaluate(() => document.querySelector('#adminContent [data-adm-path$=".title"]').getAttribute('data-adm-path').split('.')[1]);
     assert.ok(/^client-/.test(p4FormId), 'a new Form uses a stable local identity before saving');
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.title"]').fill('Round-trip form');
-    await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.slug"]').fill('round-trip-form');
+    assert.equal(await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.slug"]').inputValue(), 'round-trip-form');
     await page.locator('#adminContent [data-adm-new-field]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-qblock]')));
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_forms'));
     const p4FormWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms' && write.operation === 'insert').slice(-1)[0]);
     assert.equal(p4FormWrite.payload.slug, 'round-trip-form', 'the Form is persisted under its real slug');
@@ -2499,7 +2791,7 @@ try {
     assert.ok(p4FormOptions.indexOf('round-trip-form') !== -1, 'the saved Form appears in the Commission relationship select without a reload');
     assert.equal(p4FormOptions.some((value) => /^client-/.test(value)), false, 'the relationship select never offers a local identity');
     await p4FormSelect.selectOption('round-trip-form');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services'));
     const p4CommissionWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services').slice(-1)[0]);
     assert.equal(p4CommissionWrite.payload.form_slug, 'round-trip-form', 'the Commission persists the real Form slug');
@@ -2529,7 +2821,7 @@ try {
     await page.locator('#adminContent [data-adm-path="' + p4FieldBase + '.required"]').check();
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.description"]').fill('Tell me about the emote you want.');
     await page.locator('#adminContent [data-adm-path="forms.' + p4FormId + '.published"]').check();
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="forms"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').length >= 2);
     const p4FormUpdate = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_forms').slice(-1)[0]);
     assert.equal(p4FormUpdate.payload.description, 'Tell me about the emote you want.', 'the form description is persisted');
@@ -2541,7 +2833,9 @@ try {
     assert.equal(p4FormUpdate.payload.fields[0].placeholder, 'Pick one', 'placeholder is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].type, 'select', 'the field type is persisted');
     assert.equal(p4FormUpdate.payload.fields[0].label, 'Preferred package', 'the field label is persisted');
-    const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.slice(-1)[0]);
+    const p4StoredFormRow = await page.evaluate(() => window.__routerRows.commission_forms.find((row) => row.slug === 'round-trip-form'));
+    assert.deepEqual(p4StoredFormRow.fields[0].options, ['Mini', 'Full', 'Deluxe'], 'the field edit reaches the database row, not just the write payload');
+    const p4SavedFormRow = await page.evaluate(() => window.__routerRows.commission_forms.find((row) => row.slug === 'round-trip-form'));
     const p4SavedServicesD = await page.evaluate(() => window.__routerRows.commission_services);
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -2556,13 +2850,14 @@ try {
     await loginAdmin();
     await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
     await goAdmin('commissions');
-    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-subtab="commissions:forms"]')));
     await page.locator('#adminContent [data-adm-subtab="commissions:forms"]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-select="forms"]')));
-    await page.evaluate(() => {
+    const roundTripRowFound = await page.evaluate(() => {
       const row = Array.prototype.find.call(document.querySelectorAll('#adminContent [data-adm-select="forms"]'), (candidate) => candidate.innerText.indexOf('Round-trip form') !== -1);
       if (row) row.click();
+      return Boolean(row);
     });
+    assert.ok(roundTripRowFound, 'the saved form hydrates back into the admin list');
     await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-options-path]')));
     assert.equal(await page.locator('#adminContent [data-adm-path$=".description"]').first().inputValue(), 'Tell me about the emote you want.', 'the description survives a reload');
     assert.equal(await page.locator('#adminContent [data-adm-path$=".published"]').first().isChecked(), true, 'the published flag survives a reload');
@@ -2580,7 +2875,7 @@ try {
     const p4PriceField = page.locator('#adminContent [data-adm-path="commissions.' + p4PriceId + '.price"]');
     await p4PriceField.waitFor();
     await p4PriceField.fill('75');
-    await page.locator('#adminContent .adm-editor-bar [data-adm-save="commissions"]').click();
+    await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'commission_services' && write.payload.price === 75));
     const p4PriceWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'commission_services' && write.payload.price === 75).slice(-1)[0]);
     assert.equal(p4PriceWrite.payload.details.priceFormatted, '$75', 'saving a new price rewrites the stale formatted detail');
@@ -2631,6 +2926,885 @@ try {
     assert.equal(typeof p4MediaInsert.payload.height, 'number', 'a measured height is persisted as a number');
     console.log('PASS an uploaded image measures and persists intrinsic dimensions (SDK fixture canvas decode)');
 
+    // ---- Bug fix: a transient badge-count failure must not stick at "–" ----
+    // No reload between cycles: the retry must come from a natural dashboard
+    // render on the same page (a reload would retry even with the old latch).
+    const badgeText = (key) => page.evaluate((k) => {
+      const el = document.querySelector('#adminNav [data-count="' + k + '"]');
+      return el ? el.textContent : null;
+    }, key);
+    const requestHeadReads = () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'commission_requests' && read.head).length);
+    const mediaHeadReads = () => page.evaluate(() => (window.__routerReads || []).filter((read) => read.table === 'media' && read.head).length);
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_requests = [
+        { id: '00000000-0000-4000-8000-000000000911', client_name: 'Badge A' },
+        { id: '00000000-0000-4000-8000-000000000912', client_name: 'Badge B' },
+        { id: '00000000-0000-4000-8000-000000000913', client_name: 'Badge C' }
+      ];
+      window.__routerFail = 'commission_requests';
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]'));
+    await page.waitForFunction(() => (window.__routerReads || []).some((read) => read.table === 'commission_requests' && read.head));
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]').textContent === '–');
+    assert.equal(await badgeText('requests'), '–', 'a failed requests count stays unknown instead of pretending');
+    await page.evaluate(() => { window.__routerFail = null; });
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await page.waitForFunction(() => document.querySelector('#adminNav [data-count="requests"]').textContent === '3');
+    assert.equal(await badgeText('requests'), '3', 'the retried requests count updates the badge');
+    assert.ok((await requestHeadReads()) >= 2, 'a later count attempt occurred after the failure');
+    assert.equal(await mediaHeadReads(), 1, 'the successful media count needed no retry');
+    // Rapid re-renders must not fan out: counts are cached or in flight.
+    const settledReads = await requestHeadReads();
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await goAdmin('portfolio');
+    await goAdmin('dashboard');
+    await page.waitForTimeout(300);
+    assert.equal(await requestHeadReads(), settledReads, 'simultaneous renders never duplicate count queries');
+    assert.equal(await mediaHeadReads(), 1, 'media count stays a single query');
+    console.log('PASS a failed badge count retries on the next dashboard render instead of sticking at "–" (SDK fixture)');
+
+    // ---- Patch 5 A: CMS-only detail slugs never get a false 404 ----
+    // One deterministic gate holds the authoritative snapshot open, so the
+    // pre-hydration phase is exercised instead of raced against the fixture.
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('routerGateUsed') === '1') return;
+      sessionStorage.setItem('routerGateUsed', '1');
+      window.__routerGateOpen = false;
+      window.__routerGate = new Promise((resolve) => { window.__routerGateOpen_ = resolve; });
+    });
+    await page.goto(origin + '/#project/cms-only-slug', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    // While the CMS snapshot is still pending the route waits, never 404s.
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'loading');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'loading', 'a CMS-only project slug waits instead of 404');
+    // Seeding + opening the gate lets the real hydration apply the snapshot.
+    await page.evaluate(() => {
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000051', slug: 'cms-only-slug', title: 'CMS only',
+        description: 'Fresh CMS record', tags: [], thumbnail_path: '', cover_path: '', content: {},
+        featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.free_assets = [{
+        id: '00000000-0000-4000-8000-000000000052', slug: 'cms-only-asset', title: 'CMS asset',
+        description: 'Fresh asset', thumbnail_path: '', file_type: 'ZIP', file_path: 'https://example.test/cms-only.zip',
+        availability: 'available', featured: false, published: true, sort_order: 0, metadata: {}, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerGateOpen_();
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.locator('#pdTitle').innerText(), 'CMS only', 'the pending CMS-only route renders once the snapshot arrives');
+    // Fresh direct routes for CMS-only slugs resolve after hydration too.
+    await page.evaluate(() => { location.hash = '#asset/cms-only-asset'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.equal(await page.locator('#adTitle').innerText(), 'CMS asset', 'a CMS-only asset renders from a direct route');
+    await page.evaluate(() => { location.hash = '#asset/no-such-asset-anywhere'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'an unknown asset slug is a real 404');
+    await page.evaluate(() => { location.hash = '#project/no-such-project-anywhere'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'an unknown project slug is a real 404');
+    // Renaming a slug drops the old route: the old slug 404s, the new one works.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{
+        slug: 'cms-only-slug-renamed', title: 'CMS only', desc: '', cat: 'Illustration', tags: [],
+        thumbnail: '', cover: '', blocks: [], credits: '', year: ''
+      }]);
+      location.hash = '#project/cms-only-slug';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === '404');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), '404', 'a renamed slug makes the old route a real 404');
+    await page.evaluate(() => { location.hash = '#project/cms-only-slug-renamed'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    console.log('PASS CMS-only detail slugs wait, render after refresh, and unknown/renamed slugs 404 (SDK fixture)');
+    // ---- Patch 5 B2: a new CMS commission service appears, opens, and requests ----
+    await page.goto(origin + '/#commissions', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.waitForFunction(() => document.querySelector('[data-view="commissions"]').classList.contains('is-active'));
+    await page.evaluate(() => {
+      window.CrabbieCommissions.apply([{
+        slug: 'chibi-badge-set', name: 'Chibi Badge Set', title: 'Chibi Badge Set',
+        description: 'Matching chibi badges.', price: '$45', priceNumeric: 45, currency: 'USD',
+        availability: 'open', formType: 'emotes', formLabel: 'Emotes form',
+        thumbnail: '', featured: false, published: true,
+        includedFiles: 'PNG x3 + PSD', canvas: '1000x1000px each', deliveryEstimate: '2 weeks',
+        alternatePrice: '1100000', chips: [], priceNote: '',
+        isOtherService: true
+      }], null);
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#miniServicesGrid [data-other-service="chibi-badge-set"]')));
+    await page.locator('#miniServicesGrid [data-other-service="chibi-badge-set"]').click();
+    await page.waitForFunction(() => (document.getElementById('otherServiceDetail') || {}).innerText.indexOf('Chibi Badge Set') !== -1);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /Chibi Badge Set/);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /\$45/);
+    assert.match(await page.locator('#otherServiceDetail').innerText(), /PNG x3 \+ PSD/);
+    assert.equal(await page.locator('#otherServiceDetail [data-service-slug="chibi-badge-set"]').count(), 1, 'the detail Request button carries the service slug');
+    assert.equal(await page.locator('#otherServiceDetail [data-service-slug="chibi-badge-set"]').getAttribute('data-form'), 'emotes', 'the Request button maps to the authored form');
+    console.log('PASS a new CMS commission service appears, opens, and requests the right form (SDK fixture)');
+
+    // ---- Patch 5 B: project blocks render author section titles only ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'titled-blocks',title:'Titled',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[
+          {id:'b1',type:'text',text:'Hello **bold** and *italic*\n\nSecond para',sectionTitle:'Concept',textSize:'large'},
+          {id:'b2',type:'quote',text:'Nice words',sectionTitle:''},
+          {id:'b3',type:'image-text',text:'More',url:'',sectionTitle:'Final thoughts'}
+        ],credits:'',year:''}]);
+      location.hash = '#project/titled-blocks';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    const blockHeadings = await page.locator('[data-view="project-detail"] .blk-head').allInnerTexts();
+    assert.ok(blockHeadings.some((text) => text.includes('Concept')), 'the author section title renders');
+    assert.ok(blockHeadings.some((text) => text.includes('Final thoughts')), 'the author section title renders');
+    const detailText = await page.locator('[data-view="project-detail"]').innerText();
+    assert.doesNotMatch(detailText, /\b01 text\b|\b02 image\b|\b03 quote\b|\bimage-text\b|\bbefore-after\b/i, 'no raw internal block type leaks publicly');
+    assert.equal(await page.locator('[data-view="project-detail"] .cms strong').count(), 1, 'markdown bold renders');
+    assert.equal(await page.locator('[data-view="project-detail"] .cms em').count(), 1, 'markdown italic renders');
+    assert.ok((await page.locator('[data-view="project-detail"] .cms.rt-size-large').count()) >= 1, 'the text size preset renders');
+    console.log('PASS block section titles render and raw block type names never leak (SDK fixture)');
+
+    // ---- Patch 5 C: YouTube / TikTok links render visual previews ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'video-links',title:'Videos',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[{id:'vb1',type:'text',text:'Watch:',sectionTitle:'Videos'}],credits:'',year:'',
+        externalLinks:[
+          {title:'Process video',url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'},
+          {title:'Timelapse',url:'https://www.tiktok.com/@crabbie/video/7301234567890123456'},
+          {title:'My site',url:'https://example.test/gallery'}
+        ]}]);
+      location.hash = '#project/video-links';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.waitForFunction(() => document.querySelectorAll('[data-view="project-detail"] .video-link-card').length === 2);
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card img[src*="i.ytimg.com"]').count(), 1, 'a YouTube link renders a real derived thumbnail');
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card.vlc-tiktok').count(), 1, 'a TikTok link renders a branded preview card');
+    assert.equal(await page.locator('[data-view="project-detail"] .video-link-card.vlc-tiktok').getAttribute('data-tiktok-url'), 'https://www.tiktok.com/@crabbie/video/7301234567890123456', 'the TikTok card exposes its URL for the real-thumbnail upgrade (offline fallback keeps the branded card)');
+    assert.equal(await page.locator('[data-view="project-detail"] .link-pill[href="https://example.test/gallery"]').count(), 1, 'an ordinary link still renders as an ordinary link');
+    console.log('PASS YouTube/TikTok links render visual previews and ordinary links keep working (SDK fixture)');
+
+    // ---- Patch 5 D: GIF gallery renders animated, Vietnamese UI is gone ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{slug:'gif-gallery',title:'GIFs',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',
+        blocks:[{id:'g1',type:'gallery',sectionTitle:'Mixed',items:[
+          {url:'https://example.test/a.png',alt:'A',caption:''},
+          {url:'https://example.test/b.gif',alt:'B',caption:'animated'}
+        ]}],credits:'',year:''}]);
+      location.hash = '#project/gif-gallery';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.locator('[data-view="project-detail"] .ph-gallery img[src$=".gif"]').count(), 1, 'the GIF gallery item renders its animated source');
+    assert.equal(await page.locator('[data-view="project-detail"] .ph-gallery img').count(), 2, 'mixed PNG/GIF galleries render every item');
+    assert.equal(await page.locator('.lang button[data-lang="VI"]:not([hidden])').count(), 0, 'no visible public VI switch is presented');
+    console.log('PASS GIF galleries render animated and the fake public VI switch is gone (SDK fixture)');
+
+    // ---- Patch 5 E: footer follows CMS contact settings ----
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{email:'artist@example.test',twitter:'https://x.com/example'}});
+    });
+    assert.equal(await page.locator('#footEmail').innerText(), 'artist@example.test', 'the footer email follows CMS settings');
+    assert.equal(await page.locator('#footEmail').getAttribute('href'), 'mailto:artist@example.test');
+    assert.equal(await page.locator('#footTwitter').getAttribute('href'), 'https://x.com/example', 'the footer Twitter follows CMS settings');
+    assert.doesNotMatch(await page.locator('footer').innerText(), /Find me/, 'no useless Find me section remains');
+    const footHeads = await page.locator('footer .foot h5').allInnerTexts();
+    assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer has Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
+    console.log('PASS the footer follows CMS contact settings with no Find me section (SDK fixture)');
+
+    // ---- Appearance: semantic text color tokens + website background image ----
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: {
+        displayColor: '#123456', accentColor: '#234567', bodyColor: '#345678',
+        decorativeColor: '#456789', mutedColor: '#56789a', fieldLabelColor: '#654321',
+        backgroundImage: 'https://cdn.example.test/bg.jpg', backgroundSize: 'cover', backgroundOverlay: 0.4
+      }});
+    });
+    const appearanceApplied = await page.evaluate(() => ({
+      display: getComputedStyle(document.body).getPropertyValue('--text-display').trim(),
+      body: getComputedStyle(document.body).getPropertyValue('--text-body').trim(),
+      field: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim(),
+      labelColor: getComputedStyle(document.querySelector('[data-view="commissions"] .field label')).color,
+      heroColor: getComputedStyle(document.querySelector('.hero h1')).color,
+      bg: (document.getElementById('cmsBackgroundStyle') || {}).textContent || ''
+    }));
+    assert.equal(appearanceApplied.display, '#123456', 'the display color token is applied');
+    assert.equal(appearanceApplied.body, '#345678', 'the body color token is applied');
+    assert.equal(appearanceApplied.field, '#654321', 'the field label token is applied');
+    assert.equal(appearanceApplied.labelColor, 'rgb(101, 67, 33)', 'the commission question label follows the field-label token');
+    assert.equal(appearanceApplied.heroColor, 'rgb(18, 52, 86)', 'the hero heading follows the display token');
+    assert.match(appearanceApplied.bg, /bg\.jpg/, 'the website background image is applied');
+    assert.match(appearanceApplied.bg, /rgba\(255,255,255,0\.4\)/, 'the background overlay opacity is applied');
+    // Clearing the image restores the default pastel background; removing the
+    // tokens restores the palette defaults so later passes are unaffected.
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { backgroundImage: '' } });
+      ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted', '--text-field-label']
+        .forEach((key) => document.body.style.removeProperty(key));
+    });
+    const clearedBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.equal(clearedBg.trim(), '', 'clearing the background image removes the override style');
+    console.log('PASS appearance color tokens and website background image apply and clear (SDK fixture)');
+
+    // ---- Motion runtime: falling candy + desktop pet (SDK fixture) ----
+    assert.ok(await page.evaluate(() => { try { return Boolean(localStorage.getItem('crabbie:appearance')); } catch (e) { return false; } }), 'the appearance snapshot is cached for the next first paint');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: true, candyDensity: 'low', pet: { enabled: false } }); });
+    await page.waitForTimeout(1300);
+    assert.ok(await page.locator('#crabbieCandyLayer .crabbie-candy').count() > 0, 'falling candy spawns recycled nodes');
+    assert.equal(await page.locator('#crabbieCandyLayer img[src*="/assets/decorations/candy/"]').count() > 0, true, 'candy uses the reorganised decoration assets');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
+
+    // Initial pets: a single pet rests in the bottom band on load.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'exactly one pet exists on load');
+    assert.equal(await page.locator('#crabbiePetLayer img[src*="/assets/decorations/pet/"]').count(), 1, 'the pet uses the reorganised decoration asset');
+    const petBand = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      const navH = nav ? nav.getBoundingClientRect().height : 90;
+      return Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, navH };
+      });
+    });
+    petBand.forEach((p) => {
+      assert.ok(p.top >= p.navH - 4, 'a pet never spawns over the navigation');
+      assert.ok(p.bottom > 900 - 160, 'a pet spawns in the bottom band');
+    });
+
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet-bubble.show');
+    assert.ok((await page.locator('#crabbiePetLayer .crabbie-pet-bubble.show').first().innerText()).trim().length > 0, 'clicking a pet shows a dialogue bubble');
+
+    // A dialogue URL becomes a safe labelled link, never a raw address.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'external', url: 'https://example.test/x', label: 'Xem thêm' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    const dialogueLink = page.locator('#crabbiePetLayer .crabbie-pet-bubble a');
+    await dialogueLink.waitFor({ state: 'attached' });
+    assert.equal(await dialogueLink.getAttribute('rel'), 'noopener noreferrer', 'external dialogue links are safe');
+    assert.equal(await dialogueLink.getAttribute('target'), '_blank');
+    assert.equal((await dialogueLink.innerText()).trim(), 'Xem thêm');
+    assert.doesNotMatch(await page.locator('#crabbiePetLayer .crabbie-pet-bubble').first().innerText(), /example\.test/, 'the raw URL is never shown');
+
+    // Dialogue randomization: two active pets never share the same line.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [
+      { text: 'alpha' }, { text: 'bravo' }, { text: 'charlie' }, { text: 'delta' }, { text: 'echo' }, { text: 'foxtrot' }
+    ] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 2);
+    const petLines = await page.evaluate(() => {
+      const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));
+      pets[0].click();
+      pets[1].click();
+      return pets.map((p) => { const span = p.querySelector('.crabbie-pet-bubble span'); return span ? span.textContent : ''; });
+    });
+    assert.ok(petLines[0] && petLines[1], 'both pets show a dialogue line');
+    assert.notEqual(petLines[0], petLines[1], 'two active pets do not speak the same line');
+    const petLinesAgain = await page.evaluate(() => {
+      const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));
+      pets[0].click();
+      return pets[0].querySelector('.crabbie-pet-bubble span').textContent;
+    });
+    assert.notEqual(petLinesAgain, petLines[0], 'a pet does not repeat its own previous line');
+
+    // Click-spawn drops a new pet in from above without replacing existing pets.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 2);
+    const beforeSpawn = await page.locator('#crabbiePetLayer .crabbie-pet').count();
+    const beforeState = await page.evaluate(() => {
+      const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));
+      pets.forEach((el, i) => { el.dataset.probe = 'p' + i; });
+      return pets.map((el) => { const r = el.getBoundingClientRect(); return { id: el.dataset.probe, x: r.left, y: r.top }; });
+    });
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction((n) => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === n + 1, beforeSpawn);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet.is-dropping').count() >= 1, true, 'a click-spawned pet drops in from above');
+    const afterState = await page.evaluate(() => Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet[data-probe]')).map((el) => { const r = el.getBoundingClientRect(); return { id: el.dataset.probe, x: r.left, y: r.top }; }));
+    assert.deepEqual(afterState.map((p) => p.id), beforeState.map((p) => p.id), 'existing pet DOM nodes survive a click-spawn');
+    assert.equal(afterState.every((p, i) => Number.isFinite(p.x) && Number.isFinite(p.y) && Math.abs(p.y - beforeState[i].y) < 20 && Math.abs(p.x - beforeState[i].x) < 60 && !(p.x === 0 && p.y === 0)), true, 'existing pets keep their place (no corner jump) when a new pet spawns');
+    assert.equal(await page.evaluate(() => Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).some((el) => /NaN|Infinity/.test(el.style.transform))), false, 'no pet transform is NaN/Infinity');
+
+    // FIFO: pets spawn one per click and the sixth replaces the oldest.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    for (let i = 0; i < 4; i += 1) {
+      const n = await page.locator('#crabbiePetLayer .crabbie-pet').count();
+      await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+      await page.waitForFunction((c) => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === c + 1, n);
+    }
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 5, 'clicking grows the pack to five pets');
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').dataset.oldest = '1'; });
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 5);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 5, 'the sixth spawn never exceeds the five-pet cap');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet[data-oldest="1"]').count(), 0, 'the oldest pet leaves first (FIFO)');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet.is-dropping').count() >= 1, true, 'the replacement pet drops in from above');
+    assert.equal(await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left), y: Math.round(r.top) };
+      }).every((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    }), true, 'every remaining pet has a valid position');
+
+    // A plain click (press + release, no movement) must not drag/pin/move the pet.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 1, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    await page.waitForTimeout(400);
+    const clickResult = await page.evaluate(() => {
+      const el = document.querySelector('#crabbiePetLayer .crabbie-pet');
+      const before = el.getBoundingClientRect();
+      const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+      el.dispatchEvent(ev('pointerdown', before.left + before.width / 2, before.top + before.height / 2));
+      const draggingOnPress = el.classList.contains('is-dragging');
+      el.dispatchEvent(ev('pointerup', before.left + before.width / 2, before.top + before.height / 2));
+      el.click();
+      const after = el.getBoundingClientRect();
+      return { draggingOnPress, dx: after.left - before.left, dy: after.top - before.top, same: document.contains(el) };
+    });
+    assert.equal(clickResult.draggingOnPress, false, 'a plain press does not start a drag');
+    assert.equal(clickResult.same, true, 'the clicked pet is not replaced');
+    assert.ok(Math.abs(clickResult.dx) < 3 && Math.abs(clickResult.dy) < 3, 'a click does not move the pet');
+
+    // Drag pins the pet exactly where it is dropped and stops wandering.
+    const dragResult = await page.evaluate(() => {
+      const el = document.querySelector('#crabbiePetLayer .crabbie-pet');
+      const r = el.getBoundingClientRect();
+      const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+      el.dispatchEvent(ev('pointerdown', r.left + r.width / 2, r.top + r.height / 2));
+      const draggingOnPress = el.classList.contains('is-dragging');
+      el.dispatchEvent(ev('pointermove', 500, 400));
+      const draggingAfterMove = el.classList.contains('is-dragging');
+      el.dispatchEvent(ev('pointerup', 500, 400));
+      return { draggingOnPress, draggingAfterMove };
+    });
+    assert.equal(dragResult.draggingOnPress, false, 'a press alone is not a drag');
+    assert.equal(dragResult.draggingAfterMove, true, 'movement past the threshold starts a drag');
+    const pinnedBefore = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { x: r.left, y: r.top }; });
+    await page.waitForTimeout(1200);
+    const pinnedAfter = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { x: r.left, y: r.top }; });
+    assert.ok(Math.abs(pinnedAfter.x - pinnedBefore.x) < 4 && Math.abs(pinnedAfter.y - pinnedBefore.y) < 4, 'a dragged pet stays exactly where it was dropped');
+
+    // Resizing clamps a dropped pet back inside the viewport.
+    await page.evaluate(() => {
+      const el = document.querySelector('#crabbiePetLayer .crabbie-pet');
+      const r = el.getBoundingClientRect();
+      const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 8, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+      el.dispatchEvent(ev('pointerdown', r.left + r.width / 2, r.top + r.height / 2));
+      el.dispatchEvent(ev('pointermove', 4000, 4000));
+      el.dispatchEvent(ev('pointerup', 4000, 4000));
+    });
+    await page.setViewportSize({ width: 700, height: 700 });
+    await page.waitForTimeout(300);
+    const clamped = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { right: r.right, bottom: r.bottom, w: window.innerWidth, h: window.innerHeight }; });
+    assert.ok(clamped.right <= clamped.w + 1 && clamped.bottom <= clamped.h + 1, 'a dropped pet is clamped back inside after resize');
+
+    // Mobile is capped at one pet.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'a' }, { text: 'b' }] } }); });
+    await page.waitForTimeout(160);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'mobile shows exactly one pet');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 0, 'turning the pet off removes every pet');
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- Music: control, single stable instance, disable ----
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: false }); });
+    assert.equal(await page.locator('#crabbieMusicControl.show').count(), 0, 'the music control is hidden when disabled');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: true, url: 'data:audio/mpeg;base64,//uQx', title: 't', volume: 50, loop: true, autoplay: false }); });
+    assert.equal(await page.locator('#crabbieMusicControl.show').count(), 1, 'the music control appears when enabled');
+    assert.equal(await page.locator('#crabbieMusicControl').getAttribute('data-state'), 'paused', 'the control exposes its playback state');
+    assert.equal(await page.locator('#crabbieMusicControl button').count(), 2, 'the music control offers play/pause and mute');
+    const stableAudio = await page.evaluate(() => {
+      const audio = document.querySelector('audio');
+      if (!audio) return false;
+      audio.dataset.probe = '1';
+      window.CrabbieSiteMotion.applyMusic({ enabled: true, url: 'data:audio/mpeg;base64,//uQx', volume: 50, loop: true, autoplay: false });
+      return document.querySelector('audio') === audio && document.querySelector('audio').dataset.probe === '1';
+    });
+    assert.equal(stableAudio, true, 're-applying the same source keeps one audio instance (no restart)');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: false }); });
+    console.log('PASS motion candy/pet and the single-instance music control behave (SDK fixture)');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    // ---- Patch 5 F: expanded commission detail clears the sticky navbar ----
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.locator('[data-view="commissions"].is-active').waitFor({state: 'visible'});
+    const stickyOffset = await page.evaluate(() => {
+      const detail = document.getElementById('otherServiceDetail');
+      return detail ? getComputedStyle(detail).scrollMarginTop : '';
+    });
+    assert.ok(/^\d+px$/.test(stickyOffset) && parseInt(stickyOffset, 10) >= 90, 'the detail reserves a sticky-navbar offset (got ' + stickyOffset + ')');
+    const belowNav = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      const detail = document.getElementById('otherServiceDetail');
+      return nav && detail ? nav.getBoundingClientRect().height + 16 <= parseInt(getComputedStyle(detail).scrollMarginTop, 10) : false;
+    });
+    assert.equal(belowNav, true, 'the scroll offset exceeds the real nav height plus a visual gap');
+    console.log('PASS the commission detail scrolls below the sticky navbar with a real offset (SDK fixture)');
+
+    // ---- Commission success panel: clear card, received notice, optional email ----
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    assert.equal(await page.locator('#briefResult').isHidden(), true, 'the success panel starts hidden');
+    const briefPanel = await page.evaluate(() => {
+      const panel = document.getElementById('briefResult');
+      const cs = getComputedStyle(panel);
+      return {
+        marginTop: parseFloat(cs.marginTop),
+        radius: parseFloat(cs.borderRadius),
+        notice: (panel.querySelector('.brief-notice') || {}).textContent || '',
+        emailLabel: (document.getElementById('briefEmail') || {}).textContent || ''
+      };
+    });
+    assert.ok(briefPanel.marginTop >= 24, 'the success panel is separated from the buttons above (got ' + briefPanel.marginTop + ')');
+    assert.ok(briefPanel.radius >= 16, 'the success panel is a rounded card');
+    assert.match(briefPanel.notice, /received by Crabbie/i, 'the success notice states the form was already received');
+    assert.match(briefPanel.emailLabel, /optional/i, 'the email action is presented as optional');
+    console.log('PASS the commission success panel is a clear card with a received notice and optional email (SDK fixture)');
+
+    // ---- Patch 5 G: simplified media fields, no raw library URL inputs ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.portfolio_projects = [{
+        id: '00000000-0000-4000-8000-000000000601', slug: 'media-ui-project', title: 'Media UI project',
+        description: 'D', tags: [], thumbnail_path: '', cover_path: '',
+        content: { blocks: [{ type: 'image', open: true, url: '', alt: '', caption: '' }, { type: 'text', open: true, text: 'Hello', textSize: 'large' }], externalLinks: [{ title: 'Ref', url: 'https://example.test/ref' }] },
+        featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.cms_pages = [{
+        id: '00000000-0000-4000-8000-000000000602', slug: 'about', title: 'About', content: '', published: true, data: {},
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z'
+      }];
+      window.__routerRows.site_settings = [];
+      window.__routerRows.media = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('portfolio');
+    assert.equal(await page.locator('#adminContent input[data-adm-path$=".thumbnail"]').count(), 0, 'media library fields never expose a raw URL textbox');
+    assert.equal(await page.locator('#adminContent input[data-adm-path$=".cover"]').count(), 0, 'media library fields never expose a raw URL textbox');
+    assert.ok(await page.locator('#adminContent [data-adm-mediabrowse]').count() > 0, 'choose-media actions remain (content: ' + (await page.locator('#adminContent').innerText()).slice(0, 160).replace(/\s+/g, ' ') + ' | loadState: ' + await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()) + ')');
+    assert.equal((await page.locator('#adminContent input[data-adm-block-field="sectionTitle"]').count()) > 0, true, 'every block exposes a Section title field');
+    assert.equal((await page.locator('#adminContent select[data-adm-block-field="textSize"]').count()) > 0, true, 'text blocks expose a Text size preset');
+    assert.equal(await page.locator('#adminContent input[data-adm-mi-key="url"]').count(), 0, 'gallery rows never show a URL textbox');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse$=".cover"]').count(), 1, 'one canonical main-image picker');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse$=".thumbnail"]').count(), 0, 'no separate thumbnail uploader remains');
+    assert.equal((await page.locator('#adminContent input[data-adm-array-key="url"]').count()) > 0, true, 'authored external URLs keep their editable input');
+    assert.doesNotMatch(await page.locator('#adminContent').innerText(), /Vietnamese override|Vietnamese text|instead of automatic translation/, 'no manual Vietnamese override UI remains');
+    console.log('PASS simplified media fields, section titles, and no Vietnamese override UI (SDK fixture)');
+
+    // ---- Patch 5 H: About CMS (skills / experience / values) add-edit-save ----
+    await goAdmin('about');
+    const aboutSkillCount = () => page.locator('#adminContent input[data-adm-about-edit="skills"]').count();
+    const aboutExpCount = () => page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').count();
+    const startSkills = await aboutSkillCount();
+    await page.locator('#adminContent [data-adm-about-add="skills"]').click();
+    assert.equal(await aboutSkillCount(), startSkills + 1, 'a skill can be added');
+    await page.locator('#adminContent input[data-adm-about-edit="skills"]').last().fill('Test Skill');
+    await page.locator('#adminContent [data-adm-about-add="values"]').click();
+    await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"]').last().fill('Test Value');
+    await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="body"]').last().fill('Test value body.');
+    const startExp = await aboutExpCount();
+    await page.locator('#adminContent [data-adm-about-add="experience"]').click();
+    assert.equal(await aboutExpCount(), startExp + 1, 'an experience entry can be added');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="tag"]').last().fill('TEST');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').last().fill('Test Experience');
+    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().fill('Test experience body.');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'cms_pages'));
+    const aboutWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'cms_pages').slice(-1)[0]);
+    assert.ok((aboutWrite.payload.data.skills || []).includes('Test Skill'), 'the new skill is in the DB payload');
+    assert.ok((aboutWrite.payload.data.values || []).some((v) => v.title === 'Test Value' && v.body === 'Test value body.'), 'the new value is in the DB payload');
+    assert.ok((aboutWrite.payload.data.experience || []).some((e) => e.title === 'Test Experience'), 'the new experience is in the DB payload');
+    // Reload the admin page: the full round-trip must survive hydration.
+    // The SDK fixture lives in page memory, so re-seed the saved row first.
+    const p5SavedAboutRow = await page.evaluate(() => (window.__routerRows.cms_pages || []).slice(-1)[0]);
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.cms_pages = row ? [row] : [];
+    }, p5SavedAboutRow);
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('about');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="skills"][value="Test Skill"]').count()) >= 1, 'the saved skill survives an admin reload');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"][value="Test Value"]').count()) >= 1, 'the saved value survives an admin reload');
+    assert.ok((await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"][value="Test Experience"]').count()) >= 1, 'the saved experience survives an admin reload');
+    // The public modules hydrate at boot, so seed before load like P4-E.
+    await page.addInitScript((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.cms_pages = row ? [row] : [];
+    }, p5SavedAboutRow);
+    await page.goto(origin + '/#about', { waitUntil: 'load' });
+    await page.locator('[data-view="about"].is-active').waitFor({state: 'visible'});
+    assert.match(await page.locator('[data-view="about"] .chip-cloud').innerText(), /Test Skill/, 'the new skill reaches the public page');
+    assert.match(await page.locator('[data-view="about"] .exp-grid').innerText(), /Test Experience/, 'the new experience reaches the public page');
+    assert.match(await page.locator('[data-view="about"] .values-grid').innerText(), /Test Value/, 'the new creative value reaches the public page');
+    console.log('PASS About CMS groups add, save, reload, and render publicly (SDK fixture)');
+
+    // ---- Patch 5 I: image cards open a lightbox, galleries zoom without navigating ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'normal-a',title:'Normal A',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/a.png',cover:'',blocks:[],credits:'',year:''},
+        {slug:'illustration-x',title:'Illustration X',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/x.png',cover:'',cardMode:'image',blocks:[],credits:'',year:''},
+        {slug:'illustration-y',title:'Illustration Y',description:'A soft little caption',cat:'Illustration',tags:[],thumbnail:'',cover:'https://example.test/y.png',cardMode:'image',blocks:[],credits:'',year:''},
+        {slug:'normal-b',title:'Normal B',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/b.png',cover:'',blocks:[],credits:'',year:''},
+        {slug:'zoom-gallery',title:'Zoom Gallery',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',blocks:[{id:'zg1',type:'gallery',sectionTitle:'Shots',items:[{url:'https://example.test/shot1.png',alt:'Shot 1',caption:''}]}],credits:'',year:''}
+      ]);
+      location.hash = '#portfolio';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.waitForFunction(() => Boolean(document.querySelector('#pfGrid [data-project="illustration-x"].is-image-card')));
+    const imageCard = page.locator('#pfGrid [data-project="illustration-x"]');
+    assert.equal(await imageCard.getAttribute('data-lightbox-src'), 'https://example.test/x.png', 'the image card carries a lightbox source');
+    assert.equal(await imageCard.locator('.work-more').isVisible(), false, 'the image card shows no See more link');
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/x.png', 'clicking the image card opens the full-size image');
+    assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, 'the image card never navigates to a project detail');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.locator('#publicLightboxClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // The image-card label carries the title, and zoom/reset/caption work.
+    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION X', 'the image card label shows the title');
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.locator('#publicLightboxZoomIn').click();
+    assert.equal(await page.evaluate(() => /scale\((1\.[2-9]|[2-9])/.test(document.getElementById('publicLightboxImg').style.transform)), true, 'zoom in scales the image');
+    await page.locator('#publicLightboxReset').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'reset restores the image scale');
+    assert.equal(await page.locator('#publicLightboxCaption').isVisible(), false, 'no caption area renders when the caption is empty');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Cover-only image card uses its cover and shows the optional caption.
+    const captionCard = page.locator('#pfGrid [data-project="illustration-y"]');
+    assert.equal(await captionCard.getAttribute('data-lightbox-src'), 'https://example.test/y.png', 'a cover-only image card uses the cover as its visual');
+    await captionCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/y.png', 'the cover-only image opens full size');
+    assert.equal(await page.locator('#publicLightboxCaption').innerText(), 'A soft little caption', 'the optional caption renders in the lightbox');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Gallery zoom keeps the project route and shows uncropped art.
+    await page.evaluate(() => { location.hash = '#project/zoom-gallery'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.locator('[data-view="project-detail"] .gallery-zoom').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/shot1.png', 'gallery zoom opens the full-size source');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('publicLightboxImg')).objectFit), 'contain', 'the lightbox never crops');
+    assert.equal(await page.evaluate(() => location.hash), '#project/zoom-gallery', 'gallery zoom never triggers project navigation');
+    await page.mouse.click(10, 10);
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden, null, { timeout: 10000 });
+    // Prev/next skips the image card.
+    await page.evaluate(() => { location.hash = '#project/normal-a'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.locator('#pdNext').click();
+    await page.waitForFunction(() => location.hash === '#project/normal-b');
+    assert.equal(await page.evaluate(() => location.hash), '#project/normal-b', 'detail prev/next skips image cards');
+    console.log('PASS image cards lightbox without navigating and galleries zoom uncropped (SDK fixture)');
+
+    // ---- Patch 5 J: category clouds/filters, flower badges, download buttons ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'feat-chibi',title:'Feat Chibi',desc:'',cat:'Chibi',tags:[],thumbnail:'https://example.test/fc.png',cover:'',featured:true,blocks:[],credits:'',year:''},
+        {slug:'plain-illus',title:'Plain Illus',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/pi.png',cover:'',featured:false,blocks:[],credits:'',year:''}
+      ]);
+      window.CrabbieAssets.apply([
+        {slug:'hot-brush',title:'Hot Brush',cat:'Brushes',format:'PNG',availability:'available',downloadUrl:'https://example.test/hot.zip',showDirectDownload:true,showDriveDownload:false,flowerTag:'HOT',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'feat-plain',title:'Feat Plain',cat:'Icons',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:true,filterCat:'icons',tags:[],thumbnail:'',icon:'★'},
+        {slug:'drive-only',title:'Drive Only',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:false,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'both-dl',title:'Both DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'https://example.test/both.zip',showDirectDownload:true,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'NEW',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+        {slug:'no-dl',title:'No DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'}
+      ]);
+      location.hash = '#portfolio';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    // E+K: real category clouds, featured membership, visible featured styling.
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"] .cloud-tag span').innerText(), 'CHIBI', 'a featured project still clouds its real category');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"] .cloud-tag span').innerText(), 'ILLUSTRATION', 'a plain project clouds its real category');
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"].is-cms-featured').count(), 1, 'a featured project gets featured card styling');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"].is-cms-featured').count(), 0, 'a plain project gets no featured styling');
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"]:visible').count(), 1, 'the category chip keeps the matching project');
+    assert.equal(await page.locator('#pfGrid [data-project="plain-illus"]:visible').count(), 0, 'the category chip filters out other categories');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    // F+K: flower badges beat nothing, Featured falls back visibly.
+    await page.evaluate(() => { location.hash = '#free-assets'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    assert.equal(await page.locator('#faGrid [data-asset="hot-brush"] .flower-tag span').innerText(), 'HOT', 'an explicit flowerTag renders');
+    assert.match(await page.locator('#faGrid [data-asset="hot-brush"] .item-cat').innerText(), /^brushes$/i, 'the card keeps its taxonomy category beside the badge');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"] .flower-tag').count(), 0, 'featured alone adds no flower badge text');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"].is-cms-featured').count(), 1, 'a featured asset still gets featured card styling');
+    await page.locator('#faChips .chip[data-filter="brushes"]').click();
+    assert.equal(await page.locator('#faGrid [data-asset="hot-brush"]:visible').count(), 1, 'the asset category chip keeps matching assets');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"]:visible').count(), 0, 'the asset category chip filters other categories');
+    await page.locator('#faChips .chip[data-filter="all"]').click();
+    // G: download button combinations.
+    const dlVisible = async (id) => ({
+      direct: await page.locator('#adDownload').isVisible(),
+      drive: await page.locator('#adDriveDownload').isVisible(),
+      notice: await page.locator('#adUnavailable').isVisible()
+    });
+    await page.evaluate(() => { location.hash = '#asset/hot-brush'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.deepEqual(await dlVisible(), { direct: true, drive: false, notice: false }, 'direct-only shows just Direct download');
+    await page.evaluate(() => { location.hash = '#asset/drive-only'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: false, drive: true, notice: false }, 'drive-only shows just Google Drive');
+    await page.evaluate(() => { location.hash = '#asset/both-dl'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: true, drive: true, notice: false }, 'both toggles show both buttons');
+    await page.evaluate(() => { location.hash = '#asset/no-dl'; });
+    await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
+    assert.deepEqual(await dlVisible(), { direct: false, drive: false, notice: true }, 'neither toggle shows the unavailable notice');
+    // Hover candy: See more bobs on card hover; asset cards lift.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.locator('#pfGrid [data-project="feat-chibi"]').hover();
+    assert.match(await page.locator('#pfGrid [data-project="feat-chibi"] .work-more').evaluate((el) => getComputedStyle(el).animationName || ''), /see-more-bob/, 'the See more pill dances while its card is hovered');
+    await page.evaluate(() => { location.hash = '#free-assets'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await page.locator('#faGrid [data-asset="hot-brush"]').hover();
+    await page.waitForFunction(() => {
+      const card = document.querySelector('#faGrid [data-asset="hot-brush"]');
+      if (!card) return false;
+      const style = getComputedStyle(card);
+      return (style.transform && style.transform !== 'none') || (style.translate && style.translate !== 'none' && style.translate !== '0px');
+    });
+    console.log('PASS category clouds and filters, flower badges, and download combinations (SDK fixture)');
+    // Mobile centers the home hero; desktop keeps the editorial left align.
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign), 'center', 'mobile hero copy centers');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    assert.ok(['left', 'start'].includes(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign)), 'desktop hero copy stays editorial');
+    // Local brand fonts: display / small / body resolve, no Google Fonts.
+    assert.equal(await page.evaluate(() => document.querySelector('link[href*="fonts.googleapis"]') !== null), false, 'no remote font import remains');
+    const loadedFaces = await page.evaluate(() => ['16px "DFVN Starshines"', '12px "iCiel Be Cool"', '16px "DFVN Hogfish"'].map((spec) => document.fonts.check(spec)));
+    assert.deepEqual(loadedFaces, [true, true, true], 'all three local faces load (got ' + JSON.stringify(loadedFaces) + ')');
+    const fontStacks = await page.evaluate(() => ({
+      hero: getComputedStyle(document.querySelector('.hero h1')).fontFamily,
+      body: getComputedStyle(document.body).fontFamily,
+      badge: getComputedStyle(document.querySelector('.hero-badge')).fontFamily
+    }));
+    assert.ok(fontStacks.hero.includes('DFVN Starshines'), 'headings use the display face (got ' + fontStacks.hero + ')');
+    assert.ok(fontStacks.body.includes('DFVN Hogfish'), 'body uses the main face (got ' + fontStacks.body + ')');
+    assert.ok(fontStacks.badge.includes('iCiel Be Cool'), 'badges use the secondary face (got ' + fontStacks.badge + ')');
+
+    // ---- Pass 6: Featured Home membership, defensive caps, and Drive CTA ----
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply(Array.from({length: 6}, (_, i) => ({
+        slug: 'home-project-' + i, title: 'Home project ' + i, desc: '', cat: 'Illustration',
+        tags: [], thumbnail: '', cover: '', blocks: [], featured: true, published: true, year: String(2020 + i)
+      })).concat([{slug:'home-hidden', title:'Hidden', desc:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', blocks:[], featured:false, published:true}]));
+      window.CrabbieAssets.apply(Array.from({length: 9}, (_, i) => ({
+        slug:'home-asset-' + i, title:'Home asset ' + i, cat:'Brushes', format:'PNG', availability:'available',
+        downloadUrl:'https://example.test/' + i + '.zip', showDirectDownload:true, showDriveDownload:false,
+        flowerTag:'', featured:true, published:true, tags:[], thumbnail:'', icon:'★'
+      })).concat([{slug:'asset-hidden',title:'Hidden asset',cat:'Brushes',format:'PNG',availability:'available',featured:false,published:true,tags:[],thumbnail:'',icon:'★'}]));
+      location.hash = '#home';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    assert.equal(await page.locator('#worksGrid [data-project]').count(), 5, 'Home renders only five featured published portfolio records');
+    assert.equal(await page.locator('#worksGrid [data-project="home-hidden"]').count(), 0, 'unfeatured portfolio prototypes never survive Home hydration');
+    assert.equal(await page.locator('#assetsGrid [data-asset]').count(), 8, 'Home renders only eight featured published asset records');
+    assert.equal(await page.locator('#assetsGrid [data-asset="asset-hidden"]').count(), 0, 'unfeatured asset prototypes never survive Home hydration');
+    await page.evaluate(() => { window.CrabbieAssets.apply([{slug:'drive-only', title:'Drive only', cat:'Brushes', format:'ZIP', availability:'available', downloadUrl:'', driveUrl:'https://drive.google.com/file/d/abc/view', showDirectDownload:false, showDriveDownload:true, featured:false, published:true, tags:[], thumbnail:'', icon:'★'}]); });
+    await page.evaluate(() => { location.hash = '#asset/drive-only'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    assert.ok((await page.locator('#adDriveDownload').getAttribute('class')).includes('btn-purple'), 'Google Drive uses the purple candy CTA class');
+    console.log('PASS featured Home membership caps and purple Google Drive CTA (SDK fixture)');
+
+    // ---- Admin > Music: audio preview kind + field upload feedback ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.site_settings = [
+        { key: 'music', value: { enabled: true, url: 'https://router-test.supabase.co/storage/v1/object/public/media/theme.mp3', title: 'Theme', volume: 40, loop: true, autoplay: true }, updated_at: '2026-01-01T00:00:00Z' }
+      ];
+      window.__routerStorageUploadError = null;
+      window.__routerStorageWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Music"]').click();
+    await page.waitForSelector('[data-adm-mediaupload="settings.music.url"]');
+    // A storage audio URL must render an audio player, never a broken image.
+    await page.waitForSelector('[data-adm-media-preview="settings.music.url"] audio');
+    assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"]').getAttribute('data-adm-media-resolved'), 'audio', 'a storage audio URL resolves to the audio preview');
+    assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"] img').count(), 0, 'an audio URL is never rendered as an image');
+    assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"].is-broken').count(), 0, 'an audio URL never shows the broken-image warning');
+    // The audio-specific warning only appears after the audio element errors.
+    await page.evaluate(() => { const a = document.querySelector('[data-adm-media-preview="settings.music.url"] audio'); a.dispatchEvent(new Event('error')); });
+    assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"].is-audio-error').count(), 1, 'an audio error uses the audio-specific state');
+    assert.match(await page.locator('[data-adm-media-preview="settings.music.url"] .adm-media-broken').innerText(), /audio|âm thanh/i, 'the audio warning is audio-specific');
+    assert.equal(await page.locator('[data-adm-field-upload]').count() >= 1, true, 'a media field exposes an upload status area');
+    await page.evaluate(() => { window.__routerStorageUploadError = { message: 'unsupported file type', statusCode: 415 }; });
+    const [musicChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('[data-adm-mediaupload="settings.music.url"]').click()]);
+    await musicChooser.setFiles({ name: 'theme-song.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from([1, 2, 3, 4]) });
+    await page.waitForSelector('[data-adm-field-upload][data-adm-upload-status="failed"]');
+    assert.equal(await page.locator('[data-adm-field-upload][data-adm-upload-status="failed"] [data-adm-upload-retry]').count(), 1, 'a failed field upload offers Retry');
+    assert.equal(await page.locator('[data-adm-mediaupload="settings.music.url"]').isEnabled(), true, 'the upload button is re-enabled after a failure');
+    await page.locator('[data-adm-field-upload] [data-adm-upload-retry]').click();
+    await page.waitForFunction(() => {
+      const preview = document.querySelector('[data-adm-media-preview="settings.music.url"]');
+      return Boolean(preview && preview.textContent.trim());
+    });
+    console.log('PASS a field audio upload reports failure, offers retry and clears on success (SDK fixture)');
+
+    // ---- Admin > Appearance: role tokens, live preview, background picker ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => { window.__routerRows = window.__routerRows || {}; window.__routerRows.site_settings = []; });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.waitForSelector('[data-adm-appearance-preview="1"]');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"]').count(), 2, 'each role token exposes a color picker + hex input');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
+    // Mobile admin: short controls keep two columns without horizontal overflow.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(150);
+    const adminMobile = await page.evaluate(() => {
+      const row = document.querySelector('#adminContent .adm-row');
+      const content = document.getElementById('adminContent');
+      return { cols: row ? getComputedStyle(row).gridTemplateColumns.split(' ').length : 0, overflow: content ? content.scrollWidth - content.clientWidth : 0 };
+    });
+    assert.ok(adminMobile.cols >= 2, 'admin rows keep two columns on mobile (got ' + adminMobile.cols + ')');
+    assert.ok(adminMobile.overflow <= 2, 'the admin Appearance panel has no horizontal overflow on mobile (got ' + adminMobile.overflow + ')');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(120);
+    await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#112233');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim()), '#112233', 'the live preview follows the token before save');
+    await page.locator('[data-adm-appearance-reset]').click();
+    assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#7a3d6e', 'reset restores the default token');
+    // Saved palettes: save the current colours, apply, then delete.
+    await page.locator('[data-adm-palette-name="1"]').fill('Test palette');
+    await page.locator('[data-adm-palette-save]').click();
+    await page.waitForSelector('[data-adm-palette-card]');
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 1, 'a palette can be saved');
+    assert.equal(await page.locator('.adm-palette-swatches i').count() >= 6, true, 'the palette card shows colour swatches');
+    await page.locator('[data-adm-palette-apply]').click();
+    assert.ok((await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue()).length > 0, 'applying a palette keeps the colour fields populated');
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('[data-adm-palette-del]').click();
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'a palette can be deleted');
+    console.log('PASS admin Appearance exposes role tokens, a live preview, the background media picker and saved palettes (SDK fixture)');
+
+    // ---- Settings roundtrip: admin edit -> DB -> reload -> public runtime ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = {
+        site_settings: [],
+        media: [
+          { id: '00000000-0000-4000-8000-000000000901', bucket_id: 'media', storage_path: 'uploads/bg.png', original_name: 'bg.png', mime_type: 'image/png', size_bytes: 1024, alt_text: 'bg', created_at: '2026-01-01T00:00:00Z', deletion_status: 'active', deleted_at: null, deletion_error: null },
+          { id: '00000000-0000-4000-8000-000000000902', bucket_id: 'media', storage_path: 'uploads/song.mp3', original_name: 'song.mp3', mime_type: 'audio/mpeg', size_bytes: 2048, alt_text: 'song', created_at: '2026-01-01T00:00:00Z', deletion_status: 'active', deleted_at: null, deletion_error: null }
+        ]
+      };
+      window.__routerWrites = [];
+      window.__routerStorageWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    const saveSettings = async () => {
+      await page.evaluate(() => { window.__routerWrites = []; });
+      await page.locator('#adminTopSave').click();
+      await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
+    };
+    // Appearance: set the question-label colour, choose a background image, then Save.
+    await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.locator('[data-adm-path="settings.theme.fieldLabelColor"][type="text"]').fill('#112244');
+    await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
+    await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-media-preview="settings.theme.backgroundImage"] img')));
+    await saveSettings();
+    // Motion: enable falling candy + pet, then Save.
+    await page.locator('[data-adm-settings-group="Motion"]').click();
+    await page.locator('[data-adm-path="settings.motion.fallingCandy"]').check();
+    await page.locator('[data-adm-path="settings.motion.pet.enabled"]').check();
+    await saveSettings();
+    // Music: choose an audio file (auto-enables music), then Save.
+    await page.locator('[data-adm-settings-group="Music"]').click();
+    await page.locator('[data-adm-mediabrowse="settings.music.url"]').click();
+    await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-media-preview="settings.music.url"] audio')));
+    assert.equal(await page.locator('[data-adm-path="settings.music.enabled"]').isChecked(), true, 'choosing audio auto-enables Music');
+    await saveSettings();
+
+    const savedRows = await page.evaluate(() => JSON.parse(JSON.stringify(window.__routerRows.site_settings)));
+    const themeRow = savedRows.find((r) => r.key === 'theme');
+    const motionRow = savedRows.find((r) => r.key === 'motion');
+    const musicRow = savedRows.find((r) => r.key === 'music');
+    assert.ok(themeRow && themeRow.value.backgroundImage && themeRow.value.backgroundImage.includes('bg.png'), 'theme.backgroundImage persists to the database');
+    assert.equal(themeRow.value.fieldLabelColor, '#112244', 'theme.fieldLabelColor persists to the database');
+    assert.equal(themeRow.value.backgroundSize, 'cover', 'theme.backgroundSize persists');
+    assert.equal(typeof themeRow.value.backgroundOverlay, 'number', 'theme.backgroundOverlay persists');
+    assert.equal(Array.isArray(themeRow.value.palettes), true, 'theme.palettes persists');
+    assert.equal(motionRow.value.fallingCandy, true, 'motion.fallingCandy persists');
+    assert.equal(motionRow.value.pet.enabled, true, 'motion.pet.enabled persists');
+    assert.equal(typeof motionRow.value.pet.maxDesktop, 'number', 'motion.pet.maxDesktop persists');
+    assert.equal(Array.isArray(motionRow.value.pet.dialogues), true, 'motion.pet.dialogues persists');
+    assert.equal(musicRow.value.enabled, true, 'music.enabled persists');
+    assert.ok(musicRow.value.url && musicRow.value.url.includes('song.mp3'), 'music.url persists');
+    assert.equal(typeof musicRow.value.volume, 'number', 'music.volume persists');
+    assert.equal(typeof musicRow.value.loop, 'boolean', 'music.loop persists');
+
+    // Hard reload the public site with the saved rows seeded before hydration.
+    await page.addInitScript((rows) => { window.__routerRows = rows; }, { site_settings: savedRows, media: [], cms_pages: [], cms_navigation: [] });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto(origin + '/#home', {waitUntil: 'load'});
+    await page.waitForFunction(() => window.__CRABBIE_SITE_CONTENT_HYDRATED__ === true);
+    await page.waitForTimeout(900);
+    const applied = await page.evaluate(() => ({
+      snapshot: (() => { try { return JSON.parse(localStorage.getItem('crabbie:appearance')); } catch (e) { return null; } })(),
+      bgStyle: (document.getElementById('cmsBackgroundStyle') || {}).textContent || '',
+      beforeImage: getComputedStyle(document.body, '::before').backgroundImage,
+      music: document.querySelectorAll('#crabbieMusicControl.show').length,
+      audioSrc: document.querySelector('audio') ? document.querySelector('audio').src : '',
+      pets: document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length,
+      candy: document.querySelectorAll('#crabbieCandyLayer .crabbie-candy').length,
+      fieldLabel: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim()
+    }));
+    assert.ok(applied.snapshot && applied.snapshot.theme.backgroundImage.includes('bg.png'), 'the first-paint snapshot matches the saved theme');
+    assert.ok(applied.bgStyle.includes('bg.png') && applied.beforeImage.includes('bg.png'), 'the persisted background is applied publicly after reload');
+    assert.equal(applied.fieldLabel, '#112244', 'the saved question-label colour survives the reload');
+    assert.equal(applied.music, 1, 'the public music control shows from saved settings');
+    assert.ok(applied.audioSrc.includes('song.mp3'), 'the public audio src equals the saved URL');
+    assert.equal(applied.pets >= 1, true, 'the saved pet setting spawns pets publicly');
+    assert.equal(applied.candy >= 1, true, 'the saved falling candy setting renders candies publicly');
+    console.log('PASS settings save -> DB -> reload -> public runtime roundtrip (SDK fixture)');
 // P4_END
 
   }

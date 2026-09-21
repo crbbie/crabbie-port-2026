@@ -34,7 +34,8 @@ const roundTrip = mapAdminHydrationResults({
   ...empty,
   assets: { data: [{
     id: 'a1', slug: 'petal-pack', title: 'Petal Pack', description: '', availability: 'unavailable',
-    file_path: 'uploads/petal.zip', file_type: 'ZIP', thumbnail_path: null, metadata: {},
+    file_path: 'uploads/petal.zip', file_type: 'ZIP', thumbnail_path: null,
+    metadata: { driveUrl:'https://drive.google.com/file/d/example/view', showDirectDownload:false, showDriveDownload:true },
     published: true, sort_order: 1, updated_at: '2026-09-20T00:00:00Z'
   }, {
     id: 'a2', slug: 'free-pack', title: 'Free Pack', description: '', file_path: '', file_type: 'PNG',
@@ -56,6 +57,9 @@ const roundTrip = mapAdminHydrationResults({
 }, (path) => `https://cdn.test/${path}`);
 
 assert.equal(roundTrip.assets[0].availability, 'unavailable', 'a hydrated unavailable asset stays unavailable');
+assert.equal(roundTrip.assets[0].driveUrl, 'https://drive.google.com/file/d/example/view');
+assert.equal(roundTrip.assets[0].showDirectDownload, false);
+assert.equal(roundTrip.assets[0].showDriveDownload, true);
 assert.equal(roundTrip.assets[1].availability, 'available', 'a missing asset availability resolves explicitly');
 assert.equal(roundTrip.commissions[0].price, '75', 'the canonical price column outranks a legacy formatted detail');
 assert.equal(roundTrip.commissions[0].priceFormatted, '$75', 'hydration derives fresh display text from the canonical price');
@@ -110,7 +114,7 @@ assert.deepEqual(mapAdminSettings([{ key: 'x', value: null }]), { x: {} });
 // --- Prompt 2: stable DB identity + stale-save baseline survive hydration ---
 const identity = mapAdminHydrationResults({
   ...empty,
-  portfolio: { data: [{ id: 'uuid-p', slug: 'color-fiesta', title: 'T', updated_at: '2026-01-01T00:00:00Z', content: {} }] },
+  portfolio: { data: [{ id: 'uuid-p', slug: 'color-fiesta', title: 'T', updated_at: '2026-01-01T00:00:00Z', content: { cardMode:'image' } }] },
   assets: { data: [{ id: 'uuid-a', slug: 'petal-pack', title: 'A', updated_at: '2026-01-02T00:00:00Z', metadata: {} }] },
   commissions: { data: [{ id: 'uuid-c', slug: 'bust-up', title: 'C', updated_at: '2026-01-03T00:00:00Z' }] },
   forms: { data: [{ id: 'uuid-f', slug: 'emails', title: 'F', updated_at: '2026-01-04T00:00:00Z' }] },
@@ -121,6 +125,7 @@ const identity = mapAdminHydrationResults({
 assert.equal(identity.portfolio[0].dbId, 'uuid-p');
 assert.equal(identity.portfolio[0].originalUpdatedAt, '2026-01-01T00:00:00Z');
 assert.equal(identity.portfolio[0].id, 'color-fiesta', 'the local UI identity stays slug based');
+assert.equal(identity.portfolio[0].cardMode, 'image');
 assert.equal(identity.assets[0].dbId, 'uuid-a');
 assert.equal(identity.assets[0].originalUpdatedAt, '2026-01-02T00:00:00Z');
 assert.equal(identity.commissions[0].dbId, 'uuid-c');
@@ -153,5 +158,19 @@ assert.deepEqual(settingsSnapshot.settingsMeta, {
 assert.equal('settingsMeta' in mapAdminHydrationResults(empty, () => ''), true, 'an empty snapshot still carries the baseline map');
 assert.deepEqual(mapAdminHydrationResults(empty, () => '').settingsMeta, {});
 assert.deepEqual(mapSettingsMeta([]), {});
+
+// Asset placeholder hydrates from stored metadata, never hard-coded: legacy
+// rows without the key resolve to false, matching new drafts and portfolio.
+const placeholderSnapshot = mapAdminHydrationResults({
+  ...empty,
+  assets: { data: [
+    { id: 'p1', slug: 'flagged', title: 'Flagged', metadata: { placeholder: true }, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p2', slug: 'clear', title: 'Clear', metadata: { placeholder: false }, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p3', slug: 'legacy', title: 'Legacy', metadata: {}, updated_at: '2026-09-20T00:00:00Z' },
+    { id: 'p4', slug: 'nometa', title: 'NoMeta', updated_at: '2026-09-20T00:00:00Z' }
+  ] }
+}, () => '');
+const flags = Object.fromEntries(placeholderSnapshot.assets.map((asset) => [asset.slug, asset.placeholder]));
+assert.deepEqual(flags, { flagged: true, clear: false, legacy: false, nometa: false }, 'placeholder survives save and reload without inventing flags');
 
 console.log('Admin hydration safety tests passed.');

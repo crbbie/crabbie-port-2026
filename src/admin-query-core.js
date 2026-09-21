@@ -90,6 +90,11 @@ export function missingMappedColumns(columnsByTable = ADMIN_SELECT_COLUMNS) {
 }
 
 /** Bounded server-side range for one page: only ever one page is requested. */
+export function pendingCountDatasets(counts, pending) {
+  const known = counts && typeof counts === 'object' ? counts : {};
+  const inflight = pending && typeof pending === 'object' ? pending : {};
+  return ['requests', 'media'].filter((dataset) => known[dataset] == null && !inflight[dataset]);
+}
 export function paginationRange(page, pageSize, fallbackSize = REQUESTS_PAGE_SIZE) {
   const size = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Math.floor(Number(pageSize)) : fallbackSize;
   const parsed = Number(page);
