@@ -2429,12 +2429,66 @@ try {
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
     assert.equal(await page.evaluate((target) => document.activeElement === document.querySelector('#adminContent [data-adm-mediabrowse="' + target + '"]'), blkImageTarget), true, 'Escape closes the picker and returns focus to its trigger');
 
+    // P2-08: a closed portfolio block opens fully by keyboard (Enter/Space),
+    // with the same single-toggle behavior as a mouse click.
+    const blkKeyState = await page.evaluate(() => {
+      const head = document.querySelector('#adminContent [data-adm-block-toggle]');
+      if (!head) return null;
+      const block = head.closest('.adm-block');
+      const body = block ? block.querySelector('.adm-block-body') : null;
+      return {
+        role: head.getAttribute('role'),
+        tabbable: head.getAttribute('tabindex'),
+        expanded: head.getAttribute('aria-expanded'),
+        open: block ? block.getAttribute('data-open') : null,
+        bodyHidden: body ? body.hidden : null
+      };
+    });
+    assert.ok(blkKeyState, 'a portfolio block header exists');
+    assert.equal(blkKeyState.role, 'button', 'the block header exposes a button role');
+    assert.equal(blkKeyState.tabbable, '0', 'the block header is keyboard-focusable');
+    assert.equal(blkKeyState.expanded, 'true', 'an open block reports aria-expanded=true');
+    await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').focus());
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('#adminContent [data-adm-block-toggle]').getAttribute('aria-expanded') === 'false');
+    assert.equal(await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').closest('.adm-block').querySelector('.adm-block-body').hidden), true, 'Enter closes the block exactly once');
+    await page.keyboard.press(' ');
+    await page.waitForFunction(() => document.querySelector('#adminContent [data-adm-block-toggle]').getAttribute('aria-expanded') === 'true');
+    assert.equal(await page.evaluate(() => document.querySelector('#adminContent [data-adm-block-toggle]').closest('.adm-block').querySelector('.adm-block-body').hidden), false, 'Space reopens a closed block by keyboard');
+    console.log('PASS portfolio block headers toggle by keyboard with aria-expanded (SDK fixture)');
+
     for (const viewport of [{width: 1440, height: 900, label: 'desktop'}, {width: 820, height: 1180, label: 'tablet'}, {width: 390, height: 844, label: 'mobile'}]) {
       await page.setViewportSize({width: viewport.width, height: viewport.height});
       await page.waitForTimeout(120);
       const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
       assert.ok(box.scrollWidth <= box.clientWidth + 4, viewport.label + ' portfolio block editor has no horizontal overflow (' + box.scrollWidth + '/' + box.clientWidth + ')');
     }
+    // UI-04: the jump helper follows the stacked layout breakpoint (<=1000px),
+    // so a 768px tablet gets the quick path to the editor; desktop does not.
+    await page.evaluate(() => { window.location.hash = '#admin/portfolio'; });
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent .adm-split').length > 0);
+    for (const probe of [{width: 1280, jumpbar: false, label: 'desktop 1280'}, {width: 1000, jumpbar: true, label: 'stacked 1000'}, {width: 768, jumpbar: true, label: 'tablet 768'}, {width: 390, jumpbar: true, label: 'mobile 390'}, {width: 320, jumpbar: true, label: 'narrow 320'}]) {
+      await page.setViewportSize({width: probe.width, height: 800});
+      await page.waitForTimeout(150);
+      const jumpVisible = await page.evaluate(() => {
+        const bar = document.querySelector('#adminContent .adm-jumpbar');
+        if (!bar) return false;
+        return window.getComputedStyle(bar).display !== 'none';
+      });
+      assert.equal(jumpVisible, probe.jumpbar, probe.label + ' jumpbar visibility matches the stacked layout');
+    }
+    console.log('PASS the admin jump helper tracks the stacked layout at tablet widths (SDK fixture)');
+    // UI-02: pastel CTA buttons keep dark text (never regress to white-on-pastel).
+    const ctaColors = await page.evaluate(() => {
+      const read = (sel) => {
+        const el = document.querySelector(sel);
+        return el ? window.getComputedStyle(el).color : null;
+      };
+      return { navCta: read('.nav-cta'), btnYellow: read('.btn-yellow') };
+    });
+    assert.equal(ctaColors.navCta, 'rgb(74, 31, 67)', 'the nav CTA keeps dark text on its pastel background');
+    if (ctaColors.btnYellow) assert.equal(ctaColors.btnYellow, 'rgb(74, 31, 67)', 'the yellow button keeps dark text on pastel');
+    console.log('PASS pastel CTA buttons keep dark readable text (SDK fixture)');
     await page.setViewportSize({width: 1280, height: 800});
     assert.equal(await page.locator('#adminContent [data-adm-block-field][data-adm-block-path]').count() >= 7, true, 'every media block keeps its editable fields');
     console.log('PASS the media library is wired into every portfolio media block (SDK fixture)');

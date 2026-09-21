@@ -177,7 +177,7 @@ button{font:inherit; color:inherit;}
 .mobile-menu.open{display:flex;}
 .mobile-menu a{padding:12px 16px; border-radius:16px; font-family:var(--font-body); font-weight:600; font-size:14px; color:var(--berry-soft); cursor:pointer;}
 .mobile-menu a.active{background:linear-gradient(180deg, var(--pink-light), var(--pink)); color:#fff;}
-.mobile-menu .mm-cta{margin-top:8px; text-align:center; color:#fff; background:linear-gradient(180deg,#fef2b3 0%,#feeca4 48%,#fedea9 100%); text-shadow:0 1px 2px rgba(180,100,30,.4); box-shadow:0 8px 18px -10px rgba(230,181,92,.42),inset 0 2px 1px rgba(255,255,255,.82),inset 0 -8px 14px -12px rgba(211,158,80,.34);}
+.mobile-menu .mm-cta{margin-top:8px; text-align:center; color:#4a1f43; background:linear-gradient(180deg,#fef2b3 0%,#feeca4 48%,#fedea9 100%); text-shadow:0 1px 2px rgba(255,255,255,.6); box-shadow:0 8px 18px -10px rgba(230,181,92,.42),inset 0 2px 1px rgba(255,255,255,.82),inset 0 -8px 14px -12px rgba(211,158,80,.34);}
 
 /* BUTTONS */
 .btn, .nav-cta{position:relative; display:inline-flex; align-items:center; justify-content:center; gap:10px; border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; border-radius:999px; isolation:isolate; -webkit-tap-highlight-color: transparent; transform: translateZ(0); transition: transform .3s var(--ease), box-shadow .3s var(--ease);}
@@ -187,14 +187,14 @@ button{font:inherit; color:inherit;}
 
 .btn-primary{background:radial-gradient(ellipse 42% 32% at 24% 84%, rgba(255,255,255,.45), transparent 65%),linear-gradient(180deg, #ffc3dc 0%, #ff9cc6 48%, var(--pink-hot) 100%);color:#fff;text-shadow: 0 1px 2px rgba(200,60,120,.35);box-shadow:0 12px 24px -12px rgba(255,92,154,.65),0 4px 10px -4px rgba(255,92,154,.28),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -9px 16px -12px rgba(190,50,110,.55);}
 .btn-primary:hover{transform: translateY(-2px);}
-.btn-yellow{background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.62),transparent 65%),linear-gradient(180deg,#fef2b3 0%,#feeca4 48%,#fedea9 100%);color:#fff;text-shadow:0 1px 2px rgba(180,100,30,.4);box-shadow:0 12px 24px -12px rgba(230,181,92,.45),0 4px 10px -4px rgba(230,181,92,.22),inset 0 2px 1px rgba(255,255,255,.85),inset 0 -9px 16px -12px rgba(211,158,80,.35);}
+.btn-yellow{background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.62),transparent 65%),linear-gradient(180deg,#fef2b3 0%,#feeca4 48%,#fedea9 100%);color:#4a1f43;text-shadow:0 1px 2px rgba(255,255,255,.6);box-shadow:0 12px 24px -12px rgba(230,181,92,.45),0 4px 10px -4px rgba(230,181,92,.22),inset 0 2px 1px rgba(255,255,255,.85),inset 0 -9px 16px -12px rgba(211,158,80,.35);}
 .btn-yellow:hover{transform: translateY(-2px);}
 .btn-purple{background:radial-gradient(ellipse 42% 32% at 24% 84%, rgba(255,255,255,.5), transparent 65%),linear-gradient(180deg, #e0d0ff 0%, #b98cff 48%, var(--purple-hot) 100%);color:#fff;text-shadow: 0 1px 3px rgba(92,61,153,.45);box-shadow:0 12px 24px -12px rgba(138,92,255,.7),0 4px 10px -4px rgba(138,92,255,.3),inset 0 2px 1px rgba(255,255,255,.75),inset 0 -9px 16px -12px rgba(92,61,153,.55);}
 .btn-purple:hover{ transform: translateY(-2px); }
 .btn-ghost{background:#fff;color:var(--berry-soft);border:2px solid var(--pink-light);box-shadow:0 6px 0 -2px var(--pink-light);}
 .btn-ghost:hover{ color:var(--pink-hot); transform:translateY(-2px); }
 
-.nav-cta{background:radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.62),transparent 65%),linear-gradient(180deg,#fef2b3 0%,#feeca4 50%,#fedea9 100%);color:#fff;text-shadow:0 1px 2px rgba(180,100,30,.4);box-shadow:0 9px 18px -9px rgba(230,181,92,.48),inset 0 2px 1px rgba(255,255,255,.85),inset 0 -7px 12px -10px rgba(211,158,80,.34);}
+.nav-cta{background:radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.62),transparent 65%),linear-gradient(180deg,#fef2b3 0%,#feeca4 50%,#fedea9 100%);color:#4a1f43;text-shadow:0 1px 2px rgba(255,255,255,.6);box-shadow:0 9px 18px -9px rgba(230,181,92,.48),inset 0 2px 1px rgba(255,255,255,.85),inset 0 -7px 12px -10px rgba(211,158,80,.34);}
 .nav-cta:hover{ transform: translateY(-2px); }
 
 @keyframes jelly{
@@ -904,14 +904,14 @@ body:not(.admin-mode) .btn-primary{
     inset 0 -9px 16px -12px rgba(211,112,158,.24);
 }
 
-/* Clearer lilac secondary */
+/* Clearer lilac secondary (dark text: white is unreadable on pastel). */
 body:not(.admin-mode) .btn-yellow,
 body:not(.admin-mode) .btn-purple{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
-  color:#fff;
-  text-shadow:0 1px 2px rgba(125,75,185,.45);
+  color:#4a1f43;
+  text-shadow:0 1px 2px rgba(255,255,255,.55);
   box-shadow:
     0 12px 24px -12px rgba(195,141,252,.42),
     0 4px 10px -4px rgba(195,141,252,.18),
@@ -919,14 +919,14 @@ body:not(.admin-mode) .btn-purple{
     inset 0 -9px 16px -12px rgba(145,96,204,.24);
 }
 
-/* Pink Commission CTA */
+/* Pink Commission CTA (dark text: white is unreadable on light pink). */
 body:not(.admin-mode) .nav-cta,
 body:not(.admin-mode) .mobile-menu .mm-cta{
   background:
     radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#ffe4ef 0%,#fbc0da 48%,#f793bf 100%);
-  color:#fff;
-  text-shadow:0 1px 2px rgba(166,72,118,.35);
+  color:#4a1f43;
+  text-shadow:0 1px 2px rgba(255,255,255,.55);
   box-shadow:
     0 9px 18px -9px rgba(247,147,191,.42),
     inset 0 2px 1px rgba(255,255,255,.90),
@@ -1396,15 +1396,18 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-record-two .ar-badges{ display: flex; gap: 4px; flex-wrap: wrap; }
 .adm-record-two .ar-actions button{ width: 28px; height: 28px; font-size: 12px; }
 .adm-record:focus-visible{ outline: 3px solid var(--purple-hot); outline-offset: 2px; }
+.adm-block-head:focus-visible{ outline: 3px solid var(--purple-hot); outline-offset: 2px; border-radius: 12px; }
 .adm-qblock-head:focus-visible{ outline: 3px solid var(--blue-hot); outline-offset: 2px; border-radius: 12px; }
-/* Batch 6: mobile jump bar + collapsible list (desktop unaffected). */
+/* Batch 6: jump bar + collapsible list (desktop unaffected). The helper shows
+   everywhere the split layout is stacked (<=1000px), so tablets get the same
+   quick path to the editor as phones. */
 .adm-jumpbar{ display: none; gap: 8px; margin-bottom: 10px; }
 .adm-jumpbar button{ flex: 1 1 auto; }
-@media (max-width: 720px){
+@media (max-width: 1000px){
   .adm-jumpbar{ display: flex; }
   .adm-split.list-collapsed .adm-list > :not(.adm-jumpbar):not(.adm-list-toolbar){ display: none; }
 }
-@media (min-width: 721px){ .adm-jumpbar{ display: none !important; } }
+@media (min-width: 1001px){ .adm-jumpbar{ display: none !important; } }
 .adm-pub-warning{ margin-top: 10px; background: var(--yellow-light); border: 1.5px solid var(--yellow-hot); color: #8a6200; border-radius: 14px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
 .adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 300px; }
 .adm-media-preview img{ display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
@@ -5976,7 +5979,7 @@ case 'spacer': body = sel('Size','size',['small','medium','large']); break;
    page never falls back to the internal block type. */
 var sectionField = '<label class="adm-field"><span class="af-label">Section title</span><input type="text" data-adm-block-field="sectionTitle" data-adm-block-path="' + path + '" value="' + esc(b.sectionTitle || '') + '" placeholder="Shown beside the block number, e.g. Concept"></label>';
 body = sectionField + body;
-return '<div class="adm-block" data-open="' + (b.open ? 'true' : 'false') + '"><div class="adm-block-head" data-adm-block-toggle="' + index + '"><span class="ab-num">' + (index + 1) + '</span><span class="ab-type">' + esc(label) + '</span><span class="ab-preview">' + esc(preview) + '</span><span class="ab-actions"><button type="button" data-adm-block-dup="' + index + '">⎘</button><button type="button" data-adm-block-del="' + index + '">✕</button></span></div><div class="adm-block-body"' + (b.open ? '' : ' hidden') + '>' + body + '</div></div>';
+return '<div class="adm-block" data-open="' + (b.open ? 'true' : 'false') + '"><div class="adm-block-head" role="button" tabindex="0" aria-expanded="' + (b.open ? 'true' : 'false') + '" data-adm-block-toggle="' + index + '"><span class="ab-num">' + (index + 1) + '</span><span class="ab-type">' + esc(label) + '</span><span class="ab-preview">' + esc(preview) + '</span><span class="ab-actions"><button type="button" data-adm-block-dup="' + index + '">⎘</button><button type="button" data-adm-block-del="' + index + '">✕</button></span></div><div class="adm-block-body"' + (b.open ? '' : ' hidden') + '>' + body + '</div></div>';
 }
 
 function renderMediaItemsEditor(block, path, label){
@@ -6643,9 +6646,10 @@ adminContent.addEventListener('click', function(event){
   }
 });
 }
-/* Batch 6 (UI-04): one delegated mobile helper per admin render — a jump bar
+/* Batch 6 (UI-04): one delegated helper per admin render — a jump bar
    that collapses the record list and jumps straight to the current editor, so
-   small screens never scroll the whole list. Desktop is untouched. */
+   stacked layouts (tablet and below) never scroll the whole list. Desktop with
+   a side-by-side split is untouched. */
 function installAdminJumpDelegation(){
 if(!adminContent || adminContent.dataset.jumpWired === '1') return;
 adminContent.dataset.jumpWired = '1';
@@ -7167,12 +7171,20 @@ if(key === 'url'){
 });
 });
 $$('[data-adm-block-toggle]', adminContent).forEach(function(head){
-head.addEventListener('click', function(e){
-if(e.target.closest('button')) return;
+var toggleBlock = function(){
 var b = head.closest('.adm-block'); if(!b) return;
 var open = b.getAttribute('data-open') !== 'true';
 b.setAttribute('data-open', open ? 'true' : 'false');
+head.setAttribute('aria-expanded', open ? 'true' : 'false');
 var body = b.querySelector('.adm-block-body'); if(body) body.hidden = !open;
+};
+head.addEventListener('click', function(e){
+if(e.target.closest('button')) return;
+toggleBlock();
+});
+head.addEventListener('keydown', function(e){
+if(e.target.closest('button')) return;
+if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleBlock(); }
 });
 });
 $$('[data-adm-new-block]', adminContent).forEach(function(btn){
