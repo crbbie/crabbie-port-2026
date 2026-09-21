@@ -23,6 +23,7 @@ import {
   isUniqueViolation,
   adminWriteError,
   concurrencyConflictError,
+  orderPartialError,
   missingRecordError,
   isConcurrencyConflictResponse,
   applySuccessfulSave,
@@ -252,10 +253,29 @@ export async function saveAdminOrder(scope, list) {
       .update({ sort_order: row.sort_order })
       .eq('id', row.id);
     if (row.originalUpdatedAt) request = request.eq('updated_at', row.originalUpdatedAt);
-    const response = await request.select('id, updated_at');
-    if (response.error) throw adminWriteError(response.error);
+    let response;
+    try {
+      response = await request.select('id, updated_at');
+    } catch (err) {
+      // A transport failure after earlier rows succeeded is still partial:
+      // carry the confirmed rows so the caller can reconcile baselines.
+      const wrapped = adminWriteError(err);
+      wrapped.partial = true;
+      wrapped.confirmed = confirmed.slice();
+      wrapped.confirmedIds = confirmed.map((entry) => entry.id);
+      wrapped.failedId = row.id;
+      throw wrapped;
+    }
+    if (response.error) {
+      const wrapped = adminWriteError(response.error);
+      wrapped.partial = true;
+      wrapped.confirmed = confirmed.slice();
+      wrapped.confirmedIds = confirmed.map((entry) => entry.id);
+      wrapped.failedId = row.id;
+      throw wrapped;
+    }
     const data = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
-    if (!data.length) throw concurrencyConflictError(scope);
+    if (!data.length) throw orderPartialError(scope, confirmed, row.id);
     confirmed.push(...data);
   }
   return { success: true, table, count: rows.length, rows: confirmed };

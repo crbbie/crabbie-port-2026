@@ -3,6 +3,7 @@ import {
   formatPortfolioRow,
   formatAssetRow,
   formatCommissionRow,
+  commissionPriceMeta,
   formatNavigationRow,
   formatPageRow,
   formatSettingRow
@@ -107,3 +108,21 @@ const phOff = formatAssetRow({ id: 'test-ph', title: 'PH', placeholder: false },
 assert.equal(phOff.metadata.placeholder, false, 'an unchecked placeholder persists as false, not absent');
 
 console.log('Admin CRUD core formatting tests passed.');
+
+// NEW-P1-01: commission payload must contain only real DB columns.
+{
+  const row = formatCommissionRow({ id: 'svc', slug: 'svc', title: 'Svc', price: '1.000', currency: 'USD' }, 0);
+  assert.equal('priceAmbiguous' in row, false, 'validation metadata must not leak into the DB payload');
+  assert.deepEqual(
+    Object.keys(row).sort(),
+    ['availability', 'currency', 'description', 'details', 'featured', 'form_slug', 'price', 'published', 'slug', 'sort_order', 'thumbnail_path', 'title'].sort(),
+    'commission payload keys match the repository schema'
+  );
+  assert.equal(row.price, null, 'ambiguous input still resolves to null, never a misparsed number');
+  // Validation metadata lives outside the persisted row.
+  assert.equal(commissionPriceMeta({ price: '1.000', currency: 'USD' }).ambiguous, true);
+  assert.equal(commissionPriceMeta({ price: '$50', currency: 'USD' }).value, 50);
+  assert.equal(commissionPriceMeta({ price: '', currency: 'USD' }).blank, true);
+  assert.equal('priceAmbiguous' in formatCommissionRow({ id: 'x', slug: 'x', title: 'X', price: '$50' }, 0).details, false);
+}
+console.log('Commission payload contract regression tests passed.');

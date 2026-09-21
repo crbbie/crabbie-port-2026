@@ -56,6 +56,7 @@ import {
   applyMediaDeletionResult,
   isMissingStorageObject,
   findMediaUsage,
+  findAuthoritativeMediaReferences,
   mediaUsageMessage,
   buildMediaAuditEntry,
   auditMediaIntegrity
@@ -114,6 +115,36 @@ async function fetchMediaRow(id) {
   const { data, error } = await supabase.from('media').select(selectList('media')).eq('id', id).maybeSingle();
   if (error) throw new Error(`Media lookup failed: ${error.message}`);
   return data || null;
+}
+
+/**
+ * P0-02 cross-session guard: re-read reference state from the server as close
+ * to delete time as possible instead of trusting the session snapshot alone.
+ * CMS reference tables are small config datasets (the same ones hydration
+ * loads whole), so one bounded fetch per table is the authoritative check.
+ * Fail-closed: when the fresh read fails, deletion is blocked.
+ *
+ * Residual race (documented, not atomic): Storage + Postgres have no joint
+ * transaction, so a reference saved after this check but before the tombstone
+ * can still slip through. The tombstone narrows the window to check->claim.
+ */
+async function fetchAuthoritativeReferenceBundle() {
+  const [portfolio, assets, commissions, pages, settings] = await Promise.all([
+    supabase.from('portfolio_projects').select('thumbnail_path, cover_path, content'),
+    supabase.from('free_assets').select('thumbnail_path, file_path, metadata'),
+    supabase.from('commission_services').select('thumbnail_path, details'),
+    supabase.from('cms_pages').select('slug, data'),
+    supabase.from('site_settings').select('key, value')
+  ]);
+  const failed = [portfolio, assets, commissions, pages, settings].find((res) => res && res.error);
+  if (failed) throw new Error(`Media reference re-check failed: ${failed.error.message}`);
+  return {
+    portfolio_projects: (portfolio && portfolio.data) || [],
+    free_assets: (assets && assets.data) || [],
+    commission_services: (commissions && commissions.data) || [],
+    cms_pages: (pages && pages.data) || [],
+    site_settings: (settings && settings.data) || []
+  };
 }
 
 async function markMediaTombstone(id) {
@@ -254,6 +285,19 @@ export async function deleteMediaFile(id, storagePath, adminState) {
       if (usages.length) {
         await writeMediaAudit(user, 'media_delete_blocked', { mediaId: row.id, storagePath: row.storage_path, details: { usageCount: usages.length, usages } });
         return { success: false, blocked: true, usages, error: mediaUsageMessage(usages) };
+      }
+      // Cross-session re-check: another session may have saved a reference
+      // after this session hydrated. Never delete on a stale snapshot alone.
+      let authoritativeBundle = null;
+      try {
+        authoritativeBundle = await fetchAuthoritativeReferenceBundle();
+      } catch (recheckErr) {
+        return { success: false, error: 'Media usage could not be re-verified against the live database, so the file was not deleted. Reload and try again.' };
+      }
+      const freshUsages = findAuthoritativeMediaReferences(toMediaItem(row), authoritativeBundle);
+      if (freshUsages.length) {
+        await writeMediaAudit(user, 'media_delete_blocked', { mediaId: row.id, storagePath: row.storage_path, details: { usageCount: freshUsages.length, usages: freshUsages, source: 'authoritative' } });
+        return { success: false, blocked: true, usages: freshUsages, error: mediaUsageMessage(freshUsages) };
       }
     }
 

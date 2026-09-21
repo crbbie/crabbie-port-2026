@@ -290,6 +290,31 @@ export function missingRecordError(scope) {
 }
 
 /** A guarded update that matched no row means another session changed it first. */
+export function orderPartialError(scope, confirmed, failedId, cause) {
+  const error = concurrencyConflictError(scope);
+  error.partial = true;
+  error.confirmed = Array.isArray(confirmed) ? confirmed.slice() : [];
+  error.confirmedIds = error.confirmed
+    .map((row) => row && row.id)
+    .filter((id) => typeof id === 'string' && id);
+  if (failedId) error.failedId = failedId;
+  if (cause) error.causeDetail = String((cause && cause.message) || cause);
+  return error;
+}
+
+/** Splits a planned order-write list around confirmed {id} rows for recovery. */
+export function splitOrderPartialResult(plannedRows, confirmed) {
+  const done = new Set(
+    (Array.isArray(confirmed) ? confirmed : [])
+      .map((row) => row && row.id)
+      .filter((id) => typeof id === 'string' && id)
+  );
+  const list = Array.isArray(plannedRows) ? plannedRows : [];
+  return {
+    confirmedIds: Array.from(done),
+    pending: list.filter((row) => row && !done.has(row.id)),
+  };
+}
 export function isConcurrencyConflictResponse(response) {
   if (!response || response.error) return false;
   const data = response.data;

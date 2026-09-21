@@ -198,6 +198,38 @@ export function mediaUsageMessage(usages) {
   return 'This file is still used in ' + positiveLabel(list.length) + ' and cannot be deleted.';
 }
 
+/**
+ * Authoritative cross-session guard (P0-02).
+ * `bundle` is freshly fetched server state near delete time (raw DB rows /
+ * values, not the session's stale snapshot). Any string that contains the
+ * media storage path counts as a live reference — jsonb content included.
+ * Returns matched reference descriptors (empty = unused). Pure, no I/O.
+ */
+export function findAuthoritativeMediaReferences(media, bundle) {
+  const path = media && typeof media.storagePath === 'string' ? media.storagePath.trim() : '';
+  const url = media && typeof media.url === 'string' ? media.url.trim() : '';
+  if (!path && !url) return [];
+  const hits = [];
+  function scan(value, label) {
+    if (typeof value === 'string') {
+      if ((path && value.includes(path)) || (url && value === url)) {
+        hits.push({ entityType: 'authoritative', entityId: label, field: label, label: 'Live database reference · ' + label });
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => scan(entry, label + '[' + index + ']'));
+      return;
+    }
+    if (value && typeof value === 'object') {
+      Object.keys(value).forEach((key) => scan(value[key], label + '.' + key));
+    }
+  }
+  const sources = bundle && typeof bundle === 'object' ? bundle : {};
+  Object.keys(sources).forEach((key) => scan(sources[key], key));
+  return hits;
+}
+
 /* -------------------------------------------------------------------------
  * Deletion lifecycle
  *   active -> tombstone (pending) -> storage removed -> finalize (row gone)

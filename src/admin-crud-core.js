@@ -68,6 +68,12 @@ export function formatAssetRow(rec, sort_order = 0) {
   };
 }
 
+export function commissionPriceMeta(rec) {
+  const currency = String((rec && rec.currency) || 'USD').trim().toUpperCase() || 'USD';
+  const parsed = parseCommissionPrice(rec ? rec.price : null, currency);
+  return { value: parsed.value, ambiguous: parsed.ambiguous === true, blank: parsed.blank === true };
+}
+
 export function formatCommissionRow(rec, sort_order = 0) {
   const currency = String(rec.currency || 'USD').trim().toUpperCase() || 'USD';
   const parsed = parseCommissionPrice(rec.price, currency);
@@ -104,7 +110,6 @@ export function formatCommissionRow(rec, sort_order = 0) {
     title: rec.title || rec.name || 'Untitled Service',
     description: rec.description || '',
     price: numPrice,
-    priceAmbiguous: parsed.ambiguous === true,
     currency,
     availability: avail,
     form_slug: rec.form || rec.formType || 'illustration',

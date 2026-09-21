@@ -1165,8 +1165,8 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   display:grid;place-items:center;}
 .public-lightbox-bar button:hover{border-color:var(--pink-hot);}
 .public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
-.public-lightbox-caption{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);z-index:2;margin:0;
-  max-width:min(90vw,720px);padding:8px 18px;border-radius:14px;text-align:center;
+.public-lightbox-caption{position:fixed;left:50%;top:20px;bottom:auto;transform:translateX(-50%);z-index:2;margin:0;
+  max-width:min(80vw,720px);padding:8px 18px;border-radius:14px;text-align:center;
   background:rgba(255,255,255,.92);color:var(--berry);font-family:var(--font-body);font-size:13px;line-height:1.5;
   box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
 .public-lightbox-caption[hidden]{display:none !important;}
@@ -1174,7 +1174,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   .public-lightbox{padding:58px 12px 96px;}
   .public-lightbox img{max-width:96vw;max-height:70vh;border-radius:12px;}
   .public-lightbox-close{top:14px;right:14px;width:42px;height:42px;font-size:26px;}
-  .public-lightbox-caption{bottom:78px;font-size:12.5px;max-width:94vw;}
+  .public-lightbox-caption{top:16px;bottom:auto;font-size:12.5px;max-width:calc(100vw - 80px);}
 }
 
 /* ---- TOS nav buttons ---- */
@@ -5297,7 +5297,24 @@ async function doSaveCommit(msg, scope){
          target that fails cannot erase what an earlier target saved. */
       var captured = snapshotTargetForSave(target);
       if(target.kind === 'order'){
-        var orderResult = await crud.saveOrder(target.scope, adminListForScope(target.scope));
+        var orderResult = null;
+        try {
+          orderResult = await crud.saveOrder(target.scope, adminListForScope(target.scope));
+        } catch(orderErr){
+          /* Partial reorder failure: earlier rows may already be persisted.
+             Reconcile the confirmed rows into the baseline/state first so the
+             client never pretends the whole reorder did not happen, then
+             rethrow with partial outcome for an informed retry. */
+          var partialRows = (orderErr && Array.isArray(orderErr.confirmed)) ? orderErr.confirmed : [];
+          if(partialRows.length){
+            reconcilePersistedTarget(target, captured, { success: true, rows: partialRows });
+            var partialBaselineApi = window.CrabbiePersistedBaseline;
+            if(partialBaselineApi && typeof partialBaselineApi.advanceBaselinesFromOrder === 'function'){
+              partialBaselineApi.advanceBaselinesFromOrder(adminListForScope(target.scope), partialRows);
+            }
+          }
+          throw orderErr;
+        }
         reconcilePersistedTarget(target, captured, orderResult);
         /* Order UPDATEs bump updated_at via the DB trigger: advance the live
            draft baselines (content untouched, dirty untouched) so the next

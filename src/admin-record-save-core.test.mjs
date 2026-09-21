@@ -5,6 +5,7 @@ import {
   isNewAdminRecord,
   buildAdminWritePlan,
   planCategoryOrderWrites,
+  planRecordOrderWrites,
   planNavigationOrderWrites,
   planSettingWrites,
   applySettingSaveMeta,
@@ -12,6 +13,8 @@ import {
   classifyAdminWriteError,
   adminWriteError,
   concurrencyConflictError,
+  orderPartialError,
+  splitOrderPartialResult,
   missingRecordError,
   isConcurrencyConflictResponse,
   applySuccessfulSave,
@@ -200,3 +203,33 @@ assert.equal(categoryInsert.payload.sort_order, 2);
 assert.equal(buildAdminWritePlan('portfolioCategories', { id: 'client-9', dbId: null, slug: '', title: 'Cute Stuff' }, {}).payload.slug, 'cute-stuff');
 
 console.log('Admin record save core tests passed.');
+
+// P0-01 / NEW-P1-02 repro: reorder B,A — B persists, A conflicts.
+{
+  const planned = planRecordOrderWrites([
+    { id: 'b', dbId: 'uuid-b', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }
+  ]);
+  assert.equal(planned.length, 2, 'both rows are planned');
+  // Simulate adapter loop: first row confirmed, second guarded update hits zero rows.
+  const confirmed = [{ id: 'uuid-b', updated_at: '2026-02-02T00:00:00Z' }];
+  const err = orderPartialError('portfolio', confirmed, 'uuid-a');
+  assert.equal(err.code, 'stale_save', 'stale-write protection is preserved');
+  assert.equal(err.partial, true, 'partial outcome is explicit');
+  assert.deepEqual(err.confirmedIds, ['uuid-b'], 'the persisted row is identified');
+  assert.equal(err.failedId, 'uuid-a', 'the conflicting row is identified');
+  const split = splitOrderPartialResult(planned, err.confirmed);
+  assert.deepEqual(split.confirmedIds, ['uuid-b']);
+  assert.deepEqual(split.pending.map((row) => row.id), ['uuid-a'], 'retry path knows exactly what is left');
+  // Local baseline/state must advance for the confirmed row only.
+  const local = [
+    { id: 'b', dbId: 'uuid-b', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }
+  ];
+  const { advanceBaselinesFromOrder } = await import('./admin-persisted-baseline-core.js');
+  const advanced = advanceBaselinesFromOrder(local, err.confirmed);
+  assert.equal(advanced, 1, 'only the confirmed row advances');
+  assert.equal(local[0].originalUpdatedAt, '2026-02-02T00:00:00Z', 'confirmed baseline reconciles');
+  assert.equal(local[1].originalUpdatedAt, '2026-01-01T00:00:00Z', 'conflicted row keeps its stale baseline for retry');
+}
+console.log('Reorder partial-failure regression tests passed.');
