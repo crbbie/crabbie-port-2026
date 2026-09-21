@@ -1,5 +1,9 @@
 import { formattedCommissionPrice } from './admin-roundtrip-core.js';
 export function formatPortfolioRow(rec, sort_order = 0) {
+  /* One canonical project image: cover is the source of truth and the card
+     thumbnail auto-syncs from it. Legacy thumbnail-only rows fall back so
+     nothing already published goes blank. */
+  const sourceImage = rec.cover || rec.thumbnail || '';
   const content = {
     cat: rec.category || '',
     cardMode: rec.cardMode === 'image' ? 'image' : 'project',
@@ -21,8 +25,8 @@ export function formatPortfolioRow(rec, sort_order = 0) {
     title: rec.title || 'Untitled Project',
     description: rec.description || '',
     tags: Array.isArray(rec.tags) ? rec.tags : [],
-    thumbnail_path: rec.thumbnail || null,
-    cover_path: rec.cover || null,
+    thumbnail_path: sourceImage || null,
+    cover_path: sourceImage || null,
     featured: !!rec.featured,
     published: !!rec.published,
     sort_order,

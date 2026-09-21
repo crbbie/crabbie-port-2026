@@ -28,6 +28,17 @@ assert.deepEqual(p.tags, ['CHIBI', 'PASTEL'], 'portfolio tags survive the save p
 assert.equal(p.content.year, '2026', 'portfolio date/year survives the save payload');
 assert.equal(p.content.cardMode, 'image', 'portfolio card display mode survives the save payload');
 
+// 1b. Unified project image: cover is the source of truth.
+const unified = formatPortfolioRow({ id: 'u', slug: 'u', title: 'U', cover: 'https://cdn.test/cover.png', thumbnail: 'https://cdn.test/old-thumb.png' }, 0);
+assert.equal(unified.cover_path, 'https://cdn.test/cover.png', 'cover persists');
+assert.equal(unified.thumbnail_path, 'https://cdn.test/cover.png', 'thumbnail auto-syncs from cover');
+const legacyThumb = formatPortfolioRow({ id: 'u', slug: 'u', title: 'U', cover: '', thumbnail: 'https://cdn.test/legacy.png' }, 0);
+assert.equal(legacyThumb.cover_path, 'https://cdn.test/legacy.png', 'a legacy thumbnail-only row falls back instead of going blank');
+assert.equal(legacyThumb.thumbnail_path, 'https://cdn.test/legacy.png', 'legacy thumbnail survives the unify step');
+const noImage = formatPortfolioRow({ id: 'u', slug: 'u', title: 'U', cover: '', thumbnail: '' }, 0);
+assert.equal(noImage.cover_path, null, 'no image stays empty');
+assert.equal(noImage.thumbnail_path, null, 'no image stays empty on both columns');
+
 // 2. Asset
 const a = formatAssetRow({
   id: 'test-a',

@@ -721,6 +721,22 @@ try {
     assert.equal(await page.locator('#adminTopSave').isVisible(), true);
     assert.equal(await page.locator('#admStickySave').count(), 0, 'the duplicate sticky Save bar is not rendered');
     assert.equal(await page.locator('#adminContent .adm-editor-bar [data-adm-save]:visible').count(), 0, 'local editor Save buttons are hidden');
+    const topbarZones = await page.evaluate(() => {
+      const left = document.querySelector('.admin-topbar .at-left').getBoundingClientRect();
+      const right = document.querySelector('.admin-topbar .at-right').getBoundingClientRect();
+      return { leftRight: left.right, rightLeft: right.left, rightRight: right.right, barWidth: document.querySelector('.admin-topbar').getBoundingClientRect().width };
+    });
+    assert.ok(topbarZones.rightLeft >= topbarZones.leftRight, 'topbar actions sit right of the title block');
+    assert.ok(topbarZones.barWidth - topbarZones.rightRight < 120, 'topbar actions hug the right edge');
+    const formMetrics = await page.evaluate(() => {
+      const input = document.querySelector('#adminContent .adm-field input[type="text"]');
+      const select = document.querySelector('#adminContent .adm-field select');
+      const row = document.querySelector('#adminContent .adm-row');
+      const css = (el, prop) => el ? getComputedStyle(el)[prop] : '';
+      return { inputMin: css(input, 'minHeight'), selectMin: css(select, 'minHeight'), rowAlign: css(row, 'alignItems') };
+    });
+    assert.equal(formMetrics.inputMin, formMetrics.selectMin, 'text inputs and selects share one control height');
+    assert.equal(formMetrics.rowAlign, 'start', 'two-column form rows share one alignment rule');
     console.log('PASS admin hydration retry reaches ready with one canonical visible Save action (SDK fixture)');
 
     // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
@@ -1666,6 +1682,19 @@ try {
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     console.log('PASS desktop, tablet and mobile admin media views have no horizontal overflow (SDK fixture)');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const workspaceMetrics = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.className = 'adm-workspace';
+      document.getElementById('adminContent').appendChild(probe);
+      const maxW = getComputedStyle(probe).maxWidth || '';
+      probe.remove();
+      const live = document.querySelector('#adminContent .adm-workspace');
+      return { maxW, liveWidth: live ? live.getBoundingClientRect().width : 0 };
+    });
+    assert.ok(workspaceMetrics.maxW.indexOf('1460') !== -1, 'the workspace cap is fluid and wide (got ' + workspaceMetrics.maxW + ')');
+    assert.ok(workspaceMetrics.liveWidth === 0 || workspaceMetrics.liveWidth > 1000, 'the live workspace fills usable width (got ' + workspaceMetrics.liveWidth + 'px)');
+    await page.setViewportSize({ width: 1280, height: 800 });
 
     // Bug fix: intrinsic image dimensions must never resize a thumbnail box.
     // Real app markup + classes with offline SVG data URLs of known sizes.
@@ -2110,10 +2139,10 @@ try {
     assert.ok(ixGalleryUrls.every((url) => url.indexOf('/uploads/') !== -1), 'gallery rows carry canonical URLs');
 
     const ixThumbPath = await page.evaluate(() => {
-      const btn = document.querySelector('#adminContent [data-adm-mediabrowse$=".thumbnail"]');
+      const btn = document.querySelector('#adminContent [data-adm-mediabrowse$=".cover"]');
       return btn ? btn.getAttribute('data-adm-mediabrowse') : null;
     });
-    assert.ok(ixThumbPath, 'the project thumbnail field exists');
+    assert.ok(ixThumbPath, 'the project main-image field exists');
     await page.locator('#adminContent [data-adm-mediabrowse="' + ixThumbPath + '"]').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
     assert.equal(await page.locator('#adminMediaModal [data-adm-pick-toggle]').count(), 0, 'a single-value field offers no multi-select');
@@ -2521,7 +2550,7 @@ try {
     await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
     assert.equal(await p3RowCount(p3GridTarget), p3GridBefore + 1, 'Picker drag/drop appends one structured Grid row');
     assert.equal(await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'portfolio_projects').length), 0, 'Picker drag/drop does not auto-save');
-    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-mediabrowse$=".thumbnail"]').first().getAttribute('data-adm-mediabrowse');
+    const p3ThumbnailTarget = await page.locator('#adminContent [data-adm-mediabrowse$=".cover"]').first().getAttribute('data-adm-mediabrowse');
     await blkBrowse(p3ThumbnailTarget);
     const [p3SingleChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#adminMediaModalUpload').click()]);
     await p3SingleChooser.setFiles({ name: 'picker-single.png', mimeType: 'image/png', buffer: Buffer.from([61, 62, 63, 64, 65]) });
@@ -3031,6 +3060,8 @@ try {
     assert.equal((await page.locator('#adminContent input[data-adm-block-field="sectionTitle"]').count()) > 0, true, 'every block exposes a Section title field');
     assert.equal((await page.locator('#adminContent select[data-adm-block-field="textSize"]').count()) > 0, true, 'text blocks expose a Text size preset');
     assert.equal(await page.locator('#adminContent input[data-adm-mi-key="url"]').count(), 0, 'gallery rows never show a URL textbox');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse$=".cover"]').count(), 1, 'one canonical main-image picker');
+    assert.equal(await page.locator('#adminContent [data-adm-mediabrowse$=".thumbnail"]').count(), 0, 'no separate thumbnail uploader remains');
     assert.equal((await page.locator('#adminContent input[data-adm-array-key="url"]').count()) > 0, true, 'authored external URLs keep their editable input');
     assert.doesNotMatch(await page.locator('#adminContent').innerText(), /Vietnamese override|Vietnamese text|instead of automatic translation/, 'no manual Vietnamese override UI remains');
     console.log('PASS simplified media fields, section titles, and no Vietnamese override UI (SDK fixture)');
@@ -3145,8 +3176,8 @@ try {
       location.hash = '#portfolio';
     });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-    // E+K: real category clouds, FEATURED priority, visible featured styling.
-    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"] .cloud-tag span').innerText(), 'FEATURED', 'a featured project clouds FEATURED');
+    // E+K: real category clouds, featured membership, visible featured styling.
+    assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"] .cloud-tag span').innerText(), 'CHIBI', 'a featured project still clouds its real category');
     assert.equal(await page.locator('#pfGrid [data-project="plain-illus"] .cloud-tag span').innerText(), 'ILLUSTRATION', 'a plain project clouds its real category');
     assert.equal(await page.locator('#pfGrid [data-project="feat-chibi"].is-cms-featured').count(), 1, 'a featured project gets featured card styling');
     assert.equal(await page.locator('#pfGrid [data-project="plain-illus"].is-cms-featured').count(), 0, 'a plain project gets no featured styling');
@@ -3159,7 +3190,8 @@ try {
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
     assert.equal(await page.locator('#faGrid [data-asset="hot-brush"] .flower-tag span').innerText(), 'HOT', 'an explicit flowerTag renders');
     assert.match(await page.locator('#faGrid [data-asset="hot-brush"] .item-cat').innerText(), /^brushes$/i, 'the card keeps its taxonomy category beside the badge');
-    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"] .flower-tag span').innerText(), 'FEATURED', 'Featured falls back to a visible badge when no flowerTag is set');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"] .flower-tag').count(), 0, 'featured alone adds no flower badge text');
+    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"].is-cms-featured').count(), 1, 'a featured asset still gets featured card styling');
     await page.locator('#faChips .chip[data-filter="brushes"]').click();
     assert.equal(await page.locator('#faGrid [data-asset="hot-brush"]:visible').count(), 1, 'the asset category chip keeps matching assets');
     assert.equal(await page.locator('#faGrid [data-asset="feat-plain"]:visible').count(), 0, 'the asset category chip filters other categories');
@@ -3182,7 +3214,28 @@ try {
     await page.evaluate(() => { location.hash = '#asset/no-dl'; });
     await page.waitForFunction(() => document.querySelector('[data-view="free-asset-detail"] #adTitle') !== null);
     assert.deepEqual(await dlVisible(), { direct: false, drive: false, notice: true }, 'neither toggle shows the unavailable notice');
+    // Hover candy: See more bobs on card hover; asset cards lift.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.locator('#pfGrid [data-project="normal-a"]').hover();
+    assert.match(await page.locator('#pfGrid [data-project="normal-a"] .work-more').evaluate((el) => getComputedStyle(el).animationName || ''), /see-more-bob/, 'the See more pill dances while its card is hovered');
+    await page.evaluate(() => { location.hash = '#free-assets'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await page.locator('#faGrid [data-asset="hot-brush"]').hover();
+    await page.waitForFunction(() => {
+      const card = document.querySelector('#faGrid [data-asset="hot-brush"]');
+      if (!card) return false;
+      const style = getComputedStyle(card);
+      return (style.transform && style.transform !== 'none') || (style.translate && style.translate !== 'none' && style.translate !== '0px');
+    });
     console.log('PASS category clouds and filters, flower badges, and download combinations (SDK fixture)');
+    // Mobile centers the home hero; desktop keeps the editorial left align.
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign), 'center', 'mobile hero copy centers');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    assert.ok(['left', 'start'].includes(await page.evaluate(() => getComputedStyle(document.querySelector('.hero-grid > div')).textAlign)), 'desktop hero copy stays editorial');
 
     // ---- Pass 6: Featured Home membership, defensive caps, and Drive CTA ----
     await page.evaluate(() => {

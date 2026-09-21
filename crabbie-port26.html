@@ -261,6 +261,10 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .work-cat{ font-size:11px; color: var(--berry-soft); font-weight:700; }
 .work-more{position: relative;display:inline-flex; align-items:center; gap:5px;padding: 8px 16px;border-radius: 999px;color:#fff;font-family:'Fredoka'; font-weight:600; font-size:11px;letter-spacing:.02em;white-space:nowrap;overflow: hidden;isolation: isolate;background:radial-gradient(ellipse 42% 32% at 24% 84%, rgba(255,255,255,.45), transparent 65%),linear-gradient(180deg, #ffc3dc 0%, #ff9cc6 48%, var(--pink-hot) 100%);text-shadow: 0 1px 2px rgba(200,60,120,.35);box-shadow:0 8px 16px -8px rgba(255,92,154,.6),0 3px 8px -3px rgba(255,92,154,.25),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 12px -10px rgba(190,50,110,.5);transition: transform .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease);}
 .work-more::after{content:""; position:absolute; top: 15%; right: 12%; width: 6px; height: 4px; border-radius:50%; background: rgba(255,255,255,.9); transform: rotate(-28deg); pointer-events:none; z-index:3;}
+/* Candy bob: the See more pill dances only while its card is hovered. The
+   global reduced-motion rule stills it automatically. */
+@keyframes see-more-bob{ 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-3px);} }
+.work:hover .work-more{ animation: see-more-bob .8s var(--ease) infinite; box-shadow:0 10px 20px -8px rgba(255,92,154,.75),0 3px 8px -3px rgba(255,92,154,.3),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 12px -10px rgba(190,50,110,.5); }
 
 .cloud-tag{position: absolute;top: -17px; left: 14px;z-index: 4;height: 34px;min-width: 96px;display: grid;place-items: center;padding: 0 18px;pointer-events: none;}
 .cloud-tag::before{content:"";position:absolute; inset:0;--g: radial-gradient(50% 50%, #000 98%, #0000) no-repeat;-webkit-mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;background: linear-gradient(180deg, #ffd1e3 0%, var(--pink-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow( 0 3px 4px rgba(217,74,128,.35));}
@@ -706,6 +710,10 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .brand{ font-size:18px;}
   .nav::before{ left:22px; font-size:9px; padding:3px 12px;}
   .hero{ padding: 40px 0 60px;}
+  .hero-grid > div:first-child{ text-align:center; }
+  .hero-tagline, .hero-lede{ margin-left:auto; margin-right:auto; }
+  .hero-ctas{ justify-content:center; }
+  .hero-art-wrap{ margin-left:auto; margin-right:auto; }
   .hero h1{ font-size: clamp(56px, 18vw, 84px); text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff, 0 5px 0 #d94a80; }
   .hero-tagline{ font-size: 15px;}
   .hero-lede{ font-size:15px; margin-bottom: 26px;}
@@ -1029,7 +1037,7 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 
 .admin-main{ display:flex; flex-direction:column; min-width:0; }
 
-.admin-topbar{ padding: 16px var(--adm-pad-x) 14px; border-bottom: 2px dashed var(--purple-light); background: #fff; position: sticky; top: 0; z-index: 5;}
+.admin-topbar{ padding: 16px var(--adm-pad-x) 14px; border-bottom: 2px dashed var(--purple-light); background: #fff; position: sticky; top: 0; z-index: 5; display:grid; grid-template-columns: minmax(0,1fr) auto; align-items:center; gap:16px;}
 .admin-inner{max-width:1180px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr auto; align-items:center; gap:16px;}
 .admin-topbar .at-left{ display:flex; align-items:center; gap:12px; min-width:0; }
 .admin-topbar .at-eyebrow{font-family:'Fredoka'; font-weight:600; font-size:10px;letter-spacing:.2em; text-transform:uppercase; color: var(--berry-faint);margin-bottom: 2px;}
@@ -1074,7 +1082,7 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-quick-actions button:hover{ background: var(--pink-soft); color: var(--berry); border-color: var(--pink); }
 .adm-quick-actions button .qa-ico{ font-size:16px; }
 
-.adm-split{ display:grid; grid-template-columns:minmax(260px, 320px) minmax(0, 1fr); gap:18px; align-items:start;}
+.adm-split{ display:grid; grid-template-columns:minmax(280px, 360px) minmax(0, 1fr); gap:20px; align-items:start;}
 @media (max-width: 1000px){ .adm-split{ grid-template-columns: 1fr; } }
 
 .adm-list{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 14px; box-shadow: 0 6px 0 -3px var(--purple-light); position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow:auto;}
@@ -1127,12 +1135,12 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-media-preview .adm-file-chip{ display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #fff; border: 1.5px solid var(--pink-light); border-radius: 10px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: var(--berry); }
 .adm-modal-card .am-sub{ white-space: pre-line; }
 
-.adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 22px 24px 18px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: var(--adm-editor-max); width: 100%;}
+.adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 22px 24px 18px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: none; width: 100%;}
 .adm-editor h2{font-family:'Fredoka'; font-weight:700; font-size:18px; color: var(--berry);margin-bottom: 4px;}
 .adm-editor .ae-sub{font-size:11.5px; font-weight:700; color: var(--berry-faint); margin-bottom: 16px;}
 .adm-section{background: var(--pink-soft);border: 1.5px dashed var(--pink-light);border-radius: 16px; padding: 16px 18px;margin-bottom: 16px;}
 .adm-section h4{font-family:'Fredoka'; font-weight:700; font-size:11px;letter-spacing:.16em; text-transform:uppercase; color: var(--berry-faint);margin-bottom:12px;}
-.adm-row{display:grid; grid-template-columns: 1fr 1fr; gap: 14px;}
+.adm-row{display:grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items:start;}
 .adm-row.one{ grid-template-columns: 1fr; }
 .adm-row.three{ grid-template-columns: 1fr 1fr 1fr; }
 @media (max-width: 720px){ .adm-row, .adm-row.three{ grid-template-columns: 1fr; } }
@@ -1146,13 +1154,18 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-field input[type="url"],
 .adm-field input[type="date"],
 .adm-field textarea,
-.adm-field select{padding: 10px 14px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:'Nunito'; font-weight:700; font-size:12.5px; color: var(--berry);outline:none; transition:.2s;min-width:0;}
+.adm-field select{padding: 10px 14px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:'Nunito'; font-weight:700; font-size:12.5px; color: var(--berry);outline:none; transition:.2s;min-width:0;min-height:42px;line-height:1.4;}
 .adm-field textarea{ min-height: 82px; resize:vertical; line-height:1.55; }
 .adm-field input:focus, .adm-field textarea:focus, .adm-field select:focus{border-color: var(--pink-hot); box-shadow: 0 0 0 3px var(--pink-soft);}
 .adm-field input[type="color"]{ height:38px; padding:2px; border-radius:10px; border:2px solid var(--pink-light); background:#fff; }
 .adm-field input[type="range"]{ accent-color: var(--pink-hot); }
 .adm-check{display:flex; align-items:center; gap:8px;font-size:12.5px; font-weight:800; color: var(--berry);}
 .adm-check input{ width:16px; height:16px; accent-color: var(--pink-hot); }
+/* Media action groups share one wrap rhythm so thumbnail/cover/media rows
+   never shatter into uneven lines. */
+.adm-media-actions{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; align-items:center;}
+.adm-block-media{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px;}
+.adm-block-media .adm-media-preview{flex: 1 1 100%;}
 
 .adm-tabs{display:flex; gap:6px; margin-bottom: 18px; flex-wrap:wrap;}
 .adm-tab{padding:7px 14px; border-radius:999px; cursor:pointer;border:2px solid var(--pink-light); background:#fff;font-family:'Fredoka'; font-weight:600; font-size:11.5px;color: var(--berry-soft); transition:.2s var(--ease);}
@@ -1286,7 +1299,7 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-burger{display:none;width: 36px; height: 32px; border-radius:12px;background: var(--pink-soft); border: 2px solid var(--pink-light);align-items:center; justify-content:center; flex-direction:column; gap:3px;cursor:pointer;}
 .adm-burger span{ width:14px; height:2px; border-radius:2px; background:var(--pink-hot); }
 
-.adm-workspace{ max-width: 1180px; margin: 0 auto; width: 100%; }
+.adm-workspace{ max-width: min(1460px, 100%); margin: 0 auto; width: 100%; }
 
 @media (max-width: 860px){
   .admin-shell{ grid-template-columns: 1fr; }
@@ -4780,11 +4793,15 @@ function confirmPublishGuard(audit, onConfirm){
 function mediaField(label, path, opts){
 opts = opts || {};
 var v = getByPath(ADMIN_DRAFT, path) || '';
+/* Legacy rows may carry only the fallback image: display it, but the next
+   save unifies both columns onto the canonical path. */
+if(!v && opts.fallbackPath) v = getByPath(ADMIN_DRAFT, opts.fallbackPath) || '';
 var hint = opts.hint ? '<span class="af-hint">' + esc(opts.hint) + '</span>' : '';
+var extra = (opts.clearPaths || []).map(function(p){ return esc(p); }).join(' ');
 /* Media Library fields never expose the raw stored URL as an editable
    textbox: the canonical URL stays internal in the draft/database and the
    author works through previews + the picker. */
-return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span>' + hint + mediaPreviewHtml(path, v, opts.kind) + '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button>' + (v ? '<button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaclear="' + esc(path) + '">' + esc(tAdmin('btn.clearMedia')) + '</button>' : '') + '</div></div>';
+return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span>' + hint + mediaPreviewHtml(path, v, opts.kind) + '<div class="adm-media-actions"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button>' + (v ? '<button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaclear="' + esc(path) + '"' + (extra ? ' data-adm-mediaclear-extra="' + extra + '"' : '') + '>' + esc(tAdmin('btn.clearMedia')) + '</button>' : '') + '</div></div>';
 }
 
 function renderAdmin(module){
@@ -4900,14 +4917,14 @@ var basic =
 '<div class="adm-row" style="margin-top:10px;">' + inputSelect(modeLabel, base + '.cardMode', modeOptions) + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + '</div>' +
 '<div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' +
 (imageOnly ? '' : inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 })) +
-'<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail', { hint: imageOnly ? (currentAdminLang === 'vi' ? 'Ảnh này sẽ là toàn bộ thẻ và ảnh phóng to.' : 'This image becomes the whole card and its zoom image.') : '' }) + (imageOnly ? '' : mediaField(tAdmin('label.cover'), base + '.cover')) + '</div></div>';
+'<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.cover'), base + '.cover', { fallbackPath: base + '.thumbnail', clearPaths: [base + '.thumbnail'], hint: currentAdminLang === 'vi' ? 'Ảnh chính duy nhất — thumbnail card tự crop từ ảnh này.' : 'Single main image — the card thumbnail auto-crops from it.' }) + '</div></div>';
 var projectOnly = imageOnly ? '' :
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>';
 return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="portfolio.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b> · ' + (imageOnly ? (currentAdminLang === 'vi' ? 'Thẻ ảnh' : 'Image card') : (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft'))) + '</p>' +
 checklistPanel(pAudit) +
 basic + projectOnly +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="portfolio" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm" data-adm-preview="project" data-adm-id="' + esc(rec.id) + '">' + esc(tAdmin('btn.previewSaved')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="portfolio">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 function renderExternalLinks(rec){
@@ -4999,7 +5016,7 @@ checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div></div>' +
 '<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
@@ -5040,7 +5057,7 @@ checklistPanel(cAudit) +
 '<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
 '<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Alternate Price', base + '.alternatePrice') + '</div></div>' +
 '<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + inputText(tAdmin('auditf.delivery'), base + '.delivery') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="commissions" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="commissions">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
@@ -5058,7 +5075,7 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 function renderRequestFormEditor(rec){
 var base = 'forms.' + rec.id;
 var fields = (rec.fields || []).map(function(f, i){ return renderFormField(rec.id, f, i); }).join('');
-return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderFormField(formId, f, i){
@@ -5740,12 +5757,15 @@ if(/\.type$/.test(path) || /\.cardMode$/.test(path) || (el.type === 'checkbox' &
 });
 $$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
-var path = btn.getAttribute('data-adm-mediaclear');
+var paths = [btn.getAttribute('data-adm-mediaclear')].concat((btn.getAttribute('data-adm-mediaclear-extra') || '').split(' ').filter(Boolean));
+paths.forEach(function(path){
+if(!path) return;
 setByPath(ADMIN_DRAFT, path, '');
 var input = adminContent.querySelector('input[data-adm-path="' + path + '"]');
 if(input) input.value = '';
 refreshMediaPreviewByPath(path);
 markDirty(path);
+});
 refreshAuditPanels(module);
 });
 });
@@ -6781,7 +6801,9 @@ if(imageOnly){
 }
 }
 function portfolioBadgeLabel(record){
-if(record && record.featured) return 'FEATURED';
+/* Featured controls Home membership only; the visible cloud text is always
+   the real category so filtering and labels stay truthful. Featured cards
+   keep their distinct look through the is-cms-featured class. */
 return prettyTaxonomyLabel(record && (record.cat || record.categorySlug), 'PROJECT').toUpperCase();
 }
 function syncPortfolioBadge(card, record){
@@ -6801,7 +6823,9 @@ var urls = assetPublicDownloadUrls(record);
 return !!(record && record.availability === 'available' && (urls.direct || urls.drive));
 }
 function assetBadgeLabel(record){
-return String((record && record.flowerTag) || (record && record.featured ? 'FEATURED' : '') || '').trim().toUpperCase();
+/* flowerTag is the promotional badge and category stays in .item-cat;
+   featured never replaces label text (see is-cms-featured styling). */
+return String((record && record.flowerTag) || '').trim().toUpperCase();
 }
 function assetBadgeMarkup(record){
 var label = assetBadgeLabel(record); if(!label) return '';
