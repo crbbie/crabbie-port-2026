@@ -5,7 +5,7 @@
  */
 
 export const PET_LIMITS = Object.freeze({ desktop: 5, mobile: 1 });
-export const PET_GROUND_GAP = 22;
+export const PET_GROUND_GAP = 0;
 export const PET_INITIAL_DESKTOP = 3;
 
 /** Pets allowed at a viewport width. Mobile is capped hard at one pet. */
@@ -27,8 +27,9 @@ export function initialPetCount(viewportWidth, maxDesktop = PET_LIMITS.desktop) 
 }
 
 /**
- * The resting y for a pet: near the bottom of the viewport, never above the
- * navigation bar. Pets live in this ground band like a real desktop pet.
+ * The resting y for a pet: flush with the bottom edge of the viewport by
+ * default, never above the navigation bar. This makes the pet feel like it is
+ * standing on the browser/screen edge like a real desktop pet.
  */
 export function petGroundY(viewportHeight, petHeight, navHeight, gap = PET_GROUND_GAP) {
   const height = Number.isFinite(viewportHeight) ? viewportHeight : 800;
