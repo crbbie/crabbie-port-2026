@@ -4,6 +4,33 @@
 
 Preserve user work, tell the truth about state, and make destructive actions reversible or explicitly confirmed.
 
+## Typography roles
+
+Three brand faces, each with exactly one semantic role (roles are assigned by
+purpose, never by font size):
+
+- DISPLAY (`--font-display`, DFVN Starshines): hero, page and section titles.
+- DECORATIVE (`--font-decorative`, iCiel Be Cool): badges, eyebrows, kickers,
+  decorative labels, handwritten accents.
+- BODY / INFORMATION (`--font-body`, DFVN Hogfish): paragraphs, navigation,
+  buttons, lists, card info, forms, admin UI and all reading content.
+
+Decorative type is an accent only. Reading text must stay in the body face.
+
+## Appearance tokens
+
+Admin > Appearance (stored under the existing `theme` site-settings key, no
+schema change) exposes only semantic typography color tokens — display, accent,
+body, decorative, muted — plus an optional website background image. Do not add
+per-element color settings.
+
+- Colors apply through centralized CSS variables (`--text-*` declared on
+  `body` so the active palette is respected).
+- The background image applies through `body::before` with a readability
+  overlay; with no image the default pastel gradient/pattern is preserved.
+- The admin panel must show a live preview (heading, body, decorative label,
+  button/nav) that reflects unsaved changes, and a per-token reset.
+
 ## Loading
 
 ### Public site

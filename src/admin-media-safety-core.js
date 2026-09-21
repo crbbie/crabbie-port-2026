@@ -39,7 +39,8 @@ export const SETTINGS_MEDIA_FIELDS = Object.freeze([
   { path: 'branding.logo', label: 'Branding logo' },
   { path: 'branding.heroMedia', label: 'Hero media' },
   { path: 'music.url', label: 'Music URL' },
-  { path: 'seo.socialImage', label: 'Social image' }
+  { path: 'seo.socialImage', label: 'Social image' },
+  { path: 'theme.backgroundImage', label: 'Website background' }
 ]);
 
 export function positiveLabel(count) {

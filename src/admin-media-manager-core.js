@@ -197,7 +197,7 @@ export function mediaTargetAccept(path, blockType = '') {
   if (/^portfolio\.[^.]+\.(thumbnail|cover)$/.test(target)) return 'image/*';
   if (/^(assets|commissions)\.[^.]+\.thumbnail$/.test(target)) return 'image/*';
   if (target === 'pages.about.profileImage') return 'image/*';
-  if (['settings.branding.logo', 'settings.branding.heroMedia', 'settings.seo.socialImage'].includes(target)) return 'image/*';
+  if (['settings.branding.logo', 'settings.branding.heroMedia', 'settings.seo.socialImage', 'settings.theme.backgroundImage'].includes(target)) return 'image/*';
   return null;
 }
 

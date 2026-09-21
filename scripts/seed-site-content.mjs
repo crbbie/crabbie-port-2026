@@ -64,7 +64,7 @@ const navItems = [
 const settings = [
   { key: 'branding', value: { title: 'CRABBIE', tagline: 'Art made with candy, petals, and the sparkliest of hearts', alternateTagline: '', intro: '', logo: '', heroMedia: '' } },
   { key: 'typography', value: { headingFont: 'Fredoka', bodyFont: 'Nunito', accentFont: 'Gochi Hand' } },
-  { key: 'theme', value: { background: '#fffafc', pink: '#ffa0c8', lavender: '#b48aff', ink: '#7a3d6e' } },
+  { key: 'theme', value: { background: '#fffafc', pink: '#ffa0c8', lavender: '#b48aff', ink: '#7a3d6e', displayColor: '#7a3d6e', accentColor: '#ff5c9a', bodyColor: '#7a3d6e', decorativeColor: '#ff5c9a', mutedColor: '#a87098', backgroundImage: '', backgroundSize: 'cover', backgroundOverlay: 0.55 } },
   { key: 'motion', value: { decorations: true, fallingCandy: false, animation: true } },
   { key: 'music', value: { enabled: false, url: '', title: '', volume: 60, loop: true } },
   { key: 'language', value: { defaultLanguage: 'en' } },

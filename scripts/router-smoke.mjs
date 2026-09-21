@@ -3025,6 +3025,36 @@ try {
     assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer has Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
     console.log('PASS the footer follows CMS contact settings with no Find me section (SDK fixture)');
 
+    // ---- Appearance: semantic text color tokens + website background image ----
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: {
+        displayColor: '#123456', accentColor: '#234567', bodyColor: '#345678',
+        decorativeColor: '#456789', mutedColor: '#56789a',
+        backgroundImage: 'https://cdn.example.test/bg.jpg', backgroundSize: 'cover', backgroundOverlay: 0.4
+      }});
+    });
+    const appearanceApplied = await page.evaluate(() => ({
+      display: getComputedStyle(document.body).getPropertyValue('--text-display').trim(),
+      body: getComputedStyle(document.body).getPropertyValue('--text-body').trim(),
+      heroColor: getComputedStyle(document.querySelector('.hero h1')).color,
+      bg: (document.getElementById('cmsBackgroundStyle') || {}).textContent || ''
+    }));
+    assert.equal(appearanceApplied.display, '#123456', 'the display color token is applied');
+    assert.equal(appearanceApplied.body, '#345678', 'the body color token is applied');
+    assert.equal(appearanceApplied.heroColor, 'rgb(18, 52, 86)', 'the hero heading follows the display token');
+    assert.match(appearanceApplied.bg, /bg\.jpg/, 'the website background image is applied');
+    assert.match(appearanceApplied.bg, /rgba\(255,255,255,0\.4\)/, 'the background overlay opacity is applied');
+    // Clearing the image restores the default pastel background; removing the
+    // tokens restores the palette defaults so later passes are unaffected.
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { backgroundImage: '' } });
+      ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted']
+        .forEach((key) => document.body.style.removeProperty(key));
+    });
+    const clearedBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.equal(clearedBg.trim(), '', 'clearing the background image removes the override style');
+    console.log('PASS appearance color tokens and website background image apply and clear (SDK fixture)');
+
     // ---- Patch 5 F: expanded commission detail clears the sticky navbar ----
     await page.evaluate(() => { location.hash = '#commissions'; });
     await page.locator('[data-view="commissions"].is-active').waitFor({state: 'visible'});
@@ -3280,6 +3310,24 @@ try {
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
     assert.ok((await page.locator('#adDriveDownload').getAttribute('class')).includes('btn-purple'), 'Google Drive uses the purple candy CTA class');
     console.log('PASS featured Home membership caps and purple Google Drive CTA (SDK fixture)');
+
+    // ---- Admin > Appearance: role tokens, live preview, background picker ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => { window.__routerRows = window.__routerRows || {}; window.__routerRows.site_settings = []; });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.waitForSelector('[data-adm-appearance-preview="1"]');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"]').count(), 2, 'each role token exposes a color picker + hex input');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
+    await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#112233');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim()), '#112233', 'the live preview follows the token before save');
+    await page.locator('[data-adm-appearance-reset]').click();
+    assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#7a3d6e', 'reset restores the default token');
+    console.log('PASS admin Appearance exposes role tokens, a live preview and the background media picker (SDK fixture)');
 // P4_END
 
   }

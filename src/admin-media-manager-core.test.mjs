@@ -147,6 +147,7 @@ assert.equal(mediaTargetAccept('portfolio.p.blocks.4.before', 'before-after'), '
 assert.equal(mediaTargetAccept('settings.music.url'), 'audio/*');
 assert.equal(mediaTargetAccept('assets.asset.downloadUrl'), '*');
 assert.equal(mediaTargetAccept('settings.branding.heroMedia'), 'image/*');
+assert.equal(mediaTargetAccept('settings.theme.backgroundImage'), 'image/*');
 assert.equal(mediaTargetAccept('portfolio.p.blocks.5.url', 'youtube'), null);
 assert.equal(mediaTargetAccept('settings.unknown'), null);
 assert.equal(mediaItemMatchesTarget(mediaRecord('art.png', 'image/png'), 'image/*'), true);
