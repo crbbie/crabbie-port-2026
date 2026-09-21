@@ -73,6 +73,7 @@ Examples:
 - `src/admin-media.js`
 - `src/admin-media-upload.js`
 - `src/commission-requests.js`
+- `src/site-motion.js` (music, falling candy, desktop pet runtime; exposes `window.CrabbieSiteMotion`)
 
 These own Supabase/browser-side persistence and service integration.
 
@@ -89,7 +90,8 @@ Examples include:
 - upload strategy/retry rules;
 - media safety/deletion logic;
 - form normalization;
-- request validation.
+- request validation;
+- desktop pet/dialogue rules (`src/desktop-pet-core.js`).
 
 ## Admin state model
 

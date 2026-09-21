@@ -929,6 +929,7 @@ body:not(.admin-mode) .eyebrow.yellow{
    override any token and every role follows through CSS variables. */
 body:not(.admin-mode) .hero h1,
 body:not(.admin-mode) .hero h1 .accent,
+body:not(.admin-mode) .brand,
 body:not(.admin-mode) .page-title,
 body:not(.admin-mode) .section-title,
 body:not(.admin-mode) .cta-inner h2,
@@ -954,6 +955,7 @@ body:not(.admin-mode) .mini-price,
 body:not(.admin-mode) .rule .rv,
 body:not(.admin-mode) .cta-tier .price,
 body:not(.admin-mode) .tos-closing .big,
+body:not(.admin-mode) .v404-num,
 body:not(.admin-mode) .page-title .hi{ color:var(--text-accent); }
 
 body:not(.admin-mode) .eyebrow,
@@ -962,6 +964,10 @@ body:not(.admin-mode) .hero-intro,
 body:not(.admin-mode) .signature,
 body:not(.admin-mode) .hand-note,
 body:not(.admin-mode) .letter-stamp,
+body:not(.admin-mode) .hero-art .season-badge,
+body:not(.admin-mode) .empty-art,
+body:not(.admin-mode) .stamp-heart,
+body:not(.admin-mode) .caret,
 body:not(.admin-mode) .tos-closing .sig{ color:var(--text-decorative); }
 /* Intentional palette variants keep their own accent, not the decorative token. */
 body:not(.admin-mode) .eyebrow.purple{ color:var(--purple-hot); }
@@ -971,22 +977,46 @@ body:not(.admin-mode) .eyebrow.yellow{ color:#b98600; }
 body:not(.admin-mode) .hero-lede,
 body:not(.admin-mode) .page-sub,
 body:not(.admin-mode) .cta-inner p,
+body:not(.admin-mode) .cta-panel h4,
 body:not(.admin-mode) .nav-links a,
+body:not(.admin-mode) .lang span,
+body:not(.admin-mode) .lang button,
+body:not(.admin-mode) .mobile-menu a,
 body:not(.admin-mode) .foot ul a,
 body:not(.admin-mode) .foot-bottom,
 body:not(.admin-mode) .foot h5,
+body:not(.admin-mode) .admin-entry-link,
 body:not(.admin-mode) .work-cat,
 body:not(.admin-mode) .item-cat,
 body:not(.admin-mode) .item-status,
+body:not(.admin-mode) .item-tags span,
+body:not(.admin-mode) .comm-desc,
 body:not(.admin-mode) .comm-price small,
+body:not(.admin-mode) .comm-mini span,
+body:not(.admin-mode) .mini-note,
 body:not(.admin-mode) .osd-price small,
+body:not(.admin-mode) .osd-desc,
+body:not(.admin-mode) .osd-chips span,
 body:not(.admin-mode) .blk-body figcaption,
 body:not(.admin-mode) .art-caption,
 body:not(.admin-mode) .profile-inner,
 body:not(.admin-mode) .letter-note,
+body:not(.admin-mode) .bio,
+body:not(.admin-mode) .exp-card p,
+body:not(.admin-mode) .value-card p,
+body:not(.admin-mode) .acc-line,
+body:not(.admin-mode) .rule .rd,
+body:not(.admin-mode) .tab-btn,
+body:not(.admin-mode) .choice span,
+body:not(.admin-mode) .direct-card p,
+body:not(.admin-mode) .field .hint,
+body:not(.admin-mode) .form-head .label-fixed,
 body:not(.admin-mode) .tos-nav h6,
 body:not(.admin-mode) .tos-nav a,
 body:not(.admin-mode) .tos-nav button,
+body:not(.admin-mode) .tos-body p,
+body:not(.admin-mode) .tos-body ul li,
+body:not(.admin-mode) .tos-closing p,
 body:not(.admin-mode) .rule .rk,
 body:not(.admin-mode) .spec .k,
 body:not(.admin-mode) .pd-fact .k,
@@ -997,10 +1027,25 @@ body:not(.admin-mode) .pd-footnav .mid,
 body:not(.admin-mode) .chip{ color:var(--text-muted); }
 
 body:not(.admin-mode) .cms,
+body:not(.admin-mode) .vlc-label,
+body:not(.admin-mode) .pd-fact .v,
+body:not(.admin-mode) .spec .v,
+body:not(.admin-mode) .panel,
+body:not(.admin-mode) .unavailable p,
+body:not(.admin-mode) .acc-line b,
+body:not(.admin-mode) .cta-tier b,
+body:not(.admin-mode) .tos-body p strong,
+body:not(.admin-mode) .refund-table td,
+body:not(.admin-mode) .consent .consent-text,
+body:not(.admin-mode) .direct-card .email-strong,
+body:not(.admin-mode) .make-chip,
+body:not(.admin-mode) .btn-ghost,
+body:not(.admin-mode) .v404 p,
 body:not(.admin-mode) .contact-row .cv,
 body:not(.admin-mode) .acc-btn,
 body:not(.admin-mode) .toast,
 body:not(.admin-mode) .loading-text,
+body:not(.admin-mode) .field label,
 body:not(.admin-mode) .field input[type="text"],
 body:not(.admin-mode) .field input[type="email"],
 body:not(.admin-mode) .field input[type="number"],
@@ -1008,6 +1053,33 @@ body:not(.admin-mode) .field input[type="url"],
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select,
 body:not(.admin-mode) .search-box input{ color:var(--text-body); }
+
+/* Interactive states keep their emphasis; selected states stay legible on
+   their coloured pills. */
+body:not(.admin-mode) .nav-links a.active,
+body:not(.admin-mode) .mobile-menu a.active,
+body:not(.admin-mode) .chip.on,
+body:not(.admin-mode) .tab-btn.on,
+body:not(.admin-mode) .choice input:checked + span{ color:#fff; }
+body:not(.admin-mode) .nav-links a:hover,
+body:not(.admin-mode) .tos-nav a:hover,
+body:not(.admin-mode) .tos-nav button:hover,
+body:not(.admin-mode) .tos-nav button[aria-current="true"],
+body:not(.admin-mode) .chip:hover,
+body:not(.admin-mode) .tab-btn:hover,
+body:not(.admin-mode) .back-link:hover,
+body:not(.admin-mode) .lang span.on{ color:var(--text-body); }
+body:not(.admin-mode) .foot ul a:hover{ color:var(--text-accent); }
+
+/* Search + form fields: placeholder inherits the muted token and the caret
+   follows the accent so the typing colour is part of the appearance. */
+body:not(.admin-mode) .search-box input::placeholder,
+body:not(.admin-mode) .field input::placeholder,
+body:not(.admin-mode) .field textarea::placeholder{ color:var(--text-muted); opacity:1; }
+body:not(.admin-mode) .search-box input,
+body:not(.admin-mode) .field input,
+body:not(.admin-mode) .field textarea,
+body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
 </style>
 
 <!-- ============================================================
@@ -1548,8 +1620,10 @@ html.home-transition-pending #homeBloomTransition{display:grid;}
   100%{opacity:0;}
 }
 
-/* ---------- HOME POST-LOADING STAGGERED REVEAL ---------- */
-html.home-reveal-sequence .view[data-view="home"] .hero,
+/* ---------- HOME POST-LOADING STAGGERED REVEAL ----------
+   The hero copy/art already stagger through the hero entrance rules, so the
+   section reveal only animates the blocks below the fold to avoid stacking two
+   transforms on the same content. */
 html.home-reveal-sequence .view[data-view="home"] .works,
 html.home-reveal-sequence .view[data-view="home"] .assets,
 html.home-reveal-sequence .view[data-view="home"] .cta,
@@ -1562,30 +1636,25 @@ html.home-reveal-sequence footer{
   will-change:opacity,translate;
 }
 
-html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .hero{
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .works{
   opacity:1;
   translate:0 0;
   transition-delay:.12s;
 }
-html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .works{
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .assets{
   opacity:1;
   translate:0 0;
   transition-delay:.24s;
 }
-html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .assets{
+html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .cta{
   opacity:1;
   translate:0 0;
   transition-delay:.36s;
 }
-html.home-reveal-sequence.home-reveal-active .view[data-view="home"] .cta{
-  opacity:1;
-  translate:0 0;
-  transition-delay:.48s;
-}
 html.home-reveal-sequence.home-reveal-active footer{
   opacity:1;
   translate:0 0;
-  transition-delay:.60s;
+  transition-delay:.48s;
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -1682,20 +1751,25 @@ html.home-reveal-sequence.home-reveal-active footer{
 .view[data-view="home"].is-active .hero-ctas     { --d: .62s; }
 .view[data-view="home"].is-active .signature     { --d: .80s; }
 
-@keyframes floatOrbitSmooth{
-  0%    { transform: translate(0px, 0px) rotate(0deg); }
-  12.5% { transform: translate(7px, -5px) rotate(.3deg); }
-  25%   { transform: translate(9px, -9px) rotate(.4deg); }
-  37.5% { transform: translate(5px, -12px) rotate(.3deg); }
-  50%   { transform: translate(0px, -13px) rotate(0deg); }
-  62.5% { transform: translate(-5px, -12px) rotate(-.3deg); }
-  75%   { transform: translate(-9px, -9px) rotate(-.4deg); }
-  87.5% { transform: translate(-7px, -5px) rotate(-.3deg); }
-  100%  { transform: translate(0px, 0px) rotate(0deg); }
+@keyframes heroArtBob{
+  0%,100%{ transform: translateY(0); }
+  50%    { transform: translateY(-14px); }
 }
+@keyframes heroArtTilt{
+  0%,100%{ transform: rotate(-1.4deg); }
+  50%    { transform: rotate(1.4deg); }
+}
+/* Entrance lives on the wrapper; the idle float/tilt live on inner elements so
+   the two transform chains never fight and the loop has no visible jump. */
 .view[data-view="home"].is-active .hero-art-wrap{
-  animation: floatOrbitSmooth 10s ease-in-out infinite;
-  transform-origin: center center;
+  animation: animFadeUp .9s var(--ease-out-soft) .35s both;
+}
+.view[data-view="home"].is-active .hero-art{
+  animation: heroArtBob 6.5s ease-in-out infinite;
+  will-change: transform;
+}
+.view[data-view="home"].is-active .hero-art-inner{
+  animation: heroArtTilt 9s ease-in-out infinite;
   will-change: transform;
 }
 
@@ -2041,6 +2115,7 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 </style>
 <script src="/api/public-config.js"></script>
 <script type="module" src="/src/supabase-client.js"></script>
+<script type="module" src="/src/site-motion.js"></script>
 
 <style id="brand-font-readability">
 /* Brand font readability tuning — keep the three local faces, but give their
@@ -2273,7 +2348,71 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
   font-family:var(--font-body);font-weight:700;font-size:13px;padding:8px 18px;border-radius:999px;
   border:2px solid var(--pv-accent,var(--text-accent));color:var(--pv-accent,var(--text-accent));
 }
+/* Saved palette cards: a swatch strip plus inline name/actions. */
+.adm-palette-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px;}
+.adm-palette-card{border:2px solid var(--pink-light);border-radius:16px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;}
+.adm-palette-swatches{display:flex;gap:4px;}
+.adm-palette-swatches i{flex:1 1 0;height:26px;border-radius:7px;border:1.5px solid rgba(0,0,0,.06);}
+.adm-palette-name{width:100%;padding:6px 10px;border-radius:10px;border:1.5px solid var(--pink-light);
+  background:#fff;font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--berry);outline:none;}
+.adm-palette-name:focus{border-color:var(--pink-hot);}
+.adm-palette-actions{display:flex;flex-wrap:wrap;gap:6px;}
+.adm-music-preview{margin-top:12px;}
+.adm-music-preview audio{width:100%;max-width:420px;}
 </style>
+
+<script id="appearance-early">
+/* Applies the last saved Appearance snapshot before first paint so the site
+   background and text tokens never flash the defaults. The snapshot is written
+   by applyCmsSiteSettings after each successful public refresh. */
+(function(){
+'use strict';
+window.__crabbieBuildBgCss = function(theme){
+  if(!theme || !theme.backgroundImage) return '';
+  var safe = String(theme.backgroundImage).replace(/[\\")]/g, function(c){ return '\\' + c; });
+  var size = theme.backgroundSize === 'original' ? 'auto' : (theme.backgroundSize === 'repeat' ? 'auto' : 'cover');
+  var repeat = theme.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat';
+  var pos = theme.backgroundPosition || 'center';
+  var overlay = theme.backgroundOverlay == null ? 0.55 : Math.max(0, Math.min(1, Number(theme.backgroundOverlay)));
+  if(isNaN(overlay)) overlay = 0.55;
+  return 'body:not(.admin-mode)::before{' +
+    'background-image:linear-gradient(rgba(255,255,255,' + overlay + '),rgba(255,255,255,' + overlay + ')),url("' + safe + '") !important;' +
+    'background-size:auto,' + size + ' !important;' +
+    'background-position:center,' + pos + ' !important;' +
+    'background-repeat:no-repeat,' + repeat + ' !important;' +
+    'background-color:#FFDEE7 !important;' +
+    '}';
+};
+var theme = null;
+try{
+  var raw = localStorage.getItem('crabbie:appearance');
+  if(raw){ var parsed = JSON.parse(raw); theme = parsed && parsed.theme; }
+}catch(e){ theme = null; }
+if(!theme || typeof theme !== 'object') return;
+/* The admin shell keeps its own palette; never apply the public snapshot there. */
+try{
+  if(/^\/admin(\/|$)/.test(location.pathname) || /^#admin/.test(location.hash)) return;
+}catch(e){}
+try{
+  var root = document.documentElement;
+  if(theme.pink) root.style.setProperty('--pink', theme.pink);
+  if(theme.lavender) root.style.setProperty('--purple', theme.lavender);
+  var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted' };
+  var tokenCss = '';
+  Object.keys(map).forEach(function(k){ if(theme[k]) tokenCss += map[k] + ':' + theme[k] + ';'; });
+  if(tokenCss){
+    var ts = document.createElement('style'); ts.id = 'cmsAppearanceEarly';
+    ts.textContent = 'body:not(.admin-mode){' + tokenCss + '}';
+    document.head.appendChild(ts);
+  }
+  var bg = window.__crabbieBuildBgCss(theme);
+  if(bg){
+    var bs = document.createElement('style'); bs.id = 'cmsBackgroundStyle'; bs.textContent = bg;
+    document.head.appendChild(bs);
+  }
+}catch(e){}
+})();
+</script>
 
 </head>
 <body class="">
@@ -2350,7 +2489,7 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
         </div>
         <div class="hero-art-wrap">
           <div class="hero-art">
-            <div class="season-badge" style="color: rgb(236, 178, 172);">SUGAR &amp; SPARKLE ✦</div>
+            <div class="season-badge">SUGAR &amp; SPARKLE ✦</div>
             <div class="hero-art-inner">
               <span class="art-caption">a little daydream,<br>just for you</span>
             </div>
@@ -4324,6 +4463,27 @@ var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','La
 /* Semantic typography color tokens (Admin > Appearance). One default per role;
    these are the only color settings and they never target a single element. */
 var APPEARANCE_COLOR_DEFAULTS = { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098' };
+/* The full colour group a saved palette captures (one preset = one theme). */
+var PALETTE_KEYS = ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor'];
+/* Default desktop-pet dialogue. `url`/`label` are optional; when a url exists the
+   bubble renders a safe "Xem thêm" link instead of the raw address. */
+var PET_DIALOGUES_DEFAULT = [
+  { id:'d1', text:'Hi hi! Welcome to Crabbie\'s little world ♡', url:'', label:'' },
+  { id:'d2', text:'Psst… the free shelf has cute goodies!', url:'#free-assets', label:'Xem thêm' },
+  { id:'d3', text:'I like candy, petals and sparkly hearts.', url:'', label:'' },
+  { id:'d4', text:'Wanna commission something sweet?', url:'#commissions', label:'Xem thêm' },
+  { id:'d5', text:'Drag me anywhere you like!', url:'', label:'' },
+  { id:'d6', text:'Click me again for another line~', url:'', label:'' },
+  { id:'d7', text:'The artbook is full of little worlds.', url:'#portfolio', label:'Xem thêm' },
+  { id:'d8', text:'Say hello if you want to make magic together.', url:'#contact', label:'Xem thêm' },
+  { id:'d9', text:'I\'m a desktop pet. Be gentle with me!', url:'', label:'' },
+  { id:'d10', text:'Pastel dreams taste the best.', url:'', label:'' },
+  { id:'d11', text:'Read the terms? It keeps us both happy.', url:'#terms', label:'Xem thêm' },
+  { id:'d12', text:'Follow along for new art!', url:'https://x.com/crbbie', label:'Xem thêm' },
+  { id:'d13', text:'Bounce bounce bounce~', url:'', label:'' },
+  { id:'d14', text:'You can turn me off in Admin > Motion.', url:'', label:'' },
+  { id:'d15', text:'Have the sweetest day! ♡', url:'', label:'' }
+];
 
 function buildProjectRecord(id){
 var p = PROJECTS[id] || {};
@@ -4457,10 +4617,11 @@ typography: { headingFont:'DFVN Starshines', bodyFont:'DFVN Hogfish', accentFont
   theme: {
     background:'#fffafc', pink:'#ffa0c8', lavender:'#b48aff', ink:'#7a3d6e',
     displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098',
-    backgroundImage:'', backgroundSize:'cover', backgroundOverlay:0.55
+    backgroundImage:'', backgroundSize:'cover', backgroundPosition:'center', backgroundOverlay:0.55,
+    palettes:[]
   },
-motion: { decorations:true, fallingCandy:false, animation:true },
-music: { enabled:false, url:'', title:'', volume:60, loop:true },
+  motion: { decorations:true, fallingCandy:false, candyDensity:'normal', animation:true, pet:{ enabled:false, maxDesktop:5, dialogues:PET_DIALOGUES_DEFAULT.map(function(d){ return Object.assign({}, d); }) } },
+  music: { enabled:false, url:'', title:'', volume:60, loop:true, autoplay:true },
 language: { defaultLanguage:'en' },
 seo: { title:'CRABBIE', description:'', socialImage:'' },
 footer: { footer:'a little candy shop of art' },
@@ -5802,6 +5963,41 @@ return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance
   '<div class="apv-actions"><span class="apv-btn">Button sample</span><span class="apv-nav">Navigation</span></div>' +
   '</div></div>';
 }
+/* Saved palettes: a preset is the whole colour group, stored in the theme
+   settings JSON so no schema migration is needed. */
+function paletteSwatchHtml(colors){
+var keys = ['background','pink','lavender','displayColor','accentColor','decorativeColor'];
+return '<span class="adm-palette-swatches">' + keys.map(function(k){
+  var c = (colors && colors[k]) || APPEARANCE_COLOR_DEFAULTS[k] || '#ffffff';
+  return '<i style="background:' + esc(c) + '"></i>';
+}).join('') + '</span>';
+}
+function currentPaletteColors(){
+var t = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+var colors = {};
+PALETTE_KEYS.forEach(function(k){ colors[k] = t[k] || APPEARANCE_COLOR_DEFAULTS[k] || ''; });
+return colors;
+}
+function renderPaletteSection(){
+var palettes = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
+var cards = palettes.map(function(p){
+  return '<div class="adm-palette-card" data-adm-palette-card="' + esc(p.id) + '">' +
+    paletteSwatchHtml(p.colors) +
+    '<input type="text" class="adm-palette-name" data-adm-palette-rename="' + esc(p.id) + '" value="' + esc(p.name || 'Palette') + '" aria-label="Palette name">' +
+    '<div class="adm-palette-actions">' +
+      '<button type="button" class="adm-btn-sm primary" data-adm-palette-apply="' + esc(p.id) + '">Apply</button>' +
+      '<button type="button" class="adm-btn-sm" data-adm-palette-dup="' + esc(p.id) + '">Duplicate</button>' +
+      '<button type="button" class="adm-btn-sm danger" data-adm-palette-del="' + esc(p.id) + '" data-adm-palette-delname="' + esc(p.name || 'Palette') + '">Delete</button>' +
+    '</div></div>';
+}).join('');
+return '<div class="adm-section"><h4>Saved palettes</h4>' +
+  '<div class="adm-row">' +
+    '<label class="adm-field"><span class="af-label">Palette name</span><input type="text" data-adm-palette-name="1" placeholder="My candy palette"></label>' +
+    '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm primary" data-adm-palette-save="1">Save current palette</button></div>' +
+  '</div>' +
+  (palettes.length ? '<div class="adm-palette-list">' + cards + '</div>' : '<p class="af-hint">No saved palettes yet. Save the current colours to reuse them later.</p>') +
+'</div>';
+}
 function renderAppearanceBody(base){
 var d = APPEARANCE_COLOR_DEFAULTS;
 var overlay = appearanceOverlayValue();
@@ -5818,11 +6014,15 @@ return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + 
       '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">Reset to default</button></div>' +
     '</div>' +
   '</div>' +
+  renderPaletteSection() +
   appearancePreviewHtml() +
   '<div class="adm-section"><h4>Website background</h4>' +
     '<div class="adm-row three">' +
       mediaField('Background image', base + '.theme.backgroundImage') +
       inputSelect('Background size', base + '.theme.backgroundSize', [{ value:'cover', label:'Cover' },{ value:'original', label:'Original' },{ value:'repeat', label:'Repeat / tile' }]) +
+      inputSelect('Position', base + '.theme.backgroundPosition', [{ value:'center', label:'Center' },{ value:'top', label:'Top' },{ value:'bottom', label:'Bottom' },{ value:'left', label:'Left' },{ value:'right', label:'Right' }]) +
+    '</div>' +
+    '<div class="adm-row">' +
       '<div class="adm-field"><span class="af-label">Overlay opacity</span><input type="range" min="0" max="0.9" step="0.05" data-adm-path="' + base + '.theme.backgroundOverlay" value="' + esc(overlay) + '"><span class="af-hint" data-adm-bg-overlay-value="1">' + Math.round(overlay * 100) + '%</span></div>' +
     '</div>' +
     '<p class="af-hint">Leave the image empty to keep the default pastel gradient. The overlay keeps text readable over photos.</p>' +
@@ -5844,10 +6044,11 @@ if(img){
   var overlay = appearanceOverlayValue();
   var size = t.backgroundSize === 'original' ? 'auto' : (t.backgroundSize === 'repeat' ? 'auto' : 'cover');
   var repeat = t.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat';
+  var position = t.backgroundPosition || 'center';
   preview.style.backgroundImage = 'linear-gradient(rgba(255,255,255,' + overlay + '),rgba(255,255,255,' + overlay + ')),url("' + String(img).replace(/"/g, '%22') + '")';
   preview.style.backgroundSize = 'auto, ' + size;
   preview.style.backgroundRepeat = 'no-repeat, ' + repeat;
-  preview.style.backgroundPosition = 'center, center';
+  preview.style.backgroundPosition = 'center, ' + position;
 } else {
   preview.style.backgroundImage = '';
   preview.style.backgroundSize = 'cover';
@@ -5855,6 +6056,30 @@ if(img){
   preview.style.backgroundPosition = 'center';
 }
 preview.style.backgroundColor = '#fff';
+}
+
+function renderPetDialogueEditor(base){
+var pet = getByPath(ADMIN_DRAFT, base + '.motion.pet') || {};
+var dialogues = Array.isArray(pet.dialogues) ? pet.dialogues : [];
+var rows = dialogues.map(function(d, i){
+  var p = base + '.motion.pet.dialogues.' + i;
+  return '<div class="adm-repeat-row" data-adm-pet-dialogue="' + i + '">' +
+    '<div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">Dialogue</span>' +
+      '<button type="button" class="adm-btn-sm danger" data-adm-pet-dialogue-del="' + i + '">Remove</button></div>' +
+    '<label class="adm-field"><span class="af-label">Text</span><input type="text" data-adm-path="' + p + '.text" value="' + esc(d.text || '') + '"></label>' +
+    '<div class="adm-row">' +
+      '<label class="adm-field"><span class="af-label">Link URL (optional)</span><input type="text" data-adm-path="' + p + '.url" value="' + esc(d.url || '') + '" placeholder="https://… or #commissions"></label>' +
+      '<label class="adm-field"><span class="af-label">Link label</span><input type="text" data-adm-path="' + p + '.label" value="' + esc(d.label || '') + '" placeholder="Xem thêm"></label>' +
+    '</div></div>';
+}).join('');
+return '<div class="adm-section"><h4>Desktop pet dialogue</h4>' +
+  '<p class="af-hint">Shown in the pet speech bubble. A URL becomes a safe link labelled with the link label; the raw address is never shown.</p>' +
+  '<div data-adm-pet-dialogues="1">' + rows + '</div>' +
+  '<button type="button" class="adm-btn-sm purple" data-adm-pet-dialogue-add="1">Add dialogue</button></div>';
+}
+function musicPreviewHtml(url){
+if(!url) return '<p class="af-hint">Choose an audio file from the Media Library to preview it here.</p>';
+return '<div class="adm-music-preview"><audio controls preload="metadata" src="' + esc(url) + '"></audio></div>';
 }
 
 function renderAdminSettings(){
@@ -5868,8 +6093,17 @@ switch(group){
 case 'Branding': body = '<div class="adm-row">' + inputText(tAdmin('label.title'), base + '.branding.title') + inputText('Tagline', base + '.branding.tagline') + '</div>' + inputTextarea('Intro', base + '.branding.intro', { minHeight:70 }) + '<div class="adm-row">' + mediaField('Logo', base + '.branding.logo') + mediaField('Hero Media', base + '.branding.heroMedia') + '</div>'; break;
 case 'Typography': body = '<div class="adm-row three">' + inputSelect('Heading Font', base + '.typography.headingFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + inputSelect('Body Font', base + '.typography.bodyFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + inputSelect('Accent Font', base + '.typography.accentFont', ['DFVN Starshines','DFVN Hogfish','iCiel Be Cool']) + '</div>'; break;
 case 'Appearance': body = renderAppearanceBody(base); break;
-case 'Motion': body = inputCheck('Decorations', base + '.motion.decorations') + '<div style="margin-top:8px;">' + inputCheck('Falling Candy', base + '.motion.fallingCandy') + '</div>' + '<div style="margin-top:8px;">' + inputCheck('Animation', base + '.motion.animation') + '</div>'; break;
-case 'Music': body = inputCheck('Music Enabled', base + '.music.enabled') + mediaField('Music URL', base + '.music.url') + inputText('Music Title', base + '.music.title'); break;
+case 'Motion': body = '<div class="adm-row three">' +
+    '<div class="adm-field"><span class="af-label">Effects</span>' + inputCheck('Decorations', base + '.motion.decorations') + '<div style="margin-top:8px;">' + inputCheck('Falling Candy', base + '.motion.fallingCandy') + '</div><div style="margin-top:8px;">' + inputCheck('Animation', base + '.motion.animation') + '</div></div>' +
+    inputSelect('Candy density', base + '.motion.candyDensity', [{ value:'low', label:'Low' },{ value:'normal', label:'Normal' },{ value:'high', label:'High' }]) +
+    '<div class="adm-field"><span class="af-label">Desktop pet</span>' + inputCheck('Enable desktop pet', base + '.motion.pet.enabled') + '<div style="margin-top:8px;">' + inputSelect('Max on desktop', base + '.motion.pet.maxDesktop', [{ value:1, label:'1' },{ value:2, label:'2' },{ value:3, label:'3' },{ value:4, label:'4' },{ value:5, label:'5' }]) + '</div></div>' +
+  '</div>' + renderPetDialogueEditor(base); break;
+case 'Music': var musicVol = Number(getByPath(ADMIN_DRAFT, base + '.music.volume')); if(!Number.isFinite(musicVol)) musicVol = 60; musicVol = Math.max(0, Math.min(100, Math.round(musicVol)));
+  body = '<div class="adm-row three">' +
+    '<div class="adm-field"><span class="af-label">Playback</span>' + inputCheck('Music enabled', base + '.music.enabled') + '<div style="margin-top:8px;">' + inputCheck('Autoplay on visit', base + '.music.autoplay') + '</div><div style="margin-top:8px;">' + inputCheck('Loop', base + '.music.loop') + '</div></div>' +
+    inputText('Music Title', base + '.music.title') +
+    '<div class="adm-field"><span class="af-label">Volume</span><input type="range" min="0" max="100" step="1" data-adm-path="' + base + '.music.volume" value="' + musicVol + '"><span class="af-hint" data-adm-music-volume-value="1">' + musicVol + '%</span></div>' +
+  '</div>' + mediaField('Audio file', base + '.music.url') + musicPreviewHtml(getByPath(ADMIN_DRAFT, base + '.music.url') || ''); break;
 case 'Language': body = inputSelect('Default Language', base + '.language.defaultLanguage', [{value:'en', label:'en'},{value:'vi', label:'vi'}]); break;
 case 'SEO': body = inputText('SEO Title', base + '.seo.title') + inputTextarea('SEO Description', base + '.seo.description', { minHeight:60 }) + mediaField('Social Image', base + '.seo.socialImage'); break;
 case 'Footer': body = inputTextarea('Footer', base + '.footer.footer', { minHeight:80 }); break;
@@ -6025,6 +6259,87 @@ btn.addEventListener('click', function(){
   refreshAppearancePreview();
 });
 });
+/* Saved palettes: save / apply / duplicate / rename / delete. */
+$$('[data-adm-palette-save]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var theme = ADMIN_DRAFT.settings.theme = ADMIN_DRAFT.settings.theme || {};
+  var list = Array.isArray(theme.palettes) ? theme.palettes : (theme.palettes = []);
+  var nameInput = adminContent.querySelector('[data-adm-palette-name="1"]');
+  var name = nameInput && nameInput.value.trim() ? nameInput.value.trim() : ('Palette ' + (list.length + 1));
+  list.push({ id: newId('palette'), name: name, colors: currentPaletteColors() });
+  markDirty('settings.theme.palettes');
+  renderAdmin('settings');
+  toast('Palette saved: ' + name);
+});
+});
+$$('[data-adm-palette-apply]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var id = btn.getAttribute('data-adm-palette-apply');
+  var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
+  var preset = list.filter(function(p){ return p.id === id; })[0];
+  if(!preset) return;
+  PALETTE_KEYS.forEach(function(k){
+    if(preset.colors && preset.colors[k] != null) setByPath(ADMIN_DRAFT, 'settings.theme.' + k, preset.colors[k]);
+  });
+  markDirty('settings.theme');
+  renderAdmin('settings');
+  toast('Palette applied: ' + (preset.name || 'Palette'));
+});
+});
+$$('[data-adm-palette-dup]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var id = btn.getAttribute('data-adm-palette-dup');
+  var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
+  var preset = list.filter(function(p){ return p.id === id; })[0];
+  if(!preset) return;
+  list.push({ id: newId('palette'), name: (preset.name || 'Palette') + ' copy', colors: Object.assign({}, preset.colors) });
+  markDirty('settings.theme.palettes');
+  renderAdmin('settings');
+});
+});
+$$('[data-adm-palette-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var id = btn.getAttribute('data-adm-palette-del');
+  var name = btn.getAttribute('data-adm-palette-delname') || 'this palette';
+  if(!window.confirm('Delete palette "' + name + '"?')) return;
+  var theme = ADMIN_DRAFT.settings.theme || {};
+  theme.palettes = (theme.palettes || []).filter(function(p){ return p.id !== id; });
+  markDirty('settings.theme.palettes');
+  renderAdmin('settings');
+  toast('Palette deleted.');
+});
+});
+$$('[data-adm-palette-rename]', adminContent).forEach(function(input){
+input.addEventListener('change', function(){
+  var id = input.getAttribute('data-adm-palette-rename');
+  var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
+  var preset = list.filter(function(p){ return p.id === id; })[0];
+  if(!preset) return;
+  preset.name = input.value.trim() || preset.name;
+  markDirty('settings.theme.palettes');
+});
+});
+/* Desktop pet dialogues: add / remove rows. */
+$$('[data-adm-pet-dialogue-add]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var motion = ADMIN_DRAFT.settings.motion = ADMIN_DRAFT.settings.motion || {};
+  motion.pet = motion.pet || {};
+  motion.pet.dialogues = Array.isArray(motion.pet.dialogues) ? motion.pet.dialogues : [];
+  motion.pet.dialogues.push({ id:newId('dialogue'), text:'', url:'', label:'' });
+  markDirty('settings.motion.pet.dialogues');
+  renderAdmin('settings');
+});
+});
+$$('[data-adm-pet-dialogue-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var i = parseInt(btn.getAttribute('data-adm-pet-dialogue-del'), 10);
+  var dialogues = getByPath(ADMIN_DRAFT, 'settings.motion.pet.dialogues');
+  if(!Array.isArray(dialogues) || isNaN(i)) return;
+  dialogues.splice(i, 1);
+  markDirty('settings.motion.pet.dialogues');
+  renderAdmin('settings');
+});
+});
 $$('[data-adm-subtab]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var pair = btn.getAttribute('data-adm-subtab').split(':');
@@ -6169,6 +6484,10 @@ if(path.indexOf('settings.theme.') === 0) refreshAppearancePreview();
 if(path === 'settings.theme.backgroundOverlay'){
   var overlayHint = adminContent.querySelector('[data-adm-bg-overlay-value="1"]');
   if(overlayHint) overlayHint.textContent = Math.round(appearanceOverlayValue() * 100) + '%';
+}
+if(path === 'settings.music.volume'){
+  var musicHint = adminContent.querySelector('[data-adm-music-volume-value="1"]');
+  if(musicHint) musicHint.textContent = readControlValue(el) + '%';
 }
 });
 el.addEventListener('change', function(){
@@ -7762,26 +8081,14 @@ function applyCmsAboutPage(page){
    gradient/pattern. With no image the decorative default is left untouched. */
 function applyCmsSiteBackground(theme){
   var style = document.getElementById('cmsBackgroundStyle');
-  var image = theme && theme.backgroundImage ? String(theme.backgroundImage) : '';
-  if(!image){
+  var build = window.__crabbieBuildBgCss;
+  var css = (typeof build === 'function') ? build(theme) : '';
+  if(!css){
     if(style) style.textContent = '';
     return;
   }
   if(!style){ style = document.createElement('style'); style.id = 'cmsBackgroundStyle'; document.head.appendChild(style); }
-  var safeUrl = image.replace(/[\\")]/g, function(c){ return '\\' + c; });
-  var size = theme.backgroundSize === 'original' ? 'auto' : (theme.backgroundSize === 'repeat' ? 'auto' : 'cover');
-  var repeat = theme.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat';
-  var overlay = theme.backgroundOverlay == null ? 0.55 : Math.max(0, Math.min(1, Number(theme.backgroundOverlay)));
-  if(isNaN(overlay)) overlay = 0.55;
-  /* The white overlay keeps text contrast readable over any uploaded photo. */
-  style.textContent =
-    'body:not(.admin-mode)::before{' +
-    'background-image:linear-gradient(rgba(255,255,255,' + overlay + '),rgba(255,255,255,' + overlay + ')),url("' + safeUrl + '") !important;' +
-    'background-size:auto,' + size + ' !important;' +
-    'background-position:center,center !important;' +
-    'background-repeat:no-repeat,' + repeat + ' !important;' +
-    'background-color:#FFDEE7 !important;' +
-    '}';
+  style.textContent = css;
 }
 
 function applyCmsSiteSettings(settings){
@@ -7860,6 +8167,24 @@ function applyCmsSiteSettings(settings){
     if(settings.theme.decorativeColor) themeBody.setProperty('--text-decorative', settings.theme.decorativeColor);
     if(settings.theme.mutedColor) themeBody.setProperty('--text-muted', settings.theme.mutedColor);
     applyCmsSiteBackground(settings.theme);
+    /* Cache the appearance for the next first paint (transition/loading). */
+    try{ localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: settings.theme })); }catch(e){}
+  }
+
+  if(settings.motion){
+    if(window.CrabbieSiteMotion && typeof window.CrabbieSiteMotion.applyMotion === 'function'){
+      window.CrabbieSiteMotion.applyMotion(settings.motion);
+    } else {
+      window.__CRABBIE_MOTION__ = settings.motion;
+    }
+  }
+
+  if(settings.music){
+    if(window.CrabbieSiteMotion && typeof window.CrabbieSiteMotion.applyMusic === 'function'){
+      window.CrabbieSiteMotion.applyMusic(settings.music);
+    } else {
+      window.__CRABBIE_MUSIC__ = settings.music;
+    }
   }
 
   if(settings.typography){

@@ -3055,6 +3055,64 @@ try {
     assert.equal(clearedBg.trim(), '', 'clearing the background image removes the override style');
     console.log('PASS appearance color tokens and website background image apply and clear (SDK fixture)');
 
+    // ---- Motion runtime: falling candy + desktop pet (SDK fixture) ----
+    assert.ok(await page.evaluate(() => { try { return Boolean(localStorage.getItem('crabbie:appearance')); } catch (e) { return false; } }), 'the appearance snapshot is cached for the next first paint');
+    // The shared test context forces reduced motion; enable motion for this pass.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: true, candyDensity: 'low', pet: { enabled: false } }); });
+    await page.waitForTimeout(1300);
+    assert.ok(await page.locator('#crabbieCandyLayer .crabbie-candy').count() > 0, 'falling candy spawns recycled nodes');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
+
+    // Freeze motion for deterministic pet interaction.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 2, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 2, 'desktop pet honours the configured maximum');
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet-bubble.show');
+    assert.ok((await page.locator('#crabbiePetLayer .crabbie-pet-bubble.show').first().innerText()).trim().length > 0, 'clicking a pet shows a dialogue bubble');
+
+    // A dialogue URL becomes a safe labelled link, never a raw address.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 1, dialogues: [{ text: 'external', url: 'https://example.test/x', label: 'Xem thêm' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    const dialogueLink = page.locator('#crabbiePetLayer .crabbie-pet-bubble a');
+    await dialogueLink.waitFor({ state: 'attached' });
+    assert.equal(await dialogueLink.getAttribute('rel'), 'noopener noreferrer', 'external dialogue links are safe');
+    assert.equal(await dialogueLink.getAttribute('target'), '_blank');
+    assert.equal((await dialogueLink.innerText()).trim(), 'Xem thêm');
+    assert.doesNotMatch(await page.locator('#crabbiePetLayer .crabbie-pet-bubble').first().innerText(), /example\.test/, 'the raw URL is never shown');
+
+    // Mobile is capped at one pet.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'a' }, { text: 'b' }] } }); });
+    await page.waitForTimeout(140);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'mobile shows exactly one pet');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 0, 'turning the pet off removes every pet');
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- Music: control, single stable instance, disable ----
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: false }); });
+    assert.equal(await page.locator('#crabbieMusicControl.show').count(), 0, 'the music control is hidden when disabled');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: true, url: 'data:audio/mpeg;base64,//uQx', title: 't', volume: 50, loop: true, autoplay: false }); });
+    assert.equal(await page.locator('#crabbieMusicControl.show').count(), 1, 'the music control appears when enabled');
+    assert.equal(await page.locator('#crabbieMusicControl button').count(), 2, 'the music control offers play/pause and mute');
+    const stableAudio = await page.evaluate(() => {
+      const audio = document.querySelector('audio');
+      if (!audio) return false;
+      audio.dataset.probe = '1';
+      window.CrabbieSiteMotion.applyMusic({ enabled: true, url: 'data:audio/mpeg;base64,//uQx', volume: 50, loop: true, autoplay: false });
+      return document.querySelector('audio') === audio && document.querySelector('audio').dataset.probe === '1';
+    });
+    assert.equal(stableAudio, true, 're-applying the same source keeps one audio instance (no restart)');
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: false }); });
+    console.log('PASS motion candy/pet and the single-instance music control behave (SDK fixture)');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
     // ---- Patch 5 F: expanded commission detail clears the sticky navbar ----
     await page.evaluate(() => { location.hash = '#commissions'; });
     await page.locator('[data-view="commissions"].is-active').waitFor({state: 'visible'});
@@ -3327,7 +3385,19 @@ try {
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim()), '#112233', 'the live preview follows the token before save');
     await page.locator('[data-adm-appearance-reset]').click();
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#7a3d6e', 'reset restores the default token');
-    console.log('PASS admin Appearance exposes role tokens, a live preview and the background media picker (SDK fixture)');
+    // Saved palettes: save the current colours, apply, then delete.
+    await page.locator('[data-adm-palette-name="1"]').fill('Test palette');
+    await page.locator('[data-adm-palette-save]').click();
+    await page.waitForSelector('[data-adm-palette-card]');
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 1, 'a palette can be saved');
+    assert.equal(await page.locator('.adm-palette-swatches i').count() >= 6, true, 'the palette card shows colour swatches');
+    await page.locator('[data-adm-palette-apply]').click();
+    assert.ok((await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue()).length > 0, 'applying a palette keeps the colour fields populated');
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('[data-adm-palette-del]').click();
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'a palette can be deleted');
+    console.log('PASS admin Appearance exposes role tokens, a live preview, the background media picker and saved palettes (SDK fixture)');
 // P4_END
 
   }

@@ -1,4 +1,4 @@
-﻿import { readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 
 const env = Object.fromEntries(
   (await readFile('.env.local', 'utf8'))
@@ -64,9 +64,9 @@ const navItems = [
 const settings = [
   { key: 'branding', value: { title: 'CRABBIE', tagline: 'Art made with candy, petals, and the sparkliest of hearts', alternateTagline: '', intro: '', logo: '', heroMedia: '' } },
   { key: 'typography', value: { headingFont: 'Fredoka', bodyFont: 'Nunito', accentFont: 'Gochi Hand' } },
-  { key: 'theme', value: { background: '#fffafc', pink: '#ffa0c8', lavender: '#b48aff', ink: '#7a3d6e', displayColor: '#7a3d6e', accentColor: '#ff5c9a', bodyColor: '#7a3d6e', decorativeColor: '#ff5c9a', mutedColor: '#a87098', backgroundImage: '', backgroundSize: 'cover', backgroundOverlay: 0.55 } },
-  { key: 'motion', value: { decorations: true, fallingCandy: false, animation: true } },
-  { key: 'music', value: { enabled: false, url: '', title: '', volume: 60, loop: true } },
+  { key: 'theme', value: { background: '#fffafc', pink: '#ffa0c8', lavender: '#b48aff', ink: '#7a3d6e', displayColor: '#7a3d6e', accentColor: '#ff5c9a', bodyColor: '#7a3d6e', decorativeColor: '#ff5c9a', mutedColor: '#a87098', backgroundImage: '', backgroundSize: 'cover', backgroundPosition: 'center', backgroundOverlay: 0.55, palettes: [] } },
+  { key: 'motion', value: { decorations: true, fallingCandy: false, candyDensity: 'normal', animation: true, pet: { enabled: false, maxDesktop: 5, dialogues: [] } } },
+  { key: 'music', value: { enabled: false, url: '', title: '', volume: 60, loop: true, autoplay: true } },
   { key: 'language', value: { defaultLanguage: 'en' } },
   { key: 'seo', value: { title: 'CRABBIE', description: 'Sweet little illustrations, dreamy characters, and a sprinkle of heart.', socialImage: '' } },
   { key: 'footer', value: { footer: 'a little candy shop of art' } },

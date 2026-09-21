@@ -30,6 +30,29 @@ per-element color settings.
   overlay; with no image the default pastel gradient/pattern is preserved.
 - The admin panel must show a live preview (heading, body, decorative label,
   button/nav) that reflects unsaved changes, and a per-token reset.
+- Saved palettes store the whole colour group in `theme.palettes`; Apply updates
+  every colour field and the live preview immediately, and the normal Save
+  persists the theme key. Swatches must make each palette recognisable at a glance.
+- The last applied appearance is cached in `localStorage` (`crabbie:appearance`)
+  and re-applied before first paint so the loading/home transition background
+  matches the site instead of flashing the default.
+
+## Motion, music and the desktop pet
+
+- Motion settings live under the `motion` site-settings key. Falling candy uses
+  the local `/deco/candy*.svg` assets, recycles nodes, keeps `pointer-events:none`
+  and reduces density on mobile.
+- The desktop pet (`motion.pet`, assets `/deco/Desktop-Pet.gif`) is capped at
+  `maxDesktop` (hard max five) and exactly one on mobile. Clicking shows a
+  dialogue bubble; dragging settles smoothly and movement resumes. Dialogue
+  `url` renders a labelled link (`target=_blank rel="noopener noreferrer"`);
+  the raw address is never shown.
+- `prefers-reduced-motion` disables candy and pet movement (and the hero idle
+  float). Motion must never trap content or cover nav/modals/focused fields.
+- Music (`music` key) uses one stable audio instance per session, so SPA route
+  changes never restart the track. Autoplay failures are never fatal: playback
+  starts on the first user gesture. A small public control offers play/pause and
+  mute, and the visitor's mute/volume preference is remembered in `localStorage`.
 
 ## Loading
 
