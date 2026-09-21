@@ -502,6 +502,8 @@ try {
 
     await goAdmin('portfolio');
     await page.locator('#admChecklist').waitFor({state: 'visible'});
+    assert.match(await page.locator('#admChecklist .cl-summary').innerText(), /Missing required fields/, 'the checklist shows an error summary by default');
+    await page.locator('#admChecklist .cl-summary').click();
     const portfolioChecklist = await page.locator('#admChecklist').innerText();
     assert.match(portfolioChecklist, /Thumbnail/);
     assert.match(portfolioChecklist, /Cover/);
@@ -525,6 +527,7 @@ try {
     assert.equal(await page.locator('#admPublishWarning').isVisible(), true);
 
     await goAdmin('assets');
+    await page.locator('#admChecklist .cl-summary').click();
     const assetChecklist = await page.locator('#admChecklist').innerText();
     assert.match(assetChecklist, /Download file/);
     assert.equal(await page.locator('.adm-editor .af-label').filter({hasText: 'Thumbnail'}).count() > 0, true);
@@ -541,6 +544,7 @@ try {
     assert.equal(await page.locator('input[data-adm-path="' + downloadUrlPath + '"]').count(), 0, 'the download URL field is picker-driven, never a raw textbox');
 
     await goAdmin('commissions');
+    await page.locator('#admChecklist .cl-summary').click();
     assert.match(await page.locator('#admChecklist').innerText(), /Thumbnail/);
     assert.equal(await page.locator('[data-adm-path$=".delivery"]').count(), 1);
     for (const module of ['about', 'terms']) {
