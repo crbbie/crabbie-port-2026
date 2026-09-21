@@ -22,6 +22,65 @@ Read only the rule files relevant to the task:
 | Copy / sales content | `copywriting-sales.md`, `legal.md` | CMS content, settings, public views |
 | Deploy / Vercel | `architecture.md`, `security.md` | `vercel.json`, `api/` |
 
+## Fast execution mode — default
+
+Mặc định ưu tiên hoàn thành task nhanh và trực tiếp.
+
+### Với task nhỏ / localized
+Ví dụ: đổi màu, đổi text, spacing, size, CSS, animation nhỏ, chỉnh một component, sửa một bug có vị trí rõ ràng.
+
+**Phải:**
+- tìm đúng selector/function/component liên quan;
+- inspect phạm vi nhỏ nhất cần thiết;
+- sửa trực tiếp;
+- kiểm tra nhanh phần vừa sửa;
+- kết thúc.
+
+**Không được mặc định:**
+- audit toàn project;
+- explore nhiều file không liên quan;
+- chạy full test suite;
+- chạy full build;
+- chạy safety checks dài;
+- đọc nhiều documentation/rules không liên quan;
+- refactor code ngoài scope;
+- tìm thêm bug khác;
+- chờ background command không cần thiết;
+- viết báo cáo dài.
+
+Nếu thay đổi chỉ ảnh hưởng 1–3 file, ưu tiên chỉ inspect những file đó.
+
+### Verification cho task nhỏ
+- Chỉ chạy check/test trực tiếp liên quan đến phần vừa thay đổi.
+- Nếu thay đổi thuần CSS/text/layout đơn giản và có thể xác minh bằng code inspection, không cần chạy toàn bộ test suite.
+
+### Khi nào mới dùng DEEP MODE
+Chỉ mở rộng investigation/test khi task liên quan đến:
+- database/data loss
+- authentication
+- permissions/RLS
+- persistence/save/load
+- migration
+- API
+- security
+- cross-component architecture
+- production deployment
+- bug không xác định được root cause
+
+Hoặc khi user chủ động yêu cầu:
+- audit
+- investigate deeply
+- test everything
+- review toàn project
+
+### Priority
+Khi yêu cầu của user rõ ràng và nhỏ:
+- **DO THE REQUESTED CHANGE FIRST.**
+- Không biến một cosmetic edit thành một audit.
+- **Mục tiêu mặc định:** `minimum exploration → minimum change → targeted verification → finish`
+- Không hy sinh correctness, nhưng cũng không thực hiện các bước không tạo thêm giá trị thực tế.
+- Với task nhỏ, báo cáo cuối chỉ cần: `changed`, `file`, `done`. Không cần giải thích dài trừ khi có lỗi/risk.
+
 ## Repository facts
 
 - Package manager: npm.

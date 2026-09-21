@@ -426,15 +426,14 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pf-s{ grid-column: span 2; grid-row: span 2; }
 .pf-w{ grid-column: span 3; grid-row: span 2; }
 .pf-l .work-title{ font-size: 22px; }
-#pfGrid .work.is-image-card{cursor:zoom-in;overflow:hidden;background:var(--pink-soft);}
+#pfGrid .work.is-image-card{cursor:zoom-in;overflow:visible;background:var(--pink-soft);}
 #pfGrid .work.is-image-card .meta{display:none !important;}
 #pfGrid .work.is-image-card .thumb{inset:0;border-radius:25px;}
 #pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
 #pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
-/* Image card label: the cloud-tag shape is clipped by the card overflow, so for
-   image cards it becomes a soft candy blob inside the card carrying the title. */
+/* Image card label: positioned at the top like project cloud tags */
 #pfGrid .work.is-image-card .cloud-tag{
-  top:auto; bottom:12px; left:12px; height:auto; min-width:0; min-height:0;
+  top:-14px; bottom:auto; left:14px; height:auto; min-width:0; min-height:0;
   max-width:calc(100% - 24px); display:inline-grid; place-items:center;
   padding:7px 16px; transform:rotate(-1.5deg); z-index:4;
   background:linear-gradient(180deg,#ffd1e3 0%, var(--pink-hot) 100%);
@@ -2866,7 +2865,7 @@ try{
         <div class="eyebrow">MADE JUST FOR YOU</div>
         <h2 class="page-title">Let's make <span class="hi">cute magic</span>.</h2>
         <p class="page-sub">Find your little piece of the atelier. Contact me to discuss availability and your idea.</p>
-        <div style="margin-top:22px;"><a class="tos-note" href="#terms" data-goto="terms">✦ Read the Terms of Service</a></div>
+        <div style="margin-top:22px;"><a class="tos-note" href="#terms" data-goto="terms">Read the Terms of Service</a></div>
       </div>
 
       <h3 class="section-title" style="text-align:center;">Normal / Anime &amp; Chibi</h3>
