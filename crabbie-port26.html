@@ -75,7 +75,7 @@ window.scrollTo(0, 0);
 }
 
 *{box-sizing:border-box; margin:0; padding:0;}
-html{scroll-behavior:smooth; scrollbar-gutter:stable; background-color:var(--cms-bg-color,#FFDEE7);}
+html{scroll-behavior:smooth; scrollbar-gutter:stable; background-color:var(--cms-bg-color,#fff);}
 body{
   font-family:var(--font-body), system-ui, sans-serif;
   color:var(--berry);
@@ -822,12 +822,12 @@ body:not(.admin-mode){
   background:transparent !important;
 }
 
+/* Plain fallback only: the legacy pink + heart pattern must never paint before
+   the CMS/appearance background is known. A custom CMS background overrides
+   this through the injected #cmsBackgroundStyle layer. */
 body:not(.admin-mode)::before{
-  background-color:var(--cms-bg-color,#FFDEE7) !important;
-  background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22315%22%20height%3D%22184%22%20viewBox%3D%220%200%20315%20184%22%3E%3Crect%20width%3D%22315%22%20height%3D%22184%22%20fill%3D%22%23FFDEE7%22%2F%3E%3Cg%20fill%3D%22%23FFF%22%3E%3Cpath%20transform%3D%22translate(-14%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(143.5%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(301%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(64.5%20115)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(222%20115)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") !important;
-  background-size:315px 184px !important;
-  background-position:0 0 !important;
-  background-repeat:repeat !important;
+  background-color:var(--cms-bg-color,#fff) !important;
+  background-image:none !important;
 }
 
 /* Fresher navigation and outlines */
@@ -1534,7 +1534,7 @@ html.home-transition-pending body{
   pointer-events:auto;
   opacity:1;
   visibility:visible;
-  background:#fdeadd;
+  background:#fff;
 }
 html.home-transition-pending #homeBloomTransition{display:grid;}
 #homeBloomTransition.is-hidden{
@@ -2382,10 +2382,11 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
 'use strict';
 window.__crabbieBgFallback = function(theme){
   /* When a photo is set the visible background is the lightened image, so the
-     html/body overscroll band uses the palette background; otherwise the pastel
-     base keeps the default look. This keeps the native overscroll band in sync. */
+     html/body overscroll band uses the palette background; otherwise the plain
+     white fallback keeps the native overscroll band in sync with the loading
+     background. */
   if(theme && theme.backgroundImage) return theme.background || '#fffafc';
-  return '#FFDEE7';
+  return '#fff';
 };
 window.__crabbieBuildBgCss = function(theme){
   if(!theme || !theme.backgroundImage) return '';
@@ -2400,7 +2401,7 @@ window.__crabbieBuildBgCss = function(theme){
     'background-size:auto,' + size + ' !important;' +
     'background-position:center,' + pos + ' !important;' +
     'background-repeat:no-repeat,' + repeat + ' !important;' +
-    'background-color:var(--cms-bg-color,#FFDEE7) !important;' +
+    'background-color:var(--cms-bg-color,#fff) !important;' +
     '}';
 };
 var theme = null;
@@ -8225,7 +8226,7 @@ function applyCmsSiteBackground(theme){
   var build = window.__crabbieBuildBgCss;
   var fallback = (typeof window.__crabbieBgFallback === 'function')
     ? window.__crabbieBgFallback(theme)
-    : (theme && theme.backgroundImage ? (theme.background || '#fffafc') : '#FFDEE7');
+    : (theme && theme.backgroundImage ? (theme.background || '#fffafc') : '#fff');
   /* Keep the html/body overscroll band in sync with the visible background. */
   document.documentElement.style.setProperty('--cms-bg-color', fallback);
   var css = (typeof build === 'function') ? build(theme) : '';
@@ -8650,7 +8651,9 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
     var bodyStyle = getComputedStyle(document.body);
     var bodyBeforeStyle = getComputedStyle(document.body, '::before');
 
-    overlay.style.backgroundColor = bodyStyle.backgroundColor || '#fdeadd';
+    /* Prefer the visible background layer's colour so the loading screen is
+       explicitly opaque (white by default) instead of transparent. */
+    overlay.style.backgroundColor = (bodyBeforeStyle && bodyBeforeStyle.backgroundColor) || bodyStyle.backgroundColor || '#fff';
 
     if(bodyBeforeStyle && bodyBeforeStyle.backgroundImage && bodyBeforeStyle.backgroundImage !== 'none'){
       overlay.style.backgroundImage = bodyBeforeStyle.backgroundImage;
