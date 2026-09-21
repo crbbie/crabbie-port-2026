@@ -1,13 +1,23 @@
+import { formatPriceWithCurrency } from './admin-roundtrip-core.js';
+
 export function mapCommissionService(row, fallback = {}) {
   if (!row) return { ...fallback };
   const details = row.details || {};
   const availability = row.availability === 'waitlist' ? 'inquiry' : (row.availability ?? '');
   // The canonical price column is authoritative: a persisted formatted string
   // only survives as a fallback for legacy rows without a canonical price.
-  const hasCanonicalPrice = row.price != null && String(row.price).trim() !== '';
+  // Currency is never hard-coded: every code renders its real symbol.
+  const hasCanonicalPrice = row.price != null && String(row.price).trim() !== '' && Number.isFinite(Number(row.price));
+  const currency = String(row.currency || '').trim().toUpperCase() || 'USD';
   const price = hasCanonicalPrice
-    ? (row.currency === 'VND' ? `${Number(row.price).toLocaleString()} VND` : `$${row.price}`)
+    ? formatPriceWithCurrency(String(Number(row.price)), currency)
     : (details.priceFormatted || '');
+  const alternateRaw = details.alternatePrice ?? '';
+  const alternateText = String(alternateRaw ?? '').trim();
+  const alternateCurrency = String(details.alternateCurrency || '').trim().toUpperCase() || currency;
+  const alternatePriceFormatted = alternateText && details.alternatePriceFormatted
+    ? details.alternatePriceFormatted
+    : (alternateText ? formatPriceWithCurrency(alternateText, alternateCurrency) : '');
   return {
     id: row.slug ?? '',
     slug: row.slug ?? '',
@@ -40,6 +50,7 @@ export function mapCommissionService(row, fallback = {}) {
     extraNotes: details.extraNotes ?? '',
     alternatePrice: details.alternatePrice ?? '',
     alternateCurrency: details.alternateCurrency ?? '',
+    alternatePriceFormatted,
     isOtherService: details.isOtherService ?? true
   };
 }

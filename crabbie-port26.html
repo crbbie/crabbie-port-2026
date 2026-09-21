@@ -4038,8 +4038,12 @@ var s = OTHER_SERVICES[serviceId];
 if(!s){ otherServiceDetail.classList.remove('show'); otherServiceDetail.innerHTML = ''; return; }
 var availClass = availabilityClass(s.availability);
 var disabled = s.availability === 'closed';
-var accRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]];
-if(s.extraNotes) accRows.push(['Notes', s.extraNotes]);
+var feeText = function(v){ var t = String(v == null ? '' : v).trim(); return (t && t !== 'undefined' && t !== 'NaN') ? t : ''; };
+var accRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]]
+  .filter(function(r){ return feeText(r[1]) !== ''; });
+var alternateLine = feeText(s.alternatePriceFormatted) || (feeText(s.alternatePrice) ? feeText(s.alternatePrice) + (feeText(s.alternateCurrency) ? ' ' + feeText(s.alternateCurrency) : '') : '');
+if(alternateLine) accRows.push(['Alternate price', alternateLine]);
+if(feeText(s.extraNotes)) accRows.push(['Notes', feeText(s.extraNotes)]);
 var html =
 '<article class="osd-card" aria-labelledby="osdTitle">' +
 '<div class="osd-preview ' + esc(s.previewVariant || '') + '">' +
@@ -4048,7 +4052,7 @@ var html =
 '</div>' +
 '<div class="osd-info">' +
 '<h3 class="osd-name" id="osdTitle">' + esc(s.name) + '</h3>' +
-'<div class="osd-price">' + esc(s.price) + (s.priceNote ? '<small>' + esc(s.priceNote) + '</small>' : '') + '</div>' +
+'<div class="osd-price">' + esc(s.price || '') + (s.priceNote ? '<small>' + esc(s.priceNote) + '</small>' : '') + '</div>' +
 '<p class="osd-desc">' + esc(s.description) + '</p>' +
 '<div class="osd-chips">' + (s.chips || []).map(function(c){ return '<span>' + esc(c) + '</span>'; }).join('') + '<span>' + esc(s.formLabel) + '</span></div>' +
 '<div class="osd-actions">' +
@@ -5894,7 +5898,8 @@ var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
 '<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
-'<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Alternate Price', base + '.alternatePrice') + '</div></div>' +
+'<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Price note', base + '.priceNote') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Alternate Price', base + '.alternatePrice') + inputSelect('Alternate Currency', base + '.alternateCurrency', CURRENCIES) + '</div></div>' +
+'<div class="adm-section"><h4>Fees / Usage / Additional Pricing</h4><div class="adm-row">' + inputText('Commercial rule', base + '.commercialRule') + inputText('Extra character', base + '.extraCharacterFee') + inputText('Background fee', base + '.backgroundFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Tax', base + '.tax') + inputText('Rush fee', base + '.rushFee') + inputText('Private fee', base + '.privateFee') + '</div><div style="margin-top:10px;">' + inputText('Extra notes', base + '.extraNotes') + '</div></div>' +
 '<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + inputText(tAdmin('auditf.delivery'), base + '.delivery') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="commissions" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="commissions">' + esc(tAdmin('btn.save')) + '</button></div></div>';
@@ -6748,7 +6753,7 @@ var listKey = btn.getAttribute('data-adm-new');
 var id = newAdminClientId();
 if(listKey === 'portfolio') ADMIN_DRAFT.portfolio.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New project', slug:'', description:'', category:'illustration', cardMode:'project', tags:[], thumbnail:'', cover:'', externalLinks:[], blocks:[], featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New project',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'assets') ADMIN_DRAFT.assets.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New asset', slug:'', description:'', category:'brushes', tags:[], thumbnail:'', media:'', mediaType:'image', downloadUrl:'', driveUrl:'', showDirectDownload:true, showDriveDownload:false, fileFormat:'', license:'', credit:'', version:'', updateNote:'', dateAdded:'', flowerTag:'', availability:'available', featured:false, published:false, placeholder:false, viState:'pending', titleCopy:{en:'New asset',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
-else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', availability:'open', form:'illustration', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
+else if(listKey === 'commissions') ADMIN_DRAFT.commissions.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New commission', slug:'', description:'', price:'', currency:'USD', priceNote:'', alternatePrice:'', alternateCurrency:'', availability:'open', form:'illustration', commercialRule:'', extraCharacterFee:'', backgroundFee:'', tax:'5%', rushFee:'+20%', privateFee:'+20%', extraNotes:'', featured:false, published:false, titleCopy:{en:'New commission',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, originalUpdatedAt:null, title:'New form', slug:'', description:'', published:false, fields:[], titleCopy:{en:'New form',vi:'',viOverride:false}, descriptionCopy:{en:'',vi:'',viOverride:false} });
 else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
 else if(listKey === 'portfolioCategories') ADMIN_DRAFT.portfolioCategories.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New category', slug:'', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
@@ -8290,9 +8295,10 @@ apply: function(services, forms){
           var nameEl = card.querySelector('.comm-name'); if(nameEl) nameEl.textContent = s.title || s.name || slug;
           var descEl = card.querySelector('.comm-desc'); if(descEl) descEl.textContent = s.description || '';
           var priceEl = card.querySelector('.comm-price'); if(priceEl) priceEl.textContent = s.price || '';
-          var mini = card.querySelector('.comm-mini'); if(mini) mini.innerHTML = '<span>' + esc(s.price || '') + '</span>' + (s.alternatePrice ? '<span>' + esc(s.alternatePrice + ' ' + (s.alternateCurrency || '')) + '</span>' : '');
+          var miniAlt = s.alternatePriceFormatted || (s.alternatePrice ? String(s.alternatePrice).trim() + (s.alternateCurrency ? ' ' + String(s.alternateCurrency).trim() : '') : '');
+          var mini = card.querySelector('.comm-mini'); if(mini) mini.innerHTML = '<span>' + esc(s.price || '') + '</span>' + (String(miniAlt || '').trim() ? '<span>' + esc(miniAlt) + '</span>' : '');
           var detailFields = [s.deliveryEstimate,s.includedFiles,s.canvas,s.commercialRule,s.extraCharacter,s.backgroundRule,s.tax,s.rush,s.privateFee];
-          card.querySelectorAll('.acc-line b').forEach(function(el, i){ if(i < detailFields.length) el.textContent = visibleCmsValue(detailFields[i]); });
+          card.querySelectorAll('.acc-line b').forEach(function(el, i){ if(i < detailFields.length){ var t = detailFields[i]; var clean = String(t == null ? '' : t).trim(); el.textContent = (clean && clean !== 'undefined' && clean !== 'NaN') ? visibleCmsValue(clean) : ''; } });
         }
       }
     });

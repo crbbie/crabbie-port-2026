@@ -50,4 +50,10 @@ assert.equal(mappedForm.slug, 'emotes');
 assert.equal(mappedForm.title, 'Emotes Form');
 assert.equal(mappedForm.fields.length, 1);
 
+// Batch 3 (P1-04): every supported currency renders its real symbol.
+assert.equal(mapCommissionService({ slug: 's', title: 'S', price: 50, currency: 'EUR', details: {} }).price, '€50');
+assert.equal(mapCommissionService({ slug: 's', title: 'S', price: 50, currency: 'GBP', details: {} }).price, '£50');
+assert.equal(mapCommissionService({ slug: 's', title: 'S', price: 5000, currency: 'JPY', details: {} }).price, '¥5000');
+assert.equal(mapCommissionService({ slug: 's', title: 'S', price: 1500000, currency: 'VND', details: {} }).price, '1500000 VND');
+
 console.log('Commission CMS mapping tests passed.');

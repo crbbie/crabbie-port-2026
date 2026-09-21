@@ -4,6 +4,9 @@ import {
   formRelationshipOptions,
   normalizeRequestFormFields,
   formattedCommissionPrice,
+  parseCommissionPrice,
+  formatPriceWithCurrency,
+  currencySymbol,
   CONTACT_ROLES
 } from './admin-roundtrip-core.js';
 import { formatAssetRow, formatCommissionRow, formatPageRow, formatPortfolioRow } from './admin-crud-core.js';
@@ -202,5 +205,50 @@ const legacyHydration = mapAdminHydrationResults({ ...emptyResults, pages: { dat
 assert.equal(legacyHydration.pages.about.values, null, 'legacy records surface values as absent, not as defaults');
 const emptyHydration = mapAdminHydrationResults({ ...emptyResults, pages: { data: [formatPageRow('about', { title: 'About', content: 'x', published: true, values: [] })], error: null } });
 assert.deepEqual(emptyHydration.pages.about.values, [], 'an explicitly empty values array stays authoritative');
+
+// --- Batch 3 (P1-04): real currency symbols, explicit numeric parsing ---
+assert.equal(currencySymbol('EUR'), '€', 'EUR renders its real symbol');
+assert.equal(currencySymbol('GBP'), '£', 'GBP renders its real symbol');
+assert.equal(currencySymbol('JPY'), '¥', 'JPY renders its real symbol');
+assert.equal(formattedCommissionPrice({ price: '50', currency: 'EUR' }), '€50', 'no hard-coded $ for EUR');
+assert.equal(formattedCommissionPrice({ price: '50', currency: 'GBP' }), '£50');
+assert.equal(formattedCommissionPrice({ price: '5000', currency: 'JPY' }), '¥5000');
+assert.equal(formattedCommissionPrice({ price: '75', currency: 'USD' }), '$75', 'USD keeps its symbol');
+assert.equal(formattedCommissionPrice({ price: '1500000', currency: 'VND' }), '1500000 VND');
+assert.equal(formatPriceWithCurrency('500000', 'VND'), '500000 VND', 'alternate VND prices carry their currency');
+assert.equal(parseCommissionPrice('1.000.000').value, 1000000, 'VND thousand dots parse to the full amount, never 1');
+assert.equal(parseCommissionPrice('1,000,000').value, 1000000, 'comma thousands parse to the full amount');
+assert.equal(parseCommissionPrice('75.50').value, 75.5, 'a single decimal still parses');
+assert.equal(parseCommissionPrice('1.00.00').value, null, 'ambiguous input resolves to null, never a wrong number');
+assert.equal(parseCommissionPrice('1.000').ambiguous, true, 'a lone ambiguous group refuses to guess');
+assert.equal(formatCommissionRow({ price: '1.000.000', currency: 'VND' }).price, 1000000, 'the writer persists the full parsed amount');
+assert.equal(formatCommissionRow({ price: '1.00.00', currency: 'USD' }).price, null, 'the writer never persists a misparsed amount');
+assert.equal(formatCommissionRow({ price: '50', currency: 'EUR' }).details.priceFormatted, '€50', 'saved EUR display text uses the real symbol');
+assert.equal(parseCommissionPrice('$50').value, 50, 'a legacy $-prefixed input keeps parsing');
+assert.equal(parseCommissionPrice('50.000 VND', 'VND').value, 50000, 'a VND marker disambiguates dots as thousands');
+
+// --- Batch 3 (P2-06): fees / alternate price round-trip through existing schema ---
+const feeRow = formatCommissionRow({
+  slug: 'fee-svc', price: '70', currency: 'USD', alternatePrice: '500000', alternateCurrency: 'VND',
+  commercialRule: 'x2 where applicable', extraCharacterFee: '+50%', backgroundFee: 'varies',
+  tax: '5%', rushFee: '+20%', privateFee: '+20%', extraNotes: 'Note'
+});
+assert.equal(feeRow.details.commercialRule, 'x2 where applicable', 'commercial rule persists in details schema');
+assert.equal(feeRow.details.extraCharacter, '+50%');
+assert.equal(feeRow.details.backgroundRule, 'varies');
+assert.equal(feeRow.details.tax, '5%');
+assert.equal(feeRow.details.rush, '+20%');
+assert.equal(feeRow.details.privateFee, '+20%');
+assert.equal(feeRow.details.alternatePrice, '500000', 'alternate price persists');
+assert.equal(feeRow.details.alternateCurrency, 'VND', 'alternate price carries its currency');
+const feeBack = mapCommissionService({ ...feeRow, details: feeRow.details });
+assert.equal(feeBack.commercialRule, 'x2 where applicable', 'fees render on public from saved data');
+assert.equal(feeBack.extraCharacter, '+50%');
+assert.equal(feeBack.backgroundRule, 'varies');
+assert.equal(feeBack.tax, '5%');
+assert.equal(feeBack.rush, '+20%');
+assert.equal(feeBack.privateFee, '+20%');
+assert.equal(feeBack.alternatePriceFormatted, '500000 VND', 'public alternate price renders with its currency');
+assert.ok(!/undefined|NaN/.test(feeBack.commercialRule + feeBack.alternatePriceFormatted), 'no undefined/NaN in fee render');
 
 console.log('Admin round-trip core tests passed.');
