@@ -24,7 +24,8 @@ export const PORTFOLIO_MEDIA_FIELDS = Object.freeze([
 export const ASSET_MEDIA_FIELDS = Object.freeze([
   { field: 'thumbnail', label: 'Thumbnail' },
   { field: 'downloadUrl', label: 'Download file' },
-  { field: 'media', label: 'Download file' }
+  { field: 'media', label: 'Download file' },
+  { field: 'driveUrl', label: 'Drive file' }
 ]);
 
 export const COMMISSION_MEDIA_FIELDS = Object.freeze([
@@ -112,12 +113,37 @@ function collectFieldUsage(entityType, entityId, record, entityName, fields, med
   });
 }
 
+function collectLinkArrayUsage(entityType, entityId, entityName, links, media, usages) {
+  if (!Array.isArray(links)) return;
+  links.forEach((link, index) => {
+    if (!link || typeof link !== 'object') return;
+    walkStrings(link, (value, path) => {
+      if (!mediaReferenceMatches(value, media)) return;
+      usages.push({
+        entityType,
+        entityId,
+        field: 'externalLinks[' + index + '].' + path,
+        label: entityName + ' · External link ' + (index + 1) + ' ' + path
+      });
+    });
+  });
+}
+
 function collectListUsage(list, entityType, fields, media, usages) {
   if (!Array.isArray(list)) return;
   list.forEach((record, index) => {
     const name = recordName(record, index);
     collectFieldUsage(entityType, recordKey(record, index), record, name, fields, media, usages);
-    if (entityType === 'portfolio') collectBlockUsage(entityType, recordKey(record, index), name, record && record.blocks, media, usages);
+    if (!record || typeof record !== 'object') return;
+    // Authoritative public URL references beyond fixed thumbnail/download
+    // fields: portfolio externalLinks, portfolio link, asset driveUrl is
+    // covered by fields above, page/about links arrays.
+    if (Array.isArray(record.externalLinks)) collectLinkArrayUsage(entityType, recordKey(record, index), name, record.externalLinks, media, usages);
+    if (Array.isArray(record.links)) collectLinkArrayUsage(entityType, recordKey(record, index), name, record.links, media, usages);
+    if (typeof record.link === 'string' && mediaReferenceMatches(record.link, media)) {
+      usages.push({ entityType, entityId: recordKey(record, index), field: 'link', label: name + ' · Link' });
+    }
+    if (entityType === 'portfolio') collectBlockUsage(entityType, recordKey(record, index), name, record.blocks, media, usages);
   });
 }
 
@@ -146,7 +172,12 @@ export function findMediaUsage(media, adminState) {
     collectListUsage(source.commissions, 'commissions', COMMISSION_MEDIA_FIELDS, media, usages);
     if (source.pages && typeof source.pages === 'object') {
       Object.keys(source.pages).forEach((pageKey) => {
-        collectFieldUsage('pages', pageKey, source.pages[pageKey], 'Page · ' + pageKey, PAGE_MEDIA_FIELDS, media, usages);
+        const page = source.pages[pageKey];
+        collectFieldUsage('pages', pageKey, page, 'Page · ' + pageKey, PAGE_MEDIA_FIELDS, media, usages);
+        if (page && typeof page === 'object') {
+          if (Array.isArray(page.links)) collectLinkArrayUsage('pages', pageKey, 'Page · ' + pageKey, page.links, media, usages);
+          if (Array.isArray(page.externalLinks)) collectLinkArrayUsage('pages', pageKey, 'Page · ' + pageKey, page.externalLinks, media, usages);
+        }
       });
     }
     collectSettingsUsage(source.settings, media, usages);

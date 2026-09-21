@@ -53,7 +53,25 @@ export function reconcileSavedTarget(saved, target, captured, result) {
 
   if (target.kind === 'order') {
     if (!Array.isArray(captured)) return false;
-    var reconciled = cloneJson(captured);
+    var current = saved[target.scope];
+    if (!Array.isArray(current)) return false;
+    /* An order write moves rows but never reconciles content: the persisted
+       baseline keeps its own field values (the authoritative version N) and
+       only re-sequences them to the confirmed order. A stale draft must never
+       become authoritative just because its sort_order was saved. */
+    var orderIndex = {};
+    captured.forEach(function (entry, position) {
+      if (!entry || typeof entry !== 'object') return;
+      var key = entry.dbId || entry.id;
+      if (typeof key === 'string' && key && !(key in orderIndex)) orderIndex[key] = position;
+    });
+    var reconciled = current.slice().sort(function (a, b) {
+      var keyA = a && typeof a === 'object' ? (a.dbId || a.id) : null;
+      var keyB = b && typeof b === 'object' ? (b.dbId || b.id) : null;
+      var posA = (typeof keyA === 'string' && keyA in orderIndex) ? orderIndex[keyA] : Number.MAX_SAFE_INTEGER;
+      var posB = (typeof keyB === 'string' && keyB in orderIndex) ? orderIndex[keyB] : Number.MAX_SAFE_INTEGER;
+      return posA - posB;
+    });
     /* Order UPDATEs bump updated_at through the set_updated_at trigger, so
        the confirmed stamps travel into the baseline; contents stay version N. */
     if (Array.isArray(outcome.rows)) {

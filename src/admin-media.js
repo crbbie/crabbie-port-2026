@@ -243,9 +243,11 @@ export async function deleteMediaFile(id, storagePath, adminState) {
     };
 
     if (mediaDeletionStatus(row) === MEDIA_DELETION_STATUS.ACTIVE) {
-      // Saved AND draft references both block the destructive work.
+      // Saved AND draft references both block the destructive work. An unused
+      // verdict must come from the authoritative saved snapshot: a draft-only
+      // (or missing-saved) state can never prove a file is unreferenced.
       const usageState = adminState || currentAdminUsageState();
-      if (!usageState) {
+      if (!usageState || !usageState.saved) {
         return { success: false, error: 'Media usage could not be verified, so the file was not deleted. Reload the admin page and try again.' };
       }
       const usages = findMediaUsage(toMediaItem(row), usageState);

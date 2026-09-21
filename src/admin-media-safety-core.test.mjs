@@ -160,4 +160,38 @@ assert.equal(integrity.pendingCleanup.find((entry) => entry.id === 'pending').er
 assert.deepEqual(auditMediaIntegrity({}), { missingObjects: [], orphanObjects: [], pendingCleanup: [] }, 'the diagnostic is safe to run on empty input');
 assert.deepEqual(auditMediaIntegrity({ mediaRows: [], storagePaths: ['uploads/x.png'] }).orphanObjects.map((entry) => entry.storagePath), ['uploads/x.png']);
 
+// P0-02: externalLinks and link references block deletion.
+{
+  const linked = findMediaUsage(media, {
+    saved: {
+      portfolio: [{ id: 'p', slug: 'p', title: 'P', thumbnail: '', cover: '', blocks: [], link: '', externalLinks: [{ title: 'Ref', url: media.url }] }],
+      assets: [], commissions: [], pages: {}, settings: {}
+    },
+    draft: null
+  });
+  assert.equal(linked.length, 1, 'a portfolio externalLinks reference blocks deletion');
+  assert.match(linked[0].field, /externalLinks/, 'the usage names the externalLinks field');
+}
+{
+  const pageLinked = findMediaUsage(media, {
+    saved: {
+      portfolio: [], assets: [], commissions: [],
+      pages: { about: { title: 'About', profileImage: '', links: [{ label: 'IG', url: media.storagePath }] } },
+      settings: {}
+    },
+    draft: null
+  });
+  assert.equal(pageLinked.length, 1, 'a page links reference blocks deletion');
+}
+{
+  const driveLinked = findMediaUsage(media, {
+    saved: {
+      portfolio: [], commissions: [], pages: {}, settings: {},
+      assets: [{ id: 'pack', slug: 'pack', title: 'Pack', thumbnail: '', downloadUrl: '', media: '', driveUrl: media.url }]
+    },
+    draft: null
+  });
+  assert.equal(driveLinked.length, 1, 'an asset driveUrl reference blocks deletion');
+}
+
 console.log('Admin media safety core tests passed.');

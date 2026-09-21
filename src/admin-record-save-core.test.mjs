@@ -95,14 +95,20 @@ const categories = [
   { id: 'two', dbId: null, slug: 'two', title: 'Two', published: false },
   { id: 'three', dbId: 'uuid-c', slug: 'three', title: 'Three', published: true }
 ];
-assert.deepEqual(planCategoryOrderWrites('portfolio', categories), [{ id: 'uuid-a', sort_order: 0 }, { id: 'uuid-c', sort_order: 2 }], 'only saved rows, real list positions, order-only payload');
+assert.deepEqual(planCategoryOrderWrites('portfolio', categories), [{ id: 'uuid-a', sort_order: 0, originalUpdatedAt: null }, { id: 'uuid-c', sort_order: 2, originalUpdatedAt: null }], 'only saved rows, real list positions, order-only payload');
 
 const navigation = [
   { id: 'uuid-1', dbId: 'uuid-1', title: 'A', url: '#a' },
   { id: 'local-2', dbId: null, title: 'B', url: '#b' },
   { id: 'uuid-3', dbId: 'uuid-3', title: 'C', url: '#c' }
 ];
-assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_order: 0 }, { id: 'uuid-3', sort_order: 2 }]);
+assert.deepEqual(planNavigationOrderWrites(navigation), [{ id: 'uuid-1', sort_order: 0, originalUpdatedAt: null }, { id: 'uuid-3', sort_order: 2, originalUpdatedAt: null }]);
+// P0-01: order rows carry the hydrated baseline so the writer can guard them.
+assert.deepEqual(
+  planNavigationOrderWrites([{ id: 'a', dbId: 'uuid-a', originalUpdatedAt: '2026-01-01T00:00:00Z' }]),
+  [{ id: 'uuid-a', sort_order: 0, originalUpdatedAt: '2026-01-01T00:00:00Z' }],
+  'order rows carry the stale-write baseline'
+);
 assert.deepEqual(planCategoryOrderWrites('asset', []), []);
 assert.deepEqual(planNavigationOrderWrites(null), []);
 

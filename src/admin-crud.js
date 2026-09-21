@@ -234,16 +234,21 @@ export async function saveAdminOrder(scope, list) {
   // Every UPDATE bumps updated_at through the set_updated_at trigger, so the
   // confirmed stamps are returned: the caller must advance local baselines,
   // otherwise the next guarded update would falsely conflict with itself.
+  // Guarded order writes: a row whose updated_at moved since hydration (another
+  // session edited its content) matches zero rows and is reported as a stale
+  // conflict instead of silently bumping the version and rescuing a stale draft.
   const confirmed = [];
   for (const row of rows) {
-    const response = await supabase
+    let request = supabase
       .from(table)
       .update({ sort_order: row.sort_order })
-      .eq('id', row.id)
-      .select('id, updated_at');
+      .eq('id', row.id);
+    if (row.originalUpdatedAt) request = request.eq('updated_at', row.originalUpdatedAt);
+    const response = await request.select('id, updated_at');
     if (response.error) throw adminWriteError(response.error);
-    if (Array.isArray(response.data)) confirmed.push(...response.data);
-    else if (response.data) confirmed.push(response.data);
+    const data = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
+    if (!data.length) throw concurrencyConflictError(scope);
+    confirmed.push(...data);
   }
   return { success: true, table, count: rows.length, rows: confirmed };
 }

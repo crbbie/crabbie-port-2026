@@ -154,13 +154,22 @@ export function buildAdminWritePlan(scope, record, options = {}) {
   return plan;
 }
 
-/** Ordering writes: one bounded, order-only payload per saved row. */
+/**
+ * Ordering writes: one bounded, order-only payload per saved row.
+ * Each row carries the hydrated updated_at baseline so the writer can guard
+ * the UPDATE (eq updated_at). A stale reorder then changes zero rows and is
+ * reported as a conflict instead of silently bumping the version.
+ */
 export function planCategoryOrderWrites(kind, list) {
   if (!Array.isArray(list)) return [];
   const rows = [];
   list.forEach((record, index) => {
     const dbId = recordDbId(record);
-    if (dbId) rows.push({ id: dbId, sort_order: index });
+    if (dbId) rows.push({
+      id: dbId,
+      sort_order: index,
+      originalUpdatedAt: typeof record.originalUpdatedAt === 'string' && record.originalUpdatedAt ? record.originalUpdatedAt : null
+    });
   });
   return rows;
 }
@@ -170,7 +179,11 @@ export function planRecordOrderWrites(list) {
   const rows = [];
   list.forEach((record, index) => {
     const dbId = recordDbId(record);
-    if (dbId) rows.push({ id: dbId, sort_order: index });
+    if (dbId) rows.push({
+      id: dbId,
+      sort_order: index,
+      originalUpdatedAt: typeof record.originalUpdatedAt === 'string' && record.originalUpdatedAt ? record.originalUpdatedAt : null
+    });
   });
   return rows;
 }

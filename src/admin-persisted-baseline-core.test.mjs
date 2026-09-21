@@ -161,4 +161,26 @@ function recordTarget(scope, recordId) {
   assert.equal(advanceBaselinesFromOrder(draft, [{ id: 'uuid-f' }]), 0, 'a response without a stamp advances nothing');
 }
 
+// P0-01: a stale reorder never makes the stale draft authoritative.
+{
+  const saved = {
+    portfolio: [
+      { id: 'a', dbId: 'uuid-a', slug: 'a', title: 'New title from other session', description: 'persisted', originalUpdatedAt: '2026-02-02T00:00:00Z' },
+      { id: 'b', dbId: 'uuid-b', slug: 'b', title: 'B', description: 'persisted-b', originalUpdatedAt: '2026-02-02T00:00:00Z' }
+    ]
+  };
+  // Captured from a stale draft: old title, swapped order.
+  const capturedStale = [
+    { id: 'b', dbId: 'uuid-b', slug: 'b', title: 'B', description: 'stale-b', originalUpdatedAt: '2026-01-01T00:00:00Z' },
+    { id: 'a', dbId: 'uuid-a', slug: 'a', title: 'Stale title', description: 'stale-edit', originalUpdatedAt: '2026-01-01T00:00:00Z' }
+  ];
+  const ok = reconcileSavedTarget(saved, { kind: 'order', scope: 'portfolio' }, capturedStale,
+    { success: true, rows: [{ id: 'uuid-a', updated_at: '2026-03-03T00:00:00Z' }, { id: 'uuid-b', updated_at: '2026-03-03T00:00:00Z' }] });
+  assert.equal(ok, true, 'order still reconciles sequence');
+  assert.deepEqual(saved.portfolio.map((row) => row.id), ['b', 'a'], 'the confirmed order is applied');
+  assert.equal(saved.portfolio.find((row) => row.id === 'a').title, 'New title from other session', 'stale content never overwrites the persisted title');
+  assert.equal(saved.portfolio.find((row) => row.id === 'a').description, 'persisted', 'stale description never becomes the baseline');
+  assert.equal(saved.portfolio.find((row) => row.id === 'a').originalUpdatedAt, '2026-03-03T00:00:00Z', 'only the version stamp advances');
+}
+
 console.log('Admin persisted baseline core tests passed.');
