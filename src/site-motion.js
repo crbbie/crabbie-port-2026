@@ -56,7 +56,10 @@ function injectStyles() {
   84%{transform:translateY(-7px) scale(1,1);}
   100%{transform:translateY(0) scale(1);}
 }
-.crabbie-pet.is-jelly .crabbie-pet-body{animation:crabbiePetJelly .5s ease;}
+/* Pet-specific jelly class: the global .is-jelly animation uses !important on
+   transform, which would override the pet's positional transform and snap it to
+   the corner. The jelly runs on the inner body so position is never touched. */
+.crabbie-pet.is-pet-jelly .crabbie-pet-body{animation:crabbiePetJelly .5s ease;}
 @keyframes crabbiePetJelly{0%{transform:scale(1,1);}30%{transform:scale(1.14,.86);}55%{transform:scale(.9,1.12);}75%{transform:scale(1.05,.96);}100%{transform:scale(1,1);}}
 .crabbie-pet-bubble{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) scale(.9);
   min-width:140px;max-width:220px;padding:8px 12px;border-radius:14px;background:#fff;color:var(--text-body,#7a3d6e);
@@ -318,8 +321,20 @@ function showDialogue(pet) {
 }
 
 function applyPetTransform(pet) {
-  if (!Number.isFinite(pet.x)) pet.x = 0;
-  if (!Number.isFinite(pet.y)) pet.y = pet.baseY;
+  if (!Number.isFinite(pet.x) || !Number.isFinite(pet.y)) {
+    /* Never let an invalid coordinate snap the pet to the CSS origin (the left
+       corner). Recover from the last valid position, then the safe ground band. */
+    const metrics = petMetrics();
+    const fallbackX = Number.isFinite(pet.lastValidX) ? pet.lastValidX : spawnPetX(metrics.width, pet.size);
+    const fallbackY = Number.isFinite(pet.lastValidY) ? pet.lastValidY : metrics.groundY;
+    if (typeof console !== 'undefined' && console.warn) console.warn('Desktop pet: recovered an invalid position.');
+    pet.x = fallbackX;
+    pet.y = fallbackY;
+    pet.baseY = pet.pinned && Number.isFinite(pet.baseY) ? pet.baseY : metrics.groundY;
+    pet.targetY = pet.y;
+  }
+  pet.lastValidX = pet.x;
+  pet.lastValidY = pet.y;
   pet.el.style.transform = 'translate3d(' + Math.round(pet.x) + 'px,' + Math.round(pet.y) + 'px,0)';
 }
 
@@ -352,9 +367,10 @@ function createPet(options) {
   const pet = {
     el, body, img, bubble, size: metrics.size,
     x, y: metrics.groundY, baseY: metrics.groundY, targetY: metrics.groundY,
+    lastValidX: x, lastValidY: metrics.groundY,
     dir: initialWanderDir(x, metrics.width),
     speed: randomInt(14, 28),
-    pinned: false, dragging: false, pointerMoved: false, startPointer: null, dragOffset: null,
+    pinned: false, dragging: false, pointerActive: false, pointerMoved: false, startPointer: null, dragOffset: null,
     dialogueIndex: -1, bubbleTimer: null, dropTimer: null
   };
   wirePet(pet);
@@ -377,10 +393,10 @@ function wirePet(pet) {
   pet.el.addEventListener('click', (event) => {
     if (pet.pointerMoved) { pet.pointerMoved = false; return; }
     if (event.target.closest('a')) return;
-    pet.el.classList.remove('is-jelly');
+    pet.el.classList.remove('is-pet-jelly');
     void pet.el.offsetWidth;
-    pet.el.classList.add('is-jelly');
-    setTimeout(() => pet.el.classList.remove('is-jelly'), 520);
+    pet.el.classList.add('is-pet-jelly');
+    setTimeout(() => pet.el.classList.remove('is-pet-jelly'), 520);
     showDialogue(pet);
     if (!isReduced() && window.innerWidth >= 720 && petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) {
       petState.desired = Math.min(petState.maxDesktop, petState.pets.length + 1);
@@ -392,40 +408,46 @@ function wirePet(pet) {
   });
   pet.el.addEventListener('pointerdown', (event) => {
     if (event.button != null && event.button !== 0) return;
-    pet.dragging = true;
-    /* A deliberate drag pins the pet: it keeps the dropped spot and stops wandering. */
-    pet.pinned = true;
+    /* A plain press is not a drag yet: it must not pin or move the pet. */
+    pet.pointerActive = true;
     pet.pointerMoved = false;
     pet.startPointer = { x: event.clientX, y: event.clientY };
     pet.dragOffset = { x: event.clientX - pet.x, y: event.clientY - pet.y };
-    pet.el.classList.add('is-dragging');
     try { pet.el.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
   });
   pet.el.addEventListener('pointermove', (event) => {
-    if (!pet.dragging) return;
+    if (!pet.pointerActive) return;
     const dx = event.clientX - pet.startPointer.x;
     const dy = event.clientY - pet.startPointer.y;
-    if (Math.abs(dx) + Math.abs(dy) > 6) pet.pointerMoved = true;
+    if (!pet.dragging && Math.abs(dx) + Math.abs(dy) <= 6) return; /* still a click */
+    if (!pet.dragging) {
+      /* Only a real movement turns the press into a drag, which pins the pet. */
+      pet.dragging = true;
+      pet.pinned = true;
+      pet.pointerMoved = true;
+      pet.el.classList.add('is-dragging');
+    }
     const metrics = petMetrics();
     const next = clampPosition(event.clientX - pet.dragOffset.x, event.clientY - pet.dragOffset.y,
       { width: metrics.width, height: metrics.height }, { width: pet.size, height: pet.size });
-    pet.x = next.x;
-    pet.y = Math.max(metrics.navH, next.y);
+    pet.x = Number.isFinite(next.x) ? next.x : pet.lastValidX;
+    pet.y = Math.max(metrics.navH, Number.isFinite(next.y) ? next.y : pet.lastValidY);
     pet.baseY = pet.y;
     pet.targetY = pet.y;
     applyPetTransform(pet);
   });
-  const endDrag = (event) => {
-    if (!pet.dragging) return;
+  const endPointer = (event) => {
+    if (!pet.pointerActive) return;
+    const wasDragging = pet.dragging;
+    pet.pointerActive = false;
     pet.dragging = false;
     pet.el.classList.remove('is-dragging');
     try { if (event && event.pointerId != null) pet.el.releasePointerCapture(event.pointerId); } catch (e) { /* ignore */ }
     /* Stay exactly where the visitor dropped it; never snap or wander back. */
-    pet.baseY = pet.y;
-    pet.targetY = pet.y;
+    if (wasDragging) { pet.baseY = pet.y; pet.targetY = pet.y; }
   };
-  pet.el.addEventListener('pointerup', endDrag);
-  pet.el.addEventListener('pointercancel', endDrag);
+  pet.el.addEventListener('pointerup', endPointer);
+  pet.el.addEventListener('pointercancel', endPointer);
 }
 
 function focusedFieldRect() {
@@ -448,7 +470,7 @@ function petTick(time) {
     if (pet.dragging) return;
     if (!pet.pinned && active) {
       const step = nextWanderX(pet.x, pet.dir, pet.speed, dt, metrics.width, pet.size);
-      pet.x = step.x;
+      if (Number.isFinite(step.x)) pet.x = step.x;
       pet.dir = step.dir;
     }
     if (pet.pinned) {
@@ -486,7 +508,9 @@ function clampAllPets() {
   const metrics = petMetrics();
   petState.pets.forEach((pet) => {
     pet.size = metrics.size;
-    const next = clampPosition(pet.x, pet.y, { width: metrics.width, height: metrics.height }, { width: pet.size, height: pet.size });
+    const safeX = Number.isFinite(pet.x) ? pet.x : (Number.isFinite(pet.lastValidX) ? pet.lastValidX : metrics.width / 2);
+    const safeY = Number.isFinite(pet.y) ? pet.y : (Number.isFinite(pet.lastValidY) ? pet.lastValidY : metrics.groundY);
+    const next = clampPosition(safeX, safeY, { width: metrics.width, height: metrics.height }, { width: pet.size, height: pet.size });
     pet.x = next.x;
     pet.y = Math.max(metrics.navH, next.y);
     pet.baseY = pet.pinned ? pet.y : metrics.groundY;
@@ -513,11 +537,18 @@ function reconcilePets() {
 
 function applyPet(petSettings) {
   const cfg = petSettings || {};
+  const wasEnabled = petState.enabled;
   petState.enabled = Boolean(cfg.enabled);
   const max = Number(cfg.maxDesktop);
   petState.maxDesktop = Number.isFinite(max) ? Math.max(1, Math.min(5, Math.floor(max))) : 5;
   petState.dialogues = Array.isArray(cfg.dialogues) ? cfg.dialogues.filter((d) => d && d.text) : [];
-  petState.desired = initialPetCount(window.innerWidth, petState.maxDesktop);
+  if (!petState.enabled) {
+    petState.desired = 0;
+  } else if (!wasEnabled || !Number.isFinite(petState.desired) || petState.desired <= 0) {
+    petState.desired = initialPetCount(window.innerWidth, petState.maxDesktop);
+  }
+  /* When already enabled, keep the current desired count so pets the visitor
+     spawned by clicking survive a settings/public refresh. */
   reconcilePets();
 }
 

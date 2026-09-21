@@ -30,6 +30,15 @@ per-element color settings.
   overlay; with no image the default pastel gradient/pattern is preserved.
 - The admin panel must show a live preview (heading, body, decorative label,
   button/nav) that reflects unsaved changes, and a per-token reset.
+- Media previews are resolved by file kind (image/audio/video/file), never by the
+  storage path. Audio renders a player and has its own error message; it must
+  never be shown as a broken image. Structural settings (`theme`, `motion`,
+  `music`, `typography`) are merged with defaults at save time so a partial
+  database row is never written back incomplete.
+- The public stacking model is: background (`body::before`) → falling candy →
+  content → pet → nav/music/modals. The public `body` stays transparent so the
+  fixed background and candy layers remain visible; `html` carries the overscroll
+  fallback colour (`--cms-bg-color`).
 - Saved palettes store the whole colour group in `theme.palettes`; Apply updates
   every colour field and the live preview immediately, and the normal Save
   persists the theme key. Swatches must make each palette recognisable at a glance.

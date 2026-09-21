@@ -817,7 +817,9 @@ body:not(.admin-mode){
   --berry-soft:#ba729b;
   --berry-faint:#d4a8c0;
 
-  background:var(--cms-bg-color,#FFDEE7) !important;
+  /* Transparent so the fixed background layer (body::before) and the candy
+     layer stay visible; html carries the overscroll fallback colour. */
+  background:transparent !important;
 }
 
 body:not(.admin-mode)::before{
@@ -1316,12 +1318,18 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .cl-item.warn{ color: #b98600; }
 .cl-item.crit{ color: #c94f4f; }
 .adm-pub-warning{ margin-top: 10px; background: var(--yellow-light); border: 1.5px solid var(--yellow-hot); color: #8a6200; border-radius: 14px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
-.adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 220px; }
+.adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 300px; }
 .adm-media-preview img{ display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
-.adm-media-preview.is-broken img{ opacity: .35; }
-.adm-media-preview .adm-media-broken{ display: none; position: absolute; inset: 0; place-items: center; text-align: center; padding: 8px; font-size: 10.5px; font-weight: 800; color: #c94f4f; }
-.adm-media-preview.is-broken .adm-media-broken{ display: grid; }
+.adm-media-preview audio{ display: block; width: 100%; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
+.adm-media-preview video{ display: block; width: 100%; max-height: 160px; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
+.adm-media-preview.is-broken img, .adm-media-preview.is-broken video, .adm-media-preview.is-audio-error audio{ display: none; }
+/* Warning sits on its own row below the media so it never overlaps a button. */
+.adm-media-preview .adm-media-broken{ display: none; margin-top: 6px; padding: 7px 10px; font-size: 11.5px; font-weight: 800; color: #c94f4f; background: #ffe9ec; border: 1.5px solid #ffc0c8; border-radius: 10px; }
+.adm-media-preview.is-broken .adm-media-broken, .adm-media-preview.is-audio-error .adm-media-broken{ display: block; }
 .adm-media-preview .adm-file-chip{ display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #fff; border: 1.5px solid var(--pink-light); border-radius: 10px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: var(--berry); }
+.adm-music-state{ margin-top: 10px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--pink-light); background: #fff; }
+.adm-music-state.warn{ color: #8a6200; background: var(--yellow-light); border-color: var(--yellow-hot); }
+.adm-music-state.ok{ color: #2e8a55; background: #f1fbf5; border-color: #bfe6cf; }
 .adm-modal-card .am-sub{ white-space: pre-line; }
 
 .adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 22px 24px 18px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: none; width: 100%;}
@@ -4408,7 +4416,7 @@ en: {
 'confirm.discardTitle': 'Discard unsaved edits?','confirm.discardBody': 'You have unsaved changes. If you continue, those edits will be lost.','confirm.deleteTitle': 'Delete','confirm.deleteBody': 'This action cannot be undone.','confirm.deleteConfirm': 'Delete permanently',
 'health.complete': 'Complete','health.attention': 'Needs attention','health.missing': 'Missing required fields','health.placeholder': 'Placeholder content','health.checklist': 'Content checklist','health.placeholderValue': 'still contains placeholder text','health.publishedMissing': 'Published, but missing required content:','health.publishGuardTitle': 'Publish incomplete item?','health.publishGuardBody': 'This item is missing:','health.publishAnyway': 'Publish anyway',
 'dash.dataHealth': 'Data health','dash.healthPublished': 'published','dash.healthNeedAttention': 'need attention','dash.healthMissingThumbs': 'missing thumbnails','dash.healthMissingFiles': 'published without download file','dash.healthMissingForms': 'no request form mapped','dash.healthAboutNeeds': 'About needs contact / profile image','dash.healthTermsReview': 'Terms review recommended','dash.healthLooks': 'looks complete',
-'btn.clearMedia': 'Clear','label.downloadFile': 'Download file','label.downloadFileHint': 'The actual downloadable asset (zip/png/pdf…) — not just an image.','media.previewBroken': 'Media URL may be broken or unreachable.',
+'btn.clearMedia': 'Clear','label.downloadFile': 'Download file','label.downloadFileHint': 'The actual downloadable asset (zip/png/pdf…) — not just an image.','media.previewBroken': 'Media URL may be broken or unreachable.','media.audioBroken': 'This audio file could not be played.',
 'auditf.title': 'Title','auditf.slug': 'Slug','auditf.category': 'Category','auditf.thumbnail': 'Thumbnail','auditf.cover': 'Cover','auditf.description': 'Description','auditf.media': 'Download file','auditf.fileFormat': 'File format','auditf.license': 'License','auditf.availability': 'Availability','auditf.price': 'Price','auditf.form': 'Request form','auditf.name': 'Name','auditf.bio': 'Bio','auditf.content': 'Content','auditf.profileImage': 'Profile image','auditf.contact.email': 'Contact email','auditf.credit': 'Credit requirement','auditf.version': 'Version','auditf.updateNote': 'Update note','auditf.dateAdded': 'Date added','auditf.tags': 'Tags','auditf.date': 'Date','auditf.year': 'Year','auditf.blocks': 'Project content blocks','auditf.chips': 'Chips','auditf.includedFiles': 'Included files','auditf.delivery': 'Delivery estimate','auditf.payment': 'Payment / refund','auditf.edits': 'Edits & feedback','auditf.turnaround': 'Turnaround & deadlines','auditf.formats': 'Files & formats','auditf.copyright': 'Copyright & usage','auditf.artist-rights': 'Artist rights','auditf.contact-method': 'Contact method','auditf.skills': 'Skills','auditf.experience': 'Experience',
 'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.'
 },
@@ -4426,7 +4434,7 @@ vi: {
 'confirm.discardTitle': 'Hủy các chỉnh sửa chưa lưu?','confirm.discardBody': 'Bạn có thay đổi chưa lưu. Nếu tiếp tục, các thay đổi đó sẽ mất.','confirm.deleteTitle': 'Xóa','confirm.deleteBody': 'Thao tác này không thể hoàn tác.','confirm.deleteConfirm': 'Xóa vĩnh viễn',
 'health.complete': 'Hoàn chỉnh','health.attention': 'Cần kiểm tra','health.missing': 'Thiếu dữ liệu bắt buộc','health.placeholder': 'Còn nội dung mẫu','health.checklist': 'Kiểm tra nội dung','health.placeholderValue': 'vẫn còn nội dung mẫu','health.publishedMissing': 'Đang hiển thị công khai nhưng còn thiếu:','health.publishGuardTitle': 'Xuất bản mục chưa hoàn chỉnh?','health.publishGuardBody': 'Mục này còn thiếu:','health.publishAnyway': 'Vẫn xuất bản',
 'dash.dataHealth': 'Sức khỏe dữ liệu','dash.healthPublished': 'đã xuất bản','dash.healthNeedAttention': 'cần chú ý','dash.healthMissingThumbs': 'thiếu thumbnail','dash.healthMissingFiles': 'đã xuất bản nhưng chưa có file tải về','dash.healthMissingForms': 'chưa gắn form yêu cầu','dash.healthAboutNeeds': 'Giới thiệu thiếu liên hệ / ảnh đại diện','dash.healthTermsReview': 'Nên rà soát Điều khoản','dash.healthLooks': 'hoàn chỉnh',
-'btn.clearMedia': 'Xóa URL','label.downloadFile': 'Tệp tải về','label.downloadFileHint': 'Tệp tải về thực tế (zip/png/pdf…) — không chỉ là ảnh.','media.previewBroken': 'URL media có thể hỏng hoặc không truy cập được.',
+'btn.clearMedia': 'Xóa URL','label.downloadFile': 'Tệp tải về','label.downloadFileHint': 'Tệp tải về thực tế (zip/png/pdf…) — không chỉ là ảnh.','media.previewBroken': 'URL media có thể hỏng hoặc không truy cập được.','media.audioBroken': 'Không thể phát file âm thanh này.',
 'auditf.title': 'Tiêu đề','auditf.slug': 'Đường dẫn','auditf.category': 'Danh mục','auditf.thumbnail': 'Ảnh thumbnail','auditf.cover': 'Ảnh bìa','auditf.description': 'Mô tả','auditf.media': 'Tệp tải về','auditf.fileFormat': 'Định dạng file','auditf.license': 'Giấy phép','auditf.availability': 'Tình trạng','auditf.price': 'Giá','auditf.form': 'Form yêu cầu','auditf.name': 'Tên','auditf.bio': 'Giới thiệu ngắn','auditf.content': 'Nội dung','auditf.profileImage': 'Ảnh đại diện','auditf.contact.email': 'Email liên hệ','auditf.credit': 'Yêu cầu ghi công','auditf.version': 'Phiên bản','auditf.updateNote': 'Ghi chú cập nhật','auditf.dateAdded': 'Ngày thêm','auditf.tags': 'Thẻ','auditf.date': 'Ngày','auditf.year': 'Năm','auditf.blocks': 'Khối nội dung dự án','auditf.chips': 'Thẻ nổi bật','auditf.includedFiles': 'File đi kèm','auditf.delivery': 'Thời gian giao','auditf.payment': 'Thanh toán / hoàn tiền','auditf.edits': 'Chỉnh sửa & phản hồi','auditf.turnaround': 'Thời gian & deadline','auditf.formats': 'File & định dạng','auditf.copyright': 'Bản quyền & sử dụng','auditf.artist-rights': 'Quyền nghệ sĩ','auditf.contact-method': 'Phương thức liên hệ','auditf.skills': 'Kỹ năng','auditf.experience': 'Kinh nghiệm',
 'auditw.no-tags': 'Chưa có thẻ (nên bổ sung).','auditw.no-date': 'Chưa có ngày/năm (nên bổ sung).','auditw.no-content-blocks': 'Chưa có khối nội dung dự án nào.','auditw.record-flagged-placeholder': 'Mục đang được đánh dấu là placeholder.','auditw.published-without-file': 'Đã xuất bản nhưng chưa có file tải về — khách không thể tải tài nguyên này.','auditw.no-form-mapping': 'Dịch vụ này chưa gắn form yêu cầu nào.','auditw.no-delivery': 'Chưa có thời gian giao dự kiến (nên bổ sung).','auditw.no-chips': 'Chưa có thẻ nổi bật (nên bổ sung).','auditw.no-included-files': 'Chưa có ghi chú file đi kèm (nên bổ sung).','auditw.no-contact-link': 'Không tìm thấy liên kết liên hệ nào (email/Twitter/links).','auditw.no-contact-method': 'Không có phương thức liên hệ nào được nêu.','auditw.raw-email-not-clickable': 'Có email dạng text thường — nên biến thành liên kết mailto để bấm được.','auditw.no-skills': 'Chưa liệt kê kỹ năng (nên bổ sung).','auditw.no-experience': 'Chưa có mục kinh nghiệm (nên bổ sung).','auditw.few-sections': 'Chỉ phát hiện vài mục nhỏ.','auditw.thin-content': 'Nội dung khá ngắn.','auditw.missing-section': 'Không tìm thấy mục:','auditw.no-contact-email': 'Chưa đặt email liên hệ.','auditw.bad-contact-email': 'Định dạng email liên hệ có vẻ không hợp lệ.','auditw.no-contact-twitter': 'Chưa đặt liên kết Twitter/X.','auditw.no-logo': 'Chưa đặt logo.','auditw.no-hero-media': 'Chưa đặt media cho hero.','auditw.no-seo-image': 'Chưa đặt ảnh chia sẻ mạng xã hội (SEO).'
 }
@@ -4654,6 +4662,27 @@ navigation: [
 }
 var ADMIN_DATA = buildAdminData();
 var ADMIN_DRAFT = clone(ADMIN_DATA);
+/* Structural settings whose nested shape must stay complete even when the
+   database row is partial (e.g. a theme row saved before new fields existed).
+   Merged at save time only, so an empty snapshot still shows empty content. */
+var SETTINGS_DEFAULT_MERGE_KEYS = ['theme','motion','music','typography'];
+var ADMIN_SETTINGS_DEFAULTS = clone(ADMIN_DATA.settings);
+function mergeSettingsDefaults(value, defaults){
+var out = {};
+if(defaults && typeof defaults === 'object' && !Array.isArray(defaults)){
+  Object.keys(defaults).forEach(function(k){
+    var d = defaults[k];
+    if(d && typeof d === 'object' && !Array.isArray(d)){
+      var t = (value && typeof value[k] === 'object' && !Array.isArray(value[k])) ? value[k] : {};
+      out[k] = mergeSettingsDefaults(t, d);
+    } else {
+      out[k] = (value && Object.prototype.hasOwnProperty.call(value, k)) ? value[k] : d;
+    }
+  });
+}
+Object.keys(value || {}).forEach(function(k){ if(!(k in out)) out[k] = value[k]; });
+return out;
+}
 function initialAdminSelection(data){
 return { portfolio: data.portfolio[0] && data.portfolio[0].id, assets: data.assets[0] && data.assets[0].id, commissions: data.commissions[0] ? data.commissions[0].id : null, forms: data.forms[0] ? data.forms[0].id : null, requests: data.requests[0] ? data.requests[0].id : null };
 }
@@ -4951,7 +4980,21 @@ async function doSaveCommit(msg, scope){
         }
       } else if(target.kind === 'settings'){
         if(!ADMIN_DRAFT.settingsMeta) ADMIN_DRAFT.settingsMeta = {};
-        var settingsResult = await crud.saveSettings(ADMIN_DRAFT.settings || {}, target.keys, ADMIN_DRAFT.settingsMeta);
+        /* Normalize structural settings against defaults so a partial database
+           row (missing nested fields) is never saved back incomplete. */
+        var writeKeys = (Array.isArray(target.keys) && target.keys.length) ? target.keys : Object.keys(ADMIN_DRAFT.settings || {});
+        var settingsForWrite = {};
+        writeKeys.forEach(function(key){
+          var value = (ADMIN_DRAFT.settings || {})[key];
+          var defaults = ADMIN_SETTINGS_DEFAULTS[key];
+          if(SETTINGS_DEFAULT_MERGE_KEYS.indexOf(key) !== -1 && defaults){
+            settingsForWrite[key] = mergeSettingsDefaults(value || {}, defaults);
+            ADMIN_DRAFT.settings[key] = settingsForWrite[key];
+          } else {
+            settingsForWrite[key] = value;
+          }
+        });
+        var settingsResult = await crud.saveSettings(settingsForWrite, writeKeys, ADMIN_DRAFT.settingsMeta);
         reconcilePersistedTarget(target, captured, settingsResult);
         /* Baselines the database confirmed travel with the values. */
         if(settingsResult && Array.isArray(settingsResult.savedKeys)){
@@ -5275,15 +5318,31 @@ function publishWarningHtml(audit, published){
   var names = audit.missing.map(fieldLabel);
   return '<div class="adm-pub-warning" id="admPublishWarning"><b>' + esc(tAdmin('health.publishedMissing')) + '</b> ' + esc(names.join(', ')) + '</div>';
 }
+/* Resolve the preview UI from the file kind, never from the storage path: a
+   Supabase public media URL is used for images, audio, video and files alike. */
+function mediaKindForUrl(url, kind){
+  if(kind === 'file') return 'file';
+  var s = String(url || '').split(/[?#]/)[0].toLowerCase();
+  if(/\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/.test(s)) return 'image';
+  if(/\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|weba)$/.test(s)) return 'audio';
+  if(/\.(mp4|webm|mov|m4v|ogv)$/.test(s)) return 'video';
+  return (kind && kind !== 'auto') ? kind : 'file';
+}
 function mediaPreviewHtml(path, v, kind){
   var attrs = ' class="adm-media-preview" data-adm-media-preview="' + esc(path) + '" data-adm-media-kind="' + esc(kind || 'auto') + '"';
   if(!v) return '<div' + attrs + ' hidden></div>';
-  var looksImage = /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i.test(v) || v.indexOf('/storage/v1/object/public/media/') !== -1;
-  if(kind !== 'file' && looksImage){
-    return '<div' + attrs + '><img src="' + esc(v) + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'is-broken\')" onload="this.parentElement.classList.remove(\'is-broken\')"><span class="adm-media-broken">' + esc(tAdmin('media.previewBroken')) + '</span></div>';
+  var resolved = mediaKindForUrl(v, kind);
+  if(resolved === 'image'){
+    return '<div' + attrs + ' data-adm-media-resolved="image"><img src="' + esc(v) + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'is-broken\')" onload="this.parentElement.classList.remove(\'is-broken\')"><span class="adm-media-broken">' + esc(tAdmin('media.previewBroken')) + '</span></div>';
+  }
+  if(resolved === 'audio'){
+    return '<div' + attrs + ' data-adm-media-resolved="audio"><audio controls preload="metadata" src="' + esc(v) + '" onerror="this.parentElement.classList.add(\'is-audio-error\')"></audio><span class="adm-media-broken">' + esc(tAdmin('media.audioBroken')) + '</span></div>';
+  }
+  if(resolved === 'video'){
+    return '<div' + attrs + ' data-adm-media-resolved="video"><video controls preload="metadata" src="' + esc(v) + '"></video></div>';
   }
   var name = String(v).split('/').pop() || v;
-  return '<div' + attrs + '><span class="adm-file-chip" title="' + esc(v) + '">📎 ' + esc(name) + '</span></div>';
+  return '<div' + attrs + ' data-adm-media-resolved="file"><span class="adm-file-chip" title="' + esc(v) + '">📎 ' + esc(name) + '</span></div>';
 }
 function refreshMediaPreviewByPath(path){
   var preview = document.querySelector('[data-adm-media-preview="' + path + '"]');
@@ -6090,9 +6149,14 @@ return '<div class="adm-section"><h4>Desktop pet dialogue</h4>' +
   '<div data-adm-pet-dialogues="1">' + rows + '</div>' +
   '<button type="button" class="adm-btn-sm purple" data-adm-pet-dialogue-add="1">Add dialogue</button></div>';
 }
-function musicPreviewHtml(url){
-if(!url) return '<p class="af-hint">Choose an audio file from the Media Library to preview it here.</p>';
-return '<div class="adm-music-preview"><audio controls preload="metadata" src="' + esc(url) + '"></audio></div>';
+function musicStateHtml(){
+  var enabled = Boolean(getByPath(ADMIN_DRAFT, 'settings.music.enabled'));
+  var url = getByPath(ADMIN_DRAFT, 'settings.music.url') || '';
+  var msg; var cls;
+  if(!url){ msg = 'No audio selected yet. Upload or choose a file, then Save.'; cls = 'hint'; }
+  else if(!enabled){ msg = 'File ready. Turn on “Music enabled” to play it on the website, then Save.'; cls = 'warn'; }
+  else { msg = 'Music is enabled. Save to publish it on the website.'; cls = 'ok'; }
+  return '<p class="af-hint adm-music-state ' + cls + '" data-adm-music-state="1">' + esc(msg) + '</p>';
 }
 
 function renderAdminSettings(){
@@ -6116,7 +6180,7 @@ case 'Music': var musicVol = Number(getByPath(ADMIN_DRAFT, base + '.music.volume
     '<div class="adm-field"><span class="af-label">Playback</span>' + inputCheck('Music enabled', base + '.music.enabled') + '<div style="margin-top:8px;">' + inputCheck('Autoplay on visit', base + '.music.autoplay') + '</div><div style="margin-top:8px;">' + inputCheck('Loop', base + '.music.loop') + '</div></div>' +
     inputText('Music Title', base + '.music.title') +
     '<div class="adm-field"><span class="af-label">Volume</span><input type="range" min="0" max="100" step="1" data-adm-path="' + base + '.music.volume" value="' + musicVol + '"><span class="af-hint" data-adm-music-volume-value="1">' + musicVol + '%</span></div>' +
-  '</div>' + mediaField('Audio file', base + '.music.url') + musicPreviewHtml(getByPath(ADMIN_DRAFT, base + '.music.url') || ''); break;
+  '</div>' + mediaField('Audio file', base + '.music.url') + musicStateHtml(); break;
 case 'Language': body = inputSelect('Default Language', base + '.language.defaultLanguage', [{value:'en', label:'en'},{value:'vi', label:'vi'}]); break;
 case 'SEO': body = inputText('SEO Title', base + '.seo.title') + inputTextarea('SEO Description', base + '.seo.description', { minHeight:60 }) + mediaField('Social Image', base + '.seo.socialImage'); break;
 case 'Footer': body = inputTextarea('Footer', base + '.footer.footer', { minHeight:80 }); break;
@@ -6547,7 +6611,7 @@ markDirty(path);
 refreshAuditPanels(module);
 if(path.indexOf('settings.theme.') === 0) refreshAppearancePreview();
 /* A field-type change swaps the option editor: re-render from the draft. */
-if(/\.type$/.test(path) || /\.cardMode$/.test(path) || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
+if(/\.type$/.test(path) || /\.cardMode$/.test(path) || path === 'settings.music.enabled' || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
 });
 });
 $$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
@@ -7080,7 +7144,16 @@ async function runMediaUpload(file, context){
       if(!media.mediaItemMatchesTarget || !media.mediaItemMatchesTarget(newMedia, accept)) throw new Error('Uploaded file is incompatible with this field.');
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
       markDirty(context.path);
-      toast(tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
+      /* Choosing audio implies intent to use it: turn Music on so the author
+         only has to Save. The file is in the library, not yet on the site. */
+      if(context.path === 'settings.music.url' && !getByPath(ADMIN_DRAFT, 'settings.music.enabled')){
+        setByPath(ADMIN_DRAFT, 'settings.music.enabled', true);
+        markDirty('settings.music.enabled');
+      }
+      var fieldToast = /^settings\./.test(context.path)
+        ? 'Uploaded to Media Library — you still have unsaved changes. Save to publish.'
+        : (tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
+      toast(fieldToast);
       renderAdmin(currentRoute.adminModule || 'dashboard');
     } else if(context.type === 'picker'){
       pickerMediaPage.page = 1;
@@ -7387,6 +7460,11 @@ if(multiple){
 }
 adminMediaReplaceTarget = null;
 markDirty(activeMediaTarget);
+/* Picking audio implies intent to use it: turn Music on so Save is enough. */
+if(activeMediaTarget === 'settings.music.url' && !getByPath(ADMIN_DRAFT, 'settings.music.enabled')){
+  setByPath(ADMIN_DRAFT, 'settings.music.enabled', true);
+  markDirty('settings.music.enabled');
+}
 var appliedTarget = activeMediaTarget;
 closeMediaPickerModal();
 renderAdmin(currentRoute.adminModule || 'dashboard');
@@ -8221,23 +8299,26 @@ function applyCmsSiteSettings(settings){
     }
   }
 
-  if(settings.theme){
+  var cmsTheme = settings.theme || null;
+  if(cmsTheme){
     var themeRoot = document.documentElement.style;
     var themeBody = document.body.style;
-    if(settings.theme.pink) themeRoot.setProperty('--pink', settings.theme.pink);
-    if(settings.theme.lavender) themeRoot.setProperty('--purple', settings.theme.lavender);
-    if(settings.theme.background) themeBody.background = settings.theme.background;
+    if(cmsTheme.pink) themeRoot.setProperty('--pink', cmsTheme.pink);
+    if(cmsTheme.lavender) themeRoot.setProperty('--purple', cmsTheme.lavender);
+    if(cmsTheme.background) themeBody.background = cmsTheme.background;
     /* Semantic typography colors: one token per reading role, never per element.
        They live on <body> where the tokens are declared, so the override wins. */
-    if(settings.theme.displayColor) themeBody.setProperty('--text-display', settings.theme.displayColor);
-    if(settings.theme.accentColor) themeBody.setProperty('--text-accent', settings.theme.accentColor);
-    if(settings.theme.bodyColor) themeBody.setProperty('--text-body', settings.theme.bodyColor);
-    if(settings.theme.decorativeColor) themeBody.setProperty('--text-decorative', settings.theme.decorativeColor);
-    if(settings.theme.mutedColor) themeBody.setProperty('--text-muted', settings.theme.mutedColor);
-    applyCmsSiteBackground(settings.theme);
-    /* Cache the appearance for the next first paint (transition/loading). */
-    try{ localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: settings.theme })); }catch(e){}
+    if(cmsTheme.displayColor) themeBody.setProperty('--text-display', cmsTheme.displayColor);
+    if(cmsTheme.accentColor) themeBody.setProperty('--text-accent', cmsTheme.accentColor);
+    if(cmsTheme.bodyColor) themeBody.setProperty('--text-body', cmsTheme.bodyColor);
+    if(cmsTheme.decorativeColor) themeBody.setProperty('--text-decorative', cmsTheme.decorativeColor);
+    if(cmsTheme.mutedColor) themeBody.setProperty('--text-muted', cmsTheme.mutedColor);
   }
+  /* The database is the source of truth: always reconcile the background and
+     the first-paint cache, so a cleared/absent theme can never be masked by a
+     stale localStorage snapshot. */
+  applyCmsSiteBackground(cmsTheme);
+  try{ localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: cmsTheme || {} })); }catch(e){}
 
   if(settings.motion){
     if(window.CrabbieSiteMotion && typeof window.CrabbieSiteMotion.applyMotion === 'function'){
