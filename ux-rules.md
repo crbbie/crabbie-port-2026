@@ -38,21 +38,28 @@ per-element color settings.
   matches the site instead of flashing the default.
 
 ## Motion, music and the desktop pet
-
 - Motion settings live under the `motion` site-settings key. Falling candy uses
-  the local `/deco/candy*.svg` assets, recycles nodes, keeps `pointer-events:none`
-  and reduces density on mobile.
-- The desktop pet (`motion.pet`, assets `/deco/Desktop-Pet.gif`) is capped at
-  `maxDesktop` (hard max five) and exactly one on mobile. Clicking shows a
-  dialogue bubble; dragging settles smoothly and movement resumes. Dialogue
-  `url` renders a labelled link (`target=_blank rel="noopener noreferrer"`);
-  the raw address is never shown.
+  the local `/assets/decorations/candy/*.svg` assets, recycles nodes, keeps
+  `pointer-events:none` and reduces density on mobile.
+- The desktop pet (`motion.pet`, assets
+  `/assets/decorations/pet/Desktop-Pet.gif`) rests in a bottom band, never over
+  the navigation or hero. Desktop starts with a small base count and clicking
+  adds pets (each dropping in from above) up to `maxDesktop` (hard max five);
+  mobile shows exactly one. A deliberate drag pins the pet where it is dropped —
+  it must not wander away afterwards — and a resize clamps any off-screen pet
+  back inside. Dialogue `url` renders a labelled link
+  (`target=_blank rel="noopener noreferrer"`); the raw address is never shown.
 - `prefers-reduced-motion` disables candy and pet movement (and the hero idle
   float). Motion must never trap content or cover nav/modals/focused fields.
 - Music (`music` key) uses one stable audio instance per session, so SPA route
   changes never restart the track. Autoplay failures are never fatal: playback
   starts on the first user gesture. A small public control offers play/pause and
   mute, and the visitor's mute/volume preference is remembered in `localStorage`.
+  Media-field uploads show an inline progress/error/retry status so a slow audio
+  upload never looks frozen, and repeated upload clicks are blocked while active.
+- `html`/`body` background colour follows the visible background
+  (`--cms-bg-color`) so mobile overscroll bands never reveal a mismatched colour;
+  `min-height` uses `100dvh` with a `100vh` fallback.
 
 ## Loading
 

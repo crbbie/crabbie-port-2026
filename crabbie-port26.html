@@ -75,7 +75,7 @@ window.scrollTo(0, 0);
 }
 
 *{box-sizing:border-box; margin:0; padding:0;}
-html{scroll-behavior:smooth; scrollbar-gutter:stable;}
+html{scroll-behavior:smooth; scrollbar-gutter:stable; background-color:var(--cms-bg-color,#FFDEE7);}
 body{
   font-family:var(--font-body), system-ui, sans-serif;
   color:var(--berry);
@@ -85,6 +85,7 @@ body{
   overflow-x:hidden;
   position:relative;
   min-height:100vh;
+  min-height:100dvh;
   /* Semantic text color tokens resolve against the palette active on <body>,
      so the public pastel palette is respected. Admin > Appearance overrides
      these inline on <body>; defaults keep the untouched site unchanged. */
@@ -816,11 +817,11 @@ body:not(.admin-mode){
   --berry-soft:#ba729b;
   --berry-faint:#d4a8c0;
 
-  background:#FFDEE7 !important;
+  background:var(--cms-bg-color,#FFDEE7) !important;
 }
 
 body:not(.admin-mode)::before{
-  background-color:#FFDEE7 !important;
+  background-color:var(--cms-bg-color,#FFDEE7) !important;
   background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22315%22%20height%3D%22184%22%20viewBox%3D%220%200%20315%20184%22%3E%3Crect%20width%3D%22315%22%20height%3D%22184%22%20fill%3D%22%23FFDEE7%22%2F%3E%3Cg%20fill%3D%22%23FFF%22%3E%3Cpath%20transform%3D%22translate(-14%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(143.5%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(301%2023)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(64.5%20115)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3Cpath%20transform%3D%22translate(222%20115)%22%20d%3D%22M14%2022C11.9%2019.9%202%2013.5%202%207.2C2%203.4%204.8%201%208.2%201C10.7%201%2012.9%202.4%2014%204.4C15.1%202.4%2017.3%201%2019.8%201C23.2%201%2026%203.4%2026%207.2C26%2013.5%2016.1%2019.9%2014%2022Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") !important;
   background-size:315px 184px !important;
   background-position:0 0 !important;
@@ -1417,6 +1418,10 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-panel-state button{margin-top:12px;}
 .adm-upload-status{margin:10px 0 0; padding:10px 12px; border-radius:12px; background:#fff; border:2px solid var(--pink-light); font-weight:700; color:var(--berry); display:flex; gap:12px; align-items:center; justify-content:space-between;}
 .adm-upload-status.failed{color:#b3261e;}
+.adm-upload-status.field-status{margin-top:8px;font-size:12px;flex-wrap:wrap;}
+.adm-upload-status.done{color:#2e8a55;border-color:#bfe6cf;background:#f1fbf5;}
+.adm-upload-bar{position:relative;flex:1 1 90px;height:6px;border-radius:999px;background:var(--pink-soft);overflow:hidden;min-width:60px;}
+.adm-upload-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--pink),var(--pink-hot));transition:width .2s ease;}
 .adm-media-card{background:#fff; border: 2px solid var(--pink-light);border-radius: 16px; overflow:hidden;box-shadow: 0 5px 0 -3px var(--pink-light);}
 .adm-media-thumb{position:relative; width:100%; aspect-ratio: 16/10;background: linear-gradient(160deg, var(--purple-light) 0%, #d9efff 100%);display:grid; place-items:center;font-family:var(--font-decorative); font-size:15px; color: var(--purple-hot);border-bottom: 2px solid var(--pink-light);overflow:hidden; min-width:0; min-height:0;}
 /* Intrinsic image dimensions must never resize the thumbnail box: the image
@@ -2367,6 +2372,13 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
    by applyCmsSiteSettings after each successful public refresh. */
 (function(){
 'use strict';
+window.__crabbieBgFallback = function(theme){
+  /* When a photo is set the visible background is the lightened image, so the
+     html/body overscroll band uses the palette background; otherwise the pastel
+     base keeps the default look. This keeps the native overscroll band in sync. */
+  if(theme && theme.backgroundImage) return theme.background || '#fffafc';
+  return '#FFDEE7';
+};
 window.__crabbieBuildBgCss = function(theme){
   if(!theme || !theme.backgroundImage) return '';
   var safe = String(theme.backgroundImage).replace(/[\\")]/g, function(c){ return '\\' + c; });
@@ -2380,7 +2392,7 @@ window.__crabbieBuildBgCss = function(theme){
     'background-size:auto,' + size + ' !important;' +
     'background-position:center,' + pos + ' !important;' +
     'background-repeat:no-repeat,' + repeat + ' !important;' +
-    'background-color:#FFDEE7 !important;' +
+    'background-color:var(--cms-bg-color,#FFDEE7) !important;' +
     '}';
 };
 var theme = null;
@@ -2397,6 +2409,7 @@ try{
   var root = document.documentElement;
   if(theme.pink) root.style.setProperty('--pink', theme.pink);
   if(theme.lavender) root.style.setProperty('--purple', theme.lavender);
+  root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(theme));
   var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted' };
   var tokenCss = '';
   Object.keys(map).forEach(function(k){ if(theme[k]) tokenCss += map[k] + ':' + theme[k] + ';'; });
@@ -5333,7 +5346,7 @@ var extra = (opts.clearPaths || []).map(function(p){ return esc(p); }).join(' ')
 /* Media Library fields never expose the raw stored URL as an editable
    textbox: the canonical URL stays internal in the draft/database and the
    author works through previews + the picker. */
-return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span>' + hint + mediaPreviewHtml(path, v, opts.kind) + '<div class="adm-media-actions"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button>' + (v ? '<button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaclear="' + esc(path) + '"' + (extra ? ' data-adm-mediaclear-extra="' + extra + '"' : '') + '>' + esc(tAdmin('btn.clearMedia')) + '</button>' : '') + '</div></div>';
+return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span>' + hint + mediaPreviewHtml(path, v, opts.kind) + '<div class="adm-media-actions"><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + esc(path) + '">' + esc(tAdmin('btn.chooseMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaupload="' + esc(path) + '">' + esc(tAdmin('btn.uploadReplace')) + '</button>' + (v ? '<button type="button" class="adm-btn-sm" data-adm-mediaopen="' + esc(path) + '">' + esc(tAdmin('btn.openFile')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediaclear="' + esc(path) + '"' + (extra ? ' data-adm-mediaclear-extra="' + extra + '"' : '') + '>' + esc(tAdmin('btn.clearMedia')) + '</button>' : '') + '</div><div class="adm-upload-status field-status" data-adm-field-upload="1" hidden></div></div>';
 }
 
 function renderAdmin(module){
@@ -6936,12 +6949,58 @@ var currentUploadContext = null;
 /* Prompt 4 upload state: one serialized task with visible progress/cancel. */
 var uploadTask = null;
 var uploadCancel = null;
+var lastUpload = null;
+
+/* Field-level upload feedback: the same serialized task drives every media
+   field so an audio upload never looks frozen. */
+function renderFieldUploadStatuses(){
+  if(!adminContent) return;
+  var label = '';
+  var active = false;
+  var failed = false;
+  var done = false;
+  if(uploadTask){
+    label = (window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadTaskLabel) ? window.CrabbieAdminMedia.uploadTaskLabel(uploadTask) : (uploadTask.fileName || 'upload');
+    active = uploadTask.status === 'queued' || uploadTask.status === 'uploading' || uploadTask.status === 'retrying';
+    failed = uploadTask.status === 'failed';
+    done = uploadTask.status === 'complete';
+  }
+  Array.prototype.forEach.call(adminContent.querySelectorAll('[data-adm-field-upload]'), function(node){
+    if(!uploadTask){ node.hidden = true; node.innerHTML = ''; node.className = 'adm-upload-status field-status'; return; }
+    var progress = Math.max(0, Math.min(100, Number(uploadTask.progress) || 0));
+    node.hidden = false;
+    node.className = 'adm-upload-status field-status' + (failed ? ' failed' : '') + (done ? ' done' : '');
+    node.setAttribute('data-adm-upload-status', uploadTask.status);
+    var bar = active ? '<span class="adm-upload-bar"><i style="width:' + progress + '%"></i></span>' : '';
+    var action = active
+      ? '<button type="button" class="adm-btn-sm" data-adm-upload-cancel="1">Cancel</button>'
+      : (failed ? '<button type="button" class="adm-btn-sm" data-adm-upload-retry="1">Retry</button>' : '');
+    node.innerHTML = '<span>' + esc(label) + '</span>' + bar + action;
+    var cancel = node.querySelector('[data-adm-upload-cancel]');
+    if(cancel) cancel.addEventListener('click', function(){ if(typeof uploadCancel === 'function') uploadCancel(); });
+    var retry = node.querySelector('[data-adm-upload-retry]');
+    if(retry) retry.addEventListener('click', retryLastUpload);
+  });
+  /* One upload at a time: block repeated upload clicks while the request runs. */
+  Array.prototype.forEach.call(adminContent.querySelectorAll('[data-adm-mediaupload]'), function(btn){ btn.disabled = active; });
+}
 
 function setUploadTask(task){
   uploadTask = task;
   refreshAdminPanel('media');
   var modal = document.getElementById('adminMediaModal');
   if(modal && modal.classList.contains('open')) renderMediaPickerGrid();
+  renderFieldUploadStatuses();
+  if(task && task.status === 'complete'){
+    setTimeout(function(){
+      if(uploadTask && uploadTask.status === 'complete'){ uploadTask = null; renderFieldUploadStatuses(); refreshAdminPanel('media'); }
+    }, 2600);
+  }
+}
+
+function retryLastUpload(){
+  if(!lastUpload || !lastUpload.file){ toast('Nothing to retry.'); return; }
+  runMediaUpload(lastUpload.file, lastUpload.context);
 }
 
 function getAuthoritativeFileInput(){
@@ -6990,11 +7049,17 @@ async function handleMediaUploadSelected(e){
   }
   var context = currentUploadContext || { type: 'mediaTab' };
   currentUploadContext = null;
+  await runMediaUpload(file, context);
+  if(e.target) e.target.value = '';
+  var fi = document.getElementById('adminGlobalFileInput');
+  if(fi) fi.value = '';
+}
+
+async function runMediaUpload(file, context){
   var media = window.CrabbieAdminMedia || {};
   var accept = context.path ? mediaAcceptForTarget(context.path) : '*';
   if(!accept || (context.path && (!media.acceptedDropFiles || !media.acceptedDropFiles([file], { accept: accept }).length))){
     toast('This file is not compatible with the selected media field.');
-    if(e.target) e.target.value = '';
     return;
   }
   if(!(window.CrabbieAdminMedia && window.CrabbieAdminMedia.uploadMediaFile)){
@@ -7002,6 +7067,7 @@ async function handleMediaUploadSelected(e){
     return;
   }
   requireAdminReady();
+  lastUpload = { file: file, context: context };
   uploadCancel = null;
   try {
     var result = await window.CrabbieAdminMedia.uploadMediaFile(file, '', {
@@ -7049,9 +7115,6 @@ async function handleMediaUploadSelected(e){
     }
   } finally {
     uploadCancel = null;
-    if(e.target) e.target.value = '';
-    var fi = document.getElementById('adminGlobalFileInput');
-    if(fi) fi.value = '';
   }
 }
 
@@ -8082,6 +8145,11 @@ function applyCmsAboutPage(page){
 function applyCmsSiteBackground(theme){
   var style = document.getElementById('cmsBackgroundStyle');
   var build = window.__crabbieBuildBgCss;
+  var fallback = (typeof window.__crabbieBgFallback === 'function')
+    ? window.__crabbieBgFallback(theme)
+    : (theme && theme.backgroundImage ? (theme.background || '#fffafc') : '#FFDEE7');
+  /* Keep the html/body overscroll band in sync with the visible background. */
+  document.documentElement.style.setProperty('--cms-bg-color', fallback);
   var css = (typeof build === 'function') ? build(theme) : '';
   if(!css){
     if(style) style.textContent = '';

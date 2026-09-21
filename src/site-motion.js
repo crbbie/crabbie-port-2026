@@ -5,10 +5,10 @@
  * browser wiring (audio element, DOM layers, pointer/rAF movement) and is
  * exposed as window.CrabbieSiteMotion so the SPA can apply CMS settings.
  */
-import { petCountFor, pickDialogueIndex, clampPosition, nextWanderX, randomInt } from './desktop-pet-core.js';
+import { petCountFor, pickDialogueIndex, clampPosition, nextWanderX, randomInt, petGroundY, spawnPetX, initialWanderDir, initialPetCount } from './desktop-pet-core.js';
 
-const CANDY_SRC = ['/deco/candy1.svg', '/deco/candy2.svg'];
-const PET_SRC = '/deco/Desktop-Pet.gif';
+const CANDY_SRC = ['/assets/decorations/candy/candy1.svg', '/assets/decorations/candy/candy2.svg'];
+const PET_SRC = '/assets/decorations/pet/Desktop-Pet.gif';
 const APPEARANCE_STYLE_ID = 'crabbieSiteMotionStyles';
 const MUSIC_MUTE_KEY = 'crabbie:music:muted';
 const MUSIC_VOLUME_KEY = 'crabbie:music:volume';
@@ -45,9 +45,18 @@ function injectStyles() {
 #crabbiePetLayer{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden;}
 .crabbie-pet{position:absolute;left:0;top:0;width:68px;height:68px;pointer-events:auto;cursor:grab;touch-action:none;
   will-change:transform;filter:drop-shadow(0 8px 10px rgba(122,61,110,.22));}
-.crabbie-pet img{width:100%;height:100%;object-fit:contain;image-rendering:auto;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+.crabbie-pet-body{display:block;width:100%;height:100%;}
+.crabbie-pet-body img{width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;}
 .crabbie-pet.is-dragging{cursor:grabbing;}
-.crabbie-pet.is-jelly img{animation:crabbiePetJelly .5s ease;}
+.crabbie-pet.is-dropping .crabbie-pet-body{animation:crabbiePetDrop .95s cubic-bezier(.22,.9,.32,1.14) both;}
+@keyframes crabbiePetDrop{
+  0%{transform:translateY(calc(-1 * var(--fall,150px))) scale(.92);opacity:0;}
+  14%{opacity:1;}
+  68%{transform:translateY(0) scale(1.05,.95);}
+  84%{transform:translateY(-7px) scale(1,1);}
+  100%{transform:translateY(0) scale(1);}
+}
+.crabbie-pet.is-jelly .crabbie-pet-body{animation:crabbiePetJelly .5s ease;}
 @keyframes crabbiePetJelly{0%{transform:scale(1,1);}30%{transform:scale(1.14,.86);}55%{transform:scale(.9,1.12);}75%{transform:scale(1.05,.96);}100%{transform:scale(1,1);}}
 .crabbie-pet-bubble{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) scale(.9);
   min-width:140px;max-width:220px;padding:8px 12px;border-radius:14px;background:#fff;color:var(--text-body,#7a3d6e);
@@ -91,7 +100,7 @@ function musicIcons() {
 }
 
 function ensureMusicControl() {
-  if (music.control) return;
+  if (music.control && music.control.isConnected) return;
   const icons = musicIcons();
   const wrap = document.createElement('div');
   wrap.id = 'crabbieMusicControl';
@@ -154,11 +163,12 @@ function attemptPlay(fromGesture) {
 }
 
 function applyMusic(settings) {
+  injectStyles();
   music.settings = settings || {};
   const enabled = Boolean(settings && settings.enabled && settings.url);
   if (!enabled) {
     if (music.audio) { music.audio.pause(); }
-    if (music.control) music.control.classList.remove('show');
+    if (music.control) { music.control.classList.remove('show'); music.control.setAttribute('data-state', 'off'); }
     return;
   }
   ensureMusicControl();
@@ -168,6 +178,7 @@ function applyMusic(settings) {
     music.audio.setAttribute('playsinline', '');
     music.audio.addEventListener('play', syncMusicButtons);
     music.audio.addEventListener('pause', syncMusicButtons);
+    music.audio.addEventListener('error', () => { console.warn('Music: the audio source could not be loaded.'); });
     document.body.appendChild(music.audio);
   }
   /* A session uses one stable audio instance: never reload the same source, so
@@ -183,6 +194,7 @@ function applyMusic(settings) {
   const storedMute = readStored(MUSIC_MUTE_KEY);
   music.audio.muted = storedMute === '1';
   music.control.classList.toggle('show', !isAdminView());
+  music.control.setAttribute('data-state', music.audio.paused ? 'paused' : 'playing');
   if (settings.autoplay !== false && !music.audio.muted) {
     attemptPlay(false);
   } else {
@@ -258,16 +270,23 @@ function applyCandy(enabled, density) {
 }
 
 /* ------------------------------ DESKTOP PET ------------------------------ */
-const petState = { layer: null, pets: [], enabled: false, maxDesktop: 5, dialogues: [], rafId: 0, lastTime: 0, resizeTimer: null };
+const petState = { layer: null, pets: [], enabled: false, maxDesktop: 5, desired: 0, dialogues: [], rafId: 0, lastTime: 0 };
 
-function petSafeBounds() {
+function petMetrics() {
   const nav = document.querySelector('.nav-shell');
-  const navH = nav ? nav.getBoundingClientRect().height + 12 : 96;
-  const bottom = 96;
-  return { top: navH, bottom: Math.max(navH + 80, window.innerHeight - bottom) };
+  const navVisible = Boolean(nav && nav.offsetParent !== null);
+  const navH = navVisible ? nav.getBoundingClientRect().height + 10 : 84;
+  const size = window.innerWidth < 720 ? 56 : 68;
+  return {
+    size,
+    navH,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    groundY: petGroundY(window.innerHeight, size, navH)
+  };
 }
 
-function buildBubble(pet) {
+function buildBubble() {
   const bubble = document.createElement('div');
   bubble.className = 'crabbie-pet-bubble';
   bubble.setAttribute('role', 'status');
@@ -298,48 +317,57 @@ function showDialogue(pet) {
   pet.bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 4800);
 }
 
-function createPet() {
+function applyPetTransform(pet) {
+  if (!Number.isFinite(pet.x)) pet.x = 0;
+  if (!Number.isFinite(pet.y)) pet.y = pet.baseY;
+  pet.el.style.transform = 'translate3d(' + Math.round(pet.x) + 'px,' + Math.round(pet.y) + 'px,0)';
+}
+
+function startPetDrop(pet) {
+  pet.el.style.setProperty('--fall', randomInt(120, 200) + 'px');
+  pet.el.classList.add('is-dropping');
+  if (pet.dropTimer) clearTimeout(pet.dropTimer);
+  pet.dropTimer = setTimeout(() => pet.el.classList.remove('is-dropping'), 1000);
+}
+
+function createPet(options) {
+  const opts = options || {};
+  const metrics = petMetrics();
   const el = document.createElement('div');
   el.className = 'crabbie-pet';
   el.setAttribute('role', 'button');
   el.setAttribute('tabindex', '0');
   el.setAttribute('aria-label', 'Desktop pet. Click for a message, drag to move.');
+  const body = document.createElement('div');
+  body.className = 'crabbie-pet-body';
   const img = document.createElement('img');
   img.src = PET_SRC;
   img.alt = '';
   img.draggable = false;
+  body.appendChild(img);
   const bubble = buildBubble();
-  el.appendChild(img);
+  el.appendChild(body);
   el.appendChild(bubble);
-  const bounds = petSafeBounds();
-  const size = window.innerWidth < 720 ? 56 : 68;
-  const start = clampPosition(randomInt(20, Math.max(40, window.innerWidth - size - 20)), randomInt(bounds.top, Math.max(bounds.top + 20, bounds.bottom - size)), { width: window.innerWidth, height: bounds.bottom + size }, { width: size, height: size });
+  const x = spawnPetX(metrics.width, metrics.size);
   const pet = {
-    el, img, bubble, size,
-    x: start.x, y: start.y, homeY: start.y, targetY: start.y,
-    dir: Math.random() < 0.5 ? -1 : 1,
-    speed: randomInt(12, 26),
-    dialogueIndex: -1,
-    bubbleTimer: null,
-    dragging: false,
-    resumeTimer: null,
-    pointerMoved: false,
-    startPointer: null
+    el, body, img, bubble, size: metrics.size,
+    x, y: metrics.groundY, baseY: metrics.groundY, targetY: metrics.groundY,
+    dir: initialWanderDir(x, metrics.width),
+    speed: randomInt(14, 28),
+    pinned: false, dragging: false, pointerMoved: false, startPointer: null, dragOffset: null,
+    dialogueIndex: -1, bubbleTimer: null, dropTimer: null
   };
   wirePet(pet);
   petState.layer.appendChild(el);
   petState.pets.push(pet);
   applyPetTransform(pet);
+  if (opts.drop) startPetDrop(pet);
   return pet;
-}
-
-function applyPetTransform(pet) {
-  pet.el.style.transform = 'translate3d(' + pet.x + 'px,' + pet.y + 'px,0)';
 }
 
 function removePet(pet) {
   if (pet.bubbleTimer) clearTimeout(pet.bubbleTimer);
-  if (pet.resumeTimer) clearTimeout(pet.resumeTimer);
+  if (pet.dropTimer) clearTimeout(pet.dropTimer);
   if (pet.el.parentNode) pet.el.parentNode.removeChild(pet.el);
   const i = petState.pets.indexOf(pet);
   if (i !== -1) petState.pets.splice(i, 1);
@@ -355,7 +383,8 @@ function wirePet(pet) {
     setTimeout(() => pet.el.classList.remove('is-jelly'), 520);
     showDialogue(pet);
     if (!isReduced() && window.innerWidth >= 720 && petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) {
-      setTimeout(() => { if (petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) createPet(); }, 420);
+      petState.desired = Math.min(petState.maxDesktop, petState.pets.length + 1);
+      setTimeout(() => { if (petState.pets.length < petCountFor(window.innerWidth, petState.maxDesktop)) reconcilePets(); }, 420);
     }
   });
   pet.el.addEventListener('keydown', (event) => {
@@ -364,24 +393,25 @@ function wirePet(pet) {
   pet.el.addEventListener('pointerdown', (event) => {
     if (event.button != null && event.button !== 0) return;
     pet.dragging = true;
+    /* A deliberate drag pins the pet: it keeps the dropped spot and stops wandering. */
+    pet.pinned = true;
     pet.pointerMoved = false;
     pet.startPointer = { x: event.clientX, y: event.clientY };
     pet.dragOffset = { x: event.clientX - pet.x, y: event.clientY - pet.y };
     pet.el.classList.add('is-dragging');
     try { pet.el.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
-    if (pet.resumeTimer) { clearTimeout(pet.resumeTimer); pet.resumeTimer = null; }
   });
   pet.el.addEventListener('pointermove', (event) => {
     if (!pet.dragging) return;
     const dx = event.clientX - pet.startPointer.x;
     const dy = event.clientY - pet.startPointer.y;
     if (Math.abs(dx) + Math.abs(dy) > 6) pet.pointerMoved = true;
-    const bounds = petSafeBounds();
+    const metrics = petMetrics();
     const next = clampPosition(event.clientX - pet.dragOffset.x, event.clientY - pet.dragOffset.y,
-      { width: window.innerWidth, height: bounds.bottom + pet.size }, { width: pet.size, height: pet.size });
+      { width: metrics.width, height: metrics.height }, { width: pet.size, height: pet.size });
     pet.x = next.x;
-    pet.y = next.y;
-    pet.homeY = Math.min(Math.max(next.y, bounds.top), Math.max(bounds.top, bounds.bottom - pet.size));
+    pet.y = Math.max(metrics.navH, next.y);
+    pet.baseY = pet.y;
     pet.targetY = pet.y;
     applyPetTransform(pet);
   });
@@ -390,10 +420,9 @@ function wirePet(pet) {
     pet.dragging = false;
     pet.el.classList.remove('is-dragging');
     try { if (event && event.pointerId != null) pet.el.releasePointerCapture(event.pointerId); } catch (e) { /* ignore */ }
-    /* Settle smoothly, then let the pet resume wandering. */
-    const bounds = petSafeBounds();
-    pet.targetY = Math.min(Math.max(pet.y, bounds.top), Math.max(bounds.top, bounds.bottom - pet.size));
-    pet.resumeTimer = setTimeout(() => { pet.homeY = pet.targetY; }, 400);
+    /* Stay exactly where the visitor dropped it; never snap or wander back. */
+    pet.baseY = pet.y;
+    pet.targetY = pet.y;
   };
   pet.el.addEventListener('pointerup', endDrag);
   pet.el.addEventListener('pointercancel', endDrag);
@@ -412,27 +441,29 @@ function petTick(time) {
   if (!petState.enabled) { petState.rafId = 0; return; }
   const dt = petState.lastTime ? Math.min(0.05, (time - petState.lastTime) / 1000) : 0;
   petState.lastTime = time;
+  const metrics = petMetrics();
   const field = focusedFieldRect();
-  const bounds = petSafeBounds();
-  const width = window.innerWidth;
   const active = !isReduced();
   petState.pets.forEach((pet) => {
     if (pet.dragging) return;
-    if (active) {
-      const step = nextWanderX(pet.x, pet.dir, pet.speed, dt, width, pet.size);
+    if (!pet.pinned && active) {
+      const step = nextWanderX(pet.x, pet.dir, pet.speed, dt, metrics.width, pet.size);
       pet.x = step.x;
       pet.dir = step.dir;
     }
-    let target = pet.homeY;
-    if (field) {
-      const overlapsX = pet.x + pet.size > field.left - 6 && pet.x < field.right + 6;
-      if (overlapsX) {
-        const above = field.top - pet.size - 10;
-        const below = field.bottom + 10;
-        target = above >= bounds.top ? above : Math.min(below, bounds.bottom - pet.size);
+    if (pet.pinned) {
+      pet.targetY = pet.baseY;
+    } else {
+      let target = metrics.groundY;
+      if (field) {
+        const overlapsX = pet.x + pet.size > field.left - 6 && pet.x < field.right + 6;
+        if (overlapsX) {
+          const above = field.top - pet.size - 10;
+          target = above >= metrics.navH ? above : Math.min(field.bottom + 10, metrics.groundY);
+        }
       }
+      pet.targetY = Math.max(metrics.navH, Math.min(target, metrics.height - pet.size));
     }
-    pet.targetY = Math.max(bounds.top, Math.min(target, Math.max(bounds.top, bounds.bottom - pet.size)));
     pet.y += (pet.targetY - pet.y) * Math.min(1, dt * 6);
     applyPetTransform(pet);
   });
@@ -449,6 +480,21 @@ function stopPetLoop() {
   if (petState.rafId) { cancelAnimationFrame(petState.rafId); petState.rafId = 0; }
 }
 
+/* Re-fit every pet into the viewport after a resize / route change. Pinned pets
+   keep their dropped spot (only clamped); free pets return to the ground band. */
+function clampAllPets() {
+  const metrics = petMetrics();
+  petState.pets.forEach((pet) => {
+    pet.size = metrics.size;
+    const next = clampPosition(pet.x, pet.y, { width: metrics.width, height: metrics.height }, { width: pet.size, height: pet.size });
+    pet.x = next.x;
+    pet.y = Math.max(metrics.navH, next.y);
+    pet.baseY = pet.pinned ? pet.y : metrics.groundY;
+    pet.targetY = pet.baseY;
+    applyPetTransform(pet);
+  });
+}
+
 function reconcilePets() {
   if (!petState.layer) {
     petState.layer = document.createElement('div');
@@ -457,9 +503,11 @@ function reconcilePets() {
     document.body.appendChild(petState.layer);
   }
   const active = petState.enabled && !isAdminView();
-  const target = active ? petCountFor(window.innerWidth, petState.maxDesktop) : 0;
+  const cap = active ? petCountFor(window.innerWidth, petState.maxDesktop) : 0;
+  const target = Math.max(0, Math.min(petState.desired, cap));
   while (petState.pets.length > target) removePet(petState.pets[petState.pets.length - 1]);
-  while (petState.pets.length < target) createPet();
+  while (petState.pets.length < target) createPet({ drop: true });
+  clampAllPets();
   if (active && petState.pets.length && !isReduced()) startPetLoop(); else stopPetLoop();
 }
 
@@ -469,6 +517,7 @@ function applyPet(petSettings) {
   const max = Number(cfg.maxDesktop);
   petState.maxDesktop = Number.isFinite(max) ? Math.max(1, Math.min(5, Math.floor(max))) : 5;
   petState.dialogues = Array.isArray(cfg.dialogues) ? cfg.dialogues.filter((d) => d && d.text) : [];
+  petState.desired = initialPetCount(window.innerWidth, petState.maxDesktop);
   reconcilePets();
 }
 

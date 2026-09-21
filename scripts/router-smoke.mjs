@@ -3057,26 +3057,39 @@ try {
 
     // ---- Motion runtime: falling candy + desktop pet (SDK fixture) ----
     assert.ok(await page.evaluate(() => { try { return Boolean(localStorage.getItem('crabbie:appearance')); } catch (e) { return false; } }), 'the appearance snapshot is cached for the next first paint');
-    // The shared test context forces reduced motion; enable motion for this pass.
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: true, candyDensity: 'low', pet: { enabled: false } }); });
     await page.waitForTimeout(1300);
     assert.ok(await page.locator('#crabbieCandyLayer .crabbie-candy').count() > 0, 'falling candy spawns recycled nodes');
+    assert.equal(await page.locator('#crabbieCandyLayer img[src*="/assets/decorations/candy/"]').count() > 0, true, 'candy uses the reorganised decoration assets');
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
     assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
 
-    // Freeze motion for deterministic pet interaction.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 2, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
+    // Initial pets: bottom band only, base count leaves room to spawn more.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
-    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 2, 'desktop pet honours the configured maximum');
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 3, 'desktop starts with three pets (room to spawn more)');
+    assert.equal(await page.locator('#crabbiePetLayer img[src*="/assets/decorations/pet/"]').count(), 3, 'the pet uses the reorganised decoration asset');
+    const petBand = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      const navH = nav ? nav.getBoundingClientRect().height : 90;
+      return Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet')).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, navH };
+      });
+    });
+    petBand.forEach((p) => {
+      assert.ok(p.top >= p.navH - 4, 'a pet never spawns over the navigation');
+      assert.ok(p.bottom > 900 - 160, 'a pet spawns in the bottom band');
+    });
+
     await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet-bubble.show');
     assert.ok((await page.locator('#crabbiePetLayer .crabbie-pet-bubble.show').first().innerText()).trim().length > 0, 'clicking a pet shows a dialogue bubble');
 
     // A dialogue URL becomes a safe labelled link, never a raw address.
-    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 1, dialogues: [{ text: 'external', url: 'https://example.test/x', label: 'Xem thêm' }] } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'external', url: 'https://example.test/x', label: 'Xem thêm' }] } }); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
     await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
     const dialogueLink = page.locator('#crabbiePetLayer .crabbie-pet-bubble a');
@@ -3086,10 +3099,51 @@ try {
     assert.equal((await dialogueLink.innerText()).trim(), 'Xem thêm');
     assert.doesNotMatch(await page.locator('#crabbiePetLayer .crabbie-pet-bubble').first().innerText(), /example\.test/, 'the raw URL is never shown');
 
+    // Click-spawn drops a new pet in from above (never teleports).
+    const beforeSpawn = await page.locator('#crabbiePetLayer .crabbie-pet').count();
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction((n) => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === n + 1, beforeSpawn);
+    assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet.is-dropping').count() >= 1, true, 'a click-spawned pet drops in from above');
+
+    // Drag pins the pet exactly where it is dropped and stops wandering.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 3, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
+    await page.waitForTimeout(500);
+    const dragState = await page.evaluate(() => {
+      const el = document.querySelector('#crabbiePetLayer .crabbie-pet');
+      const r = el.getBoundingClientRect();
+      const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+      el.dispatchEvent(ev('pointerdown', r.left + r.width / 2, r.top + r.height / 2));
+      const active = el.classList.contains('is-dragging');
+      el.dispatchEvent(ev('pointermove', 500, 400));
+      el.dispatchEvent(ev('pointerup', 500, 400));
+      return active;
+    });
+    assert.equal(dragState, true, 'a pointer press starts a drag');
+    const pinnedBefore = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { x: r.left, y: r.top }; });
+    await page.waitForTimeout(1200);
+    const pinnedAfter = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { x: r.left, y: r.top }; });
+    assert.ok(Math.abs(pinnedAfter.x - pinnedBefore.x) < 4 && Math.abs(pinnedAfter.y - pinnedBefore.y) < 4, 'a dragged pet stays exactly where it was dropped');
+
+    // Resizing clamps a dropped pet back inside the viewport.
+    await page.evaluate(() => {
+      const el = document.querySelector('#crabbiePetLayer .crabbie-pet');
+      const r = el.getBoundingClientRect();
+      const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 8, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+      el.dispatchEvent(ev('pointerdown', r.left + r.width / 2, r.top + r.height / 2));
+      el.dispatchEvent(ev('pointermove', 4000, 4000));
+      el.dispatchEvent(ev('pointerup', 4000, 4000));
+    });
+    await page.setViewportSize({ width: 700, height: 700 });
+    await page.waitForTimeout(300);
+    const clamped = await page.evaluate(() => { const r = document.querySelector('#crabbiePetLayer .crabbie-pet').getBoundingClientRect(); return { right: r.right, bottom: r.bottom, w: window.innerWidth, h: window.innerHeight }; });
+    assert.ok(clamped.right <= clamped.w + 1 && clamped.bottom <= clamped.h + 1, 'a dropped pet is clamped back inside after resize');
+
     // Mobile is capped at one pet.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'a' }, { text: 'b' }] } }); });
-    await page.waitForTimeout(140);
+    await page.waitForTimeout(160);
     assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'mobile shows exactly one pet');
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
     assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 0, 'turning the pet off removes every pet');
@@ -3100,6 +3154,7 @@ try {
     assert.equal(await page.locator('#crabbieMusicControl.show').count(), 0, 'the music control is hidden when disabled');
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMusic({ enabled: true, url: 'data:audio/mpeg;base64,//uQx', title: 't', volume: 50, loop: true, autoplay: false }); });
     assert.equal(await page.locator('#crabbieMusicControl.show').count(), 1, 'the music control appears when enabled');
+    assert.equal(await page.locator('#crabbieMusicControl').getAttribute('data-state'), 'paused', 'the control exposes its playback state');
     assert.equal(await page.locator('#crabbieMusicControl button').count(), 2, 'the music control offers play/pause and mute');
     const stableAudio = await page.evaluate(() => {
       const audio = document.querySelector('audio');
@@ -3368,6 +3423,34 @@ try {
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
     assert.ok((await page.locator('#adDriveDownload').getAttribute('class')).includes('btn-purple'), 'Google Drive uses the purple candy CTA class');
     console.log('PASS featured Home membership caps and purple Google Drive CTA (SDK fixture)');
+
+    // ---- Admin > Music: field upload feedback (loading / error / retry) ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.site_settings = [];
+      window.__routerStorageUploadError = null;
+      window.__routerStorageWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Music"]').click();
+    await page.waitForSelector('[data-adm-mediaupload="settings.music.url"]');
+    assert.equal(await page.locator('[data-adm-field-upload]').count() >= 1, true, 'a media field exposes an upload status area');
+    await page.evaluate(() => { window.__routerStorageUploadError = { message: 'unsupported file type', statusCode: 415 }; });
+    const [musicChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('[data-adm-mediaupload="settings.music.url"]').click()]);
+    await musicChooser.setFiles({ name: 'theme-song.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from([1, 2, 3, 4]) });
+    await page.waitForSelector('[data-adm-field-upload][data-adm-upload-status="failed"]');
+    assert.equal(await page.locator('[data-adm-field-upload][data-adm-upload-status="failed"] [data-adm-upload-retry]').count(), 1, 'a failed field upload offers Retry');
+    assert.equal(await page.locator('[data-adm-mediaupload="settings.music.url"]').isEnabled(), true, 'the upload button is re-enabled after a failure');
+    await page.locator('[data-adm-field-upload] [data-adm-upload-retry]').click();
+    await page.waitForFunction(() => {
+      const preview = document.querySelector('[data-adm-media-preview="settings.music.url"]');
+      return Boolean(preview && preview.textContent.trim());
+    });
+    console.log('PASS a field audio upload reports failure, offers retry and clears on success (SDK fixture)');
 
     // ---- Admin > Appearance: role tokens, live preview, background picker ----
     await page.goto(origin + '/admin', {waitUntil: 'load'});

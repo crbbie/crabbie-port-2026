@@ -5,6 +5,8 @@
  */
 
 export const PET_LIMITS = Object.freeze({ desktop: 5, mobile: 1 });
+export const PET_GROUND_GAP = 22;
+export const PET_INITIAL_DESKTOP = 3;
 
 /** Pets allowed at a viewport width. Mobile is capped hard at one pet. */
 export function petCountFor(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
@@ -12,6 +14,44 @@ export function petCountFor(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
   if (width < 720) return PET_LIMITS.mobile;
   const max = Number.isFinite(maxDesktop) ? Math.floor(maxDesktop) : PET_LIMITS.desktop;
   return Math.max(1, Math.min(PET_LIMITS.desktop, max));
+}
+
+/**
+ * How many pets appear on first load. Fewer than the cap so clicking can add
+ * more (each new pet drops in) up to `maxDesktop`.
+ */
+export function initialPetCount(viewportWidth, maxDesktop = PET_LIMITS.desktop) {
+  const cap = petCountFor(viewportWidth, maxDesktop);
+  if (viewportWidth < 720) return 1;
+  return Math.min(cap, PET_INITIAL_DESKTOP);
+}
+
+/**
+ * The resting y for a pet: near the bottom of the viewport, never above the
+ * navigation bar. Pets live in this ground band like a real desktop pet.
+ */
+export function petGroundY(viewportHeight, petHeight, navHeight, gap = PET_GROUND_GAP) {
+  const height = Number.isFinite(viewportHeight) ? viewportHeight : 800;
+  const size = Number.isFinite(petHeight) ? petHeight : 68;
+  const nav = Number.isFinite(navHeight) ? navHeight : 84;
+  const floor = height - size - gap;
+  const ceiling = nav + 8;
+  return Math.max(ceiling, floor);
+}
+
+/** Random x inside the viewport with an even margin, never off-screen. */
+export function spawnPetX(viewportWidth, petWidth, margin = 16, random = Math.random) {
+  const width = Number.isFinite(viewportWidth) ? viewportWidth : 1440;
+  const size = Number.isFinite(petWidth) ? petWidth : 68;
+  const lo = Math.min(margin, Math.max(0, width - size));
+  const hi = Math.max(lo, width - size - margin);
+  return randomInt(lo, hi, random);
+}
+
+/** Wander toward the middle so a pet near an edge does not hug the corner. */
+export function initialWanderDir(x, viewportWidth) {
+  const width = Number.isFinite(viewportWidth) ? viewportWidth : 1440;
+  return x < width / 2 ? 1 : -1;
 }
 
 /**

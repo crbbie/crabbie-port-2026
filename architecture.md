@@ -148,6 +148,24 @@ Admin input
   → refresh public CMS when applicable
 ```
 
+## Static assets
+
+Bundled static assets live under `assets/` and are grouped by kind so the folder
+stays manageable as more decorative art is added:
+
+```text
+assets/
+  fonts/
+  decorations/
+    candy/
+    pet/
+  images/
+  audio/      (bundled static audio only; uploaded audio lives in Supabase Storage)
+```
+
+Reference these with absolute paths (for example
+`/assets/decorations/candy/candy1.svg`). Runtime uploads are never written here.
+
 ## API
 
 `api/public-config.js` exposes only the public Supabase URL and publishable key to the browser. It must never expose service-role or private credentials.

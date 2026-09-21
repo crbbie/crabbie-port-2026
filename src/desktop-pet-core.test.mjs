@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { PET_LIMITS, petCountFor, pickDialogueIndex, clampPosition, nextWanderX, randomInt } from './desktop-pet-core.js';
+import { PET_LIMITS, PET_GROUND_GAP, petCountFor, initialPetCount, petGroundY, spawnPetX, initialWanderDir, pickDialogueIndex, clampPosition, nextWanderX, randomInt } from './desktop-pet-core.js';
 
 // Pet counts: mobile is capped at one, desktop honours the configured max.
 assert.equal(petCountFor(390, 5), 1, 'mobile shows exactly one pet');
@@ -7,6 +7,11 @@ assert.equal(petCountFor(1440, 5), 5, 'desktop honours the configured maximum');
 assert.equal(petCountFor(1440, 99), PET_LIMITS.desktop, 'desktop max is hard-capped at five');
 assert.equal(petCountFor(1440, 0), 1, 'a zero/invalid max never removes every pet');
 assert.equal(petCountFor(1440, 3), 3, 'a lower configured max is respected');
+
+// Initial count leaves room for click-spawn up to the cap.
+assert.equal(initialPetCount(1440, 5), 3, 'desktop starts with three pets');
+assert.equal(initialPetCount(1440, 2), 2, 'a lower cap limits the initial count');
+assert.equal(initialPetCount(390, 5), 1, 'mobile starts with one pet');
 
 // Dialogue selection never repeats the previous line when alternatives exist.
 const dialogues = Array.from({ length: 15 }, (_, i) => ({ text: 'line ' + i }));
@@ -47,5 +52,22 @@ for (let i = 0; i < 100; i += 1) {
   const value = randomInt(3, 7);
   assert.ok(value >= 3 && value <= 7, 'randomInt stays within range');
 }
+
+// Ground band: pets rest near the bottom, never above the navigation bar.
+assert.equal(petGroundY(900, 68, 96), 900 - 68 - PET_GROUND_GAP, 'desktop ground sits above the bottom gap');
+assert.equal(petGroundY(900, 68, 96, 22), 810, 'the ground gap is configurable');
+assert.equal(petGroundY(200, 68, 150), 158, 'a short viewport keeps the pet below the nav');
+assert.equal(petGroundY(900, 68, 96) > 96, true, 'the ground is below the nav bar');
+
+// Spawn x stays inside the viewport with a margin, biased to the middle.
+assert.equal(spawnPetX(1000, 68, 16, () => 0), 16, 'spawn x honours the left margin');
+assert.equal(spawnPetX(1000, 68, 16, () => 0.999), 1000 - 68 - 16, 'spawn x honours the right margin');
+for (let i = 0; i < 100; i += 1) {
+  const x = spawnPetX(390, 56);
+  assert.ok(x >= 0 && x <= 390 - 56, 'spawn x never leaves the viewport');
+}
+assert.equal(initialWanderDir(10, 1000), 1, 'a pet near the left walks right');
+assert.equal(initialWanderDir(990, 1000), -1, 'a pet near the right walks left');
+assert.equal(initialWanderDir(500, 1000), -1, 'the midpoint walks left (not pinned to an edge)');
 
 console.log('Desktop pet core tests passed.');
