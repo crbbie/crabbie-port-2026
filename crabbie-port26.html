@@ -1944,6 +1944,183 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 </style>
 <script src="/api/public-config.js"></script>
 <script type="module" src="/src/supabase-client.js"></script>
+
+<style id="brand-font-readability">
+/* Brand font readability tuning — keep the three local faces, but give their
+   tighter metrics a little more size, tracking and breathing room. */
+html{font-size:16px;}
+body{
+  font-size:17px;
+  line-height:1.68;
+  letter-spacing:.014em;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
+}
+button,input,textarea,select{letter-spacing:.012em;}
+
+/* Display face: avoid the negative tracking that made Starshines feel cramped. */
+.brand,
+.hero h1,
+.banner .banner-title,
+.work-title,
+.item-name,
+.cta-inner h2,
+.foot-brand,
+.page-title,
+.section-title,
+.blk-head h3,
+.comm-name,
+.comm-price,
+.mini-name,
+.mini-price,
+.rule .rv,
+.direct-card h3,
+.direct-card .email-strong,
+.exp-card h4,
+.value-card h5,
+.tos-sec h3,
+.tos-sub,
+.tos-closing .big,
+.letter-body h2,
+.osd-name,
+.osd-price,
+.admin-brand .ab-name,
+.admin-topbar h1,
+.adm-record .ar-title,
+.adm-editor h2,
+.adm-panel h3,
+.adm-modal-card h3,
+.adm-media-body .mb-title{
+  letter-spacing:.012em;
+}
+
+/* Public copy: slightly larger body text and calmer line-height. */
+.nav-links a{font-size:13.5px;}
+.mobile-menu a{font-size:15px;}
+.btn{font-size:15.5px;}
+.nav-cta{font-size:13.5px;}
+.hero-tagline{line-height:1.42;}
+.hero-lede{font-size:17px;line-height:1.65;}
+.page-sub{font-size:16.5px;line-height:1.7;}
+.work-title{font-size:18px;line-height:1.3;}
+.work-hero .work-title{font-size:23px;}
+.work-cat{font-size:12px;line-height:1.45;letter-spacing:.025em;}
+.work-more{font-size:12px;}
+.item-name{font-size:16.5px;line-height:1.3;}
+.item-cat{font-size:11.5px;line-height:1.45;letter-spacing:.11em;}
+.item-tags span,.item-status{font-size:10.5px;line-height:1.4;}
+.cta-inner p{font-size:16.5px;line-height:1.68;}
+.foot-tag{font-size:14px;line-height:1.65;}
+.foot h5{font-size:12px;}
+.foot ul a{font-size:14.5px;}
+.foot-bottom{font-size:13px;}
+.search-box input{font-size:15px;}
+.chip{font-size:13.5px;}
+.back-link,.link-pill,.pd-footnav .mid{font-size:14px;}
+.cms{font-size:17px;line-height:1.88;letter-spacing:.016em;}
+.blk-body figcaption{font-size:16px;line-height:1.8;}
+.comm-name{font-size:19px;}
+.comm-price{font-size:23px;}
+.comm-price small{font-size:12.5px;line-height:1.45;}
+.acc-btn{font-size:13.5px;}
+.mini-name{font-size:15.5px;}
+.mini-price{font-size:18px;}
+.field label{font-size:14px;}
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="number"],
+.field input[type="url"],
+.field textarea,
+.field select{font-size:15px;line-height:1.5;}
+.choice span{font-size:13.5px;}
+.contact-row .cv{font-size:17px;}
+.toast{font-size:14px;}
+
+/* Small/decorative face: preserve the decorative role, but stop tiny labels
+   from becoming hard to read. Existing generous uppercase tracking remains. */
+.nav::before{font-size:11px;}
+.hero-badge{font-size:13px;}
+.hero-art .season-badge{font-size:12px;}
+.banner .banner-badge{font-size:11px;}
+.cloud-tag span,.flower-tag span{font-size:11px;}
+.item-preview .format{font-size:11px;}
+.eyebrow{font-size:12.5px;}
+.pd-fact .k,.spec .k{font-size:12px;}
+.ba-label{font-size:11.5px;}
+.avail{font-size:10.5px;}
+.rule .rk{font-size:11.5px;}
+.form-head .label-fixed{font-size:13px;}
+.exp-card .tag-year{font-size:10.5px;}
+.tos-nav h6,.refund-table th,.contact-row .ck{font-size:11.5px;}
+
+/* Admin: Hogfish and Be Cool both render smaller than the previous system
+   faces, so raise controls/labels one notch without changing layout geometry. */
+body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
+.admin-nav button{font-size:14px;}
+.admin-foot a,.admin-foot button{font-size:13.5px;}
+.admin-topbar .at-eyebrow{font-size:11px;}
+.admin-topbar h1{font-size:24px;line-height:1.22;}
+.admin-topbar .at-desc{font-size:13px;line-height:1.5;}
+.admin-topbar .at-right{font-size:12.5px;}
+.admin-save-status{font-size:11.5px;}
+.admin-topbar .at-save{font-size:13px;}
+.adm-lang{font-size:11.5px;}
+.adm-stat .as-k{font-size:11px;}
+.adm-panel h3{font-size:16.5px;}
+.adm-panel .ap-row{font-size:13.5px;}
+.adm-note{font-size:12.5px;line-height:1.6;}
+.adm-quick-actions button{font-size:13px;}
+.adm-list-toolbar input{font-size:13.5px;}
+.adm-btn-sm{font-size:12.5px;}
+.adm-record .ar-title{font-size:13.5px;line-height:1.45;}
+.adm-badge{font-size:10px;line-height:1.3;}
+.adm-checklist h4{font-size:12px;}
+.cl-item{font-size:13px;line-height:1.55;}
+.adm-pub-warning{font-size:13px;line-height:1.55;}
+.adm-editor h2{font-size:20px;line-height:1.3;}
+.adm-editor .ae-sub{font-size:12.5px;line-height:1.5;}
+.adm-section h4{font-size:12px;}
+.adm-field .af-label{font-size:12.5px;line-height:1.45;}
+.adm-field .af-hint{font-size:11.5px;line-height:1.5;}
+.adm-field input[type="text"],
+.adm-field input[type="email"],
+.adm-field input[type="number"],
+.adm-field input[type="url"],
+.adm-field input[type="date"],
+.adm-field textarea,
+.adm-field select{font-size:13.5px;line-height:1.5;}
+.adm-check{font-size:13.5px;}
+.adm-tab{font-size:12.5px;}
+.adm-block-head .ab-type,
+.adm-qblock-head .qb-title{font-size:13px;}
+.adm-block-head .ab-preview{font-size:12.5px;}
+.adm-qblock-head .qb-type{font-size:11px;}
+.adm-rule-box{font-size:12.5px;line-height:1.6;}
+.adm-req-toolbar select{font-size:13px;}
+.adm-req-row .rr-name{font-size:13.5px;}
+.adm-req-row .rr-meta{font-size:12px;line-height:1.5;}
+.adm-req-row .rr-status{font-size:10.5px;}
+.adm-email-panel h4{font-size:13.5px;}
+.adm-email-panel p{font-size:12.5px;line-height:1.55;}
+.adm-media-body .mb-title{font-size:13px;}
+.adm-media-body .mb-meta{font-size:11.5px;}
+.adm-modal-card h3{font-size:20px;}
+.adm-modal-card .am-sub{font-size:13px;line-height:1.55;}
+.adm-settings-subnav button{font-size:12.5px;}
+.adm-advanced > summary{font-size:13px;}
+.adm-translate-badge{font-size:11px;}
+.adm-repeat-head .rr-label{font-size:13px;}
+.adm-ui-copy-row .uc-key{font-size:12px;}
+.adm-ui-copy-row input,.adm-ui-copy-row textarea{font-size:12.5px;line-height:1.5;}
+
+@media (max-width:860px){
+  body{font-size:16.5px;}
+  .hero h1{letter-spacing:.018em;line-height:1.12;}
+  .page-title{letter-spacing:.016em;line-height:1.14;}
+  body.admin-mode{font-size:14.5px;}
+}
+</style>
+
 </head>
 <body class="">
 <script>
