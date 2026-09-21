@@ -3099,7 +3099,35 @@ try {
     assert.equal((await dialogueLink.innerText()).trim(), 'Xem thêm');
     assert.doesNotMatch(await page.locator('#crabbiePetLayer .crabbie-pet-bubble').first().innerText(), /example\.test/, 'the raw URL is never shown');
 
+    // Dialogue randomization: two active pets never share the same line.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [
+      { text: 'alpha' }, { text: 'bravo' }, { text: 'charlie' }, { text: 'delta' }, { text: 'echo' }, { text: 'foxtrot' }
+    ] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 2);
+    const petLines = await page.evaluate(() => {
+      const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));
+      pets[0].click();
+      pets[1].click();
+      return pets.map((p) => { const span = p.querySelector('.crabbie-pet-bubble span'); return span ? span.textContent : ''; });
+    });
+    assert.ok(petLines[0] && petLines[1], 'both pets show a dialogue line');
+    assert.notEqual(petLines[0], petLines[1], 'two active pets do not speak the same line');
+    const petLinesAgain = await page.evaluate(() => {
+      const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));
+      pets[0].click();
+      return pets[0].querySelector('.crabbie-pet-bubble span').textContent;
+    });
+    assert.notEqual(petLinesAgain, petLines[0], 'a pet does not repeat its own previous line');
+
     // Click-spawn drops a new pet in from above without replacing existing pets.
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
+    await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'x' }] } }); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 1);
+    await page.evaluate(() => { document.querySelector('#crabbiePetLayer .crabbie-pet').click(); });
+    await page.waitForFunction(() => document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length === 2);
     const beforeSpawn = await page.locator('#crabbiePetLayer .crabbie-pet').count();
     const beforeState = await page.evaluate(() => {
       const pets = Array.from(document.querySelectorAll('#crabbiePetLayer .crabbie-pet'));

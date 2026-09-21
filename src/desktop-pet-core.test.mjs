@@ -36,6 +36,19 @@ const forced = pickDialogueIndex(dialogues, 4, () => 4 / dialogues.length);
 assert.notEqual(forced, 4, 'a forced repeat advances to another line');
 assert.ok(forced >= 0 && forced < dialogues.length, 'the forced result stays in range');
 
+// Shared history keeps active pets from saying the same line.
+assert.notEqual(pickDialogueIndex(dialogues, -1, () => 0, [0]), 0, 'a recently used line is avoided');
+assert.notEqual(pickDialogueIndex(dialogues, -1, () => 0, [0, 1, 2]), 0, 'the whole recent history is avoided');
+let recent = [];
+for (let i = 0; i < 100; i += 1) {
+  const idx = pickDialogueIndex(dialogues, -1, Math.random, recent);
+  assert.ok(!recent.includes(idx), 'a line already in the recent history is not repeated');
+  recent.push(idx);
+  if (recent.length > 3) recent.shift();
+}
+// When the list is too small, the pet's own previous line still wins.
+assert.equal(pickDialogueIndex([{ text: 'a' }, { text: 'b' }], 0, () => 0, [1]), 1, 'a tiny list falls back without breaking');
+
 // Clamping keeps the pet inside its safe bounds.
 assert.deepEqual(clampPosition(-20, -5, { width: 1000, height: 800 }, { width: 60, height: 60 }), { x: 0, y: 0 });
 assert.deepEqual(clampPosition(5000, 5000, { width: 1000, height: 800 }, { width: 60, height: 60 }), { x: 940, y: 740 });

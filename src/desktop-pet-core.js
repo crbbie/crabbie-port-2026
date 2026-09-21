@@ -72,21 +72,31 @@ export function initialWanderDir(x, viewportWidth) {
 }
 
 /**
- * Picks a dialogue index, never returning `previousIndex` twice in a row while
- * more than one dialogue exists. `random` is injectable for tests.
+ * Picks a dialogue index. A pet never repeats its own previous line, and a
+ * shared `recent` history (indices used by any pet lately) is avoided too, so
+ * two active pets do not speak the same line. Falls back gracefully when the
+ * list is too small to satisfy every exclusion.
  */
-export function pickDialogueIndex(dialogues, previousIndex = -1, random = Math.random) {
+export function pickDialogueIndex(dialogues, previousIndex = -1, random = Math.random, recent = []) {
   const list = Array.isArray(dialogues) ? dialogues : [];
   if (!list.length) return -1;
   if (list.length === 1) return 0;
-  let index = Math.floor(random() * list.length);
-  if (!Number.isFinite(index) || index < 0) index = 0;
-  if (index >= list.length) index = list.length - 1;
-  if (index === previousIndex) {
-    index = (previousIndex + 1 + Math.floor(random() * (list.length - 1))) % list.length;
+  const recentSet = new Set(Array.isArray(recent) ? recent : []);
+  let pool = [];
+  for (let i = 0; i < list.length; i += 1) {
+    if (i === previousIndex || recentSet.has(i)) continue;
+    pool.push(i);
   }
-  if (index === previousIndex) index = (previousIndex + 1) % list.length;
-  return index;
+  /* Relax the global history before relaxing the pet's own last line. */
+  if (!pool.length) {
+    for (let i = 0; i < list.length; i += 1) if (i !== previousIndex) pool.push(i);
+  }
+  if (!pool.length) {
+    for (let i = 0; i < list.length; i += 1) pool.push(i);
+  }
+  let pick = pool[Math.floor(random() * pool.length)];
+  if (!Number.isFinite(pick) || pick < 0 || pick >= list.length) pick = pool[0];
+  return pick;
 }
 
 /** Clamps a rectangle's top-left inside bounds. */

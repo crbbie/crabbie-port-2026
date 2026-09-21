@@ -273,7 +273,7 @@ function applyCandy(enabled, density) {
 }
 
 /* ------------------------------ DESKTOP PET ------------------------------ */
-const petState = { layer: null, pets: [], enabled: false, maxDesktop: 5, desired: 0, dialogues: [], rafId: 0, lastTime: 0 };
+const petState = { layer: null, pets: [], enabled: false, maxDesktop: 5, desired: 0, dialogues: [], recentDialogues: [], rafId: 0, lastTime: 0 };
 
 function petMetrics() {
   const nav = document.querySelector('.nav-shell');
@@ -298,8 +298,13 @@ function buildBubble() {
 
 function showDialogue(pet) {
   const list = petState.dialogues.length ? petState.dialogues : DIALOGUE_FALLBACK;
-  const index = pickDialogueIndex(list, pet.dialogueIndex);
+  /* Per-pet last line + a small shared history so active pets do not all say
+     the same thing. */
+  const index = pickDialogueIndex(list, pet.dialogueIndex, Math.random, petState.recentDialogues);
   pet.dialogueIndex = index;
+  petState.recentDialogues.push(index);
+  const historyLimit = Math.max(1, Math.min(3, list.length - 1));
+  while (petState.recentDialogues.length > historyLimit) petState.recentDialogues.shift();
   const entry = list[index] || list[0] || {};
   const bubble = pet.bubble;
   if (!bubble) return;
@@ -315,9 +320,14 @@ function showDialogue(pet) {
     if (external) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
     bubble.appendChild(a);
   }
-  bubble.classList.add('show');
   if (pet.bubbleTimer) clearTimeout(pet.bubbleTimer);
-  pet.bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 4800);
+  if (pet.bubbleRevealTimer) clearTimeout(pet.bubbleRevealTimer);
+  /* A small random reveal delay keeps two pets from popping at the same moment. */
+  pet.bubbleRevealTimer = setTimeout(() => {
+    bubble.classList.add('show');
+    if (pet.bubbleTimer) clearTimeout(pet.bubbleTimer);
+    pet.bubbleTimer = setTimeout(() => bubble.classList.remove('show'), randomInt(4200, 5800));
+  }, randomInt(0, 320));
 }
 
 function applyPetTransform(pet) {
@@ -372,7 +382,7 @@ function createPet(options) {
     speed: randomInt(10, 34),
     nextTurnAt: 0,
     pinned: false, dragging: false, pointerActive: false, pointerMoved: false, startPointer: null, dragOffset: null,
-    dialogueIndex: -1, bubbleTimer: null, dropTimer: null
+    dialogueIndex: -1, bubbleTimer: null, bubbleRevealTimer: null, dropTimer: null
   };
   wirePet(pet);
   petState.layer.appendChild(el);
@@ -384,6 +394,7 @@ function createPet(options) {
 
 function removePet(pet) {
   if (pet.bubbleTimer) clearTimeout(pet.bubbleTimer);
+  if (pet.bubbleRevealTimer) clearTimeout(pet.bubbleRevealTimer);
   if (pet.dropTimer) clearTimeout(pet.dropTimer);
   if (pet.el.parentNode) pet.el.parentNode.removeChild(pet.el);
   const i = petState.pets.indexOf(pet);
@@ -562,6 +573,8 @@ function applyPet(petSettings) {
   const max = Number(cfg.maxDesktop);
   petState.maxDesktop = Number.isFinite(max) ? Math.max(1, Math.min(5, Math.floor(max))) : 5;
   petState.dialogues = Array.isArray(cfg.dialogues) ? cfg.dialogues.filter((d) => d && d.text) : [];
+  /* A changed dialogue list invalidates the shared anti-repeat history. */
+  petState.recentDialogues = [];
   if (!petState.enabled) {
     petState.desired = 0;
   } else if (!wasEnabled || !Number.isFinite(petState.desired) || petState.desired <= 0) {
