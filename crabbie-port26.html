@@ -3112,7 +3112,19 @@ var burger = document.getElementById('navBurger');
 var toastEl = document.getElementById('toast');
 var toastTimer = null;
 function toast(msg){ if(!toastEl) return; toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2400); }
-function scrollToTop(){ window.scrollTo(0, 0); }
+function scrollToTop(){
+  /* Route changes must reset immediately. The global html smooth-scroll rule
+     otherwise animates from the previous page's Y position on mobile, making
+     detail views appear to open at the bottom and then crawl to the top. */
+  try{ window.scrollTo({ top:0, left:0, behavior:'instant' }); }
+  catch(e){
+    var root = document.documentElement;
+    var prev = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    root.style.scrollBehavior = prev;
+  }
+}
 function smoothScrollTo(el){ if(!el) return; el.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' }); }
 
 var PROJECTS = {
