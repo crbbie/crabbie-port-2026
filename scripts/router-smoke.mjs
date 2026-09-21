@@ -656,10 +656,10 @@ try {
     });
     await page.locator('#adminNav [data-admin-module="portfolio"][aria-current="page"]').waitFor({state:'visible'});
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Saved CMS title');
-    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.slug"]').inputValue(), 'saved-cms-title', 'editing the title updates the slug before saving');
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.slug"]').inputValue(), 'color-fiesta', 'a persisted record keeps its slug when the title changes');
     await page.locator('#adminTopSave').click();
-    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="saved-cms-title"] .work-title')?.textContent === 'Saved CMS title');
-    assert.equal(await page.locator('#pfGrid [data-project="color-fiesta"]').isVisible(), false, 'public refresh hides the obsolete prototype slug card');
+    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="color-fiesta"] .work-title')?.textContent === 'Saved CMS title');
+    assert.equal(await page.locator('#pfGrid [data-project="saved-cms-title"]').count(), 0, 'no dangling card appears under a renamed slug');
     assert.deepEqual(await page.evaluate(() => window.__routerWrites.map(w => w.table)), ['portfolio_projects']);
     assert.deepEqual(errors, [], 'Post-save public refresh must not throw');
     console.log('PASS Admin Save scopes writes and re-fetches mapped Portfolio rows into public DOM (SDK fixture)');
@@ -871,7 +871,7 @@ try {
     assert.equal(portfolioWrites[0].op, 'update', 'an existing record is UPDATEd, never re-upserted');
     assert.deepEqual(portfolioWrites[0].filters, [['id', '00000000-0000-4000-8000-000000000101'], ['updated_at', '2026-01-01T00:00:00Z']], 'the write is scoped by DB id and the hydrated baseline');
     const portfolioRowsAfter = await page.evaluate(() => window.__routerRows.portfolio_projects.map(r => ({slug: r.slug, title: r.title, updated_at: r.updated_at})));
-    assert.equal(portfolioRowsAfter.find(r => r.slug === 'edited-once').title, 'Edited once', 'the stored slug follows the edited title');
+    assert.equal(portfolioRowsAfter.find(r => r.slug === 'color-fiesta').title, 'Edited once', 'the title saves while the persisted slug stays put');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').title, 'Second project', 'an untouched record must not be rewritten');
     assert.equal(portfolioRowsAfter.find(r => r.slug === 'second-project').updated_at, '2026-01-02T00:00:00Z', 'an untouched record keeps its timestamp');
     console.log('PASS one portfolio edit sends one UPDATE scoped by DB id + baseline (SDK fixture)');
@@ -922,9 +922,9 @@ try {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }, newRecordPath);
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'mid-save-base').title), 'Mid-save base', 'the database keeps version N, including its auto slug, not the mid-save edit');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Mid-save base', 'the database keeps version N under its stable slug, not the mid-save edit');
     assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.title"]').inputValue(), 'Edited mid-save', 'the draft keeps the newer version N+1');
-    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'edited-mid-save', 'the newer auto slug also survives the in-flight response');
+    assert.equal(await page.locator('[data-adm-path="' + newRecordPath + '.slug"]').inputValue(), 'brand-new-project', 'the stable slug survives the in-flight response');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays dirty after a mid-save edit');
     assert.match(await readToast(), /still unsaved|chưa lưu/i, 'the toast admits newer edits are still unsaved');
     // The persisted baseline advanced to N even though the draft is N+1, so
@@ -940,7 +940,7 @@ try {
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => window.__routerWrites.length > 0);
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'edited-mid-save').title), 'Edited mid-save', 'a follow-up save persists version N+1 with its auto slug');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find((r) => r.slug === 'brand-new-project').title), 'Edited mid-save', 'a follow-up save persists version N+1 under the stable slug');
     assert.doesNotMatch(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft is clean once the latest revision is saved');
     console.log('PASS a mid-save edit stays dirty and is persisted by the next save (SDK fixture)');
 
@@ -1061,7 +1061,7 @@ try {
     assert.match(staleAttempt.message, /another session|reload/i);
     assert.equal(staleAttempt.draftTitle, 'Stale title', 'the local draft survives a conflict');
     assert.equal(staleAttempt.baseline, '2020-01-01T00:00:00Z', 'a failed save must not advance the baseline');
-    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'edited-once').title), 'Edited once', 'newer database data is not overwritten');
+    assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects.find(r => r.slug === 'color-fiesta').title), 'Edited once', 'newer database data is not overwritten');
     console.log('PASS a stale save is rejected as a conflict and never overwrites newer data (SDK fixture)');
 
     // Test 10: a reorder is one bounded order-only write, not one write per row.
@@ -3029,18 +3029,22 @@ try {
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, { theme: {
         displayColor: '#123456', accentColor: '#234567', bodyColor: '#345678',
-        decorativeColor: '#456789', mutedColor: '#56789a',
+        decorativeColor: '#456789', mutedColor: '#56789a', fieldLabelColor: '#654321',
         backgroundImage: 'https://cdn.example.test/bg.jpg', backgroundSize: 'cover', backgroundOverlay: 0.4
       }});
     });
     const appearanceApplied = await page.evaluate(() => ({
       display: getComputedStyle(document.body).getPropertyValue('--text-display').trim(),
       body: getComputedStyle(document.body).getPropertyValue('--text-body').trim(),
+      field: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim(),
+      labelColor: getComputedStyle(document.querySelector('[data-view="commissions"] .field label')).color,
       heroColor: getComputedStyle(document.querySelector('.hero h1')).color,
       bg: (document.getElementById('cmsBackgroundStyle') || {}).textContent || ''
     }));
     assert.equal(appearanceApplied.display, '#123456', 'the display color token is applied');
     assert.equal(appearanceApplied.body, '#345678', 'the body color token is applied');
+    assert.equal(appearanceApplied.field, '#654321', 'the field label token is applied');
+    assert.equal(appearanceApplied.labelColor, 'rgb(101, 67, 33)', 'the commission question label follows the field-label token');
     assert.equal(appearanceApplied.heroColor, 'rgb(18, 52, 86)', 'the hero heading follows the display token');
     assert.match(appearanceApplied.bg, /bg\.jpg/, 'the website background image is applied');
     assert.match(appearanceApplied.bg, /rgba\(255,255,255,0\.4\)/, 'the background overlay opacity is applied');
@@ -3048,7 +3052,7 @@ try {
     // tokens restores the palette defaults so later passes are unaffected.
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, { theme: { backgroundImage: '' } });
-      ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted']
+      ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted', '--text-field-label']
         .forEach((key) => document.body.style.removeProperty(key));
     });
     const clearedBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
@@ -3262,6 +3266,26 @@ try {
     assert.equal(belowNav, true, 'the scroll offset exceeds the real nav height plus a visual gap');
     console.log('PASS the commission detail scrolls below the sticky navbar with a real offset (SDK fixture)');
 
+    // ---- Commission success panel: clear card, received notice, optional email ----
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    assert.equal(await page.locator('#briefResult').isHidden(), true, 'the success panel starts hidden');
+    const briefPanel = await page.evaluate(() => {
+      const panel = document.getElementById('briefResult');
+      const cs = getComputedStyle(panel);
+      return {
+        marginTop: parseFloat(cs.marginTop),
+        radius: parseFloat(cs.borderRadius),
+        notice: (panel.querySelector('.brief-notice') || {}).textContent || '',
+        emailLabel: (document.getElementById('briefEmail') || {}).textContent || ''
+      };
+    });
+    assert.ok(briefPanel.marginTop >= 24, 'the success panel is separated from the buttons above (got ' + briefPanel.marginTop + ')');
+    assert.ok(briefPanel.radius >= 16, 'the success panel is a rounded card');
+    assert.match(briefPanel.notice, /received by Crabbie/i, 'the success notice states the form was already received');
+    assert.match(briefPanel.emailLabel, /optional/i, 'the email action is presented as optional');
+    console.log('PASS the commission success panel is a clear card with a received notice and optional email (SDK fixture)');
+
     // ---- Patch 5 G: simplified media fields, no raw library URL inputs ----
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -3351,6 +3375,7 @@ try {
       window.CrabbiePortfolio.apply([
         {slug:'normal-a',title:'Normal A',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/a.png',cover:'',blocks:[],credits:'',year:''},
         {slug:'illustration-x',title:'Illustration X',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/x.png',cover:'',cardMode:'image',blocks:[],credits:'',year:''},
+        {slug:'illustration-y',title:'Illustration Y',description:'A soft little caption',cat:'Illustration',tags:[],thumbnail:'',cover:'https://example.test/y.png',cardMode:'image',blocks:[],credits:'',year:''},
         {slug:'normal-b',title:'Normal B',desc:'',cat:'Illustration',tags:[],thumbnail:'https://example.test/b.png',cover:'',blocks:[],credits:'',year:''},
         {slug:'zoom-gallery',title:'Zoom Gallery',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'',blocks:[{id:'zg1',type:'gallery',sectionTitle:'Shots',items:[{url:'https://example.test/shot1.png',alt:'Shot 1',caption:''}]}],credits:'',year:''}
       ]);
@@ -3370,6 +3395,26 @@ try {
     await imageCard.click();
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     await page.locator('#publicLightboxClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // The image-card label carries the title, and zoom/reset/caption work.
+    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION X', 'the image card label shows the title');
+    await imageCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.locator('#publicLightboxZoomIn').click();
+    assert.equal(await page.evaluate(() => /scale\((1\.[2-9]|[2-9])/.test(document.getElementById('publicLightboxImg').style.transform)), true, 'zoom in scales the image');
+    await page.locator('#publicLightboxReset').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'reset restores the image scale');
+    assert.equal(await page.locator('#publicLightboxCaption').isVisible(), false, 'no caption area renders when the caption is empty');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Cover-only image card uses its cover and shows the optional caption.
+    const captionCard = page.locator('#pfGrid [data-project="illustration-y"]');
+    assert.equal(await captionCard.getAttribute('data-lightbox-src'), 'https://example.test/y.png', 'a cover-only image card uses the cover as its visual');
+    await captionCard.click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/y.png', 'the cover-only image opens full size');
+    assert.equal(await page.locator('#publicLightboxCaption').innerText(), 'A soft little caption', 'the optional caption renders in the lightbox');
+    await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
     // Gallery zoom keeps the project route and shows uncropped art.
     await page.evaluate(() => { location.hash = '#project/zoom-gallery'; });
@@ -3446,8 +3491,8 @@ try {
     // Hover candy: See more bobs on card hover; asset cards lift.
     await page.evaluate(() => { location.hash = '#portfolio'; });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-    await page.locator('#pfGrid [data-project="normal-a"]').hover();
-    assert.match(await page.locator('#pfGrid [data-project="normal-a"] .work-more').evaluate((el) => getComputedStyle(el).animationName || ''), /see-more-bob/, 'the See more pill dances while its card is hovered');
+    await page.locator('#pfGrid [data-project="feat-chibi"]').hover();
+    assert.match(await page.locator('#pfGrid [data-project="feat-chibi"] .work-more').evaluate((el) => getComputedStyle(el).animationName || ''), /see-more-bob/, 'the See more pill dances while its card is hovered');
     await page.evaluate(() => { location.hash = '#free-assets'; });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
     await page.locator('#faGrid [data-asset="hot-brush"]').hover();
@@ -3551,8 +3596,21 @@ try {
     await page.locator('[data-adm-settings-group="Appearance"]').click();
     await page.waitForSelector('[data-adm-appearance-preview="1"]');
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"]').count(), 2, 'each role token exposes a color picker + hex input');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
     assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
+    // Mobile admin: short controls keep two columns without horizontal overflow.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(150);
+    const adminMobile = await page.evaluate(() => {
+      const row = document.querySelector('#adminContent .adm-row');
+      const content = document.getElementById('adminContent');
+      return { cols: row ? getComputedStyle(row).gridTemplateColumns.split(' ').length : 0, overflow: content ? content.scrollWidth - content.clientWidth : 0 };
+    });
+    assert.ok(adminMobile.cols >= 2, 'admin rows keep two columns on mobile (got ' + adminMobile.cols + ')');
+    assert.ok(adminMobile.overflow <= 2, 'the admin Appearance panel has no horizontal overflow on mobile (got ' + adminMobile.overflow + ')');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(120);
     await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#112233');
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim()), '#112233', 'the live preview follows the token before save');
     await page.locator('[data-adm-appearance-reset]').click();
@@ -3593,8 +3651,9 @@ try {
       await page.locator('#adminTopSave').click();
       await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
     };
-    // Appearance: choose a background image from the library, then Save.
+    // Appearance: set the question-label colour, choose a background image, then Save.
     await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.locator('[data-adm-path="settings.theme.fieldLabelColor"][type="text"]').fill('#112244');
     await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
     await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
@@ -3619,6 +3678,7 @@ try {
     const motionRow = savedRows.find((r) => r.key === 'motion');
     const musicRow = savedRows.find((r) => r.key === 'music');
     assert.ok(themeRow && themeRow.value.backgroundImage && themeRow.value.backgroundImage.includes('bg.png'), 'theme.backgroundImage persists to the database');
+    assert.equal(themeRow.value.fieldLabelColor, '#112244', 'theme.fieldLabelColor persists to the database');
     assert.equal(themeRow.value.backgroundSize, 'cover', 'theme.backgroundSize persists');
     assert.equal(typeof themeRow.value.backgroundOverlay, 'number', 'theme.backgroundOverlay persists');
     assert.equal(Array.isArray(themeRow.value.palettes), true, 'theme.palettes persists');
@@ -3644,10 +3704,12 @@ try {
       music: document.querySelectorAll('#crabbieMusicControl.show').length,
       audioSrc: document.querySelector('audio') ? document.querySelector('audio').src : '',
       pets: document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length,
-      candy: document.querySelectorAll('#crabbieCandyLayer .crabbie-candy').length
+      candy: document.querySelectorAll('#crabbieCandyLayer .crabbie-candy').length,
+      fieldLabel: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim()
     }));
     assert.ok(applied.snapshot && applied.snapshot.theme.backgroundImage.includes('bg.png'), 'the first-paint snapshot matches the saved theme');
     assert.ok(applied.bgStyle.includes('bg.png') && applied.beforeImage.includes('bg.png'), 'the persisted background is applied publicly after reload');
+    assert.equal(applied.fieldLabel, '#112244', 'the saved question-label colour survives the reload');
     assert.equal(applied.music, 1, 'the public music control shows from saved settings');
     assert.ok(applied.audioSrc.includes('song.mp3'), 'the public audio src equals the saved URL');
     assert.equal(applied.pets >= 1, true, 'the saved pet setting spawns pets publicly');

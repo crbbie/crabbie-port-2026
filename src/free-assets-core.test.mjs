@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mapFreeAsset } from './free-assets-core.js';
+import { mapFreeAsset, assetCategorySlug, assetFilterChips } from './free-assets-core.js';
 
 const fallback = {
   slug: 'proto-asset',
@@ -51,4 +51,10 @@ assert.equal(mapped.showDriveDownload, true);
 assert.equal(mapped.credit, ''); // DB row is authoritative when metadata is absent.
 assert.deepEqual(mapped.tags, ['Elements', 'SVG']);
 
+// Batch 5 (P2-05): the CMS category is the source of truth.
+assert.equal(assetCategorySlug({ category: 'Brushes', filterCat: 'other' }), 'brushes', 'a stale filterCat never wins');
+assert.equal(assetCategorySlug({ cat: 'Elements' }), 'elements');
+assert.equal(assetCategorySlug({ filterCat: 'Legacy' }), 'legacy', 'a legacy-only row still filters');
+assert.equal(assetCategorySlug({}), 'other');
+assert.deepEqual(assetFilterChips([{ category: 'Brushes' }, { cat: 'brushes' }, { cat: 'Audio' }]), ['audio', 'brushes'], 'chips follow the live taxonomy');
 console.log('Free Assets mapping test passed.');

@@ -3614,7 +3614,12 @@ function cmsDetailMissing(view, id){
 
 function visibleCmsValue(value){
   var text = String(value == null ? '' : value).trim();
-  return text && !/\[[A-Z][A-Z0-9 /&+._-]*\]|^YEAR$/i.test(text) ? text : '';
+  if(!text) return '';
+  /* Only real placeholder syntax blanks a value: ordinary markdown links such
+     as [text](url) are stripped before the check so normal copy never vanishes. */
+  var withoutLinks = text.replace(/\[[^\]\n]+\]\([^)\n]+\)/g, ' ').trim();
+  var probe = withoutLinks || text;
+  return !/\[[A-Z][A-Z0-9 /&+._-]*\]|^YEAR$/i.test(probe) ? text : '';
 }
 function safePublicUrl(value, media){
   var raw = visibleCmsValue(value);
@@ -3781,7 +3786,7 @@ function publicBlockBody(block){
 function renderProject(id){
   var p = PROJECTS[id]; if(!p) return;
   setText('pdTitle', visibleCmsValue(p.title));
-  setText('pdDesc', visibleCmsValue(p.desc));
+  setText('pdDesc', visibleCmsValue(p.desc != null ? p.desc : p.description));
   var facts = {pdCat:p.cat, pdTags:Array.isArray(p.tags) ? p.tags.join(' · ') : '', pdCredits:p.credits, pdYear:p.year};
   Object.keys(facts).forEach(function(key){
     var el = document.getElementById(key); if(!el) return;
@@ -5486,9 +5491,20 @@ if(!text) return '';
 try{ text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
 return text.replace(/[đĐ]/g, function(ch){ return ch === 'Đ' ? 'D' : 'd'; }).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-');
 }
+function adminDraftRecordById(listKey, id){
+  var list = ADMIN_DRAFT ? ADMIN_DRAFT[listKey] : null;
+  if(!Array.isArray(list)) return null;
+  return list.filter(function(r){ return r && (r.id === id || r.slug === id); })[0] || null;
+}
 function syncSlugFromTitlePath(path, value){
 var m = String(path || '').match(/^(portfolio|assets|commissions|forms|portfolioCategories|assetCategories)\.([^.]+)\.title$/);
 if(!m) return;
+/* Title and identity are separate: a persisted record never changes slug when
+   its title changes, so routes and form references cannot break. Only new
+   (unsaved) records, or records with an empty slug, derive one from the title. */
+var rec = adminDraftRecordById(m[1], m[2]);
+var currentSlug = rec ? String(rec.slug || '').trim() : '';
+if(rec && rec.dbId && currentSlug) return;
 var slugPath = m[1] + '.' + m[2] + '.slug';
 var next = slugifyAdminTitle(value);
 setByPath(ADMIN_DRAFT, slugPath, next);
@@ -5929,6 +5945,9 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 function renderCommissionEditor(rec){
 var base = 'commissions.' + rec.id;
 var formOpts = ADMIN_DRAFT.forms.filter(function(f){ return f.slug; }).map(function(f){ return { value:f.slug, label:f.title }; });
+/* A dangling form_slug (form renamed/deleted) stays visible instead of
+   silently resetting: the save then writes an explicit, reviewable value. */
+if(rec.form && !formOpts.some(function(o){ return o.value === rec.form; })) formOpts.unshift({ value: rec.form, label: rec.form + ' (missing)' });
 var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
@@ -7980,6 +7999,43 @@ function portfolioFilterGroup(record){
   return 'other';
 }
 
+/* Canonical asset taxonomy: the CMS category wins; the legacy filterCat is
+   only a last-resort fallback and never overrides the canonical value. */
+function assetCanonicalCat(record){
+  var canonical = (record && (record.category || record.cat || record.categorySlug)) || '';
+  var text = String(canonical).trim().toLowerCase();
+  if(text) return text;
+  var legacy = String((record && record.filterCat) || '').trim().toLowerCase();
+  return legacy || 'other';
+}
+/* Filter chips follow the live CMS taxonomy (same source as Admin), keeping
+   the visitor's selection when it still exists. */
+function syncAssetChips(records){
+  var wrap = document.getElementById('faChips');
+  if(!wrap) return;
+  var seen = {};
+  (Array.isArray(records) ? records : []).forEach(function(record){
+    seen[assetCanonicalCat(record)] = true;
+  });
+  var values = Object.keys(seen).sort();
+  var st = (typeof filterState !== 'undefined' && filterState.fa) ? filterState.fa : null;
+  var current = st ? st.cat : 'all';
+  if(current !== 'all' && values.indexOf(current) === -1) current = 'all';
+  wrap.innerHTML = '<button class="chip' + (current === 'all' ? ' on' : '') + '" data-filter="all" aria-pressed="' + (current === 'all') + '">All</button>' +
+    values.map(function(v){
+      var on = v === current;
+      return '<button class="chip' + (on ? ' on' : '') + '" data-filter="' + esc(v) + '" aria-pressed="' + on + '">' + esc(prettyTaxonomyLabel(v, v)) + '</button>';
+    }).join('');
+  var chips = Array.prototype.slice.call(wrap.querySelectorAll('.chip'));
+  chips.forEach(function(chip){
+    chip.addEventListener('click', function(){
+      chips.forEach(function(x){ x.classList.remove('on'); x.setAttribute('aria-pressed','false'); });
+      chip.classList.add('on'); chip.setAttribute('aria-pressed','true');
+      if(st){ st.cat = chip.getAttribute('data-filter'); st.chips = chips; applyFilter('fa'); }
+    });
+  });
+  if(st){ st.chips = chips; st.cat = current; }
+}
 function prettyTaxonomyLabel(value, fallback){
 var text = String(value || fallback || '').trim();
 if(!text) return '';
@@ -8002,8 +8058,8 @@ if(imageOnly){
     card.setAttribute('data-lightbox-src', src);
     card.setAttribute('data-lightbox-alt', record.title || 'Illustration');
     card.setAttribute('aria-label', (record.title || 'Illustration') + ' — open full-size image');
-    /* `description` doubles as the optional image-card caption (no new field). */
-    var caption = String(record.description || '').trim();
+    /* The canonical caption accepts both `desc` and `description` (no new field). */
+    var caption = String((record && (record.desc != null ? record.desc : record.description)) || '').trim();
     if(caption) card.setAttribute('data-lightbox-caption', caption);
     else card.removeAttribute('data-lightbox-caption');
   } else {
@@ -8088,6 +8144,11 @@ apply: function(records){
 
   var portfolioGrid = document.getElementById('pfGrid');
   if(portfolioGrid){
+    /* Authoritative reconcile: drop nodes the snapshot no longer contains so
+       an unpublish/delete can never come back when a filter runs. */
+    Array.prototype.forEach.call(portfolioGrid.querySelectorAll('[data-project]'), function(card){
+      if(!live[card.getAttribute('data-project')]) card.parentNode.removeChild(card);
+    });
     records.forEach(function(record, index){
       var exists = Array.prototype.some.call(portfolioGrid.querySelectorAll('[data-project]'), function(card){
         return card.getAttribute('data-project') === record.slug;
@@ -8111,10 +8172,17 @@ apply: function(records){
     });
   }
 
+  if(portfolioGrid){
+    /* DOM order follows the authoritative snapshot order (admin reorder). */
+    records.forEach(function(record){
+      var node = portfolioGrid.querySelector('[data-project="' + String(record.slug).replace(/"/g, '') + '"]');
+      if(node) portfolioGrid.appendChild(node);
+    });
+  }
   document.querySelectorAll('#pfGrid [data-project], #worksGrid [data-project]').forEach(function(card){
     var slug = card.getAttribute('data-project');
     var record = PROJECTS[slug];
-    var visible = !!record;
+    var visible = !!record && record.published !== false;
     card.style.display = visible ? '' : 'none';
     if(!visible) return;
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
@@ -8170,6 +8238,9 @@ apply: function(records){
 
   var assetGrid = document.getElementById('faGrid');
   if(assetGrid){
+    Array.prototype.forEach.call(assetGrid.querySelectorAll('[data-asset]'), function(card){
+      if(!live[card.getAttribute('data-asset')]) card.parentNode.removeChild(card);
+    });
     records.forEach(function(record){
       var exists = Array.prototype.some.call(assetGrid.querySelectorAll('[data-asset]'), function(card){
         return card.getAttribute('data-asset') === record.slug;
@@ -8179,7 +8250,7 @@ apply: function(records){
       card.className = 'item';
       card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug));
       card.setAttribute('data-asset', record.slug);
-      card.setAttribute('data-cat', String(record.filterCat || record.categorySlug || record.cat || 'other').toLowerCase());
+      card.setAttribute('data-cat', assetCanonicalCat(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
       var img = publicImage(record.thumbnail, record.title);
       var preview = img
@@ -8193,10 +8264,17 @@ apply: function(records){
     });
   }
 
+  if(assetGrid){
+    records.forEach(function(record){
+      var node = assetGrid.querySelector('[data-asset="' + String(record.slug).replace(/"/g, '') + '"]');
+      if(node) assetGrid.appendChild(node);
+    });
+  }
+  syncAssetChips(records);
   document.querySelectorAll('#faGrid [data-asset]').forEach(function(card){
     var slug = card.getAttribute('data-asset');
     var record = ASSETS[slug];
-    var visible = !!record;
+    var visible = !!record && record.published !== false;
     card.style.display = visible ? '' : 'none';
     if(!visible) return;
     var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
@@ -8208,7 +8286,7 @@ apply: function(records){
     syncAssetBadge(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
-    if(record.filterCat || record.cat) card.setAttribute('data-cat', (record.filterCat || record.cat || '').toLowerCase());
+    card.setAttribute('data-cat', assetCanonicalCat(record));
   });
   var homeAssets = document.getElementById('assetsGrid');
   if(homeAssets){
@@ -8299,12 +8377,34 @@ apply: function(services, forms){
 
       var cardBtn = !s.isOtherService && slug ? document.querySelector('.comm-grid button[data-service-slug="' + slug + '"]') : null;
       if(!cardBtn && !s.isOtherService) cardBtn = document.querySelector('.comm-grid button[data-service="' + (s.name || s.title || '') + '"]');
+      /* Data-driven services render from the snapshot instead of depending on
+         a hard-coded card: create the card when the CMS knows the service. */
+      if(!cardBtn && !miniBtn && slug && !s.isOtherService && s.published !== false){
+        var commGrid = document.querySelector('.comm-grid');
+        if(commGrid){
+          var feeRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]]
+            .filter(function(r){ var t = String(r[1] == null ? '' : r[1]).trim(); return t && t !== 'undefined' && t !== 'NaN'; });
+          var newCard = document.createElement('article');
+          newCard.className = 'comm-card';
+          newCard.setAttribute('data-cms-service', slug);
+          newCard.innerHTML = '<div class="comm-thumb"><span class="avail ' + availabilityClass(s.availability) + '">' + availabilityLabel(s.availability) + '</span>' + (publicImage(s.thumbnail, s.title || s.name) || esc(s.title || s.name || slug)) + '</div>' +
+            '<div class="comm-body"><div class="comm-name">' + esc(s.title || s.name || slug) + '</div><div class="comm-price">' + esc(s.price || '') + (s.priceNote ? ' <small>' + esc(s.priceNote) + '</small>' : '') + '</div><p class="comm-desc">' + esc(s.description || '') + '</p><div class="comm-mini"></div></div>' +
+            '<div class="comm-actions"><button class="btn btn-primary" type="button" data-service="' + esc(s.name || s.title || slug) + '" data-service-slug="' + esc(slug) + '" data-form="' + esc(s.formType || '') + '" data-avail="' + esc(s.availability || 'open') + '">Request this</button></div>' +
+            '<div class="acc"><button class="acc-btn" type="button">What\'s included &amp; fees <span class="caret">▾</span></button><div class="acc-body"><div class="acc-inner">' +
+            feeRows.map(function(r){ return '<div class="acc-line"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') +
+            '</div></div></div>';
+          commGrid.appendChild(newCard);
+          wireAccordions(newCard);
+          cardBtn = newCard.querySelector('button[data-service]');
+        }
+      }
       if(!miniBtn && !cardBtn && slug && s.isOtherService){
         var miniGrid = document.getElementById('miniServicesGrid');
         if(miniGrid){
           miniBtn = document.createElement('button');
           miniBtn.type = 'button';
           miniBtn.className = 'mini-card';
+          miniBtn.setAttribute('data-cms-mini', slug);
           miniBtn.setAttribute('data-other-service', slug);
           miniBtn.setAttribute('aria-pressed', 'false');
           miniBtn.innerHTML = '<span class="mini-icon">✦</span><span><span class="mini-name">' + esc(s.name || s.title || slug) + '</span><span class="mini-note">' + esc(s.priceNote || '') + '</span></span><span class="mini-price">' + esc(s.price || '') + '</span>';
@@ -8343,10 +8443,39 @@ apply: function(services, forms){
       if(!liveServices[slug]) delete OTHER_SERVICES[slug];
     });
 
+    var miniGrid = document.getElementById('miniServicesGrid');
+    if(miniGrid){
+      /* Drop CMS-created nodes the snapshot no longer contains; hard-coded
+         fallback cards are only hidden. Then order follows the snapshot. */
+      Array.prototype.forEach.call(miniGrid.querySelectorAll('[data-cms-mini]'), function(btn){
+        if(!liveServices[btn.getAttribute('data-other-service')]) btn.parentNode.removeChild(btn);
+      });
+      services.forEach(function(s){
+        var slug = s.slug || s.id || '';
+        if(!slug || !s.isOtherService) return;
+        var node = miniGrid.querySelector('[data-other-service="' + String(slug).replace(/"/g, '') + '"]');
+        if(node) miniGrid.appendChild(node);
+      });
+    }
     document.querySelectorAll('#miniServicesGrid [data-other-service]').forEach(function(btn){
       var slug = btn.getAttribute('data-other-service');
       btn.style.display = liveServices[slug] && OTHER_SERVICES[slug].isOtherService ? '' : 'none';
     });
+    var commGrid = document.querySelector('.comm-grid');
+    if(commGrid){
+      Array.prototype.forEach.call(commGrid.querySelectorAll('[data-cms-service]'), function(card){
+        var btn = card.querySelector('button[data-service]');
+        var slug = btn ? (btn.getAttribute('data-service-slug') || '') : '';
+        if(!liveServices[slug]) card.parentNode.removeChild(card);
+      });
+      services.forEach(function(s){
+        var slug = s.slug || s.id || '';
+        if(!slug || s.isOtherService) return;
+        var btn = commGrid.querySelector('button[data-service-slug="' + String(slug).replace(/"/g, '') + '"]');
+        var card = btn ? btn.closest('.comm-card') : null;
+        if(card) commGrid.appendChild(card);
+      });
+    }
 
     document.querySelectorAll('.comm-grid .comm-card').forEach(function(card){
       var btn = card.querySelector('button[data-service]');
