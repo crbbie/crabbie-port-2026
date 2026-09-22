@@ -438,26 +438,11 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pf-s{ grid-column: span 2; grid-row: span 2; }
 .pf-w{ grid-column: span 3; grid-row: span 2; }
 .pf-l .work-title{ font-size: 22px; }
-#pfGrid .work.is-image-card{cursor:zoom-in;overflow:visible;background:var(--pink-soft);}
-#pfGrid .work.is-image-card .meta{display:none !important;}
-#pfGrid .work.is-image-card .thumb{inset:0;border-radius:25px;}
+/* Image cards share the project-card layout exactly (category in the cloud,
+   title + category in the bottom meta); only the zoom cursor differs. */
+#pfGrid .work.is-image-card{cursor:zoom-in;}
 #pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
 #pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
-/* Image card label: positioned at the top like project cloud tags */
-#pfGrid .work.is-image-card .cloud-tag{
-  top:-14px; bottom:auto; left:14px; height:auto; min-width:0; min-height:0;
-  max-width:calc(100% - 24px); display:inline-grid; place-items:center;
-  padding:7px 16px; transform:rotate(-1.5deg); z-index:4;
-  background:linear-gradient(180deg,#ffd1e3 0%, var(--pink-hot) 100%);
-  border:2px solid #fff; border-radius:16px 18px 18px 6px;
-  box-shadow:0 4px 0 rgba(217,74,128,.35), 0 10px 18px -10px rgba(217,74,128,.55);
-}
-#pfGrid .work.is-image-card .cloud-tag::before{ display:none; }
-#pfGrid .work.is-image-card .cloud-tag span{
-  white-space:normal; overflow-wrap:anywhere; text-align:left;
-  font-size:12.5px; line-height:1.25; letter-spacing:.02em;
-  text-shadow:0 1px 2px rgba(217,74,128,.45);
-}
 
 /* PROJECT DETAIL */
 .pd-hero{display:grid; grid-template-columns: 1fr 1.05fr;gap: 46px; align-items:center; margin-bottom: 62px;}
@@ -576,14 +561,24 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .comm-actions{ padding: 0 22px 20px; }
 .comm-actions .btn{ width: 100%; padding: 12px 20px; font-size: 13px; }
 .acc{ border-top: 2px dashed var(--pink-light); }
-.acc-btn{width: 100%; display:flex; align-items:center; justify-content:space-between; gap:10px;padding: 14px 22px; background: none; border: none; cursor: pointer;font-family:var(--font-body); font-weight:600; font-size: 12.5px; color: var(--berry);text-align:left;}
+/* Subtle pastel pill highlights the fees toggle; the sheen drifts almost
+   imperceptibly and freezes under prefers-reduced-motion. */
+.acc-btn{width: 100%; display:flex; align-items:center; justify-content:space-between; gap:10px;padding: 12px 18px; background:linear-gradient(115deg, #fff 0%, var(--pink-soft) 42%, #ffe4f1 58%, #fff 100%); background-size:220% 100%; border:2px solid var(--pink-light); border-radius:18px; cursor: pointer;font-family:var(--font-body); font-weight:600; font-size: 12.5px; color: var(--berry);text-align:left;box-shadow:0 4px 0 -2px var(--pink-light);animation: accSheen 9s ease-in-out infinite;}
+@keyframes accSheen{ 0%,100%{ background-position:0% 0; } 50%{ background-position:100% 0; } }
+.acc-btn:hover{ border-color:var(--pink); }
 .acc-btn .caret{width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%;display:grid; place-items:center; font-size: 11px;background: var(--pink-light); color: var(--pink-hot);transition: transform .3s var(--ease);}
+.acc.open .acc-btn{ background:linear-gradient(180deg, #ffe4f1 0%, var(--pink-soft) 100%); border-color:var(--pink); animation:none; }
 .acc.open .acc-btn .caret{ transform: rotate(180deg); }
 /* Auto-height accordion: the open row always fits its content, so nothing is
-   ever clipped by a fixed max-height. */
+   ever clipped by a fixed max-height. The collapsible row itself carries no
+   vertical padding — the 0fr track would otherwise keep the padding's height
+   and leak content while closed. The bottom gap is restored on the last row
+   only while open. */
 .acc-body{display:grid; grid-template-rows:0fr; transition: grid-template-rows .38s var(--ease);}
 .acc.open .acc-body{ grid-template-rows:1fr; }
-.acc-inner{ padding: 0 22px 18px; overflow:hidden; min-height:0; }
+.acc-inner{ padding:0 22px; overflow:hidden; min-height:0; }
+.acc.open .acc-inner > :last-child{ margin-bottom:18px; }
+@media (prefers-reduced-motion: reduce){ .acc-btn{ animation:none; } }
 .acc-line{display:flex; justify-content:space-between; gap: 12px;font-size: 12px; font-weight: 700; color: var(--berry-soft);padding: 6px 0; border-bottom: 1.5px dashed var(--pink-light);}
 .acc-line:last-child{ border-bottom: none; }
 .acc-line b{ color: var(--berry); font-weight: 800; text-align:right; min-width:0; overflow-wrap:anywhere; }
@@ -995,14 +990,14 @@ body:not(.admin-mode) .nav-links a.active{
   box-shadow:inset 0 -3px 0 rgba(214,105,162,.17),inset 0 2px 0 rgba(255,255,255,.78);
 }
 
-/* Strawberry-candy primary */
+/* Strawberry-candy primary keeps its original white label; a slightly deeper
+   shadow keeps it readable on the pastel pink. */
 body:not(.admin-mode) .btn-primary{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#ffe4ef 0%,#fbc0da 46%,#f793bf 100%);
-  /* Dark berry text reads on the pastel pink; matches the other pastel CTAs. */
-  color:#4a1f43;
-  text-shadow:0 1px 2px rgba(255,255,255,.55);
+  color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:
     0 12px 24px -12px rgba(247,147,191,.42),
     0 4px 10px -4px rgba(247,147,191,.18),
@@ -1010,9 +1005,21 @@ body:not(.admin-mode) .btn-primary{
     inset 0 -9px 16px -12px rgba(211,112,158,.24);
 }
 
-/* Clearer lilac secondary (dark text: white is unreadable on pastel). */
-body:not(.admin-mode) .btn-yellow,
+/* Lilac secondary keeps its original white label on the violet gradient;
+   yellow stays dark-on-pastel since white is unreadable there. */
 body:not(.admin-mode) .btn-purple{
+  background:
+    radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
+    linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
+  color:#fff;
+  text-shadow:0 1px 3px rgba(122,58,140,.55);
+  box-shadow:
+    0 12px 24px -12px rgba(195,141,252,.42),
+    0 4px 10px -4px rgba(195,141,252,.18),
+    inset 0 2px 1px rgba(255,255,255,.90),
+    inset 0 -9px 16px -12px rgba(145,96,204,.24);
+}
+body:not(.admin-mode) .btn-yellow{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
@@ -1207,8 +1214,6 @@ body:not(.admin-mode) .field label .req{ color:var(--text-accent); }
    their coloured pills. */
 body:not(.admin-mode) .nav-links a.active,
 body:not(.admin-mode) .mobile-menu a.active,
-body:not(.admin-mode) .chip.on,
-body:not(.admin-mode) .tab-btn.on,
 body:not(.admin-mode) .choice input:checked + span{ color:#4a1f43; text-shadow:0 1px 2px rgba(255,255,255,.5); }
 body:not(.admin-mode) .nav-links a:hover,
 body:not(.admin-mode) .tos-nav a:hover,
@@ -1240,6 +1245,10 @@ body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
 .skip-link:focus{ left:0; outline:none; }
 [tabindex="-1"]:focus{ outline:none; }
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+/* The hidden attribute must always win: several components (e.g. the admin
+   field upload-status placeholders) rely on scripts toggling `hidden`, while
+   their own classes set display for the visible state. */
+[hidden]{display:none !important;}
 body.is-loading{ overflow:hidden; }
 body.is-route-loading .nav-shell, body.is-route-loading footer{ display:none !important; }
 body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
@@ -3248,7 +3257,6 @@ try{
           <div class="eyebrow">YOUR IDEA STARTS HERE</div>
           <h2 class="page-title" style="font-size: clamp(28px, 3.6vw, 42px);">A little brief.</h2>
           <span class="label-fixed">Commission type</span>
-          <div class="selected-service" id="selectedService" aria-live="polite">Selected service: <b>—</b></div>
         </div>
 
         <div class="tabs" role="tablist" aria-label="Commission type">
@@ -9108,8 +9116,8 @@ function portfolioBadgeLabel(record){
 return prettyTaxonomyLabel(record && (record.cat || record.categorySlug), 'PROJECT').toUpperCase();
 }
 function portfolioCloudLabel(record){
-/* Image cards show their title in the cloud/blob; project cards show category. */
-if(portfolioIsImageCard(record)) return String((record && record.title) || '').toUpperCase();
+/* Both card modes show the category in the cloud/blob; the title always lives
+   in the bottom meta area so the two card types read identically. */
 return portfolioBadgeLabel(record);
 }
 function syncPortfolioBadge(card, record){
