@@ -230,8 +230,10 @@ export function createClient(){
         window.__routerStorageObjects = (window.__routerStorageObjects || []).filter(entry => !paths.includes(entry.path));
         return {data: paths.map(path => ({name: path})), error: null};
       },
-      list: async prefix => ({
-        data: (window.__routerStorageObjects || []).filter(entry => entry.path.startsWith(prefix)).map(entry => ({name: entry.name})),
+      list: async (prefix, _options) => ({
+        // Pass file entries through with their object identity: entries
+        // without an id are Storage folders for the recursive cleanup walk.
+        data: (window.__routerStorageObjects || []).filter(entry => entry.path.startsWith(prefix || '')).map(entry => ({name: entry.name, path: entry.path, id: entry.id, metadata: entry.metadata, updated_at: entry.updated_at, created_at: entry.created_at})),
         error: null
       })
     })},
@@ -3805,6 +3807,52 @@ try {
     assert.equal(applied.pets >= 1, true, 'the saved pet setting spawns pets publicly');
     assert.equal(applied.candy >= 1, true, 'the saved falling candy setting renders candies publicly');
     console.log('PASS settings save -> DB -> reload -> public runtime roundtrip (SDK fixture)');
+
+    // Batch 2: Storage & Cleanup renders and a full manual scan classifies
+    // through the production loader (SDK fixture, no writes to real data).
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = {
+        portfolio_projects: [{ id: '00000000-0000-4000-8000-000000000901', slug: 'p1', title: 'P1', thumbnail_path: 'uploads/used.png', published: true }],
+        free_assets: [],
+        commission_services: [],
+        commission_forms: [],
+        commission_requests: [{ id: '00000000-0000-4000-8000-000000000902', client_name: 'Ada', answers: { ref: 'uploads/req-ref.png' }, status: 'new' }],
+        cms_pages: [],
+        cms_navigation: [{ id: '00000000-0000-4000-8000-000000000903', title: 'N', url: 'uploads/nav.png' }],
+        site_settings: [],
+        media: [
+          { id: '00000000-0000-4000-8000-000000000904', storage_path: 'uploads/used.png', original_name: 'used.png', mime_type: 'image/png', size_bytes: 100, deletion_status: 'active' },
+          { id: '00000000-0000-4000-8000-000000000905', storage_path: 'uploads/lonely.png', original_name: 'lonely.png', mime_type: 'image/png', size_bytes: 200, deletion_status: 'active' }
+        ],
+        media_cleanup_state: []
+      };
+      window.__routerStorageObjects = [
+        { name: 'used.png', path: 'uploads/used.png', id: 'obj-1', metadata: { size: 100, mimetype: 'image/png' } },
+        { name: 'lonely.png', path: 'uploads/lonely.png', id: 'obj-2', metadata: { size: 200, mimetype: 'image/png' } },
+        { name: 'deep.png', path: 'uploads/nested/deep/deep.png', id: 'obj-3', metadata: { size: 300, mimetype: 'image/png' } }
+      ];
+      window.__routerWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goToAdminModule('cleanup');
+    await page.locator('#adminContent [data-adm-cleanup-scan]').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#adminContent').innerText(), /No scan yet/, 'the cleanup area starts empty and read-only');
+    await page.locator('#adminContent [data-adm-cleanup-scan]').click();
+    await page.waitForFunction(() => document.querySelector('#adminContent').textContent.includes('SCAN COMPLETE'), null, { timeout: 20000 });
+    const cleanupText = await page.locator('#adminContent').innerText();
+    assert.match(cleanupText, /POSSIBLY UNUSED/, 'the scan reports candidates');
+    assert.match(cleanupText, /uploads\/lonely\.png/, 'an unreferenced media row is listed');
+    assert.match(cleanupText, /uploads\/nested\/deep\/deep\.png/, 'a nested rowless object is listed');
+    assert.ok(!cleanupText.includes('uploads/used.png') || cleanupText.includes('Top 10'), 'a referenced file is not a candidate');
+    const stateUpserts = await page.evaluate(() => (window.__routerWrites || []).filter(write => write.table === 'media_cleanup_state' && write.operation === 'upsert'));
+    assert.ok(stateUpserts.length >= 1, 'a complete scan persists first-sighting anchors for Batch 3 grace');
+    await page.locator('#adminContent [data-adm-cleanup-protect]').first().click();
+    await page.waitForFunction(() => (window.__routerRows.media_cleanup_state || []).some(row => row.protected === true));
+    assert.match(await page.locator('#adminContent').innerText(), /Unprotect/, 'a protected file flips without a rescan');
+    console.log('PASS Storage & Cleanup scan classifies through the production loader (SDK fixture)');
 // P4_END
 
   }

@@ -1503,6 +1503,16 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-req-toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;}
 .adm-req-toolbar select{padding: 8px 12px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12px; color: var(--berry);}
 .adm-req-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px;}
+.adm-scan-badge{display:inline-block; font-family:var(--font-decorative); font-weight:600; font-size:10px; letter-spacing:.12em; padding:4px 12px; border-radius:8px;}
+.adm-scan-badge.complete{background:#d1f0dc; color:#2e8a55;}
+.adm-scan-badge.incomplete{background:#ffe2ea; color: var(--pink-hot);}
+.adm-cleanup-grid{display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px; margin:10px 0;}
+.adm-cleanup-stat{background:#fff; border:1.5px solid var(--pink-light); border-radius:12px; padding:10px 12px;}
+.adm-cleanup-stat .cs-num{font-family:var(--font-body); font-weight:700; font-size:16px; color: var(--berry);}
+.adm-cleanup-stat .cs-label{font-size:11px; font-weight:700; color: var(--berry-faint); margin-top:2px;}
+.adm-cleanup-row{display:flex; gap:8px; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; border:1.5px solid var(--pink-light); background:#fff; margin-bottom:6px; font-size:12px; font-weight:700; color: var(--berry); flex-wrap:wrap;}
+.adm-cleanup-row .cs-path{word-break:break-all; font-weight:700;}
+.adm-cleanup-row .cs-meta{font-size:11px; color: var(--berry-faint); font-weight:700;}
 .adm-check-all{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color: var(--berry);}
 .adm-req-row{display:grid; grid-template-columns: auto 1fr auto; gap:6px;padding: 11px 12px; border-radius:14px;border:1.5px solid var(--pink-light); background:#fff;margin-bottom:6px; cursor:pointer; align-items:center;}
 .adm-req-row input[type="checkbox"]{width:16px; height:16px; accent-color: var(--pink-hot);}
@@ -3393,6 +3403,7 @@ try{
         <button type="button" data-admin-module="contact"><span class="an-ico">✉</span> <span data-t="nav.contact">Contact / Social</span></button>
         <div class="an-group">Assets</div>
         <button type="button" data-admin-module="media"><span class="an-ico">☁</span> <span data-t="nav.media">Media Library</span></button>
+        <button type="button" data-admin-module="cleanup"><span class="an-ico">🧹</span> <span data-t="nav.cleanup">Storage & Cleanup</span></button>
         <button type="button" data-admin-module="settings"><span class="an-ico">⚙</span> <span data-t="nav.settings">Site Settings</span></button>
       </nav>
       <div class="admin-foot">
@@ -3570,7 +3581,7 @@ var currentOtherService = null;
 var SIMPLE_VIEWS = ['home','portfolio','free-assets','commissions','about','terms','contact','404','loading'];
 var BADGES = { 'home':'HOME','portfolio':'PORTFOLIO','project-detail':'PORTFOLIO','free-assets':'ASSETS','free-asset-detail':'ASSETS','commissions':'COMMISSIONS','about':'ABOUT','terms':'TOS','contact':'CONTACT','404':'404','loading':'LOADING','admin':'ADMIN' };
 var NAVKEY = { 'project-detail':'portfolio', 'free-asset-detail':'free-assets' };
-var ADMIN_MODULES = ['dashboard','portfolio','assets','commissions','requests','about','terms','contact','media','settings'];
+var ADMIN_MODULES = ['dashboard','portfolio','assets','commissions','requests','about','terms','contact','media','cleanup','settings'];
 
 function decodeRouteId(value){
 try { return decodeURIComponent(value || ''); } catch(e){ return value || ''; }
@@ -4740,8 +4751,8 @@ if(driveBtn) driveBtn.addEventListener('click', function(){
    ========================================================== */
 var ADMIN_I18N = {
 en: {
-'nav.dashboard': 'Dashboard','nav.portfolio': 'Portfolio / Projects','nav.assets': 'Free Assets','nav.commissions': 'Commissions','nav.requests': 'Commission Requests','nav.about': 'About','nav.terms': 'Terms of Service','nav.contact': 'Contact / Social','nav.media': 'Media Library','nav.settings': 'Site Settings','nav.preview': 'Preview website','nav.signout': 'Sign out',
-'top.eyebrow': 'YOUR SWEET LITTLE WORLD','top.eyebrowAdmin': 'THE ATELIER CMS','top.desc.dashboard': 'Overview of your atelier','top.desc.portfolio': 'Manage your portfolio projects','top.desc.assets': 'Manage your free assets','top.desc.commissions': 'Manage commission types and request forms','top.desc.requests': 'Read and process commission requests','top.desc.about': 'Edit your About page','top.desc.terms': 'Edit your Terms of Service','top.desc.contact': 'Contact email and social links','top.desc.media': 'Upload and manage media files','top.desc.settings': 'Branding, typography, colors, SEO, and more',
+'nav.dashboard': 'Dashboard','nav.portfolio': 'Portfolio / Projects','nav.assets': 'Free Assets','nav.commissions': 'Commissions','nav.requests': 'Commission Requests','nav.about': 'About','nav.terms': 'Terms of Service','nav.contact': 'Contact / Social','nav.media': 'Media Library','nav.cleanup': 'Storage & Cleanup','nav.settings': 'Site Settings','nav.preview': 'Preview website','nav.signout': 'Sign out',
+'top.eyebrow': 'YOUR SWEET LITTLE WORLD','top.eyebrowAdmin': 'THE ATELIER CMS','top.desc.dashboard': 'Overview of your atelier','top.desc.portfolio': 'Manage your portfolio projects','top.desc.assets': 'Manage your free assets','top.desc.commissions': 'Manage commission types and request forms','top.desc.requests': 'Read and process commission requests','top.desc.about': 'Edit your About page','top.desc.terms': 'Edit your Terms of Service','top.desc.contact': 'Contact email and social links','top.desc.media': 'Upload and manage media files','top.desc.cleanup': 'Read-only overview of possibly unused media','top.desc.settings': 'Branding, typography, colors, SEO, and more',
 'status.saved': 'Saved','status.dirty': 'Unsaved changes','status.saving': 'Saving…','status.error': 'Error saving',
 'btn.saveChanges': 'Save Changes','btn.save': 'Save','btn.discard': 'Discard changes','btn.keepEditing': 'Keep editing','btn.cancel': 'Cancel','btn.close': 'Close','btn.create': 'Create','btn.new': 'New','btn.duplicate': 'Duplicate','btn.delete': 'Delete','btn.discardShort': 'Discard','btn.previewSaved': 'Preview saved version ↗','btn.search': 'Search…','btn.refresh': 'Refresh','btn.upload': 'Upload file','btn.addSection': '+ Add section','btn.addLink': '+ Add link','btn.addAddon': '+ Add add-on','btn.addQuestion': '+ Add question','btn.addMedia': '+ Add media','btn.addNav': '+ Add navigation item','btn.chooseMedia': 'Choose existing media…','btn.uploadReplace': 'Upload / replace','btn.openFile': 'Open file ↗','btn.choose': 'Choose…','btn.previous': '← Previous','btn.next': 'Next →',
 'badge.pub': 'Pub','badge.draft': 'Draft','badge.featured': 'Featured','badge.placeholder': 'PH',
@@ -4758,8 +4769,8 @@ en: {
 'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.'
 },
 vi: {
-'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
-'top.eyebrow': 'THẾ GIỚI NHỎ XINH CỦA BẠN','top.eyebrowAdmin': 'ATELIER CMS','top.desc.dashboard': 'Tổng quan về atelier của bạn','top.desc.portfolio': 'Quản lý các dự án portfolio','top.desc.assets': 'Quản lý tài nguyên miễn phí','top.desc.commissions': 'Quản lý loại commission và form yêu cầu','top.desc.requests': 'Đọc và xử lý yêu cầu commission','top.desc.about': 'Chỉnh sửa trang Giới thiệu','top.desc.terms': 'Chỉnh sửa Điều khoản dịch vụ','top.desc.contact': 'Email liên hệ và mạng xã hội','top.desc.media': 'Tải lên và quản lý file media','top.desc.settings': 'Thương hiệu, kiểu chữ, màu sắc, SEO, v.v.',
+'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.cleanup': 'Dọn dẹp Storage','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
+'top.eyebrow': 'THẾ GIỚI NHỎ XINH CỦA BẠN','top.eyebrowAdmin': 'ATELIER CMS','top.desc.dashboard': 'Tổng quan về atelier của bạn','top.desc.portfolio': 'Quản lý các dự án portfolio','top.desc.assets': 'Quản lý tài nguyên miễn phí','top.desc.commissions': 'Quản lý loại commission và form yêu cầu','top.desc.requests': 'Đọc và xử lý yêu cầu commission','top.desc.about': 'Chỉnh sửa trang Giới thiệu','top.desc.terms': 'Chỉnh sửa Điều khoản dịch vụ','top.desc.contact': 'Email liên hệ và mạng xã hội','top.desc.media': 'Tải lên và quản lý file media','top.desc.cleanup': 'Tổng quan read-only về media có thể không dùng','top.desc.settings': 'Thương hiệu, kiểu chữ, màu sắc, SEO, v.v.',
 'status.saved': 'Đã lưu','status.dirty': 'Có thay đổi chưa lưu','status.saving': 'Đang lưu…','status.error': 'Lỗi khi lưu',
 'btn.saveChanges': 'Lưu thay đổi','btn.save': 'Lưu','btn.discard': 'Hủy thay đổi','btn.keepEditing': 'Tiếp tục chỉnh sửa','btn.cancel': 'Hủy','btn.close': 'Đóng','btn.create': 'Tạo mới','btn.new': 'Mới','btn.duplicate': 'Nhân bản','btn.delete': 'Xóa','btn.discardShort': 'Hủy','btn.previewSaved': 'Xem trước bản đã lưu ↗','btn.search': 'Tìm kiếm…','btn.refresh': 'Làm mới','btn.upload': 'Tải file lên','btn.addSection': '+ Thêm phần','btn.addLink': '+ Thêm liên kết','btn.addAddon': '+ Thêm add-on','btn.addQuestion': '+ Thêm câu hỏi','btn.addMedia': '+ Thêm media','btn.addNav': '+ Thêm mục điều hướng','btn.chooseMedia': 'Chọn media có sẵn…','btn.uploadReplace': 'Tải lên / thay thế','btn.openFile': 'Mở file ↗','btn.choose': 'Chọn…','btn.previous': '← Trước','btn.next': 'Tiếp →',
 'badge.pub': 'Đã đăng','badge.draft': 'Nháp','badge.featured': 'Nổi bật','badge.placeholder': 'PH',
@@ -5832,6 +5843,7 @@ case 'about': html = renderAdminAbout(); break;
 case 'terms': html = renderAdminTerms(); break;
 case 'contact': html = renderAdminContact(); break;
 case 'media': html = renderAdminMedia(); break;
+case 'cleanup': html = renderAdminCleanup(); break;
 case 'settings': html = renderAdminSettings(); break;
 }
 adminContent.innerHTML = '<div class="adm-workspace">' + html + '</div>';
@@ -6094,6 +6106,9 @@ return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblo
 }
 
 var reqFilter = { status:'all', commission:'all', search:'', lifecycle:'inbox', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', selected:[], counts:{ inbox:null, archive:null, trash:null } };
+/* Batch 2: read-only Storage & Cleanup scan state. `result` is the last
+   completed manual scan output from window.CrabbieAdminCleanup. */
+var cleanupPage = { state:'idle', error:'', result:null };
 var mediaPage = {
   page: 1,
   perPage: 30,
@@ -6591,6 +6606,164 @@ return '<div class="adm-list" style="margin-bottom:16px; position:static; max-he
   '<button type="button" class="adm-btn-sm" data-adm-bulk-clear="1">Clear selection</button></div>' +
   '<div class="adm-media-grid' + listClass + '" data-adm-media-drop="1" role="listbox" aria-multiselectable="true" aria-label="Media library">' + body + '</div>' +
   '<div class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-media-page="prev"' + (mediaPage.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span data-adm-media-pageinfo="1">Page ' + mediaPage.page + ' / ' + pages + ' · ' + total + ' files</span><button type="button" class="adm-btn-sm" data-adm-media-page="next"' + (mediaPage.page >= pages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
+}
+
+/* Batch 2: Admin > Storage & Cleanup — read-only overview. The scanner never
+   deletes anything; it only reports what a COMPLETE scan could verify. */
+function cleanupFormatBytes(bytes){
+  var n = Number(bytes) || 0;
+  if(n <= 0) return '0 B';
+  var units = ['B','KB','MB','GB'];
+  var i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+  var v = n / Math.pow(1024, i);
+  return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + ' ' + units[i];
+}
+function cleanupStat(num, label){
+  return '<div class="adm-cleanup-stat"><div class="cs-num">' + esc(String(num)) + '</div><div class="cs-label">' + esc(label) + '</div></div>';
+}
+function cleanupProtectButton(path, isProtected){
+  return '<button type="button" class="adm-btn-sm' + (isProtected ? '' : ' danger') + '" data-adm-cleanup-protect="' + esc(encodeURIComponent(path || '')) + '" data-adm-cleanup-protect-value="' + (isProtected ? '0' : '1') + '">' + (isProtected ? 'Unprotect' : 'Protect') + '</button>';
+}
+function renderAdminCleanup(){
+  var res = cleanupPage.result;
+  var toolbar = '<div class="adm-req-toolbar"><button type="button" class="adm-btn-sm primary" data-adm-cleanup-scan="1"' + (cleanupPage.state === 'loading' ? ' disabled' : '') + '>' + (cleanupPage.state === 'loading' ? 'Scanning…' : 'Scan now') + '</button><span class="af-hint">Manual read-only scan of every table page and every Storage prefix. Nothing is deleted.</span></div>';
+  var body = '';
+  if(cleanupPage.state === 'loading' && !res){
+    body = '<div class="adm-panel-state">Scanning every table page and every Storage prefix…</div>';
+  } else if(cleanupPage.state === 'error'){
+    body = '<div class="adm-panel-state error"><p>' + esc(cleanupPage.error || 'Cleanup scan failed.') + '</p><button type="button" class="adm-btn-sm" data-adm-cleanup-scan="1">Try again</button></div>';
+  } else if(!res || !res.snapshot){
+    body = '<div class="adm-panel-state">No scan yet. Press “Scan now” to see what media might be unused.</div>';
+  } else {
+    body = renderCleanupResult(res);
+  }
+  return '<div class="adm-editor"><h2>Storage & Cleanup</h2><p class="ae-sub">Read-only overview. Deletion stays manual in the Media Library — there is no automatic purge.</p>' + toolbar + body + '</div>';
+}
+function renderCleanupResult(res){
+  var snap = res.snapshot;
+  var m = snap.metrics || {};
+  var badge = '<span class="adm-scan-badge ' + (snap.complete ? 'complete' : 'incomplete') + '">' + (snap.complete ? 'SCAN COMPLETE' : 'SCAN INCOMPLETE') + '</span>';
+  var reasons = (snap.reasons || []).map(function(r){ return '<div class="ap-row"><span>Gap</span><span>' + esc(r) + '</span></div>'; }).join('');
+  var reqCounts = res.requestCounts || {};
+  var groups = m.bytesByGroup || { image:0, video:0, audio:0, other:0 };
+  var top = (m.topLargest || []).map(function(entry, i){
+    return '<div class="ap-row"><span>#' + (i + 1) + ' ' + esc(entry.originalName || entry.storagePath || '') + '</span><span>' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · ' + esc(entry.classification || '') + '</span></div>';
+  }).join('');
+  var unused = (snap.rows || []).filter(function(r){ return r.classification === 'POSSIBLY UNUSED'; })
+    .concat((snap.rowless || []).filter(function(r){ return r.classification === 'POSSIBLY UNUSED'; }));
+  var unusedList = unused.slice(0, 100).map(function(entry){
+    var firstSeen = entry.state && entry.state.first_unreferenced_at ? entry.state.first_unreferenced_at.slice(0, 10) : 'this scan';
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · unseen since ' + esc(firstSeen) + '</span>' + cleanupProtectButton(entry.storagePath, false) + '</div>';
+  }).join('');
+  var protectedEntries = (snap.rows || []).filter(function(r){ return r.classification === 'PROTECTED'; })
+    .concat((snap.rowless || []).filter(function(r){ return r.classification === 'PROTECTED'; }));
+  var protectedList = protectedEntries.slice(0, 100).map(function(entry){
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">Protected — never a candidate</span>' + cleanupProtectButton(entry.storagePath, true) + '</div>';
+  }).join('');
+  var brokenList = (snap.brokenReferences || []).slice(0, 100).map(function(broken){
+    var where = (broken.hits || []).slice(0, 3).map(function(h){ return esc((h.sourceLabel || '') + ' · ' + (h.recordId || '') + ' ' + (h.fieldPath || '')); }).join('<br>');
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(broken.identity || '') + '</span><span class="cs-meta">' + where + '</span></div>';
+  }).join('');
+  var rowlessList = (snap.rowless || []).slice(0, 100).map(function(entry){
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · ' + esc(entry.classification || '') + '</span></div>';
+  }).join('');
+  var missingList = (snap.missingObjects || []).slice(0, 100).map(function(entry){
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(entry.deletionStatus || '') + '</span></div>';
+  }).join('');
+  var pendingList = (snap.pendingCleanup || []).slice(0, 100).map(function(entry){
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(entry.deletionStatus || '') + (entry.references && entry.references.length ? ' · referenced' : '') + '</span></div>';
+  }).join('');
+  var sourcesList = (res.sourceSummary || []).map(function(s){
+    return '<div class="ap-row"><span>' + esc(s.label || s.key || '') + '</span><span>' + esc(String(s.rows)) + ' rows · ' + (s.complete ? 'complete' : 'INCOMPLETE') + '</span></div>';
+  }).join('');
+  var persistNote = '';
+  if(snap.complete && res.statePersistError) persistNote = '<p class="af-hint">Warning: scan state could not be saved (' + esc(res.statePersistError) + '). Grace-period anchors may be missing.</p>';
+  if(!snap.complete) persistNote = '<p class="af-hint">Incomplete scan: unreferenced items are reported as UNKNOWN, never as unused. No state was persisted.</p>';
+  return '<div class="adm-section"><h4>Scan status</h4>' + badge + '<div class="ap-row"><span>Last scan</span><span>' + esc(snap.scannedAt || '') + '</span></div>' + reasons + persistNote + '</div>' +
+  '<div class="adm-section"><h4>Requests lifecycle</h4><div class="adm-cleanup-grid">' + cleanupStat(reqCounts.inbox == null ? '–' : reqCounts.inbox, 'Inbox') + cleanupStat(reqCounts.archive == null ? '–' : reqCounts.archive, 'Archive') + cleanupStat(reqCounts.trash == null ? '–' : reqCounts.trash, 'Trash') + '</div></div>' +
+  '<div class="adm-section"><h4>Media overview</h4><div class="adm-cleanup-grid">' + cleanupStat(m.metadataCount == null ? '–' : m.metadataCount, 'Metadata rows') + cleanupStat(cleanupFormatBytes(m.knownBytes), 'Known bytes (metadata only)') + cleanupStat(m.protectedCount == null ? '–' : m.protectedCount, 'Protected') + cleanupStat(m.pendingCount == null ? '–' : m.pendingCount, 'Pending deletion') + '</div>' +
+  '<p class="af-hint">sum(media.size_bytes) is metadata-known size only — it is NOT real Supabase quota while rowless objects exist.</p>' +
+  '<div class="ap-row"><span>Images</span><span>' + esc(cleanupFormatBytes(groups.image)) + '</span></div><div class="ap-row"><span>Video</span><span>' + esc(cleanupFormatBytes(groups.video)) + '</span></div><div class="ap-row"><span>Audio</span><span>' + esc(cleanupFormatBytes(groups.audio)) + '</span></div><div class="ap-row"><span>Other</span><span>' + esc(cleanupFormatBytes(groups.other)) + '</span></div></div>' +
+  '<div class="adm-section"><h4>Top 10 largest files</h4>' + (top || '<p class="af-hint">No sized files.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Possibly unused (' + (m.possiblyUnusedCount == null ? '–' : m.possiblyUnusedCount) + ' · ' + esc(cleanupFormatBytes(m.possiblyUnusedBytes)) + ')</h4><p class="af-hint">Candidates only — Batch 2 never deletes. Mark files the website cannot see (client deliveries, external use) as Protected.</p>' + (unusedList || '<p class="af-hint">None found in this scan.</p>') + (unused.length > 100 ? '<p class="af-hint">Showing 100 of ' + unused.length + '.</p>' : '') + '</div>' +
+  '<div class="adm-section"><h4>Protected (' + protectedEntries.length + ')</h4>' + (protectedList || '<p class="af-hint">No protected files.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Broken references (' + (m.brokenCount == null ? '–' : m.brokenCount) + ')</h4><p class="af-hint">Saved links pointing at objects that no longer exist.</p>' + (brokenList || '<p class="af-hint">None.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Rowless Storage objects (' + (m.rowlessCount == null ? '–' : m.rowlessCount) + ')</h4><p class="af-hint">Bytes in Storage with no media row (e.g. interrupted uploads).</p>' + (rowlessList || '<p class="af-hint">None.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Missing Storage objects (' + (m.missingCount == null ? '–' : m.missingCount) + ')</h4><p class="af-hint">Media rows whose bytes are gone from Storage.</p>' + (missingList || '<p class="af-hint">None.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Pending deletion (' + (m.pendingCount == null ? '–' : m.pendingCount) + ')</h4><p class="af-hint">Tombstones retry from the Media Library, not from here.</p>' + (pendingList || '<p class="af-hint">None.</p>') + '</div>' +
+  '<div class="adm-section"><h4>Scan coverage</h4>' + sourcesList + '<div class="ap-row"><span>Storage objects</span><span>' + esc(String(res.storageObjectCount == null ? '–' : res.storageObjectCount)) + ' across ' + esc(String(res.storagePrefixesWalked == null ? '–' : res.storagePrefixesWalked)) + ' prefixes</span></div></div>';
+}
+async function runCleanupScanNow(){
+  var svc = (typeof window !== 'undefined') ? window.CrabbieAdminCleanup : null;
+  if(!svc || typeof svc.runCleanupScan !== 'function'){ toast('Cleanup scanner is unavailable.'); return; }
+  cleanupPage.state = 'loading'; cleanupPage.error = '';
+  refreshAdminPanel('cleanup');
+  try{
+    var out = await svc.runCleanupScan();
+    cleanupPage.result = out;
+    cleanupPage.state = 'ready'; cleanupPage.error = '';
+    toast(out && out.snapshot && out.snapshot.complete ? 'Scan complete ♡' : 'Scan incomplete — see gaps.');
+  }catch(err){
+    cleanupPage.state = 'error';
+    cleanupPage.error = (err && err.message) || 'Cleanup scan failed.';
+  }
+  refreshAdminPanel('cleanup');
+}
+/* Optimistic Protected flip on the current snapshot (no rescan). Counts for
+   the two affected classifications move with the row. */
+function applyCleanupProtectLocal(storagePath, flag){
+  var res = cleanupPage.result;
+  if(!res || !res.snapshot) return false;
+  var snap = res.snapshot;
+  var changed = false;
+  var lists = [snap.rows || [], snap.rowless || []];
+  for(var li = 0; li < lists.length; li++){
+    var list = lists[li];
+    for(var i = 0; i < list.length; i++){
+      if(list[i].storagePath !== storagePath) continue;
+      var entry = list[i];
+      if(flag && entry.classification !== 'PROTECTED'){
+        if(entry.classification === 'POSSIBLY UNUSED' && snap.metrics){
+          snap.metrics.possiblyUnusedCount = Math.max(0, (snap.metrics.possiblyUnusedCount || 0) - 1);
+          snap.metrics.possiblyUnusedBytes = Math.max(0, (snap.metrics.possiblyUnusedBytes || 0) - (Number(entry.sizeBytes) || 0));
+          if(entry.id) snap.metrics.possiblyUnusedRows = Math.max(0, (snap.metrics.possiblyUnusedRows || 0) - 1);
+          else snap.metrics.possiblyUnusedRowless = Math.max(0, (snap.metrics.possiblyUnusedRowless || 0) - 1);
+        }
+        entry.classification = 'PROTECTED';
+        snap.metrics.protectedCount = (snap.metrics.protectedCount || 0) + 1;
+        entry.state = entry.state || {};
+        entry.state.protected = true;
+        changed = true;
+      } else if(!flag && entry.classification === 'PROTECTED'){
+        entry.classification = snap.complete ? 'POSSIBLY UNUSED' : 'UNKNOWN / INCOMPLETE';
+        if(entry.classification === 'POSSIBLY UNUSED' && snap.metrics){
+          snap.metrics.possiblyUnusedCount = (snap.metrics.possiblyUnusedCount || 0) + 1;
+          snap.metrics.possiblyUnusedBytes = (snap.metrics.possiblyUnusedBytes || 0) + (Number(entry.sizeBytes) || 0);
+          if(entry.id) snap.metrics.possiblyUnusedRows = (snap.metrics.possiblyUnusedRows || 0) + 1;
+          else snap.metrics.possiblyUnusedRowless = (snap.metrics.possiblyUnusedRowless || 0) + 1;
+        }
+        snap.metrics.protectedCount = Math.max(0, (snap.metrics.protectedCount || 0) - 1);
+        entry.state = entry.state || {};
+        entry.state.protected = false;
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+async function runCleanupProtect(encodedPath, flag){
+  var svc = (typeof window !== 'undefined') ? window.CrabbieAdminCleanup : null;
+  if(!svc || typeof svc.setCleanupProtected !== 'function'){ toast('Protect control is unavailable.'); return; }
+  var path = '';
+  try{ path = decodeURIComponent(encodedPath || ''); }catch(e){ path = encodedPath || ''; }
+  if(!path){ toast('A storage path is required.'); return; }
+  try{
+    await svc.setCleanupProtected(path, flag);
+    if(applyCleanupProtectLocal(path, flag)) refreshAdminPanel('cleanup');
+    toast(flag ? 'Marked as Protected.' : 'Protection released. Rescan recommended.');
+  }catch(err){
+    toast((err && err.message) || 'Protect update failed.');
+  }
 }
 
 /* Admin > Appearance: semantic typography colors + website background.
@@ -7620,6 +7793,16 @@ btn.addEventListener('click', function(){
   var snap = reqSnapshotById(id);
   if(!snap) return;
   runRequestRetentionHold(id, snap, btn.getAttribute('data-adm-req-hold-value') === '1');
+});
+});
+$$('[data-adm-cleanup-scan]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  runCleanupScanNow();
+});
+});
+$$('[data-adm-cleanup-protect]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  runCleanupProtect(btn.getAttribute('data-adm-cleanup-protect'), btn.getAttribute('data-adm-cleanup-protect-value') === '1');
 });
 });
 $$('[data-adm-upload-cancel]', adminContent).forEach(function(btn){

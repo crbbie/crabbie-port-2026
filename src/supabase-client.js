@@ -28,4 +28,5 @@ import('./admin-data-audit.js').then(() => {
 });
 import('./admin-draft-guard.js');
 import('./admin-media.js');
+import('./admin-cleanup.js');
 import('./commission-requests.js');

@@ -24,6 +24,7 @@ The browser uses a publishable key. Privileged authorization is enforced with RL
 | `cms_navigation` | CMS navigation |
 | `site_settings` | Key/value site configuration |
 | `media` | Storage metadata and deletion state |
+| `media_cleanup_state` | Read-only scanner state: Protected flag, first-unreferenced anchor, object fingerprint (keyed by storage path; never authorizes deletion) |
 | `admin_audit_log` | Append-only admin/media audit trail |
 
 ## Important relations
@@ -149,6 +150,15 @@ Anonymous metadata/object listing has been restricted, but knowing an object URL
 - do not describe Media Library as private storage.
 
 A future private-draft/promote-to-public design is documented in migration comments but is not implemented.
+
+## Cleanup scanner (read-only)
+
+Admin → Storage & Cleanup runs a manual, read-only scan: every DB page, every
+Storage prefix/page, canonical `bucket/path` identity (percent-decoding
+aware). Any gap forces INCOMPLETE and unreferenced items stay UNKNOWN — never
+"safe to delete". `media_cleanup_state` persists only the Protected flag, the
+first-unreferenced anchor, and the object fingerprint. There is no automatic
+purge, no cron, and no scan history table.
 
 ## Media limits and metadata
 
