@@ -206,16 +206,22 @@ Do not use the same empty message for an error and a legitimate empty result.
 - 1180px
 - 860px
 - 720px
+- 600px (commission grid and request form drop to one column on phones; tablet keeps two columns)
 - 380px
 
 ### Admin breakpoints currently used
 
+- 1185px (list/editor split: side-by-side only while the editor keeps ~560px of usable width; sum of sidebar + gutters + list + gap + scrollbar + editor)
 - 1100px
-- 1000px
 - 900px
 - 860px
 - 720px
 - 640px
+- 560px (media grid drops to one card per row so five card actions stay readable)
+
+The admin topbar height is measured by JS (`installTopbarHeightSync`) into
+`--adm-topbar-h`; sticky lists and scroll offsets follow the real, possibly
+wrapped topbar height rather than a fixed value.
 
 Preserve these unless a focused responsive refactor deliberately consolidates them.
 
@@ -223,8 +229,14 @@ Important current behavior:
 
 - admin split/editor layouts collapse to one column around tablet widths;
 - admin rows become one column on small screens;
-- media grid reduces columns responsively;
-- media toolbar stacks on narrow screens;
+- media grid reduces columns responsively (one card per row on phones);
+- media toolbar is grouped (upload + search / filters / view toggle) and stacks on narrow screens;
+- the media preview dialog owns its width and is the single scroll region (its head keeps a close button);
+- the media picker grid sizes to the dialog width, not the viewport;
+- short admin forms (Contact, Footer, Typography, SEO, Music, Branding) use `.adm-editor-narrow` (~860px); creative editors keep the wider ~1000px column and Terms/About stay wide;
+- Appearance shows controls beside a sticky live preview on desktop and one column (non-sticky preview after the colour groups) on mobile;
+- the dashboard reads intro → quick actions → stats strip → attention/health; Data health rows stack label over a wrapping value;
+- cleanup rows read path → metadata → actions on desktop and stack per record on phones; long cleanup lists are `<details open>` groups that keep their safety warnings visible;
 - public navigation switches to mobile behavior.
 
 After responsive changes, verify at least desktop, tablet, and mobile widths with `npm run test:router` or equivalent browser checks.

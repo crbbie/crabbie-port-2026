@@ -43,9 +43,12 @@ window.scrollTo(0, 0);
 
   /* ADMIN layout scale */
   --adm-sidebar: 244px;
-  --adm-pad-x: 32px;
-  --adm-pad-y: 24px;
+  --adm-pad-x: 24px;
+  --adm-pad-y: 20px;
   --adm-editor-max: 1000px;
+  /* Topbar height fallback used by sticky list and scroll-margin-top.
+     JS keeps this in sync with the real (possibly wrapped) topbar height. */
+  --adm-topbar-h: 68px;
 
   /* Local brand fonts (assets/fonts, woff2). Single Regular weight each;
      bold/italic are synthesized by the browser where requested.
@@ -348,7 +351,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .cta-inner{position:relative;padding: 60px 64px;border-radius: 44px;background: linear-gradient(160deg, #ffe0ee 0%, #f0e0ff 60%, #e0ecff 100%);border: 4px solid #fff;box-shadow:0 0 0 4px var(--pink),0 14px 0 -4px var(--pink-light),0 36px 56px -22px rgba(217,74,128,.5);overflow:hidden;}
 .cta-inner::before{content:""; position:absolute; inset:12px;border: 2px dashed rgba(255,92,154,.4);border-radius: 34px;pointer-events:none;}
 .cta-grid{display:grid; grid-template-columns: 1.2fr 1fr; gap:52px; align-items:center;position:relative;}
-.cta-inner h2{font-family:var(--font-display); font-weight:700;font-size: clamp(28px, 3.4vw, 42px);line-height:1.1; letter-spacing:-.01em;color: var(--pink-hot); margin-bottom: 16px;text-shadow:-3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff, 3px 3px 0 #fff,-3px 0 0 #fff, 3px 0 0 #fff, 0 -3px 0 #fff, 0 3px 0 #fff,0 6px 0 #d94a80;}
+.cta-inner h2{font-family:var(--font-display); font-weight:700;font-size: clamp(28px, 3.4vw, 42px);line-height:1.1; letter-spacing:-.01em;color: var(--pink-hot); margin-bottom: 16px;overflow-wrap:anywhere;text-shadow:-3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff, 3px 3px 0 #fff,-3px 0 0 #fff, 3px 0 0 #fff, 0 -3px 0 #fff, 0 3px 0 #fff,0 6px 0 #d94a80;}
 .cta-inner h2 .hi{ color: var(--purple-hot);}
 .cta-inner p{font-size:15.5px; color: var(--berry-soft); font-weight:600;max-width: 480px; margin-bottom: 26px;}
 .cta-panel{background:#fff;border: 3px solid #fff;border-radius: 26px; padding: 24px;box-shadow:0 0 0 3px var(--yellow),0 10px 0 -4px var(--yellow-light),0 22px 34px -18px rgba(255,190,46,.5);transform: rotate(2deg);}
@@ -506,7 +509,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .spec{display:flex; justify-content:space-between; gap: 18px;padding: 13px 0;border-bottom: 2px dashed var(--pink-light);}
 .spec:last-child{ border-bottom:none; }
 .spec .k{font-family:var(--font-decorative); font-weight:600; font-size: 11.5px;letter-spacing:.12em; text-transform: uppercase; color: var(--berry-faint);flex: 0 0 auto;}
-.spec .v{font-size: 13.5px; font-weight: 800; color: var(--berry);text-align: right;}
+.spec .v{font-size: 13.5px; font-weight: 800; color: var(--berry);text-align: right; min-width:0; overflow-wrap:anywhere;}
 .spec .v.cms-inline{font-family:var(--font-body); font-weight: 400; font-size: 15px;color: var(--berry-soft);}
 .panel{border-radius: 22px; padding: 18px 22px;font-size: 14px; font-weight: 700; line-height:1.6;background: var(--blue-light);border: 2.5px dashed var(--blue-hot);color: var(--berry);}
 .panel + .panel{ margin-top: 14px; }
@@ -553,7 +556,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .acc-inner{ padding: 0 22px 18px; }
 .acc-line{display:flex; justify-content:space-between; gap: 12px;font-size: 12px; font-weight: 700; color: var(--berry-soft);padding: 6px 0; border-bottom: 1.5px dashed var(--pink-light);}
 .acc-line:last-child{ border-bottom: none; }
-.acc-line b{ color: var(--berry); font-weight: 800; text-align:right; }
+.acc-line b{ color: var(--berry); font-weight: 800; text-align:right; min-width:0; overflow-wrap:anywhere; }
 .mini-grid{display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px;margin-bottom: 54px;}
 .mini-card{display:flex; align-items:center; gap: 16px;background:#fff; border: 2.5px solid var(--purple-light);border-radius: 24px; padding: 18px 22px;box-shadow: 0 8px 0 -4px var(--purple-light), 0 18px 30px -20px rgba(138,92,255,.45);transition: transform .35s var(--ease);}
 .mini-card:hover{ transform: translateY(-5px); }
@@ -658,9 +661,9 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .tos-sec h3{display:flex; align-items:center; gap: 14px;font-family:var(--font-display); font-weight:700; font-size: 22px;color: var(--berry); margin-bottom: 16px; letter-spacing:-.01em;}
 .tos-body{background:#fff; border: 3px solid #fff; border-radius: 28px;padding: 28px 32px;box-shadow: 0 0 0 3px var(--pink-light), 0 10px 0 -4px var(--pink-light), 0 22px 34px -20px rgba(217,74,128,.4);}
 .tos-body > * + *{ margin-top: 14px; }
-.tos-body p{ font-size: 14.5px; font-weight: 600; color: var(--berry-soft); line-height:1.75; }
+.tos-body p{ font-size: 14.5px; font-weight: 600; color: var(--berry-soft); line-height:1.75; max-width:72ch; }
 .tos-body p strong{ color: var(--berry); font-weight: 800; }
-.tos-body ul{ list-style: none; display:flex; flex-direction:column; gap: 7px; }
+.tos-body ul{ list-style: none; display:flex; flex-direction:column; gap: 7px; max-width:72ch; }
 .tos-body ul li{position:relative; padding-left: 24px;font-size: 14.5px; font-weight: 600; color: var(--berry-soft); line-height:1.6;}
 .tos-body ul li::before{content:""; position:absolute; left: 4px; top: 9px;width: 8px; height: 8px; border-radius: 50%;background: var(--pink); box-shadow: 0 0 0 3px var(--pink-light);}
 .tos-sub{font-family:var(--font-display); font-weight:600; font-size: 14px;color: var(--berry); margin-top: 18px !important;}
@@ -710,7 +713,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .loading-dots span:nth-child(3){ background: var(--blue-hot); }
 .loading-dots span:nth-child(4){ background: var(--yellow-hot); }
 
-.toast{position: fixed; left: 50%; bottom: 30px; z-index: 120;transform: translate(-50%, 24px);padding: 12px 26px; border-radius: 999px;background: #fff; border: 3px solid var(--pink);box-shadow: 0 8px 0 -3px var(--pink-light), 0 20px 34px -18px rgba(217,74,128,.7);font-family:var(--font-body); font-weight:600; font-size: 13px; color: var(--berry);opacity: 0; pointer-events: none;transition: opacity .3s var(--ease), transform .3s var(--ease);white-space: nowrap;}
+.toast{position: fixed; left: 50%; bottom: 30px; z-index: 120;transform: translate(-50%, 24px);padding: 12px 26px; border-radius: 999px;background: #fff; border: 3px solid var(--pink);box-shadow: 0 8px 0 -3px var(--pink-light), 0 20px 34px -18px rgba(217,74,128,.7);font-family:var(--font-body); font-weight:600; font-size: 13px; color: var(--berry);opacity: 0; pointer-events: none;transition: opacity .3s var(--ease), transform .3s var(--ease);max-width: min(92vw, 520px); text-align:center; overflow-wrap:anywhere;}
 .toast.show{ opacity: 1; transform: translate(-50%, 0); }
 
 /* RESPONSIVE (public site) */
@@ -764,11 +767,13 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .pd-quote{ font-size: 20px; padding: 32px 30px; }
   .blk-body{ padding: 20px 20px; border-radius: 24px; }
   .tos-body{ padding: 22px 20px; border-radius: 24px; }
-  .comm-grid{ grid-template-columns: 1fr; }
   .ad-cta{ padding: 32px 24px; border-radius: 32px; }
 }
-@media (max-width: 380px){
-  .form-grid{ grid-template-columns: 1fr; gap: 0; }
+/* Phones: the commission grid and the request form drop to one column so name,
+   email and select fields keep a comfortable typing width. */
+@media (max-width: 600px){
+  .comm-grid{ grid-template-columns: 1fr; }
+  .form-grid{ grid-template-columns: 1fr; }
 }
 @media (max-width: 720px){
   .wrap{ padding: 0 20px; }
@@ -1292,8 +1297,8 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 
 .admin-main{ display:flex; flex-direction:column; min-width:0; }
 
-.admin-topbar{ padding: 16px var(--adm-pad-x) 14px; border-bottom: 2px dashed var(--purple-light); background: #fff; position: sticky; top: 0; z-index: 5; display:grid; grid-template-columns: minmax(0,1fr) auto; align-items:center; gap:16px;}
-.admin-inner{max-width:1180px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr auto; align-items:center; gap:16px;}
+.admin-topbar{ padding: 12px var(--adm-pad-x) 10px; border-bottom: 2px dashed var(--purple-light); background: #fff; position: sticky; top: 0; z-index: 5; display:grid; grid-template-columns: minmax(0,1fr) auto; align-items:center; gap:16px;}
+.admin-inner{max-width:min(1460px, 100%); margin:0 auto; width:100%; display:grid; grid-template-columns:1fr auto; align-items:center; gap:16px;}
 .admin-topbar .at-left{ display:flex; align-items:center; gap:12px; min-width:0; }
 .admin-topbar .at-eyebrow{font-family:var(--font-decorative); font-weight:600; font-size:10px;letter-spacing:.2em; text-transform:uppercase; color: var(--berry-faint);margin-bottom: 2px;}
 .admin-topbar h1{font-family:var(--font-display); font-weight:700; font-size: 22px;color: var(--berry); letter-spacing:-.01em; line-height:1.15;}
@@ -1324,12 +1329,25 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-stat:nth-child(3) .as-v{ color: var(--blue-hot); }
 .adm-stat:nth-child(4) .as-v{ color: #b98600; }
 .adm-stat .as-sub{margin-top:8px; font-size:11px; font-weight:700; color: var(--berry-faint);}
-.adm-dash-cols{ display:grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 16px;}
+/* Welcome stays compact beside Quick actions; stats form a scannable strip and
+   Attention/Data health share the lower columns. Mobile stacks in reading
+   order: intro -> actions -> stats -> attention/health. */
+.adm-dash-hero{ display:grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 16px; align-items:start;}
+@media (max-width: 1100px){ .adm-dash-hero{ grid-template-columns: 1fr; } }
+.adm-panel-welcome{background:linear-gradient(160deg,#fff 0%, var(--pink-soft) 100%); border-color: var(--pink-light); box-shadow: 0 8px 0 -4px var(--pink-light);}
+.adm-panel-welcome .aw-intro{margin:0; font-size:12.5px; font-weight:700; color: var(--berry-soft);}
+.adm-panel-welcome .aw-actions{margin-top:12px;}
+.adm-dash-cols{ display:grid; grid-template-columns: 1fr 1.35fr; gap: 16px; margin-bottom: 16px;}
 @media (max-width: 1100px){ .adm-dash-cols{ grid-template-columns: 1fr; } }
 .adm-panel{background:#fff; border: 2.5px solid var(--purple-light);border-radius: 22px; padding: 20px 22px;box-shadow: 0 8px 0 -4px var(--purple-light);margin-bottom: 16px;}
 .adm-panel h3{font-family:var(--font-display); font-weight:700; font-size:15px;color: var(--berry); margin-bottom:12px;}
 .adm-panel .ap-row{display:flex; align-items:center; gap:10px; justify-content:space-between;padding: 10px 12px; border-radius:14px;background: var(--pink-soft); border: 1.5px solid var(--pink-light);font-size: 12.5px; font-weight:800; color: var(--berry);margin-bottom:6px;}
 .adm-panel .ap-row:last-child{ margin-bottom:0; }
+/* Data health descriptions are long: the label keeps its own line and the
+   value wraps underneath instead of being squeezed into a badge column. */
+.adm-panel .ap-row.health{ flex-wrap:wrap; align-items:flex-start; gap:4px 10px;}
+.adm-panel .ap-row.health > span:first-child{ min-width:0; }
+.adm-panel .ap-row.health .ap-value{ flex:1 1 100%; min-width:0; text-align:left; font-size:11.5px; font-weight:700; color: var(--berry-soft); overflow-wrap:anywhere; }
 .ap-count{background: var(--purple-light); color: var(--purple-hot);padding:2px 10px; border-radius:999px; font-size:11px; font-weight:800;}
 .adm-note{font-size:11.5px; font-weight:700; color: var(--berry-faint);margin-top:10px; padding:10px 12px;background: var(--pink-soft); border-radius:12px;border:1.5px dashed var(--pink-light);}
 .adm-quick-actions{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1337,13 +1355,16 @@ button.mini-card:focus-visible{ outline:3px solid var(--purple-hot); outline-off
 .adm-quick-actions button:hover{ background: var(--pink-soft); color: var(--berry); border-color: var(--pink); }
 .adm-quick-actions button .qa-ico{ font-size:16px; }
 
-.adm-split{ display:grid; grid-template-columns:minmax(280px, 360px) minmax(0, 1fr); gap:20px; align-items:start;}
-@media (max-width: 1000px){ .adm-split{ grid-template-columns: 1fr; } }
+/* Split stays side-by-side only while the editor keeps ~560px of usable width:
+   sidebar 244 + gutters ~48 + list 300 + gap 18 + editor 560 ≈ 1170px.
+   1185px is that sum (measured: sidebar 244 + gutters 48 + list 300 + gap 18 + scrollbar 15 + editor 560); keep it in sync with the jumpbar/list media queries. */
+.adm-split{ display:grid; grid-template-columns:minmax(260px, 300px) minmax(0, 1fr); gap:18px; align-items:start;}
+@media (max-width: 1185px){ .adm-split{ grid-template-columns: 1fr; } }
 
-.adm-list{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 14px; box-shadow: 0 6px 0 -3px var(--purple-light); position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow:auto;}
-@media (max-width: 1000px){ .adm-list{ position:static; max-height:none; } }
-.adm-list-toolbar{display:flex; gap:8px; margin-bottom: 10px;}
-.adm-list-toolbar input{flex:1 1 auto;padding: 9px 14px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12.5px;outline:none;}
+.adm-list{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 14px; box-shadow: 0 6px 0 -3px var(--purple-light); position: sticky; top: var(--adm-topbar-h); max-height: calc(100vh - var(--adm-topbar-h) - 20px); overflow:auto;}
+@media (max-width: 1185px){ .adm-list{ position:static; max-height:none; } }
+.adm-list-toolbar{display:flex; gap:8px; margin-bottom: 10px; flex-wrap:wrap;}
+.adm-list-toolbar input{flex:1 1 120px; min-width:0; padding: 9px 14px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12.5px;outline:none;}
 .adm-list-toolbar input:focus{ border-color: var(--pink-hot); }
 
 .adm-btn-sm{padding: 8px 14px; border-radius: 12px; cursor:pointer;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:600; font-size: 11.5px; color: var(--berry-soft);transition:.22s var(--ease);}
@@ -1399,15 +1420,15 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-block-head:focus-visible{ outline: 3px solid var(--purple-hot); outline-offset: 2px; border-radius: 12px; }
 .adm-qblock-head:focus-visible{ outline: 3px solid var(--blue-hot); outline-offset: 2px; border-radius: 12px; }
 /* Batch 6: jump bar + collapsible list (desktop unaffected). The helper shows
-   everywhere the split layout is stacked (<=1000px), so tablets get the same
+   everywhere the split layout is stacked (<=1185px), so tablets get the same
    quick path to the editor as phones. */
 .adm-jumpbar{ display: none; gap: 8px; margin-bottom: 10px; }
 .adm-jumpbar button{ flex: 1 1 auto; }
-@media (max-width: 1000px){
+@media (max-width: 1185px){
   .adm-jumpbar{ display: flex; }
   .adm-split.list-collapsed .adm-list > :not(.adm-jumpbar):not(.adm-list-toolbar){ display: none; }
 }
-@media (min-width: 1001px){ .adm-jumpbar{ display: none !important; } }
+@media (min-width: 1186px){ .adm-jumpbar{ display: none !important; } }
 .adm-pub-warning{ margin-top: 10px; background: var(--yellow-light); border: 1.5px solid var(--yellow-hot); color: #8a6200; border-radius: 14px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
 .adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 300px; }
 .adm-media-preview img{ display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
@@ -1423,27 +1444,46 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-music-state.ok{ color: #2e8a55; background: #f1fbf5; border-color: #bfe6cf; }
 .adm-modal-card .am-sub{ white-space: pre-line; }
 
-.adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 22px 24px 18px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: none; width: 100%;}
+.adm-editor{ background:#fff; border: 2.5px solid var(--purple-light); border-radius: 20px; padding: 20px 22px 16px; box-shadow: 0 6px 0 -3px var(--purple-light); min-width:0; max-width: min(var(--adm-editor-max), 100%); width: 100%; scroll-margin-top: calc(var(--adm-topbar-h) + 12px);}
+/* Short forms (Contact, Footer, Typography, SEO…) read better at a comfortable
+   column instead of stretching across the whole workspace. */
+.adm-editor.adm-editor-narrow{ max-width: min(860px, 100%); }
 .adm-editor h2{font-family:var(--font-display); font-weight:700; font-size:18px; color: var(--berry);margin-bottom: 4px;}
 .adm-editor .ae-sub{font-size:11.5px; font-weight:700; color: var(--berry-faint); margin-bottom: 16px;}
-.adm-section{background: var(--pink-soft);border: 1.5px dashed var(--pink-light);border-radius: 16px; padding: 16px 18px;margin-bottom: 16px;}
-.adm-section h4{font-family:var(--font-decorative); font-weight:700; font-size:11px;letter-spacing:.16em; text-transform:uppercase; color: var(--berry-faint);margin-bottom:12px;}
-.adm-row{display:grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items:start;}
+.adm-section{background: var(--pink-soft);border: 1.5px dashed var(--pink-light);border-radius: 16px; padding: 14px 16px;margin-bottom: 14px;}
+.adm-section h4{font-family:var(--font-decorative); font-weight:700; font-size:11px;letter-spacing:.16em; text-transform:uppercase; color: var(--berry-faint);margin-bottom:10px;}
+.adm-row{display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start;}
 .adm-row.one{ grid-template-columns: 1fr; }
 .adm-row.three{ grid-template-columns: 1fr 1fr 1fr; }
+/* Title + auto-slug pairs: the editable title gets the extra width, the
+   readonly slug only needs enough room to be read. */
+.adm-row.title-slug{ grid-template-columns: 1.6fr 1fr; }
 /* Mobile admin: short controls stay in two columns; long/reading fields and
-   media pickers span the full width. Very narrow screens fall back to one. */
+   media pickers span the full width. Even at very narrow widths short paired
+   controls (colours, price/currency, counts) keep two columns, so the one
+   -column fallback is reserved for fields caught by the span rules above. */
 @media (max-width: 720px){
   .adm-row, .adm-row.three{ grid-template-columns: 1fr 1fr; }
+  /* Explicit short pairs (price/currency, availability, type/required) stay
+     side by side even when one side is a select. */
+  .adm-row.pair{ grid-template-columns: 1.2fr 1fr; }
+  .adm-row.pair > .adm-field:has(select){ grid-column: auto; }
   .adm-row > .adm-field:has(textarea),
   .adm-row > .adm-field:has(.adm-media-preview),
   .adm-row > .adm-field:has(.adm-media-actions),
   .adm-row > .adm-field:has(audio),
   .adm-row > .adm-field:has(video),
   .adm-row > .adm-field:has(.adm-upload-status),
-  .adm-row > .adm-field:has(input[type="range"]){ grid-column: 1 / -1; }
+  .adm-row > .adm-field:has(input[type="range"]),
+  .adm-row > .adm-field:has(input[type="url"]),
+  .adm-row > .adm-field:has(select){ grid-column: 1 / -1; }
 }
-@media (max-width: 380px){ .adm-row, .adm-row.three{ grid-template-columns: 1fr; } }
+/* Mobile: trim the stacked padding layers (gutter -> editor -> section) so
+   fields keep usable width on phones; desktop keeps the roomier scale. */
+@media (max-width: 720px){
+  .adm-editor{ padding: 16px 14px 12px; }
+  .adm-section{ padding: 12px 12px; }
+}
 .adm-field{ display:flex; flex-direction:column; gap:5px; min-width:0; }
 .adm-field .af-label{font-family:var(--font-decorative); font-weight:600; font-size:11.5px;color: var(--berry); letter-spacing:.02em;}
 .adm-field .af-label .af-req{ color: var(--pink-hot); }
@@ -1500,9 +1540,16 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-rule-box{background: var(--yellow-light); border: 2px dashed var(--yellow-hot);border-radius: 14px; padding: 12px 14px;font-size:11.5px; font-weight:800; color: var(--berry);margin-bottom:16px;}
 .adm-rule-box b{ color: var(--pink-hot); }
 
-.adm-req-toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;}
+/* Requests: the lifecycle tabs and the filters/search/refresh controls live in
+   a full-width header above the split, so the narrow list column only holds
+   selectable rows and the pager instead of six competing controls. */
+.adm-req-header{ margin-bottom: 14px; }
+.adm-req-toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 0;}
 .adm-req-toolbar select{padding: 8px 12px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12px; color: var(--berry);}
+.adm-req-toolbar input[type="search"]{flex:1 1 180px; min-width:0; padding: 9px 14px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12.5px; color: var(--berry); outline:none;}
+.adm-req-toolbar input[type="search"]:focus{ border-color: var(--pink-hot); }
 .adm-req-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px;}
+.adm-req-listbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin-bottom:10px;}
 .adm-scan-badge{display:inline-block; font-family:var(--font-decorative); font-weight:600; font-size:10px; letter-spacing:.12em; padding:4px 12px; border-radius:8px;}
 .adm-scan-badge.complete{background:#d1f0dc; color:#2e8a55;}
 .adm-scan-badge.incomplete{background:#ffe2ea; color: var(--pink-hot);}
@@ -1510,17 +1557,34 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-cleanup-stat{background:#fff; border:1.5px solid var(--pink-light); border-radius:12px; padding:10px 12px;}
 .adm-cleanup-stat .cs-num{font-family:var(--font-body); font-weight:700; font-size:16px; color: var(--berry);}
 .adm-cleanup-stat .cs-label{font-size:11px; font-weight:700; color: var(--berry-faint); margin-top:2px;}
-.adm-cleanup-row{display:flex; gap:8px; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; border:1.5px solid var(--pink-light); background:#fff; margin-bottom:6px; font-size:12px; font-weight:700; color: var(--berry); flex-wrap:wrap;}
-.adm-cleanup-row .cs-path{word-break:break-all; font-weight:700;}
-.adm-cleanup-row .cs-meta{font-size:11px; color: var(--berry-faint); font-weight:700;}
+/* Desktop reads as columns (path -> metadata -> actions) so rows compare
+   easily; phones stack each record into one vertical cluster. */
+.adm-cleanup-row{display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto; gap:6px 12px; align-items:center; padding:8px 10px; border-radius:10px; border:1.5px solid var(--pink-light); background:#fff; margin-bottom:6px; font-size:12px; font-weight:700; color: var(--berry);}
+.adm-cleanup-row .cs-path{word-break:break-all; font-weight:700; min-width:0;}
+.adm-cleanup-row .cs-meta{font-size:11px; color: var(--berry-faint); font-weight:700; min-width:0; overflow-wrap:anywhere;}
+.adm-cleanup-row .cs-actions{display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+@media (max-width:720px){
+  .adm-cleanup-row{grid-template-columns:1fr;}
+  .adm-cleanup-row .cs-actions{justify-content:flex-start;}
+}
+/* Collapsible long lists keep the .adm-section card look; the summary carries
+   the title and count and starts open so safety warnings stay visible. */
+details.adm-cleanup-group{background:var(--pink-soft); border:1.5px dashed var(--pink-light); border-radius:16px; padding:14px 16px; margin-bottom:14px;}
+details.adm-cleanup-group > summary{cursor:pointer; list-style:none; font-family:var(--font-decorative); font-weight:700; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--berry-faint); display:flex; align-items:center; gap:8px;}
+details.adm-cleanup-group[open] > summary{ margin-bottom:10px; }
+details.adm-cleanup-group > summary::-webkit-details-marker{ display:none; }
+details.adm-cleanup-group > summary::before{ content:"▸"; transition: transform .2s; }
+details.adm-cleanup-group[open] > summary::before{ transform: rotate(90deg); }
+details.adm-cleanup-group > summary:focus-visible{ outline:3px solid var(--purple-hot); outline-offset:2px; border-radius:6px; }
 .adm-check-all{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color: var(--berry);}
-.adm-req-row{display:grid; grid-template-columns: auto 1fr auto; gap:6px;padding: 11px 12px; border-radius:14px;border:1.5px solid var(--pink-light); background:#fff;margin-bottom:6px; cursor:pointer; align-items:center;}
+.adm-req-row{display:grid; grid-template-columns: auto minmax(0,1fr) auto; gap:8px;padding: 11px 12px; border-radius:14px;border:1.5px solid var(--pink-light); background:#fff;margin-bottom:6px; cursor:pointer; align-items:center;}
 .adm-req-row input[type="checkbox"]{width:16px; height:16px; accent-color: var(--pink-hot);}
 .rr-hold{font-size:12px;}
+.adm-req-row .rr-main{min-width:0;}
 .adm-req-row[aria-selected="true"]{background: linear-gradient(180deg, var(--pink-light) 0%, var(--pink-soft) 100%);border-color: var(--pink-hot);box-shadow: 0 0 0 2px var(--pink-light);}
-.adm-req-row .rr-name{font-family:var(--font-body); font-weight:700; font-size:12.5px; color: var(--berry);}
-.adm-req-row .rr-meta{font-size:11px; font-weight:700; color: var(--berry-faint);margin-top:2px;}
-.adm-req-row .rr-status{align-self:center; font-family:var(--font-decorative); font-weight:600; font-size:9.5px;letter-spacing:.1em; padding:3px 10px; border-radius:8px;background: var(--blue-light); color: var(--blue-hot);}
+.adm-req-row .rr-name{font-family:var(--font-body); font-weight:700; font-size:12.5px; color: var(--berry); overflow-wrap:anywhere;}
+.adm-req-row .rr-meta{font-size:11px; font-weight:700; color: var(--berry-faint);margin-top:2px; overflow-wrap:anywhere;}
+.adm-req-row .rr-status{align-self:center; justify-self:end; white-space:nowrap; font-family:var(--font-decorative); font-weight:600; font-size:9.5px;letter-spacing:.1em; padding:3px 10px; border-radius:8px;background: var(--blue-light); color: var(--blue-hot);}
 .adm-req-row .rr-status.reviewing{ background: var(--purple-light); color: var(--purple-hot); }
 .adm-req-row .rr-status.contacted{ background: var(--yellow-light); color:#b98600; }
 .adm-req-row .rr-status.accepted{ background:#d1f0dc; color:#2e8a55; }
@@ -1534,10 +1598,31 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-email-panel[data-state="sent"]{ background: #d1f0dc; border-color: #5ac48a; }
 .adm-email-panel h4{font-family:var(--font-display); font-weight:700; font-size:12.5px;color: var(--berry); margin-bottom:6px;}
 .adm-email-panel p{ font-size:11.5px; font-weight:700; color: var(--berry-soft); }
+/* A secondary notice: compact, placed after the request brief, never more
+   prominent than the submitted answers. */
+.adm-email-panel.compact{padding:10px 12px; margin-bottom:14px; border-width:1.5px;}
+.adm-email-panel.compact h4{font-size:11.5px; margin-bottom:2px;}
+.adm-email-panel.compact p{font-size:11px;}
+/* Submitted answers: label above, value below; long content wraps instead of
+   being squeezed into two narrow columns. */
+.adm-answers{display:flex; flex-direction:column; gap:10px;}
+.adm-answer{background:#fff; border:1.5px solid var(--pink-light); border-radius:12px; padding:9px 12px; min-width:0;}
+.adm-answer .aa-label{font-family:var(--font-decorative); font-weight:600; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color: var(--berry-faint); margin-bottom:3px;}
+.adm-answer .aa-value{font-size:12.5px; font-weight:700; color: var(--berry); white-space:pre-wrap; overflow-wrap:anywhere;}
+/* Lifecycle actions sit apart from the Save action: non-destructive on the
+   left, destructive separated by a divider on the right. */
+.adm-req-acts{display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.adm-req-acts.danger{margin-left:12px; padding-left:12px; border-left:2px dashed var(--pink-light);}
 
 .adm-media-grid{display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px;}
 @media (max-width: 1100px){ .adm-media-grid{ grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 860px){ .adm-media-grid{ grid-template-columns: repeat(2, 1fr); } }
+/* One card per row on phones: five actions wrap to a readable width instead of
+   being squeezed into half a screen. */
+@media (max-width: 560px){ .adm-media-grid{ grid-template-columns: 1fr; } }
+/* The picker grid lives inside the modal, so it tracks the card width rather
+   than the viewport (which can be far wider than the dialog). */
+#adminMediaPickerGrid{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .adm-panel-state{padding:26px 16px; text-align:center; color:var(--berry-soft); font-weight:700;}
 .adm-panel-state.error{color:#b3261e;}
 .adm-panel-state button{margin-top:12px;}
@@ -1556,7 +1641,10 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 .adm-media-body{ padding: 10px 12px; }
 .adm-media-body .mb-title{font-family:var(--font-body); font-weight:700; font-size:12px; color: var(--berry);white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .adm-media-body .mb-meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap;margin-top:6px; font-size:10.5px; font-weight:700; color: var(--berry-faint);}
-.adm-media-body .mb-actions{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.mb-actions{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.adm-media-body .mb-actions{ margin-top:8px; }
+/* Destructive action sits apart from the secondary actions on its line. */
+.mb-actions .mb-danger{ margin-left:auto; }
 
 .adm-modal{position:fixed; inset:0; z-index: 200;display:none; align-items:center; justify-content:center;padding: 20px;}
 .adm-modal.open{ display:flex; }
@@ -1605,8 +1693,11 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 
 .adm-media-item{background:#fff; border:2px solid var(--blue-light); border-radius:14px; padding:10px 12px; margin-bottom:8px; display:grid; grid-template-columns: 70px 1fr; gap:12px; align-items:start;}
 .adm-media-item .mi-thumb{aspect-ratio:1/1; background: linear-gradient(160deg, var(--purple-light), #d9efff); border-radius:10px; display:grid; place-items:center; font-size:20px; color:var(--purple-hot); border:2px solid #fff; box-shadow:0 0 0 1.5px var(--purple-light);}
-.adm-media-item .mi-actions{display:flex; gap:2px; margin-top:6px;}
-.adm-media-item .mi-actions button{width:22px; height:22px; border-radius:50%; border:none; cursor:pointer; background:var(--blue-light); color:var(--blue-hot); font-size:10px; font-weight:900; display:grid; place-items:center;}
+.adm-media-item .mi-actions{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; align-items:center;}
+/* Text actions size to their label; only icon actions keep a round hit target. */
+.adm-media-item .mi-actions button{border-radius:10px; border:none; cursor:pointer; background:var(--blue-light); color:var(--blue-hot); font-size:11px; font-weight:800; padding:6px 12px;}
+.adm-media-item .mi-actions button.mi-icon{width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; font-size:12px;}
+.adm-media-item .mi-actions button:hover{background:var(--blue-hot); color:#fff;}
 
 .adm-ui-copy-row{display:grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap:10px; padding:10px 12px; border-radius:12px; background:#fff; border:1.5px solid var(--pink-light); margin-bottom:6px; align-items:start;}
 .adm-ui-copy-row .uc-key{font-family:var(--font-body); font-weight:700; font-size:11px; color: var(--purple-hot); word-break:break-all;}
@@ -1619,16 +1710,26 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 
 .adm-workspace{ max-width: min(1460px, 100%); margin: 0 auto; width: 100%; }
 
+/* Sidebar drawer collapses on mobile/narrow tablet */
 @media (max-width: 860px){
   .admin-shell{ grid-template-columns: 1fr; }
   .admin-sidebar{position: fixed; top: 0; bottom: 0; left: 0;width: 260px; z-index: 100;transform: translateX(-100%);transition: transform .3s var(--ease);}
   .admin-sidebar.open{ transform: translateX(0); box-shadow: 0 0 0 3px rgba(138,92,255,.3), 20px 0 40px -18px rgba(122,61,110,.5); }
   .adm-burger{ display:flex; }
-  .admin-topbar{ padding: 14px 18px; grid-template-columns: 1fr; }
-  .admin-topbar .at-right{ flex-wrap:wrap; }
-  .admin-content{ padding: 18px 18px 32px; }
+  .admin-topbar{ padding: 12px 16px; grid-template-columns: 1fr; }
+  .admin-topbar .at-right{ flex-wrap:wrap; gap:6px; }
+  .admin-content{ padding: 16px 16px 32px; }
   .adm-dash-grid{ grid-template-columns: repeat(2, 1fr); }
   .adm-editor{ max-width:100%; }
+}
+/* Intermediate: tablet with sidebar, topbar gutters match .admin-content */
+@media (min-width: 861px) and (max-width: 1185px){
+  .admin-topbar{ padding: 12px var(--adm-pad-x) 10px; }
+  .adm-dash-grid{ grid-template-columns: repeat(2, 1fr); }
+}
+/* On narrow screens, lang toggle can stay hidden if at-right is too crowded */
+@media (max-width: 640px){
+  .adm-lang{ display:none; }
 }
 
 /* ============================================================
@@ -1794,29 +1895,59 @@ html.home-reveal-sequence.home-reveal-active footer{
   .home-transition-sparkle{animation:none!important;}
 }
 
+/* Toolbar groups: Upload + Search, then Type/Sort/Date filters, then the view
+   toggle. Each group wraps as a unit instead of a single undifferentiated row. */
 .adm-media-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.mdt-primary{display:flex;gap:8px;align-items:center;flex:1 1 260px;min-width:0;}
+.mdt-primary input[type="search"]{flex:1 1 140px;min-width:0;}
+.mdt-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.adm-media-toolbar input[type="search"],
+.adm-media-toolbar input[type="date"],
+.adm-media-toolbar select{padding:8px 12px;border-radius:12px;border:2px solid var(--pink-light);background:#fff;font-family:var(--font-body);font-weight:700;font-size:12px;color:var(--berry);outline:none;}
+.adm-media-toolbar input[type="search"]:focus,
+.adm-media-toolbar input[type="date"]:focus,
+.adm-media-toolbar select:focus{border-color:var(--pink-hot);}
 .adm-view-toggle{display:flex;gap:4px;margin-left:auto;}
 .adm-view-toggle button[aria-pressed="true"]{background:var(--berry);color:#fff;}
 .adm-bulk-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0;padding:10px 12px;border-radius:12px;background:#fff;border:2px solid var(--pink-light);font-weight:700;color:var(--berry);}
 .adm-media-grid.view-list{display:block;}
-.adm-media-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border:2px solid var(--pink-light);border-radius:14px;background:#fff;margin-bottom:8px;}
+.adm-media-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border:2px solid var(--pink-light);border-radius:14px;background:#fff;margin-bottom:8px;flex-wrap:wrap;}
 .adm-media-row.selected{border-color:var(--berry);}
 .adm-media-row-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#fbeef5;display:flex;align-items:center;justify-content:center;font-size:22px;}
-.adm-media-row-main{flex:1;min-width:0;}
+.adm-media-row-main{flex:1 1 140px;min-width:0;}
+.adm-media-row .mb-actions{margin-left:auto;justify-content:flex-end;}
 .adm-media-pickbox{position:absolute;top:8px;right:8px;z-index:2;background:#fff;border-radius:8px;}
 .adm-preview-host{display:none;}
 .adm-preview-host.open{display:flex;align-items:center;justify-content:center;}
-.adm-preview{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;width:min(1100px,94vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;padding:16px;}
-.adm-preview-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;}
-.adm-preview-body{min-height:220px;display:flex;align-items:center;justify-content:center;background:#fbeef5;border-radius:14px;}
+/* The modal card owns the width and the single scroll region; the preview
+   itself fills it and never introduces a second scrollbar. */
+#adminMediaPreviewModal .adm-modal-card{max-width:min(1100px,94vw);}
+#adminMediaPreviewModal .adm-preview{width:100%;min-width:0;overflow:visible;}
+.adm-preview{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:16px;width:100%;min-width:0;background:#fff;border-radius:18px;padding:16px;}
+.adm-preview-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.adm-preview-head h3{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;}
+.adm-preview-close{width:34px;height:34px;border-radius:50%;border:2px solid var(--pink-light);background:#fff;color:var(--pink-hot);font-size:16px;font-weight:900;cursor:pointer;display:grid;place-items:center;flex:0 0 auto;}
+.adm-preview-close:hover{border-color:var(--pink-hot);}
+.adm-preview-body{min-height:220px;display:flex;align-items:center;justify-content:center;background:#fbeef5;border-radius:14px;overflow:hidden;}
 .adm-preview-visual{max-width:100%;max-height:62vh;object-fit:contain;}
 .adm-preview-frame{width:100%;height:62vh;border:0;}
+.adm-preview-body video{max-width:100%;max-height:62vh;}
+.adm-preview-body audio{width:100%;max-width:520px;}
 .adm-preview-side{display:flex;flex-direction:column;gap:10px;min-width:0;}
-.adm-preview-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;}
+.adm-preview-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;align-items:flex-start;}
+.adm-preview-row > span{min-width:0;overflow-wrap:anywhere;}
+.adm-preview-row > span:last-child{text-align:right;}
 .adm-preview-actions{display:flex;flex-wrap:wrap;gap:8px;}
 .adm-dropzone-active{outline:3px dashed var(--berry);outline-offset:-6px;}
 @media (max-width:900px){.adm-preview{grid-template-columns:1fr;}}
-@media (max-width:640px){.adm-media-toolbar{flex-direction:column;align-items:stretch;}.adm-view-toggle{margin-left:0;}.adm-media-row{flex-wrap:wrap;}.adm-pagination{flex-wrap:wrap;gap:8px;}.adm-preview{padding:10px;}}
+@media (max-width:640px){
+  .adm-media-toolbar{flex-direction:column;align-items:stretch;}
+  .mdt-primary{flex:1 1 100%;}
+  .adm-view-toggle{margin-left:0;}
+  .adm-media-row .mb-actions{margin-left:0;width:100%;justify-content:flex-start;}
+  .adm-pagination{flex-wrap:wrap;gap:8px;}
+  .adm-preview{padding:10px;}
+}
 
 </style>
 
@@ -2491,6 +2622,16 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
   background:#fff;font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--berry);outline:none;}
 .adm-palette-name:focus{border-color:var(--pink-hot);}
 .adm-palette-actions{display:flex;flex-wrap:wrap;gap:6px;}
+/* Appearance controls on the left, the live preview alongside on desktop so a
+   colour change is visible without scrolling. Mobile falls back to one column
+   with the preview right after the colour groups, not sticky. */
+.adm-appearance-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:16px;align-items:start;}
+.adm-appearance-controls{min-width:0;}
+.adm-appearance-preview-col{grid-column:2;grid-row:1 / span 2;position:sticky;top:calc(var(--adm-topbar-h) + 12px);}
+@media (max-width:1100px){
+  .adm-appearance-grid{grid-template-columns:1fr;}
+  .adm-appearance-preview-col{grid-column:auto;grid-row:auto;position:static;}
+}
 .adm-music-preview{margin-top:12px;}
 .adm-music-preview audio{width:100%;max-width:420px;}
 </style>
@@ -5869,33 +6010,40 @@ if(H){
     if(s.missingForms) bits.push(s.missingForms + ' ' + tAdmin('dash.healthMissingForms'));
     return bits.join(' · ');
   };
+  var healthRow = function(label, value){
+    return '<div class="ap-row health"><span>' + label + '</span><span class="ap-value">' + value + '</span></div>';
+  };
   healthRows =
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.portfolio')) + '</span><span class="ap-count">' + esc(healthLine(H.portfolio)) + '</span></div>' +
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.assets')) + '</span><span class="ap-count">' + esc(healthLine(H.assets)) + '</span></div>' +
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.commissions')) + '</span><span class="ap-count">' + esc(healthLine(H.commissions)) + '</span></div>' +
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.about')) + '</span><span class="ap-count">' + esc(H.about.issues ? tAdmin('dash.healthAboutNeeds') + ' (' + H.about.issues + ')' : tAdmin('dash.healthLooks')) + '</span></div>' +
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.terms')) + '</span><span class="ap-count">' + esc(H.terms.issues ? tAdmin('dash.healthTermsReview') + ' (' + H.terms.issues + ')' : tAdmin('dash.healthLooks')) + '</span></div>' +
-    '<div class="ap-row"><span>' + esc(tAdmin('nav.media')) + '</span><span class="ap-count">' + H.media.total + '</span></div>';
+    healthRow(esc(tAdmin('nav.portfolio')), esc(healthLine(H.portfolio))) +
+    healthRow(esc(tAdmin('nav.assets')), esc(healthLine(H.assets))) +
+    healthRow(esc(tAdmin('nav.commissions')), esc(healthLine(H.commissions))) +
+    healthRow(esc(tAdmin('nav.about')), esc(H.about.issues ? tAdmin('dash.healthAboutNeeds') + ' (' + H.about.issues + ')' : tAdmin('dash.healthLooks'))) +
+    healthRow(esc(tAdmin('nav.terms')), esc(H.terms.issues ? tAdmin('dash.healthTermsReview') + ' (' + H.terms.issues + ')' : tAdmin('dash.healthLooks'))) +
+    healthRow(esc(tAdmin('nav.media')), String(H.media.total));
 }
-return '<div class="adm-panel" style="background:linear-gradient(160deg,#fff 0%, var(--pink-soft) 100%); border-color: var(--pink-light); box-shadow: 0 8px 0 -4px var(--pink-light);"><h3>' + esc(tAdmin('dash.welcome')) + '</h3><p style="font-size:12.5px; font-weight:700; color: var(--berry-soft);">' + esc(tAdmin('dash.intro')) + '</p><div style="margin-top:12px;"><button type="button" class="adm-btn-sm primary" data-admin-jump="requests">' + esc(tAdmin('dash.openRequests')) + '</button></div></div>' +
-'<div class="adm-dash-grid">' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.projects')) + '</div><div class="as-v">' + counts.projects + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.assets')) + '</div><div class="as-v">' + counts.assets + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.commissions')) + '</div><div class="as-v">' + counts.commissions + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
-'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.media')) + '</div><div class="as-v">' + counts.media + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
-'</div>' +
-(healthRows ? '<div class="adm-panel" style="margin-top:14px;"><h3>' + esc(tAdmin('dash.dataHealth')) + '</h3>' + healthRows + '</div>' : '') +
-'<div class="adm-dash-cols"><div class="adm-panel"><h3>' + esc(tAdmin('dash.attention')) + '</h3>' +
-'<div class="ap-row"><span>' + esc(tAdmin('dash.placeholderCount')) + '</span><span class="ap-count">' + placeholders + '</span></div>' +
-'<div class="ap-row"><span>' + esc(tAdmin('dash.drafts')) + '</span><span class="ap-count">' + drafts + '</span></div>' +
-'<div class="ap-row"><span>' + esc(tAdmin('dash.failedEmail')) + '</span><span class="ap-count">' + requestCount + '</span></div>' +
-'</div><div class="adm-panel"><h3>' + esc(tAdmin('dash.quickActions')) + '</h3>' +
+var welcomePanel = '<div class="adm-panel adm-panel-welcome"><h3>' + esc(tAdmin('dash.welcome')) + '</h3><p class="aw-intro">' + esc(tAdmin('dash.intro')) + '</p><div class="aw-actions"><button type="button" class="adm-btn-sm primary" data-admin-jump="requests">' + esc(tAdmin('dash.openRequests')) + '</button></div></div>';
+var quickPanel = '<div class="adm-panel"><h3>' + esc(tAdmin('dash.quickActions')) + '</h3>' +
 '<div class="adm-quick-actions">' +
 '<button type="button" data-admin-jump="portfolio"><span class="qa-ico">❀</span>' + esc(tAdmin('dash.qaAddProject')) + '</button>' +
 '<button type="button" data-admin-jump="assets"><span class="qa-ico">★</span>' + esc(tAdmin('dash.qaAddAsset')) + '</button>' +
 '<button type="button" data-admin-jump="requests"><span class="qa-ico">✉</span>' + esc(tAdmin('dash.qaOpenRequests')) + '</button>' +
 '<button type="button" data-admin-jump="media"><span class="qa-ico">☁</span>' + esc(tAdmin('dash.qaUploadMedia')) + '</button>' +
-'</div></div></div>';
+'</div></div>';
+var statsStrip = '<div class="adm-dash-grid">' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.projects')) + '</div><div class="as-v">' + counts.projects + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.assets')) + '</div><div class="as-v">' + counts.assets + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.commissions')) + '</div><div class="as-v">' + counts.commissions + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'<div class="adm-stat"><div class="as-k">' + esc(tAdmin('dash.media')) + '</div><div class="as-v">' + counts.media + '</div><div class="as-sub">' + esc(tAdmin('dash.itemCount')) + '</div></div>' +
+'</div>';
+var attentionPanel = '<div class="adm-panel"><h3>' + esc(tAdmin('dash.attention')) + '</h3>' +
+'<div class="ap-row"><span>' + esc(tAdmin('dash.placeholderCount')) + '</span><span class="ap-count">' + placeholders + '</span></div>' +
+'<div class="ap-row"><span>' + esc(tAdmin('dash.drafts')) + '</span><span class="ap-count">' + drafts + '</span></div>' +
+'<div class="ap-row"><span>' + esc(tAdmin('dash.failedEmail')) + '</span><span class="ap-count">' + requestCount + '</span></div>' +
+'</div>';
+var healthPanel = healthRows ? '<div class="adm-panel"><h3>' + esc(tAdmin('dash.dataHealth')) + '</h3>' + healthRows + '</div>' : '';
+return '<div class="adm-dash-hero">' + welcomePanel + quickPanel + '</div>' +
+statsStrip +
+'<div class="adm-dash-cols">' + attentionPanel + healthPanel + '</div>';
 }
 
 function renderAdminPortfolio(){
@@ -5930,11 +6078,11 @@ var modeOptions = [
 ];
 var basic =
 '<div class="adm-section"><h4>Basic info</h4>' +
-'<div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' +
+'<div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title', { required:true }) + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' +
 '<div class="adm-row" style="margin-top:10px;">' + inputSelect(modeLabel, base + '.cardMode', modeOptions) + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.portfolioCategories, rec.category)) + '</div>' +
 '<div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + inputText(tAdmin('label.date'), base + '.year') + '</div>' +
 (imageOnly ? inputTextarea(currentAdminLang === 'vi' ? 'Chú thích (hiện trong lightbox)' : 'Caption (shown in the lightbox)', base + '.description', { full:true, minHeight:60, hint: currentAdminLang === 'vi' ? 'Có thể để trống.' : 'Optional — leave empty to hide.' }) : inputTextarea(tAdmin('label.description'), base + '.description', { full:true, minHeight:70 })) +
-'<div class="adm-row" style="margin-top:10px;">' + mediaField(tAdmin('label.cover'), base + '.cover', { fallbackPath: base + '.thumbnail', clearPaths: [base + '.thumbnail'], hint: currentAdminLang === 'vi' ? 'Ảnh chính duy nhất — thumbnail card tự crop từ ảnh này.' : 'Single main image — the card thumbnail auto-crops from it.' }) + '</div></div>';
+'<div class="adm-row one" style="margin-top:10px;">' + mediaField(tAdmin('label.cover'), base + '.cover', { fallbackPath: base + '.thumbnail', clearPaths: [base + '.thumbnail'], hint: currentAdminLang === 'vi' ? 'Ảnh chính duy nhất — thumbnail card tự crop từ ảnh này.' : 'Single main image — the card thumbnail auto-crops from it.' }) + '</div></div>';
 var projectOnly = imageOnly ? '' :
 '<div class="adm-section"><h4>' + esc(tAdmin('label.externalLinks')) + '</h4>' + linksHtml + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>';
@@ -6006,7 +6154,7 @@ var src = (typeof m === 'string' ? m : m.url) || '';
 var thumb = src && /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i.test(src) || src.indexOf('/storage/v1/object/public/media/') !== -1
   ? (src ? '<img src="' + esc(src) + '" alt="' + esc((typeof m === 'object' && m.alt) || '') + '" loading="lazy">' : '🖼')
   : (src ? '<span class="adm-file-chip">📎 ' + esc(String(src).split('/').pop()) + '</span>' : '🖼');
-return '<div class="adm-media-item"><div class="mi-thumb">' + thumb + '</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc((typeof m === 'object' && m.alt) || '') + '"></label><label class="adm-field"><span class="af-label">Caption</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="caption" value="' + esc((typeof m === 'object' && m.caption) || '') + '"></label></div><div class="mi-actions"><button type="button" data-adm-mi-replace="' + path + '" data-adm-mi-i="' + i + '">Replace</button><button type="button" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '">⎘</button><button type="button" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '">✕</button></div></div></div>';
+return '<div class="adm-media-item"><div class="mi-thumb">' + thumb + '</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc((typeof m === 'object' && m.alt) || '') + '"></label><label class="adm-field"><span class="af-label">Caption</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="caption" value="' + esc((typeof m === 'object' && m.caption) || '') + '"></label></div><div class="mi-actions"><button type="button" data-adm-mi-replace="' + path + '" data-adm-mi-i="' + i + '">Replace</button><button type="button" class="mi-icon" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '" aria-label="Duplicate">⎘</button><button type="button" class="mi-icon" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '" aria-label="Remove">✕</button></div></div></div>';
 }).join('');
 return '<div>' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-mi-add="' + path + '">' + esc(tAdmin('btn.addMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + path + '.items">Add from library</button>';
 }
@@ -6019,7 +6167,7 @@ var list = ADMIN_DRAFT.assets;
 var selected = ADMIN_UI.selection.assets || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
-return '<div class="adm-record" role="option" data-adm-select="assets" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span style="display:flex;gap:4px;"><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>' + healthBadge(auditFor('assets', r)) + '</span></div>';
+return '<div class="adm-record adm-record-two" role="option" data-adm-select="assets" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-main"><span class="ar-title">' + esc(r.title) + '</span><span class="ar-badges"><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>' + healthBadge(auditFor('assets', r)) + '</span></span></div>';
 }).join('');
 var editor = rec ? renderAssetEditor(rec) : '<div class="adm-editor"><h2>Select an asset</h2></div>';
 return tabs + '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="assets"><button type="button" class="adm-btn-sm primary" data-adm-new="assets">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
@@ -6030,7 +6178,7 @@ var base = 'assets.' + rec.id;
 var aAudit = auditFor('assets', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="assets.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b></p>' +
 checklistPanel(aAudit) +
-'<div class="adm-section"><h4>Basic info</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
+'<div class="adm-section"><h4>Basic info</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div></div>' +
 '<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
@@ -6040,10 +6188,10 @@ checklistPanel(aAudit) +
 function renderCategoryList(listKey, list, selected){
 if(!selected) selected = list[0] && list[0].id;
 var rows = list.map(function(r){
-return '<div class="adm-record" role="option" data-adm-select="' + listKey + '" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
+return '<div class="adm-record adm-record-two" role="option" data-adm-select="' + listKey + '" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-main"><span class="ar-title">' + esc(r.title) + '</span><span class="ar-badges"><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></span></span></div>';
 }).join('');
 var sel = list.filter(function(r){ return r.id === selected; })[0] || list[0];
-var editor = sel ? '<div class="adm-editor"><h2>' + esc(sel.title) + '</h2><div class="adm-section"><h4>Category</h4><div class="adm-row">' + inputText(tAdmin('label.title'), listKey + '.' + sel.id + '.title') + inputText(tAdmin('label.slug'), listKey + '.' + sel.id + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div><div style="margin-top:10px;">' + inputCheck(tAdmin('label.published'), listKey + '.' + sel.id + '.published') + '</div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="' + listKey + '">' + esc(tAdmin('btn.save')) + '</button></div></div>' : '<div class="adm-editor"><h2>No categories</h2></div>';
+var editor = sel ? '<div class="adm-editor"><h2>' + esc(sel.title) + '</h2><div class="adm-section"><h4>Category</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), listKey + '.' + sel.id + '.title') + inputText(tAdmin('label.slug'), listKey + '.' + sel.id + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div><div style="margin-top:10px;">' + inputCheck(tAdmin('label.published'), listKey + '.' + sel.id + '.published') + '</div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="' + listKey + '">' + esc(tAdmin('btn.save')) + '</button></div></div>' : '<div class="adm-editor"><h2>No categories</h2></div>';
 return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="' + listKey + '"><button type="button" class="adm-btn-sm primary" data-adm-new="' + listKey + '">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
 }
 
@@ -6059,7 +6207,7 @@ var selected = ADMIN_UI.selection.commissions || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
 var avail = r.availability === 'open' ? tAdmin('avail.open') : r.availability === 'inquiry' ? tAdmin('avail.inquiry') : tAdmin('avail.closed');
-return '<div class="adm-record" role="option" data-adm-select="commissions" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span style="display:flex;gap:4px;"><span class="adm-badge published">' + esc(avail) + '</span>' + healthBadge(auditFor('commissions', r)) + '</span></div>';
+return '<div class="adm-record adm-record-two" role="option" data-adm-select="commissions" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-main"><span class="ar-title">' + esc(r.title) + '</span><span class="ar-badges"><span class="adm-badge published">' + esc(avail) + '</span>' + healthBadge(auditFor('commissions', r)) + '</span></span></div>';
 }).join('');
 var editor = rec ? renderCommissionEditor(rec) : '<div class="adm-editor"><h2>Select a commission</h2></div>';
 return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="commissions"><button type="button" class="adm-btn-sm primary" data-adm-new="commissions">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
@@ -6074,10 +6222,10 @@ if(rec.form && !formOpts.some(function(o){ return o.value === rec.form; })) form
 var cAudit = auditFor('commissions', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
-'<div class="adm-section"><h4>Basic</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
-'<div class="adm-section"><h4>Pricing</h4><div class="adm-row three">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + inputText('Price note', base + '.priceNote') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Alternate Price', base + '.alternatePrice') + inputSelect('Alternate Currency', base + '.alternateCurrency', CURRENCIES) + '</div></div>' +
-'<div class="adm-section"><h4>Fees / Usage / Additional Pricing</h4><div class="adm-row">' + inputText('Commercial rule', base + '.commercialRule') + inputText('Extra character', base + '.extraCharacterFee') + inputText('Background fee', base + '.backgroundFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Tax', base + '.tax') + inputText('Rush fee', base + '.rushFee') + inputText('Private fee', base + '.privateFee') + '</div><div style="margin-top:10px;">' + inputText('Extra notes', base + '.extraNotes') + '</div></div>' +
-'<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + inputText(tAdmin('auditf.delivery'), base + '.delivery') + '</div><div class="adm-row" style="margin-top:10px;">' + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
+'<div class="adm-section"><h4>Basic</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
+'<div class="adm-section"><h4>Pricing</h4><div class="adm-row pair">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputText('Alternate Price', base + '.alternatePrice') + inputSelect('Alternate Currency', base + '.alternateCurrency', CURRENCIES) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputText('Price note', base + '.priceNote') + '</div></div>' +
+'<div class="adm-section"><h4>Fees / Usage / Additional Pricing</h4><div class="adm-row one">' + inputText('Commercial rule', base + '.commercialRule') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Extra character', base + '.extraCharacterFee') + inputText('Background fee', base + '.backgroundFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Tax', base + '.tax') + inputText('Rush fee', base + '.rushFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Private fee', base + '.privateFee') + '</div><div class="adm-row one" style="margin-top:10px;">' + inputText('Extra notes', base + '.extraNotes') + '</div></div>' +
+'<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputText(tAdmin('auditf.delivery'), base + '.delivery') + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="commissions" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="commissions">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -6087,7 +6235,7 @@ var list = ADMIN_DRAFT.forms;
 var selected = ADMIN_UI.selection.forms || (list[0] && list[0].id);
 var rec = list.filter(function(r){ return r.id === selected; })[0];
 var rows = list.map(function(r){
-return '<div class="adm-record" role="option" data-adm-select="forms" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(r.title) + '</span><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
+return '<div class="adm-record adm-record-two" role="option" data-adm-select="forms" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '"><span class="ar-main"><span class="ar-title">' + esc(r.title) + '</span><span class="ar-badges"><span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span></span></span></div>';
 }).join('');
 var editor = rec ? renderRequestFormEditor(rec) : '<div class="adm-editor"><h2>Select a form</h2></div>';
 return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="forms"><button type="button" class="adm-btn-sm primary" data-adm-new="forms">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
@@ -6096,12 +6244,12 @@ return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolba
 function renderRequestFormEditor(rec){
 var base = 'forms.' + rec.id;
 var fields = (rec.fields || []).map(function(f, i){ return renderFormField(rec.id, f, i); }).join('');
-return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-section"><h4>Form</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:10px;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div><div class="adm-section"><h4>Questions</h4><div>' + fields + '</div><div class="adm-block-add"><select id="admNewFieldType">' + FIELD_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-field="' + esc(rec.id) + '">' + esc(tAdmin('btn.addQuestion')) + '</button></div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="forms" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="forms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderFormField(formId, f, i){
 var base = 'forms.' + formId + '.fields.' + i;
-var body = '<div class="adm-row three">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + inputText('Label', base + '.label') + inputText('Placeholder', base + '.placeholder') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Help text', base + '.help') + inputSelect('Contact role', base + '.contactRole', CONTACT_ROLE_VALUES) + '</div>' + (OPTION_FIELD_TYPES.indexOf(f.type) !== -1 ? '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Options (one per line)</span><textarea data-adm-options-path="' + esc(base + '.options') + '" style="min-height:90px;" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea></label>' : '') + '<div style="margin-top:10px;">' + inputCheck('Required', base + '.required') + '</div>';
+var body = '<div class="adm-row one">' + inputText('Label', base + '.label') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + '<div class="adm-field"><span class="af-label">&nbsp;</span><div style="padding-top:6px;">' + inputCheck('Required', base + '.required') + '</div></div></div><div class="adm-row" style="margin-top:10px;">' + inputText('Placeholder', base + '.placeholder') + inputText('Help text', base + '.help') + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Contact role', base + '.contactRole', CONTACT_ROLE_VALUES) + '</div>' + (OPTION_FIELD_TYPES.indexOf(f.type) !== -1 ? '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Options (one per line)</span><textarea data-adm-options-path="' + esc(base + '.options') + '" style="min-height:90px;" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea></label>' : '');
 return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblock-head" role="button" tabindex="0" aria-expanded="false" data-adm-q-toggle="' + i + '"><span class="qb-num">' + (i + 1) + '</span><span class="qb-title">' + esc(f.label || ('Q' + (i + 1))) + '</span><span class="qb-type">' + esc(f.type) + '</span><span class="qb-actions"><button type="button" data-adm-q-del="' + i + '">✕</button></span></div><div class="adm-qblock-body">' + body + '</div></div>';
 }
 
@@ -6430,7 +6578,7 @@ var tabs = '<div class="adm-req-tabs" role="tablist" aria-label="Request lifecyc
     var label = view === 'inbox' ? 'Inbox' : view === 'archive' ? 'Archive' : 'Trash';
     return '<button type="button" role="tab" aria-selected="' + (lifecycle === view) + '" class="adm-btn-sm' + (lifecycle === view ? ' primary' : '') + '" data-adm-req-lifecycle="' + view + '">' + label + ' (' + esc(reqLifecycleCountLabel(view)) + ')</button>';
   }).join('') + '</div>';
-var toolbar = '<div class="adm-req-toolbar"><select data-adm-req-filter="status">' + statusOptions + '</select><select data-adm-req-filter="commission">' + commissionOptions + '</select><input type="search" data-adm-req-search="1" value="' + esc(reqFilter.search || '') + '" placeholder="Search client or email"><button type="button" class="adm-btn-sm" data-adm-req-refresh="1">' + esc(tAdmin('btn.refresh')) + '</button><label class="adm-check-all"><input type="checkbox" data-adm-req-checkall="1"' + (rows.length && (reqFilter.selected || []).length >= rows.length ? ' checked' : '') + '> Select page</label></div>';
+var toolbar = '<div class="adm-req-toolbar"><input type="search" data-adm-req-search="1" value="' + esc(reqFilter.search || '') + '" placeholder="Search client or email"><select data-adm-req-filter="status">' + statusOptions + '</select><select data-adm-req-filter="commission">' + commissionOptions + '</select><button type="button" class="adm-btn-sm" data-adm-req-refresh="1">' + esc(tAdmin('btn.refresh')) + '</button></div>';
 var selected = reqFilter.selected || [];
 var bulkBar = '';
 if(selected.length){
@@ -6452,7 +6600,7 @@ if(panelState === 'error'){
 var cls = String(r.status || '').toLowerCase();
 var checked = selected.indexOf(r.id) !== -1;
 var hold = r.retentionHold ? ' <span class="rr-hold" title="Retention hold: cannot be permanently deleted">🔒</span>' : '';
-return '<div class="adm-req-row" role="option" data-adm-select="requests" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === (ADMIN_UI.selection.requests || (rows[0] && rows[0].id)) ? 'true' : 'false') + '"><input type="checkbox" data-adm-req-check="' + esc(r.id) + '"' + (checked ? ' checked' : '') + ' aria-label="Select request from ' + esc(r.clientName || '') + '"><div><div class="rr-name">' + esc(r.clientName) + hold + '</div><div class="rr-meta">' + esc(r.commission) + ' · ' + esc(r.received) + '</div></div><span class="rr-status ' + cls + '">' + esc(r.status) + '</span></div>';
+return '<div class="adm-req-row" role="option" data-adm-select="requests" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === (ADMIN_UI.selection.requests || (rows[0] && rows[0].id)) ? 'true' : 'false') + '"><input type="checkbox" data-adm-req-check="' + esc(r.id) + '"' + (checked ? ' checked' : '') + ' aria-label="Select request from ' + esc(r.clientName || '') + '"><div class="rr-main"><div class="rr-name">' + esc(r.clientName) + hold + '</div><div class="rr-meta">' + esc(r.commission) + ' · ' + esc(r.received) + '</div></div><span class="rr-status ' + cls + '">' + esc(r.status) + '</span></div>';
   }).join('');
 }
 var selId = ADMIN_UI.selection.requests || (rows[0] && rows[0].id);
@@ -6461,32 +6609,39 @@ var total = reqFilter.total || rows.length;
 var pages = Math.max(1, reqFilter.pageCount || 1);
 var pager = '<div class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-req-page="prev"' + (reqFilter.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span>Page ' + reqFilter.page + ' / ' + pages + ' · ' + total + ' requests</span><button type="button" class="adm-btn-sm" data-adm-req-page="next"' + (reqFilter.page >= pages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
 var editor = rec ? renderRequestDetail(rec) : '<div class="adm-editor"><h2>Select a request</h2></div>';
-return '<div class="adm-split"><div class="adm-list">' + tabs + toolbar + bulkBar + '<div>' + listBody + '</div>' + pager + '</div>' + editor + '</div>';
+var listbar = '<div class="adm-req-listbar"><label class="adm-check-all"><input type="checkbox" data-adm-req-checkall="1"' + (rows.length && (reqFilter.selected || []).length >= rows.length ? ' checked' : '') + '> Select page</label></div>';
+return '<div class="adm-req-header">' + tabs + toolbar + '</div>' +
+'<div class="adm-split"><div class="adm-list">' + listbar + bulkBar + '<div>' + listBody + '</div>' + pager + '</div>' + editor + '</div>';
 }
 
 function renderRequestDetail(rec){
-var emailPanel = '<div class="adm-email-panel"><h4>Email notifications are not configured</h4><p>Use the client contact details to reply directly.</p></div>';
-var answers = (rec.answers || []).map(function(a){ return '<div class="ap-row"><span>' + esc(a[0]) + '</span><span>' + esc(a[1]) + '</span></div>'; }).join('');
+/* Secondary notice about the missing email transport: compact and shown after
+   the request brief so it never outranks the answers. */
+var emailPanel = '<div class="adm-email-panel compact"><h4>Email notifications are not configured</h4><p>Use the client contact details to reply directly.</p></div>';
+var answers = (rec.answers || []).map(function(a){ return '<div class="adm-answer"><div class="aa-label">' + esc(a[0]) + '</div><div class="aa-value">' + esc(a[1]) + '</div></div>'; }).join('');
+var answersBlock = '<div class="adm-answers">' + (answers || '<p class="af-hint">No answers</p>') + '</div>';
 var base = 'requests.' + rec.id;
 var lifecycle = rec.lifecycle || 'inbox';
 var holdNote = rec.retentionHold ? '<p class="af-hint">🔒 Retention hold is on: this request cannot be permanently deleted until the hold is released.</p>' : '';
 if(lifecycle === 'trash'){
   /* Trash is read-only: status/notes stay visible but cannot be edited here. */
-  return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + ' · in Trash · status ' + esc(rec.status) + '</p>' + emailPanel +
-  '<div class="adm-section"><h4>Submitted answers</h4>' + (answers || '<p class="af-hint">No answers</p>') + '</div>' +
-  '<div class="adm-section"><h4>Notes (read-only in Trash)</h4><p class="af-hint">' + esc(rec.notes || '—') + '</p></div>' + holdNote +
-  '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button>' +
-  '<button type="button" class="adm-btn-sm" data-adm-req-hold="' + esc(rec.id) + '" data-adm-req-hold-value="' + (rec.retentionHold ? '0' : '1') + '">' + (rec.retentionHold ? 'Release hold' : 'Hold') + '</button>' +
-  '<button type="button" class="adm-btn-sm danger" data-adm-req-purge="' + esc(rec.id) + '">Delete permanently</button></div></div>';
+  return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + ' · in Trash · status ' + esc(rec.status) + '</p>' +
+  '<div class="adm-section"><h4>Submitted answers</h4>' + answersBlock + '</div>' +
+  '<div class="adm-section"><h4>Notes (read-only in Trash)</h4><p class="af-hint">' + esc(rec.notes || '—') + '</p></div>' + emailPanel + holdNote +
+  '<div class="adm-editor-bar"><span class="adm-req-acts">' +
+  '<button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-req-hold="' + esc(rec.id) + '" data-adm-req-hold-value="' + (rec.retentionHold ? '0' : '1') + '">' + (rec.retentionHold ? 'Release hold' : 'Hold') + '</button></span>' +
+  '<span class="adm-req-acts danger"><button type="button" class="adm-btn-sm danger" data-adm-req-purge="' + esc(rec.id) + '">Delete permanently</button></span></div></div>';
 }
-var actions = lifecycle === 'archive'
-  ? '<button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button><button type="button" class="adm-btn-sm danger" data-adm-req-trash="' + esc(rec.id) + '">Move to Trash</button>'
-  : '<button type="button" class="adm-btn-sm" data-adm-req-archive="' + esc(rec.id) + '">Archive</button><button type="button" class="adm-btn-sm danger" data-adm-req-trash="' + esc(rec.id) + '">Move to Trash</button>';
-return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + (lifecycle === 'archive' ? ' · in Archive' : '') + '</p>' + emailPanel +
-'<div class="adm-section"><h4>Submitted answers</h4>' + (answers || '<p class="af-hint">No answers</p>') + '</div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.status')) + '</h4>' + inputSelect('Status', base + '.status', REQ_STATUSES) + '</div>' +
-'<div class="adm-section"><h4>Notes</h4>' + inputTextarea(tAdmin('label.notes'), base + '.notes', { minHeight:100, full:true }) + '</div>' +
-'<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="requests">' + esc(tAdmin('btn.save')) + '</button>' + actions + '</div></div>';
+var keep = lifecycle === 'archive'
+  ? '<button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button>'
+  : '<button type="button" class="adm-btn-sm" data-adm-req-archive="' + esc(rec.id) + '">Archive</button>';
+var danger = '<button type="button" class="adm-btn-sm danger" data-adm-req-trash="' + esc(rec.id) + '">Move to Trash</button>';
+return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + (lifecycle === 'archive' ? ' · in Archive' : '') + '</p>' +
+'<div class="adm-section"><h4>Submitted answers</h4>' + answersBlock + '</div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.status')) + ' / ' + esc(tAdmin('label.notes')) + '</h4>' + inputSelect('Status', base + '.status', REQ_STATUSES) + inputTextarea(tAdmin('label.notes'), base + '.notes', { minHeight:100, full:true }) + '</div>' +
+emailPanel +
+'<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="requests">' + esc(tAdmin('btn.save')) + '</button><span class="adm-req-acts">' + keep + '</span><span class="adm-req-acts danger">' + danger + '</span></div></div>';
 }
 
 function renderAdminAbout(){
@@ -6503,7 +6658,7 @@ var skillRows = p.skills.map(function(s, i){
 return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-actions"><button type="button" data-adm-about-move="skills" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="skills" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="skills" data-adm-about-i="' + i + '">✕</button></span></div><label class="adm-field"><span class="af-label">Skill</span><input type="text" data-adm-about-edit="skills" data-adm-about-i="' + i + '" data-adm-about-key="text" value="' + esc(s) + '"></label></div>';
 }).join('');
 var expRows = p.experience.map(function(e, i){
-return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(e.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="experience" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row three"><label class="adm-field"><span class="af-label">Tag / badge</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="tag" value="' + esc(e.tag || '') + '"></label><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(e.title || '') + '"></label><label class="adm-field"><span class="af-label">Description</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="body" value="' + esc(e.body || '') + '"></label></div></div>';
+return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(e.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="experience" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row pair"><label class="adm-field"><span class="af-label">Tag / badge</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="tag" value="' + esc(e.tag || '') + '"></label><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(e.title || '') + '"></label></div><div class="adm-row one" style="margin-top:8px;"><label class="adm-field"><span class="af-label">Description</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="body" value="' + esc(e.body || '') + '"></label></div></div>';
 }).join('');
 var valueRows = p.values.map(function(v, i){
 return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(v.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="values" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row"><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(v.title || '') + '"></label><label class="adm-field"><span class="af-label">Body</span><input type="text" data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="body" value="' + esc(v.body || '') + '"></label></div></div>';
@@ -6526,7 +6681,7 @@ return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(
 
 function renderAdminContact(){
 var base = 'settings.contact';
-return '<div class="adm-editor"><h2>Contact / Social</h2><div class="adm-section"><h4>Contact</h4><label class="adm-field"><span class="af-label">Email</span><input type="email" data-adm-path="' + base + '.email" value="' + esc(getByPath(ADMIN_DRAFT, base + '.email') || '') + '"></label><label class="adm-field" style="margin-top:10px;"><span class="af-label">Twitter</span><input type="text" data-adm-path="' + base + '.twitter" value="' + esc(getByPath(ADMIN_DRAFT, base + '.twitter') || '') + '"></label></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2><div class="adm-section"><h4>Contact</h4><label class="adm-field"><span class="af-label">Email</span><input type="email" data-adm-path="' + base + '.email" value="' + esc(getByPath(ADMIN_DRAFT, base + '.email') || '') + '"></label><label class="adm-field" style="margin-top:10px;"><span class="af-label">Twitter</span><input type="text" data-adm-path="' + base + '.twitter" value="' + esc(getByPath(ADMIN_DRAFT, base + '.twitter') || '') + '"></label></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function uploadStatusHtml(){
@@ -6543,13 +6698,17 @@ var typeOptions = (media.MEDIA_TYPE_FILTERS || []).map(function(entry){ return '
 var sortOptions = (media.MEDIA_SORTS || []).map(function(entry){ return '<option value="' + esc(entry.value) + '"' + (mediaPage.sort === entry.value ? ' selected' : '') + '>' + esc(entry.label) + '</option>'; }).join('');
 var busy = mediaPage.state === 'loading' ? ' aria-busy="true"' : '';
 return '<div class="adm-media-toolbar" role="toolbar" aria-label="Media library controls"' + busy + ' data-adm-media-toolbar="1">' +
-  '<button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button>' +
-  '<input type="search" data-adm-media-search="1" value="' + esc(mediaPage.search || '') + '" placeholder="Search filenames" aria-label="Search media by filename">' +
-  '<select data-adm-media-filter="type" aria-label="Filter by media type">' + typeOptions + '</select>' +
-  '<select data-adm-media-filter="sort" aria-label="Sort media">' + sortOptions + '</select>' +
-  '<input type="date" data-adm-media-filter="from" value="' + esc(mediaPage.from || '') + '" aria-label="Uploaded from (UTC)">' +
-  '<input type="date" data-adm-media-filter="to" value="' + esc(mediaPage.to || '') + '" aria-label="Uploaded to (UTC)">' +
-  '<button type="button" class="adm-btn-sm" data-adm-media-clear="1">Clear filters</button>' +
+  '<div class="mdt-primary">' +
+    '<button type="button" class="adm-btn-sm primary" data-adm-media-upload="1">' + esc(tAdmin('btn.upload')) + '</button>' +
+    '<input type="search" data-adm-media-search="1" value="' + esc(mediaPage.search || '') + '" placeholder="Search filenames" aria-label="Search media by filename">' +
+  '</div>' +
+  '<div class="mdt-filters">' +
+    '<select data-adm-media-filter="type" aria-label="Filter by media type">' + typeOptions + '</select>' +
+    '<select data-adm-media-filter="sort" aria-label="Sort media">' + sortOptions + '</select>' +
+    '<input type="date" data-adm-media-filter="from" value="' + esc(mediaPage.from || '') + '" aria-label="Uploaded from (UTC)">' +
+    '<input type="date" data-adm-media-filter="to" value="' + esc(mediaPage.to || '') + '" aria-label="Uploaded to (UTC)">' +
+    '<button type="button" class="adm-btn-sm" data-adm-media-clear="1">Clear filters</button>' +
+  '</div>' +
   '<div class="adm-view-toggle" role="group" aria-label="Media view">' +
     '<button type="button" class="adm-btn-sm" data-adm-media-view="grid" aria-pressed="' + (mediaPage.view === 'grid') + '">Grid</button>' +
     '<button type="button" class="adm-btn-sm" data-adm-media-view="list" aria-pressed="' + (mediaPage.view === 'list') + '">List</button>' +
@@ -6564,7 +6723,7 @@ var actions = '<div class="mb-actions">' +
   '<button type="button" class="adm-btn-sm" data-adm-media-copy="' + esc(m.id) + '">Copy URL</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-media-open="' + esc(m.id) + '">' + esc(tAdmin('btn.openFile')) + '</button>' +
   '<button type="button" class="adm-btn-sm" data-adm-media-alt="' + esc(m.id) + '">Alt text</button>' +
-  '<button type="button" class="adm-btn-sm danger" data-adm-media-del="' + esc(m.id) + '" data-adm-media-name="' + esc(m.title) + '">' + esc(tAdmin('btn.delete')) + '</button></div>';
+  '<button type="button" class="adm-btn-sm danger mb-danger" data-adm-media-del="' + esc(m.id) + '" data-adm-media-name="' + esc(m.title) + '">' + esc(tAdmin('btn.delete')) + '</button></div>';
 if(mediaPage.view === 'list'){
   var rowThumb = (m.type === 'image' && src)
     ? '<img class="adm-media-row-thumb" src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" loading="lazy">'
@@ -6705,12 +6864,12 @@ function renderCleanupResult(res){
       actions = '<input type="checkbox" data-adm-cleanup-purge-check="' + esc(encodeURIComponent(entry.storagePath || '')) + '"' + (checked ? ' checked' : '') + ' aria-label="Select ' + esc(entry.storagePath || '') + ' for purge">' +
         '<button type="button" class="adm-btn-sm danger" data-adm-cleanup-purge-one="' + esc(encodeURIComponent(entry.storagePath || '')) + '">Purge…</button>';
     }
-    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · unseen since ' + esc(firstSeen) + ' · ' + esc(status) + '</span>' + cleanupProtectButton(entry.storagePath, false) + actions + '</div>';
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · unseen since ' + esc(firstSeen) + ' · ' + esc(status) + '</span><span class="cs-actions">' + cleanupProtectButton(entry.storagePath, false) + actions + '</span></div>';
   }).join('');
   var protectedEntries = (snap.rows || []).filter(function(r){ return r.classification === 'PROTECTED'; })
     .concat((snap.rowless || []).filter(function(r){ return r.classification === 'PROTECTED'; }));
   var protectedList = protectedEntries.slice(0, 100).map(function(entry){
-    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">Protected — never a candidate</span>' + cleanupProtectButton(entry.storagePath, true) + '</div>';
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">Protected — never a candidate</span><span class="cs-actions">' + cleanupProtectButton(entry.storagePath, true) + '</span></div>';
   }).join('');
   var brokenList = (snap.brokenReferences || []).slice(0, 100).map(function(broken){
     var where = (broken.hits || []).slice(0, 3).map(function(h){ return esc((h.sourceLabel || '') + ' · ' + (h.recordId || '') + ' ' + (h.fieldPath || '')); }).join('<br>');
@@ -6737,12 +6896,12 @@ function renderCleanupResult(res){
   '<p class="af-hint">sum(media.size_bytes) is metadata-known size only — it is NOT real Supabase quota while rowless objects exist.</p>' +
   '<div class="ap-row"><span>Images</span><span>' + esc(cleanupFormatBytes(groups.image)) + '</span></div><div class="ap-row"><span>Video</span><span>' + esc(cleanupFormatBytes(groups.video)) + '</span></div><div class="ap-row"><span>Audio</span><span>' + esc(cleanupFormatBytes(groups.audio)) + '</span></div><div class="ap-row"><span>Other</span><span>' + esc(cleanupFormatBytes(groups.other)) + '</span></div></div>' +
   '<div class="adm-section"><h4>Top 10 largest files</h4>' + (top || '<p class="af-hint">No sized files.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Possibly unused (' + (m.possiblyUnusedCount == null ? '–' : m.possiblyUnusedCount) + ' · ' + esc(cleanupFormatBytes(m.possiblyUnusedBytes)) + ')</h4><p class="af-hint">Candidates only — nothing here is deleted without a fresh re-check, a claim and an explicit confirmation. Mark files the website cannot see (client deliveries, external use) as Protected.</p>' + purgeBar + (unusedList || '<p class="af-hint">None found in this scan.</p>') + (unused.length > 100 ? '<p class="af-hint">Showing 100 of ' + unused.length + '.</p>' : '') + '</div>' +
-  '<div class="adm-section"><h4>Protected (' + protectedEntries.length + ')</h4>' + (protectedList || '<p class="af-hint">No protected files.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Broken references (' + (m.brokenCount == null ? '–' : m.brokenCount) + ')</h4><p class="af-hint">Saved links pointing at objects that no longer exist.</p>' + (brokenList || '<p class="af-hint">None.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Rowless Storage objects (' + (m.rowlessCount == null ? '–' : m.rowlessCount) + ')</h4><p class="af-hint">Bytes in Storage with no media row (e.g. interrupted uploads).</p>' + (rowlessList || '<p class="af-hint">None.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Missing Storage objects (' + (m.missingCount == null ? '–' : m.missingCount) + ')</h4><p class="af-hint">Media rows whose bytes are gone from Storage.</p>' + (missingList || '<p class="af-hint">None.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Pending deletion (' + (m.pendingCount == null ? '–' : m.pendingCount) + ')</h4><p class="af-hint">Tombstones retry from the Media Library, not from here.</p>' + (pendingList || '<p class="af-hint">None.</p>') + '</div>' +
+  '<details class="adm-cleanup-group" open><summary>Possibly unused (' + (m.possiblyUnusedCount == null ? '–' : m.possiblyUnusedCount) + ' · ' + esc(cleanupFormatBytes(m.possiblyUnusedBytes)) + ')</summary><p class="af-hint">Candidates only — nothing here is deleted without a fresh re-check, a claim and an explicit confirmation. Mark files the website cannot see (client deliveries, external use) as Protected.</p>' + purgeBar + (unusedList || '<p class="af-hint">None found in this scan.</p>') + (unused.length > 100 ? '<p class="af-hint">Showing 100 of ' + unused.length + '.</p>' : '') + '</details>' +
+  '<details class="adm-cleanup-group" open><summary>Protected (' + protectedEntries.length + ')</summary>' + (protectedList || '<p class="af-hint">No protected files.</p>') + '</details>' +
+  '<details class="adm-cleanup-group" open><summary>Broken references (' + (m.brokenCount == null ? '–' : m.brokenCount) + ')</summary><p class="af-hint">Saved links pointing at objects that no longer exist.</p>' + (brokenList || '<p class="af-hint">None.</p>') + '</details>' +
+  '<details class="adm-cleanup-group" open><summary>Rowless Storage objects (' + (m.rowlessCount == null ? '–' : m.rowlessCount) + ')</summary><p class="af-hint">Bytes in Storage with no media row (e.g. interrupted uploads).</p>' + (rowlessList || '<p class="af-hint">None.</p>') + '</details>' +
+  '<details class="adm-cleanup-group" open><summary>Missing Storage objects (' + (m.missingCount == null ? '–' : m.missingCount) + ')</summary><p class="af-hint">Media rows whose bytes are gone from Storage.</p>' + (missingList || '<p class="af-hint">None.</p>') + '</details>' +
+  '<details class="adm-cleanup-group" open><summary>Pending deletion (' + (m.pendingCount == null ? '–' : m.pendingCount) + ')</summary><p class="af-hint">Tombstones retry from the Media Library, not from here.</p>' + (pendingList || '<p class="af-hint">None.</p>') + '</details>' +
   '<div class="adm-section"><h4>Scan coverage</h4>' + sourcesList + '<div class="ap-row"><span>Storage objects</span><span>' + esc(String(res.storageObjectCount == null ? '–' : res.storageObjectCount)) + ' across ' + esc(String(res.storagePrefixesWalked == null ? '–' : res.storagePrefixesWalked)) + ' prefixes</span></div></div>';
 }
 async function runCleanupScanNow(){
@@ -6910,7 +7069,10 @@ return '<div class="adm-section"><h4>Saved palettes</h4>' +
 function renderAppearanceBody(base){
 var d = APPEARANCE_COLOR_DEFAULTS;
 var overlay = appearanceOverlayValue();
-return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + inputColor('Background', base + '.theme.background') + inputColor('Pink', base + '.theme.pink') + inputColor('Lavender', base + '.theme.lavender') + '</div></div>' +
+/* Controls on the left, live preview alongside (desktop), saved palettes in
+   their own block below the grid. */
+var controls = '<div class="adm-appearance-controls">' +
+  '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + inputColor('Background', base + '.theme.background') + inputColor('Pink', base + '.theme.pink') + inputColor('Lavender', base + '.theme.lavender') + '</div></div>' +
   '<div class="adm-section"><h4>Typography colors</h4>' +
     '<div class="adm-row three">' +
       inputColor('Display / Heading', base + '.theme.displayColor', { default:d.displayColor }) +
@@ -6926,9 +7088,8 @@ return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + 
       '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">Reset to default</button></div>' +
     '</div>' +
   '</div>' +
-  renderPaletteSection() +
-  appearancePreviewHtml() +
-  '<div class="adm-section"><h4>Website background</h4>' +
+'</div>';
+var background = '<div class="adm-section"><h4>Website background</h4>' +
     '<div class="adm-row three">' +
       mediaField('Background image', base + '.theme.backgroundImage') +
       inputSelect('Background size', base + '.theme.backgroundSize', [{ value:'cover', label:'Cover' },{ value:'original', label:'Original' },{ value:'repeat', label:'Repeat / tile' }]) +
@@ -6939,6 +7100,9 @@ return '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + 
     '</div>' +
     '<p class="af-hint">Leave the image empty to use the plain white background. The overlay keeps text readable over photos.</p>' +
   '</div>';
+return '<div class="adm-appearance-grid">' + controls +
+  '<div class="adm-appearance-preview-col">' + appearancePreviewHtml() + '</div>' +
+  background + '</div>' + renderPaletteSection();
 }
 
 function refreshAppearancePreview(){
@@ -7032,7 +7196,11 @@ case 'SEO': body = inputText('SEO Title', base + '.seo.title') + inputTextarea('
 case 'Footer': body = inputTextarea('Footer', base + '.footer.footer', { minHeight:80 }); break;
 case 'Interface': body = '<p class="af-hint">UI copy.</p>'; break;
 }
-return tabs + '<div class="adm-settings-subnav" role="group">' + groupNav + '</div><div class="adm-editor"><h2>' + esc(group) + '</h2><div class="adm-section">' + body + '</div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+/* Appearance and Motion already return their own sections; the rest get one
+   wrapping card. Short forms stay at a comfortable reading width. */
+var bodyHtml = group === 'Appearance' ? body : '<div class="adm-section">' + body + '</div>';
+var editorClass = (group === 'Appearance' || group === 'Motion') ? '' : ' adm-editor-narrow';
+return tabs + '<div class="adm-settings-subnav" role="group">' + groupNav + '</div><div class="adm-editor' + editorClass + '"><h2>' + esc(group) + '</h2>' + bodyHtml + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function renderAdminNavigation(){
@@ -7040,10 +7208,11 @@ var list = ADMIN_DRAFT.navigation;
 var selected = ADMIN_UI.selection.navigation || (list[0] && list[0].id);
 var rec = list.filter(function(n){ return n.id === selected; })[0];
 var rows = list.map(function(n){
-return '<div class="adm-record" role="option" data-adm-select="navigation" data-adm-id="' + esc(n.id) + '" aria-selected="' + (n.id === selected ? 'true' : 'false') + '"><span class="ar-title">' + esc(n.title) + '</span><span class="adm-badge ' + (n.published ? 'published' : 'draft') + '">' + esc(tAdmin(n.published ? 'badge.pub' : 'badge.draft')) + '</span></div>';
+return '<div class="adm-record adm-record-two" role="option" data-adm-select="navigation" data-adm-id="' + esc(n.id) + '" aria-selected="' + (n.id === selected ? 'true' : 'false') + '"><span class="ar-main"><span class="ar-title">' + esc(n.title) + '</span><span class="ar-badges"><span class="adm-badge ' + (n.published ? 'published' : 'draft') + '">' + esc(tAdmin(n.published ? 'badge.pub' : 'badge.draft')) + '</span></span></span></div>';
 }).join('');
 var editor = rec ? '<div class="adm-editor"><h2>Edit navigation</h2><div class="adm-section"><div class="adm-row">' + inputText(tAdmin('label.title'), 'navigation.' + rec.id + '.title') + inputText('URL', 'navigation.' + rec.id + '.url') + '</div><div style="margin-top:10px;">' + inputCheck(tAdmin('label.published'), 'navigation.' + rec.id + '.published') + '</div></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="navigation">' + esc(tAdmin('btn.save')) + '</button></div></div>' : '';
-return '<div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="navigation"><button type="button" class="adm-btn-sm primary" data-adm-new="navigation">' + esc(tAdmin('btn.addNav')) + '</button></div><div>' + rows + '</div></div>' + editor;
+var listHtml = '<div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="navigation"><button type="button" class="adm-btn-sm primary" data-adm-new="navigation">' + esc(tAdmin('btn.addNav')) + '</button></div><div>' + rows + '</div></div>';
+return editor ? '<div class="adm-split">' + listHtml + editor + '</div>' : listHtml;
 }
 
 /* ==========================================================
@@ -7084,6 +7253,21 @@ adminContent.addEventListener('click', function(event){
    that collapses the record list and jumps straight to the current editor, so
    stacked layouts (tablet and below) never scroll the whole list. Desktop with
    a side-by-side split is untouched. */
+/* Sticky list offset and scroll-margin must follow the real topbar height,
+   which wraps to two rows on narrow screens; measure it instead of trusting
+   the CSS fallback value of --adm-topbar-h. */
+function installTopbarHeightSync(){
+  var bar = document.querySelector('.admin-topbar');
+  if(!bar || bar.dataset.hSync === '1') return;
+  bar.dataset.hSync = '1';
+  var apply = function(){
+    var h = bar.offsetHeight;
+    if(h > 0) document.documentElement.style.setProperty('--adm-topbar-h', h + 'px');
+  };
+  apply();
+  if(typeof ResizeObserver === 'function'){ new ResizeObserver(apply).observe(bar); }
+  else { window.addEventListener('resize', apply); }
+}
 function installAdminJumpDelegation(){
 if(!adminContent || adminContent.dataset.jumpWired === '1') return;
 adminContent.dataset.jumpWired = '1';
@@ -7230,6 +7414,7 @@ if(module === 'media' && mediaPage.state === 'idle') loadMediaPage({ page: 1 });
 installMediaUiDelegation();
 installChecklistDelegation();
 installAdminJumpDelegation();
+installTopbarHeightSync();
 if(!adminContent) return;
 if(module === 'settings') refreshAppearancePreview();
 $$('[data-adm-appearance-reset]', adminContent).forEach(function(btn){
@@ -8304,7 +8489,7 @@ var descriptor = typeof media.previewDescriptor === 'function'
 var rows = typeof media.mediaMetadataRows === 'function' ? media.mediaMetadataRows(item) : [];
 var meta = rows.map(function(row){ return '<div class="adm-preview-row"><span>' + esc(row.label) + '</span><span>' + esc(row.value) + '</span></div>'; }).join('');
 return '<div class="adm-preview" data-adm-preview-kind="' + esc(descriptor.kind) + '" data-adm-preview-id="' + esc(item.id) + '">' +
-  '<div class="adm-preview-head"><h3>' + esc(item.title || 'Media preview') + '</h3><span class="af-hint">' + esc(descriptor.kind) + '</span></div>' +
+  '<div class="adm-preview-head"><h3>' + esc(item.title || 'Media preview') + '</h3><span class="af-hint">' + esc(descriptor.kind) + '</span><button type="button" class="adm-preview-close" data-adm-preview-close-top="1" aria-label="Close preview">✕</button></div>' +
   '<div class="adm-preview-body"><div data-adm-preview-url="' + esc(descriptor.original) + '">' + mediaPreviewVisualHtml(item, descriptor) + '</div></div>' +
   '<div class="adm-preview-side">' + meta +
     '<label class="adm-field"><span class="af-label">Alt text</span><input type="text" data-adm-preview-alt="1" value="' + esc(item.alt || '') + '" aria-label="Alt text"></label>' +
@@ -8389,7 +8574,7 @@ var modal = document.getElementById('adminMediaPreviewModal');
 if(!modal || modal.dataset.previewWired === '1') return;
 modal.dataset.previewWired = '1';
 modal.addEventListener('click', function(event){
-  if(event.target === modal || event.target.closest('[data-adm-preview-close]')){ closeMediaPreview(); return; }
+  if(event.target === modal || event.target.closest('[data-adm-preview-close]') || event.target.closest('[data-adm-preview-close-top]')){ closeMediaPreview(); return; }
   if(event.target.closest('[data-adm-preview-copy]')){
     var copyItem = mediaItemById(previewItemId);
     if(copyItem) copyMediaUrl(copyItem.url);
