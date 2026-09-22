@@ -160,6 +160,20 @@ aware). Any gap forces INCOMPLETE and unreferenced items stay UNKNOWN — never
 first-unreferenced anchor, and the object fingerprint. There is no automatic
 purge, no cron, and no scan history table.
 
+## Manual media purge (Batch 3)
+
+Purge is enabled but deliberately narrow: max 25 files per batch, only from a
+COMPLETE scan, only for candidates that are unprotected, past the 30-day grace
+from first sighting, confirmed unreferenced by at least 2 consecutive complete
+scans, fingerprint-identical, lease-free, and untouched for 24h. Every purge
+re-scans fresh, re-checks references, claims the state row with a fingerprint
+guard, removes bytes through the Storage API only, then finalizes the metadata
+row idempotently; any failure stays retryable and never reports success.
+`media_upload_leases` marks in-flight uploads (2h TTL) so arriving bytes are
+never taken. Known residual race: a reference saved by another session in the
+seconds between the fresh re-scan and the Storage remove — mitigated by small
+manual batches and explicit confirmation, not by pretending atomicity.
+
 ## Media limits and metadata
 
 - Max upload size: 50 MB.

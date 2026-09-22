@@ -298,6 +298,8 @@ export function classifySnapshot({
       originalName: (row && row.original_name) || canonical,
       mimeType: (row && row.mime_type) || null,
       sizeBytes: row && row.size_bytes !== undefined && row.size_bytes !== null ? Number(row.size_bytes) : null,
+      // Storage listing timestamp joins the row so fingerprints detect swaps.
+      updatedAt: identity && objectMeta.get(identity) ? objectMeta.get(identity).updatedAt : null,
       deletionStatus: (row && row.deletion_status) || 'active',
       classification,
       references,
@@ -427,6 +429,8 @@ export function planStatePersistence({ snapshot, statesByPath = {}, nowIso = nul
         storage_path: storagePath,
         protected: existing.protected === true,
         first_unreferenced_at: existing.first_unreferenced_at || now,
+        // Consecutive COMPLETE scans without a reference (Batch 3 needs >= 2).
+        unreferenced_scan_count: (Number(existing.unreferenced_scan_count) || 0) + 1,
         object_fingerprint: fingerprintObject({
           path: storagePath,
           sizeBytes: meta && meta.sizeBytes,
@@ -439,6 +443,7 @@ export function planStatePersistence({ snapshot, statesByPath = {}, nowIso = nul
           storage_path: storagePath,
           protected: existing.protected === true,
           first_unreferenced_at: null,
+          unreferenced_scan_count: 0,
           object_fingerprint: fingerprintObject({
             path: storagePath,
             sizeBytes: meta && meta.sizeBytes,
@@ -449,7 +454,7 @@ export function planStatePersistence({ snapshot, statesByPath = {}, nowIso = nul
     }
   };
   (snapshot.rows || []).forEach((entry) =>
-    consider(entry.storagePath, entry.classification, { sizeBytes: entry.sizeBytes, updatedAt: null })
+    consider(entry.storagePath, entry.classification, { sizeBytes: entry.sizeBytes, updatedAt: entry.updatedAt || null })
   );
   (snapshot.rowless || []).forEach((entry) =>
     consider(entry.storagePath, entry.classification, { sizeBytes: entry.sizeBytes, updatedAt: entry.updatedAt })

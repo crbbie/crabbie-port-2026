@@ -22,6 +22,7 @@ import {
   sha256Hex
 } from './admin-upload-core.js';
 import { selectList } from './admin-query-core.js';
+import { takeUploadLease, releaseUploadLease } from './media-upload-leases.js';
 
 const MEDIA_BUCKET = 'media';
 const UPLOAD_PREFIX = 'uploads';
@@ -262,6 +263,11 @@ export async function uploadMediaWithPipeline(file, options = {}) {
     }
   }
 
+  // 2.5 Upload lease (Batch 3 purge coordination): marks these bytes as
+  // arriving. Best-effort — a lease failure never breaks the upload, and an
+  // unfinished transfer keeps its lease until expiry as orphan protection.
+  void takeUploadLease(storagePath);
+
   // 3. Transfer: small files plain, large files resumable with a safe fallback.
   state.replace(reduceUploadTask(state.task, { type: 'start' }));
   let transfer = strategy === 'resumable'
@@ -323,6 +329,8 @@ export async function uploadMediaWithPipeline(file, options = {}) {
   }
 
   state.replace(reduceUploadTask(state.task, { type: 'done' }));
+  // The media row exists: the bytes are no longer "arriving".
+  void releaseUploadLease(storagePath);
   return { media: toMediaItem(inserted.row), deduplicated: false, task: state.task, sha256: digest };
 }
 

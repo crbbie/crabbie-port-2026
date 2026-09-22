@@ -6108,7 +6108,7 @@ return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblo
 var reqFilter = { status:'all', commission:'all', search:'', lifecycle:'inbox', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', selected:[], counts:{ inbox:null, archive:null, trash:null } };
 /* Batch 2: read-only Storage & Cleanup scan state. `result` is the last
    completed manual scan output from window.CrabbieAdminCleanup. */
-var cleanupPage = { state:'idle', error:'', result:null };
+var cleanupPage = { state:'idle', error:'', result:null, purgeSelected:[] };
 var mediaPage = {
   page: 1,
   perPage: 30,
@@ -6639,6 +6639,30 @@ function renderAdminCleanup(){
   }
   return '<div class="adm-editor"><h2>Storage & Cleanup</h2><p class="ae-sub">Read-only overview. Deletion stays manual in the Media Library — there is no automatic purge.</p>' + toolbar + body + '</div>';
 }
+function cleanupEligibilityOf(res){
+  var svc = (typeof window !== 'undefined') ? window.CrabbieAdminCleanup : null;
+  if(!svc || typeof svc.describePurgeEligibility !== 'function' || !res || !res.snapshot) return [];
+  try{
+    return svc.describePurgeEligibility({ snapshot: res.snapshot, leasesByPath: (res.leasesByPath || {}) }) || [];
+  }catch(e){ return []; }
+}
+function cleanupEligibilityLabel(info, entry){
+  if(!info) return 'Unknown';
+  if(info.eligible) return 'Eligible now';
+  var reason = (info.reasons || [])[0] || 'unknown';
+  if(reason === 'grace_period' && info.graceEligibleAt) return 'Grace until ' + info.graceEligibleAt.slice(0, 10);
+  if(reason === 'needs_second_scan'){
+    var count = entry && entry.state ? (entry.state.unreferenced_scan_count || 0) : 0;
+    return 'Needs ' + count + '/2 confirming scans';
+  }
+  if(reason === 'active_upload') return 'Upload in progress — blocked';
+  if(reason === 'object_changed') return 'Changed since scan — rescan';
+  if(reason === 'object_too_fresh' || reason === 'recency_unknown') return 'Too fresh — retry later';
+  if(reason === 'protected') return 'Protected';
+  if(reason === 'in_use') return 'Referenced';
+  if(reason === 'no_state') return 'Needs scans';
+  return 'Unknown (incomplete)';
+}
 function renderCleanupResult(res){
   var snap = res.snapshot;
   var m = snap.metrics || {};
@@ -6651,9 +6675,37 @@ function renderCleanupResult(res){
   }).join('');
   var unused = (snap.rows || []).filter(function(r){ return r.classification === 'POSSIBLY UNUSED'; })
     .concat((snap.rowless || []).filter(function(r){ return r.classification === 'POSSIBLY UNUSED'; }));
+  var eligList = snap.complete ? cleanupEligibilityOf(res) : [];
+  var eligByPath = {};
+  eligList.forEach(function(info){ if(info && info.storagePath) eligByPath[info.storagePath] = info; });
+  var entryByPath = {};
+  (snap.rows || []).concat(snap.rowless || []).forEach(function(entry){ if(entry && entry.storagePath) entryByPath[entry.storagePath] = entry; });
+  var purgeSel = cleanupPage.purgeSelected || [];
+  var eligibleCount = eligList.filter(function(info){ return info && info.eligible; }).length;
+  var selBytes = purgeSel.reduce(function(sum, path){
+    var entry = entryByPath[path];
+    return sum + (entry && Number(entry.sizeBytes) > 0 ? Number(entry.sizeBytes) : 0);
+  }, 0);
+  var purgeBar = '';
+  if(snap.complete && eligibleCount){
+    purgeBar = '<div class="adm-bulk-bar" role="status" aria-live="polite"><span>' + purgeSel.length + ' of ' + eligibleCount + ' eligible selected (max 25/batch)</span>' +
+      '<button type="button" class="adm-btn-sm danger" data-adm-cleanup-purge-bulk="1"' + (purgeSel.length ? '' : ' disabled') + '>Purge selected</button>' +
+      '<button type="button" class="adm-btn-sm" data-adm-cleanup-purge-clear="1">Clear</button></div>' +
+      '<p class="af-hint">Manual purge only: a fresh re-scan, fingerprint re-check, claim and Storage remove run per file right before deletion. Bulk purge requires typing PURGE N. There is no Delete All and no automatic purge.</p>';
+  } else if(!snap.complete){
+    purgeBar = '<p class="af-hint">Purge is disabled: the scan is INCOMPLETE, so nothing can be proven unused.</p>';
+  }
   var unusedList = unused.slice(0, 100).map(function(entry){
     var firstSeen = entry.state && entry.state.first_unreferenced_at ? entry.state.first_unreferenced_at.slice(0, 10) : 'this scan';
-    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · unseen since ' + esc(firstSeen) + '</span>' + cleanupProtectButton(entry.storagePath, false) + '</div>';
+    var info = eligByPath[entry.storagePath || ''];
+    var status = snap.complete ? cleanupEligibilityLabel(info, entry) : 'Unknown (incomplete)';
+    var actions = '';
+    if(info && info.eligible){
+      var checked = purgeSel.indexOf(entry.storagePath) !== -1;
+      actions = '<input type="checkbox" data-adm-cleanup-purge-check="' + esc(encodeURIComponent(entry.storagePath || '')) + '"' + (checked ? ' checked' : '') + ' aria-label="Select ' + esc(entry.storagePath || '') + ' for purge">' +
+        '<button type="button" class="adm-btn-sm danger" data-adm-cleanup-purge-one="' + esc(encodeURIComponent(entry.storagePath || '')) + '">Purge…</button>';
+    }
+    return '<div class="adm-cleanup-row"><span class="cs-path">' + esc(entry.storagePath || '') + '</span><span class="cs-meta">' + esc(cleanupFormatBytes(entry.sizeBytes)) + ' · unseen since ' + esc(firstSeen) + ' · ' + esc(status) + '</span>' + cleanupProtectButton(entry.storagePath, false) + actions + '</div>';
   }).join('');
   var protectedEntries = (snap.rows || []).filter(function(r){ return r.classification === 'PROTECTED'; })
     .concat((snap.rowless || []).filter(function(r){ return r.classification === 'PROTECTED'; }));
@@ -6685,7 +6737,7 @@ function renderCleanupResult(res){
   '<p class="af-hint">sum(media.size_bytes) is metadata-known size only — it is NOT real Supabase quota while rowless objects exist.</p>' +
   '<div class="ap-row"><span>Images</span><span>' + esc(cleanupFormatBytes(groups.image)) + '</span></div><div class="ap-row"><span>Video</span><span>' + esc(cleanupFormatBytes(groups.video)) + '</span></div><div class="ap-row"><span>Audio</span><span>' + esc(cleanupFormatBytes(groups.audio)) + '</span></div><div class="ap-row"><span>Other</span><span>' + esc(cleanupFormatBytes(groups.other)) + '</span></div></div>' +
   '<div class="adm-section"><h4>Top 10 largest files</h4>' + (top || '<p class="af-hint">No sized files.</p>') + '</div>' +
-  '<div class="adm-section"><h4>Possibly unused (' + (m.possiblyUnusedCount == null ? '–' : m.possiblyUnusedCount) + ' · ' + esc(cleanupFormatBytes(m.possiblyUnusedBytes)) + ')</h4><p class="af-hint">Candidates only — Batch 2 never deletes. Mark files the website cannot see (client deliveries, external use) as Protected.</p>' + (unusedList || '<p class="af-hint">None found in this scan.</p>') + (unused.length > 100 ? '<p class="af-hint">Showing 100 of ' + unused.length + '.</p>' : '') + '</div>' +
+  '<div class="adm-section"><h4>Possibly unused (' + (m.possiblyUnusedCount == null ? '–' : m.possiblyUnusedCount) + ' · ' + esc(cleanupFormatBytes(m.possiblyUnusedBytes)) + ')</h4><p class="af-hint">Candidates only — nothing here is deleted without a fresh re-check, a claim and an explicit confirmation. Mark files the website cannot see (client deliveries, external use) as Protected.</p>' + purgeBar + (unusedList || '<p class="af-hint">None found in this scan.</p>') + (unused.length > 100 ? '<p class="af-hint">Showing 100 of ' + unused.length + '.</p>' : '') + '</div>' +
   '<div class="adm-section"><h4>Protected (' + protectedEntries.length + ')</h4>' + (protectedList || '<p class="af-hint">No protected files.</p>') + '</div>' +
   '<div class="adm-section"><h4>Broken references (' + (m.brokenCount == null ? '–' : m.brokenCount) + ')</h4><p class="af-hint">Saved links pointing at objects that no longer exist.</p>' + (brokenList || '<p class="af-hint">None.</p>') + '</div>' +
   '<div class="adm-section"><h4>Rowless Storage objects (' + (m.rowlessCount == null ? '–' : m.rowlessCount) + ')</h4><p class="af-hint">Bytes in Storage with no media row (e.g. interrupted uploads).</p>' + (rowlessList || '<p class="af-hint">None.</p>') + '</div>' +
@@ -6701,6 +6753,7 @@ async function runCleanupScanNow(){
   try{
     var out = await svc.runCleanupScan();
     cleanupPage.result = out;
+    cleanupPage.purgeSelected = [];
     cleanupPage.state = 'ready'; cleanupPage.error = '';
     toast(out && out.snapshot && out.snapshot.complete ? 'Scan complete ♡' : 'Scan incomplete — see gaps.');
   }catch(err){
@@ -6764,6 +6817,42 @@ async function runCleanupProtect(encodedPath, flag){
   }catch(err){
     toast((err && err.message) || 'Protect update failed.');
   }
+}
+/* Batch 3 manual purge: preview is the selection itself (paths + bytes are
+   listed above); single purge confirms per file, bulk purge requires PURGE N.
+   After any purge the view rescans so eligibility is never read stale. */
+function cleanupDecodePath(encodedPath){
+  try{ return decodeURIComponent(encodedPath || ''); }catch(e){ return encodedPath || ''; }
+}
+async function runCleanupPurgeNow(paths){
+  var svc = (typeof window !== 'undefined') ? window.CrabbieAdminCleanup : null;
+  if(!svc || typeof svc.runMediaPurge !== 'function'){ toast('Purge service is unavailable.'); return; }
+  var list = (Array.isArray(paths) ? paths : []).filter(Boolean).slice(0, 25);
+  if(!list.length){ toast('Select at least one eligible file.'); return; }
+  if(list.length === 1){
+    if(!window.confirm('Permanently delete this file from Storage?\n\n' + list[0] + '\n\nThis cannot be undone. A fresh re-scan runs first and any new reference blocks the delete.')) return;
+  } else {
+    var phrase = 'PURGE ' + list.length;
+    var answer = window.prompt('Permanently delete ' + list.length + ' files? This cannot be undone.\nA fresh re-scan runs first and blocks anything uncertain.\n\nType ' + phrase + ' to confirm.');
+    if(answer !== phrase){ toast('Purge cancelled.'); return; }
+  }
+  try{
+    toast('Purging ' + list.length + ' file(s)…');
+    var out = await svc.runMediaPurge(list);
+    var summary = (out && out.summary) || { succeeded: [], failed: [] };
+    cleanupPage.purgeSelected = [];
+    if(out && out.skipped) toast('Over the 25/batch limit: ' + out.skipped + ' skipped.');
+    if(summary.failed.length){
+      console.warn('Purge partial failure:', summary.failed);
+      toast(summary.succeeded.length + ' purged · ' + summary.failed.length + ' failed (retryable — rescan to retry).');
+    } else {
+      toast(summary.succeeded.length + ' file(s) purged ♡');
+    }
+  }catch(err){
+    console.warn('Purge failed:', err);
+    toast((err && err.message) || 'Purge failed.');
+  }
+  runCleanupScanNow();
 }
 
 /* Admin > Appearance: semantic typography colors + website background.
@@ -7803,6 +7892,36 @@ btn.addEventListener('click', function(){
 $$('[data-adm-cleanup-protect]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   runCleanupProtect(btn.getAttribute('data-adm-cleanup-protect'), btn.getAttribute('data-adm-cleanup-protect-value') === '1');
+});
+});
+$$('[data-adm-cleanup-purge-check]', adminContent).forEach(function(box){
+box.addEventListener('change', function(){
+  var path = cleanupDecodePath(box.getAttribute('data-adm-cleanup-purge-check'));
+  var sel = cleanupPage.purgeSelected || [];
+  if(box.checked){
+    if(sel.indexOf(path) === -1 && sel.length < 25) sel.push(path);
+    else if(sel.length >= 25){ box.checked = false; toast('Max 25 files per purge batch.'); return; }
+  } else {
+    sel = sel.filter(function(x){ return x !== path; });
+  }
+  cleanupPage.purgeSelected = sel;
+  refreshAdminPanel('cleanup');
+});
+});
+$$('[data-adm-cleanup-purge-one]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  runCleanupPurgeNow([cleanupDecodePath(btn.getAttribute('data-adm-cleanup-purge-one'))]);
+});
+});
+$$('[data-adm-cleanup-purge-bulk]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  runCleanupPurgeNow(cleanupPage.purgeSelected || []);
+});
+});
+$$('[data-adm-cleanup-purge-clear]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  cleanupPage.purgeSelected = [];
+  refreshAdminPanel('cleanup');
 });
 });
 $$('[data-adm-upload-cancel]', adminContent).forEach(function(btn){

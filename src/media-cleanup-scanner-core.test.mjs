@@ -280,23 +280,27 @@ const PREFIXES = ['uploads'];
   assert.equal(planned.skipped, false);
   assert.equal(planned.upserts.length, 1);
   assert.equal(planned.upserts[0].first_unreferenced_at, '2026-09-23T00:00:00.000Z');
+  assert.equal(planned.upserts[0].unreferenced_scan_count, 1);
   assert.ok(planned.upserts[0].object_fingerprint.includes('uploads/new.png'));
 
-  // An existing anchor is kept (grace starts at first sighting, not file age).
+  // An existing anchor is kept (grace starts at first sighting, not file age)
+  // and the consecutive-scan count grows.
   const replanned = planStatePersistence({
     snapshot: complete,
-    statesByPath: { 'uploads/new.png': { first_unreferenced_at: '2026-08-01T00:00:00.000Z' } },
+    statesByPath: { 'uploads/new.png': { first_unreferenced_at: '2026-08-01T00:00:00.000Z', unreferenced_scan_count: 1 } },
     nowIso: '2026-09-23T00:00:00.000Z'
   });
   assert.equal(replanned.upserts[0].first_unreferenced_at, '2026-08-01T00:00:00.000Z');
+  assert.equal(replanned.upserts[0].unreferenced_scan_count, 2);
 
-  // A reference that reappears cancels the candidate.
+  // A reference that reappears cancels the candidate and resets the count.
   const cancelled = planStatePersistence({
     snapshot: { complete: true, rows: [{ storagePath: 'uploads/new.png', classification: ROW_CLASSIFICATION.IN_USE, sizeBytes: 9 }], rowless: [] },
-    statesByPath: { 'uploads/new.png': { first_unreferenced_at: '2026-08-01T00:00:00.000Z' } },
+    statesByPath: { 'uploads/new.png': { first_unreferenced_at: '2026-08-01T00:00:00.000Z', unreferenced_scan_count: 2 } },
     nowIso: '2026-09-23T00:00:00.000Z'
   });
   assert.equal(cancelled.upserts[0].first_unreferenced_at, null);
+  assert.equal(cancelled.upserts[0].unreferenced_scan_count, 0);
 
   // INCOMPLETE scans persist nothing.
   assert.deepEqual(planStatePersistence({ snapshot: { complete: false }, statesByPath: {} }).upserts, []);

@@ -3829,9 +3829,9 @@ try {
         media_cleanup_state: []
       };
       window.__routerStorageObjects = [
-        { name: 'used.png', path: 'uploads/used.png', id: 'obj-1', metadata: { size: 100, mimetype: 'image/png' } },
-        { name: 'lonely.png', path: 'uploads/lonely.png', id: 'obj-2', metadata: { size: 200, mimetype: 'image/png' } },
-        { name: 'deep.png', path: 'uploads/nested/deep/deep.png', id: 'obj-3', metadata: { size: 300, mimetype: 'image/png' } }
+        { name: 'used.png', path: 'uploads/used.png', id: 'obj-1', updated_at: '2026-01-01T00:00:00.000Z', metadata: { size: 100, mimetype: 'image/png' } },
+        { name: 'lonely.png', path: 'uploads/lonely.png', id: 'obj-2', updated_at: '2026-01-01T00:00:00.000Z', metadata: { size: 200, mimetype: 'image/png' } },
+        { name: 'deep.png', path: 'uploads/nested/deep/deep.png', id: 'obj-3', updated_at: '2026-01-01T00:00:00.000Z', metadata: { size: 300, mimetype: 'image/png' } }
       ];
       window.__routerWrites = [];
     });
@@ -3852,6 +3852,37 @@ try {
     await page.locator('#adminContent [data-adm-cleanup-protect]').first().click();
     await page.waitForFunction(() => (window.__routerRows.media_cleanup_state || []).some(row => row.protected === true));
     assert.match(await page.locator('#adminContent').innerText(), /Unprotect/, 'a protected file flips without a rescan');
+
+    // Batch 3: an old, twice-confirmed, fingerprint-identical candidate purges
+    // end to end (fresh re-scan, claim, Storage remove, metadata finalize).
+    await page.evaluate(() => {
+      window.__routerRows.media_cleanup_state.push({
+        storage_path: 'uploads/lonely.png',
+        protected: false,
+        first_unreferenced_at: new Date(Date.now() - 40 * 86400 * 1000).toISOString(),
+        object_fingerprint: 'media/uploads/lonely.png|200|2026-01-01T00:00:00.000Z',
+        unreferenced_scan_count: 2
+      });
+    });
+    await page.locator('#adminContent [data-adm-cleanup-scan]').click();
+    await page.waitForFunction(() => document.querySelector('#adminContent').textContent.includes('SCAN COMPLETE'), null, { timeout: 20000 });
+    assert.match(await page.locator('#adminContent').innerText(), /Eligible now/, 'the old twice-seen candidate is eligible');
+    page.on('dialog', async (dialog) => { await dialog.accept(); });
+    await page.locator('#adminContent [data-adm-cleanup-purge-one]').first().click();
+    await page.waitForFunction(() => (window.__routerStorageObjects || []).length === 2, null, { timeout: 20000 });
+    assert.deepEqual(
+      await page.evaluate(() => (window.__routerStorageObjects || []).map((entry) => entry.path).sort()),
+      ['uploads/nested/deep/deep.png', 'uploads/used.png']
+    );
+    assert.deepEqual(
+      await page.evaluate(() => (window.__routerRows.media || []).map((row) => row.storage_path)),
+      ['uploads/used.png']
+    );
+    assert.deepEqual(
+      await page.evaluate(() => (window.__routerRows.media_cleanup_state || []).map((row) => row.storage_path).filter((path) => path === 'uploads/lonely.png')),
+      [],
+      'the purge clears its own state anchor'
+    );
     console.log('PASS Storage & Cleanup scan classifies through the production loader (SDK fixture)');
 // P4_END
 
