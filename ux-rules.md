@@ -204,6 +204,7 @@ Do not use the same empty message for an error and a legitimate empty result.
 ### Public breakpoints currently used
 
 - 1180px
+- 900px (navigation switches to the hamburger before the desktop capsule is squeezed/overflows; 768px already overflows)
 - 860px
 - 720px
 - 600px (commission grid and request form drop to one column on phones; tablet keeps two columns)
@@ -237,7 +238,19 @@ Important current behavior:
 - Appearance shows controls beside a sticky live preview on desktop and one column (non-sticky preview after the colour groups) on mobile;
 - the dashboard reads intro → quick actions → stats strip → attention/health; Data health rows stack label over a wrapping value;
 - cleanup rows read path → metadata → actions on desktop and stack per record on phones; long cleanup lists are `<details open>` groups that keep their safety warnings visible;
-- public navigation switches to mobile behavior.
+- public navigation switches to the hamburger at ≤900px; the mobile menu is bounded by the viewport (incl. safe area) and scrolls so every item is reachable;
+- the public footer keeps Brand on its own row and shows Explore/Contact in two columns on phones, falling back to one column at very narrow widths;
+- the public lightbox reserves the close band and the zoom toolbar via grid rows, so the image fits the remaining content box (caption in its own row) at any orientation;
+- public motion is restrained: one short hover spring on `.work-more` (no perpetual loop), a single gentle hero float, no cloud-tag loop, and sparkle only on primary CTAs; `.is-jelly` is a short press/release squash. `[data-goto]` navigation is never delayed by animation;
+- the public music control sits below the nav/mobile menu in the stack (z-index 55) and hides while a field is focused on phones;
+- asset detail: short metadata keeps label/value side by side; long-form fields (description, usage/license, update note) stack the label over a left-aligned, full-width paragraph (authored line breaks preserved); empty optional rows stay hidden;
+- portfolio project detail: divider/spacer render without a numbered card, and untitled text/caption blocks drop the extra white card (one dashed frame); on phones Previous/Next share a row with Back to Portfolio on its own row;
+- contact: the stamp takes its own row above the letter body on phones (never over the eyebrow); the email wraps naturally; the email CTA is primary with the secondary actions sharing a row;
+- terms: the section badge reuses the number already in the CMS heading (never doubles); the number aligns with the first line of a multi-line heading; the mobile TOC is a collapsed disclosure with every section reachable;
+- commission cards use one fixed 16/11 preview frame, so a real thumbnail and the placeholder keep the same ratio (the image is cropped to the frame, never stretched); cards share one height so the CTA rows line up, and switch to natural heights while an accordion is open so siblings gain no dead whitespace;
+- the what's-included accordion expands to its content height (no fixed max-height, so nothing is clipped);
+- the request form keeps the wide decorative shell but limits its reading/input column (~880px) and keeps two columns for short fields; on phones it is one column with trimmed nested padding, ≥16px inputs (no iOS focus zoom), a two-column tab group, a stacked consent block, and grouped primary/secondary result actions;
+- the commission direct-email card wraps the address naturally and lays its actions out in a tidy grid on phones.
 
 After responsive changes, verify at least desktop, tablet, and mobile widths with `npm run test:router` or equivalent browser checks.
 
