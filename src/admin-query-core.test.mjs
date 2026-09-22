@@ -45,11 +45,14 @@ assert.equal(pageAfterDelete({ page: 3, itemsOnPage: 0, total: 1, pageSize: 30 }
 assert.equal(pageAfterDelete({ page: 1, itemsOnPage: 1, total: 1, pageSize: 30 }), 1);
 
 // --- request filters -------------------------------------------------------
-assert.deepEqual(requestFilterSpec({}), { status: null, commission: null, search: null });
-assert.deepEqual(requestFilterSpec({ status: 'all', search: '  ' }), { status: null, commission: null, search: null }, 'the UI "all" option is not a server filter');
-assert.deepEqual(requestFilterSpec({ status: 'new', search: ' ann ' }), { status: 'new', commission: null, search: 'ann' });
-assert.deepEqual(requestFilterSpec({ status: 'contacted', search: null }), { status: 'contacted', commission: null, search: null });
-assert.deepEqual(requestFilterSpec({ commission: 'Character Design' }), { status: null, commission: 'Character Design', search: null }, 'the commission filter runs server-side as well');
+assert.deepEqual(requestFilterSpec({}), { status: null, commission: null, search: null, lifecycle: 'inbox' });
+assert.deepEqual(requestFilterSpec({ status: 'all', search: '  ' }), { status: null, commission: null, search: null, lifecycle: 'inbox' }, 'the UI "all" option is not a server filter');
+assert.deepEqual(requestFilterSpec({ status: 'new', search: ' ann ' }), { status: 'new', commission: null, search: 'ann', lifecycle: 'inbox' });
+assert.deepEqual(requestFilterSpec({ status: 'contacted', search: null }), { status: 'contacted', commission: null, search: null, lifecycle: 'inbox' });
+assert.deepEqual(requestFilterSpec({ commission: 'Character Design' }), { status: null, commission: 'Character Design', search: null, lifecycle: 'inbox' }, 'the commission filter runs server-side as well');
+assert.deepEqual(requestFilterSpec({ lifecycle: 'trash' }).lifecycle, 'trash');
+assert.deepEqual(requestFilterSpec({ lifecycle: 'archive' }).lifecycle, 'archive');
+assert.deepEqual(requestFilterSpec({ lifecycle: 'bogus' }).lifecycle, 'inbox', 'an unknown lifecycle view falls back to Inbox');
 
 assert.equal(sanitizeSearchTerm('ann, (smith)'), 'ann smith', 'PostgREST grammar characters are stripped');
 assert.equal(sanitizeSearchTerm('  '), null);
@@ -78,7 +81,7 @@ for (const required of ['id', 'storage_path', 'original_name', 'mime_type', 'siz
   assert.ok(mediaColumns.includes(required), 'media select keeps ' + required);
 }
 const requestColumns = ADMIN_SELECT_COLUMNS.commission_requests;
-for (const required of ['id', 'client_name', 'client_email', 'answers', 'status', 'created_at', 'updated_at']) {
+for (const required of ['id', 'client_name', 'client_email', 'answers', 'status', 'created_at', 'updated_at', 'archived_at', 'deleted_at', 'retention_hold']) {
   assert.ok(requestColumns.includes(required), 'requests select keeps ' + required);
 }
 

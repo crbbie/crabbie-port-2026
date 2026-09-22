@@ -3,6 +3,12 @@ import { deleteMediaFile } from './admin-media.js';
 import { mapAdminHydrationResults, recordIdentityFromRow } from './admin-hydration-core.js';
 import { formatRequestRowForAdmin } from './commission-requests-core.js';
 import {
+  buildLifecyclePayload,
+  permanentDeleteBlockReason,
+  planBulkLifecycle,
+  requireLifecycleIdentity
+} from './commission-request-lifecycle-core.js';
+import {
   pageAfterDelete,
   selectList,
   paginationRange,
@@ -329,12 +335,21 @@ export async function loadAdminRequestPage(options = {}) {
   if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
 
   const range = paginationRange(options.page, options.pageSize || REQUESTS_PAGE_SIZE);
-  const spec = requestFilterSpec({ status: options.status, search: options.search, commission: options.commission });
+  const spec = requestFilterSpec({ status: options.status, search: options.search, commission: options.commission, lifecycle: options.lifecycle });
 
   let query = supabase
     .from('commission_requests')
     .select(selectList('commission_requests'), { count: 'exact' });
 
+  // Lifecycle is separate from business status: Inbox/Archive/Trash filter on
+  // archived_at/deleted_at markers, never on the status column.
+  if (spec.lifecycle === 'trash') {
+    query = query.not('deleted_at', 'is', null);
+  } else if (spec.lifecycle === 'archive') {
+    query = query.not('archived_at', 'is', null).is('deleted_at', null);
+  } else {
+    query = query.is('archived_at', null).is('deleted_at', null);
+  }
   if (spec.status) query = query.eq('status', spec.status);
   // jsonb answer filter: request rows store the service title in answers.service
   if (spec.commission) query = query.eq('answers->>service', spec.commission);
@@ -381,10 +396,143 @@ export async function countAdminRows(datasets) {
   return result;
 }
 
+/** Head-counts per lifecycle view for the Inbox/Archive/Trash tabs. Unknown stays missing. */
+export async function countRequestLifecycles() {
+  if (!isConfigured || !supabase) return {};
+  const result = {};
+  await Promise.all([
+    (async () => {
+      try {
+        const { count, error } = await supabase.from('commission_requests').select('id', { count: 'exact', head: true }).is('archived_at', null).is('deleted_at', null);
+        if (!error) result.inbox = count;
+      } catch (err) { /* unknown stays unknown */ }
+    })(),
+    (async () => {
+      try {
+        const { count, error } = await supabase.from('commission_requests').select('id', { count: 'exact', head: true }).not('archived_at', 'is', null).is('deleted_at', null);
+        if (!error) result.archive = count;
+      } catch (err) { /* unknown stays unknown */ }
+    })(),
+    (async () => {
+      try {
+        const { count, error } = await supabase.from('commission_requests').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null);
+        if (!error) result.trash = count;
+      } catch (err) { /* unknown stays unknown */ }
+    })()
+  ]);
+  return result;
+}
+
+/**
+ * Batch 1: guarded lifecycle transition for one request.
+ * UUID + expected updated_at; a zero-row update is a conflict, never success.
+ * Business status is never rewritten here.
+ */
+export async function updateRequestLifecycle(id, action, expectedUpdatedAt, snapshotRow) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const identity = requireLifecycleIdentity({ id, expectedUpdatedAt });
+  const payload = buildLifecyclePayload(action, snapshotRow || {}, new Date().toISOString());
+  const response = await supabase
+    .from('commission_requests')
+    .update(payload)
+    .eq('id', identity.id)
+    .eq('updated_at', identity.expectedUpdatedAt)
+    .select('id, updated_at')
+    .maybeSingle();
+  if (response.error) throw adminWriteError(response.error);
+  if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('requests');
+  return { success: true, id: identity.id, row: response.data };
+}
+
+/** Guarded retention-hold toggle (Trash purge gate). */
+export async function setRequestRetentionHold(id, expectedUpdatedAt, hold) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const identity = requireLifecycleIdentity({ id, expectedUpdatedAt });
+  const response = await supabase
+    .from('commission_requests')
+    .update({ retention_hold: hold === true })
+    .eq('id', identity.id)
+    .eq('updated_at', identity.expectedUpdatedAt)
+    .select('id, updated_at')
+    .maybeSingle();
+  if (response.error) throw adminWriteError(response.error);
+  if (isConcurrencyConflictResponse(response)) throw concurrencyConflictError('requests');
+  return { success: true, id: identity.id, row: response.data };
+}
+
+/**
+ * Permanent delete: Trash only, retention_hold = false, guarded by baseline.
+ * Deletes ONLY the commission_requests row — never media/files.
+ */
+export async function permanentDeleteRequest(id, expectedUpdatedAt, snapshotRow) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const identity = requireLifecycleIdentity({ id, expectedUpdatedAt });
+  if (snapshotRow) {
+    const reason = permanentDeleteBlockReason(snapshotRow);
+    if (reason === 'retention_hold') {
+      const blocked = new Error('This request is under retention hold and cannot be permanently deleted.');
+      blocked.code = 'retention_hold';
+      throw blocked;
+    }
+    if (reason) {
+      const blocked = new Error('Only trashed requests can be permanently deleted.');
+      blocked.code = reason;
+      throw blocked;
+    }
+  }
+  const response = await supabase
+    .from('commission_requests')
+    .delete()
+    .eq('id', identity.id)
+    .eq('updated_at', identity.expectedUpdatedAt)
+    .not('deleted_at', 'is', null)
+    .eq('retention_hold', false)
+    .select('id');
+  if (response.error) throw adminWriteError(response.error);
+  const deleted = Array.isArray(response.data) ? response.data : [];
+  if (!deleted.length) throw concurrencyConflictError('requests');
+  return { success: true, id: identity.id };
+}
+
+/**
+ * Bulk lifecycle transitions (max 50). Sequential per-record mutations with
+ * per-record outcomes so partial failure reconciles instead of faking success.
+ */
+export async function bulkUpdateRequestLifecycle(items, action) {
+  assertAdminReadyForMutation();
+  const plans = planBulkLifecycle(action, Array.isArray(items) ? items : []);
+  const results = [];
+  for (const plan of plans) {
+    if (!plan.ok) {
+      results.push({ id: plan.id, success: false, error: plan.error, skipped: !!plan.skipped });
+      continue;
+    }
+    try {
+      if (plan.permanentDelete) {
+        await permanentDeleteRequest(plan.id, plan.expectedUpdatedAt, null);
+      } else {
+        await updateRequestLifecycle(plan.id, action, plan.expectedUpdatedAt, items.find((entry) => entry && entry.id === plan.id)?.row || {});
+      }
+      results.push({ id: plan.id, success: true });
+    } catch (err) {
+      results.push({ id: plan.id, success: false, error: err && err.message ? err.message : 'unknown error' });
+    }
+  }
+  return results;
+}
+
 window.CrabbieAdminCrud = {
   loadAllAdminData: loadAllAdminDataFromSupabase,
   loadRequestPage: loadAdminRequestPage,
   countRows: countAdminRows,
+  countRequestLifecycles,
+  updateRequestLifecycle,
+  bulkUpdateRequestLifecycle,
+  setRequestRetentionHold,
+  permanentDeleteRequest,
   pageAfterDelete,
   pendingCountDatasets,
   saveRecord: saveAdminRecord,

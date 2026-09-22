@@ -1502,7 +1502,11 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 
 .adm-req-toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;}
 .adm-req-toolbar select{padding: 8px 12px; border-radius: 12px;border: 2px solid var(--pink-light); background:#fff;font-family:var(--font-body); font-weight:700; font-size:12px; color: var(--berry);}
-.adm-req-row{display:grid; grid-template-columns: 1fr auto; gap:6px;padding: 11px 12px; border-radius:14px;border:1.5px solid var(--pink-light); background:#fff;margin-bottom:6px; cursor:pointer;}
+.adm-req-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px;}
+.adm-check-all{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color: var(--berry);}
+.adm-req-row{display:grid; grid-template-columns: auto 1fr auto; gap:6px;padding: 11px 12px; border-radius:14px;border:1.5px solid var(--pink-light); background:#fff;margin-bottom:6px; cursor:pointer; align-items:center;}
+.adm-req-row input[type="checkbox"]{width:16px; height:16px; accent-color: var(--pink-hot);}
+.rr-hold{font-size:12px;}
 .adm-req-row[aria-selected="true"]{background: linear-gradient(180deg, var(--pink-light) 0%, var(--pink-soft) 100%);border-color: var(--pink-hot);box-shadow: 0 0 0 2px var(--pink-light);}
 .adm-req-row .rr-name{font-family:var(--font-body); font-weight:700; font-size:12.5px; color: var(--berry);}
 .adm-req-row .rr-meta{font-size:11px; font-weight:700; color: var(--berry-faint);margin-top:2px;}
@@ -6089,7 +6093,7 @@ var body = '<div class="adm-row three">' + inputSelect('Field type', base + '.ty
 return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblock-head" role="button" tabindex="0" aria-expanded="false" data-adm-q-toggle="' + i + '"><span class="qb-num">' + (i + 1) + '</span><span class="qb-title">' + esc(f.label || ('Q' + (i + 1))) + '</span><span class="qb-type">' + esc(f.type) + '</span><span class="qb-actions"><button type="button" data-adm-q-del="' + i + '">✕</button></span></div><div class="adm-qblock-body">' + body + '</div></div>';
 }
 
-var reqFilter = { status:'all', commission:'all', search:'', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'' };
+var reqFilter = { status:'all', commission:'all', search:'', lifecycle:'inbox', page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', selected:[], counts:{ inbox:null, archive:null, trash:null } };
 var mediaPage = {
   page: 1,
   perPage: 30,
@@ -6158,13 +6162,22 @@ async function loadRequestsPage(){
       pageSize: reqFilter.perPage,
       status: requestDbStatus(reqFilter.status),
       commission: reqFilter.commission,
-      search: reqFilter.search
+      search: reqFilter.search,
+      lifecycle: reqFilter.lifecycle || 'inbox'
     });
     if(token !== requestsRequestId) return;
     mergePagedIntoDraft('requests', Array.isArray(page.items) ? page.items : []);
+    /* Checkbox selection never points at rows that left the current view. */
+    var visibleIds = {};
+    (Array.isArray(page.items) ? page.items : []).forEach(function(item){ if(item && item.id) visibleIds[item.id] = true; });
+    reqFilter.selected = (reqFilter.selected || []).filter(function(id){ return !!visibleIds[id]; });
     reqFilter.page = page.page; reqFilter.total = page.total; reqFilter.pageCount = page.pageCount;
     reqFilter.state = 'ready'; reqFilter.error = '';
     adminCounts.requests = page.total;
+    /* Lifecycle tab counts refresh only while unknown: a status/commission/
+       search change must cost exactly one paged read. Mutations reset the
+       counts to null so the next load refreshes them. */
+    if(reqFilter.counts.inbox == null || reqFilter.counts.archive == null || reqFilter.counts.trash == null) loadRequestLifecycleCounts();
   }catch(err){
     if(token !== requestsRequestId) return;
     console.warn('Requests page load failed:', err);
@@ -6173,6 +6186,130 @@ async function loadRequestsPage(){
   }
   refreshAdminPanel('requests');
   updateAdminCountBadges();
+}
+
+/** Head-counts for the Inbox/Archive/Trash tabs. Unknown stays unknown (never zero). */
+async function loadRequestLifecycleCounts(){
+  var crud = window.CrabbieAdminCrud;
+  if(!crud || typeof crud.countRequestLifecycles !== 'function') return;
+  try{
+    var counts = await crud.countRequestLifecycles();
+    if(counts){
+      if(counts.inbox != null) reqFilter.counts.inbox = counts.inbox;
+      if(counts.archive != null) reqFilter.counts.archive = counts.archive;
+      if(counts.trash != null) reqFilter.counts.trash = counts.trash;
+      refreshAdminPanel('requests');
+    }
+  }catch(err){ console.warn('Request lifecycle counts failed:', err); }
+}
+
+/** Single lifecycle mutation with conflict-safe reload. Returns true on success. */
+function invalidateRequestLifecycleCounts(){
+  reqFilter.counts = { inbox:null, archive:null, trash:null };
+}
+async function runRequestLifecycle(id, action, snapshot){
+  var crud = window.CrabbieAdminCrud;
+  if(!crud || typeof crud.updateRequestLifecycle !== 'function'){ toast('Request lifecycle is unavailable.'); return false; }
+  var expected = snapshot && snapshot.originalUpdatedAt;
+  if(!expected){
+    var fresh = (ADMIN_DRAFT.requests || []).filter(function(r){ return r.id === id; })[0];
+    expected = fresh && fresh.originalUpdatedAt;
+  }
+  if(!expected){ toast('This request changed elsewhere. Reloading…'); loadRequestsPage(); return false; }
+  try{
+    await crud.updateRequestLifecycle(id, action, expected, {
+      archived_at: snapshot ? snapshot.archivedAt : null,
+      deleted_at: snapshot ? snapshot.deletedAt : null
+    });
+    toast(action === 'restore' ? 'Request restored ♡' : action === 'trash' ? 'Request moved to Trash.' : 'Request archived.');
+    invalidateRequestLifecycleCounts();
+    await loadRequestsPage();
+    return true;
+  }catch(err){
+    console.warn('Request lifecycle failed:', err);
+    toast((err && err.message) || 'Lifecycle change failed.');
+    loadRequestsPage();
+    return false;
+  }
+}
+
+/** Bulk lifecycle run with per-record reconcile (max 50, partial failure safe). */
+async function runRequestLifecycleBulk(action){
+  var crud = window.CrabbieAdminCrud;
+  if(!crud || typeof crud.bulkUpdateRequestLifecycle !== 'function'){ toast('Bulk lifecycle is unavailable.'); return; }
+  var ids = (reqFilter.selected || []).slice(0, 50);
+  if(!ids.length){ toast('Select at least one request.'); return; }
+  if(action === 'permanent_delete'){
+    var phrase = 'DELETE ' + ids.length;
+    var answer = window.prompt('Permanently delete ' + ids.length + ' request(s)? This cannot be undone.\nType ' + phrase + ' to confirm.');
+    if(answer !== phrase){ toast('Permanent delete cancelled.'); return; }
+  } else if(!window.confirm(action === 'restore' ? ('Restore ' + ids.length + ' request(s)?') : action === 'trash' ? ('Move ' + ids.length + ' request(s) to Trash?') : ('Archive ' + ids.length + ' request(s)?'))){
+    return;
+  }
+  var byId = {};
+  (ADMIN_DRAFT.requests || []).forEach(function(r){ if(r && r.id) byId[r.id] = r; });
+  var items = ids.map(function(id){
+    var rec = byId[id] || {};
+    return { id: id, expectedUpdatedAt: rec.originalUpdatedAt, row: { archived_at: rec.archivedAt || null, deleted_at: rec.deletedAt || null, retention_hold: !!rec.retentionHold } };
+  });
+  try{
+    var results = await crud.bulkUpdateRequestLifecycle(items, action);
+    var ok = results.filter(function(r){ return r && r.success; }).length;
+    var failed = results.filter(function(r){ return r && !r.success && !r.skipped; });
+    var skipped = results.filter(function(r){ return r && r.skipped; }).length;
+    reqFilter.selected = [];
+    if(failed.length || skipped){
+      toast(ok + ' done · ' + failed.length + ' failed' + (skipped ? ' · ' + skipped + ' over the 50/batch limit' : '') + '. Reloading…');
+      var firstFail = failed[0];
+      if(firstFail) console.warn('Bulk lifecycle partial failure:', firstFail);
+    } else {
+      toast(ok + ' request(s) updated ♡');
+    }
+    /* An emptied last page steps back instead of rendering a dead page. */
+    var remaining = Math.max(0, (reqFilter.total || 0) - ok);
+    var next = crud.pageAfterDelete ? crud.pageAfterDelete({ page: reqFilter.page, itemsOnPage: (reqFilter.total || 0) - (reqFilter.page - 1) * reqFilter.perPage - ok, total: remaining, pageSize: reqFilter.perPage }) : reqFilter.page;
+    if(next !== reqFilter.page) reqFilter.page = next;
+    invalidateRequestLifecycleCounts();
+    await loadRequestsPage();
+  }catch(err){
+    console.warn('Bulk lifecycle failed:', err);
+    toast((err && err.message) || 'Bulk update failed.');
+    loadRequestsPage();
+  }
+}
+
+/** Permanent delete of one request: Trash only, never under retention hold. */
+async function runRequestPermanentDelete(id, snapshot){
+  var crud = window.CrabbieAdminCrud;
+  if(!crud || typeof crud.permanentDeleteRequest !== 'function'){ toast('Permanent delete is unavailable.'); return; }
+  if(!snapshot || snapshot.lifecycle !== 'trash'){ toast('Only trashed requests can be permanently deleted.'); return; }
+  if(snapshot.retentionHold){ toast('This request is under retention hold.'); return; }
+  if(!window.confirm('Permanently delete this request? This cannot be undone.\n\n' + (snapshot.clientName || '') + ' · ' + (snapshot.clientEmail || ''))) return;
+  try{
+    await crud.permanentDeleteRequest(id, snapshot.originalUpdatedAt, { deleted_at: snapshot.deletedAt, archived_at: snapshot.archivedAt || null, retention_hold: false });
+    toast('Request permanently deleted.');
+    invalidateRequestLifecycleCounts();
+    await loadRequestsPage();
+  }catch(err){
+    console.warn('Permanent delete failed:', err);
+    toast((err && err.message) || 'Permanent delete failed.');
+    loadRequestsPage();
+  }
+}
+
+/** Retention-hold toggle for trashed requests (purge gate). */
+async function runRequestRetentionHold(id, snapshot, hold){
+  var crud = window.CrabbieAdminCrud;
+  if(!crud || typeof crud.setRequestRetentionHold !== 'function'){ toast('Retention hold is unavailable.'); return; }
+  try{
+    await crud.setRequestRetentionHold(id, snapshot.originalUpdatedAt, hold);
+    toast(hold ? 'Retention hold enabled.' : 'Retention hold released.');
+    await loadRequestsPage();
+  }catch(err){
+    console.warn('Retention hold failed:', err);
+    toast((err && err.message) || 'Retention hold change failed.');
+    loadRequestsPage();
+  }
 }
 
 var mediaRequestId = 0;
@@ -6263,43 +6400,78 @@ async function loadAdminCounts(){
   wanted.forEach(function(dataset){ delete adminCountsPending[dataset]; });
   updateAdminCountBadges();
 }
+function reqLifecycleCountLabel(view){
+  var n = reqFilter.counts ? reqFilter.counts[view] : null;
+  return n == null ? '–' : String(n);
+}
 function renderAdminRequests(){
 var rows = ADMIN_DRAFT.requests || [];
 var panelState = reqFilter.state;
+var lifecycle = reqFilter.lifecycle || 'inbox';
 var statusOptions = ['all'].concat(REQ_STATUSES).map(function(s){ return '<option value="' + esc(s) + '"' + (reqFilter.status === s ? ' selected' : '') + '>' + (s === 'all' ? 'All statuses' : s) + '</option>'; }).join('');
 var commissionOptions = ['all'].concat((ADMIN_DRAFT.commissions || []).map(function(c){ return c.title; })).map(function(c){ return '<option value="' + esc(c) + '"' + (reqFilter.commission === c ? ' selected' : '') + '>' + (c === 'all' ? 'All commission types' : esc(c)) + '</option>'; }).join('');
-var toolbar = '<div class="adm-req-toolbar"><select data-adm-req-filter="status">' + statusOptions + '</select><select data-adm-req-filter="commission">' + commissionOptions + '</select><input type="search" data-adm-req-search="1" value="' + esc(reqFilter.search || '') + '" placeholder="Search client or email"><button type="button" class="adm-btn-sm" data-adm-req-refresh="1">' + esc(tAdmin('btn.refresh')) + '</button></div>';
+var tabs = '<div class="adm-req-tabs" role="tablist" aria-label="Request lifecycle">' +
+  ['inbox','archive','trash'].map(function(view){
+    var label = view === 'inbox' ? 'Inbox' : view === 'archive' ? 'Archive' : 'Trash';
+    return '<button type="button" role="tab" aria-selected="' + (lifecycle === view) + '" class="adm-btn-sm' + (lifecycle === view ? ' primary' : '') + '" data-adm-req-lifecycle="' + view + '">' + label + ' (' + esc(reqLifecycleCountLabel(view)) + ')</button>';
+  }).join('') + '</div>';
+var toolbar = '<div class="adm-req-toolbar"><select data-adm-req-filter="status">' + statusOptions + '</select><select data-adm-req-filter="commission">' + commissionOptions + '</select><input type="search" data-adm-req-search="1" value="' + esc(reqFilter.search || '') + '" placeholder="Search client or email"><button type="button" class="adm-btn-sm" data-adm-req-refresh="1">' + esc(tAdmin('btn.refresh')) + '</button><label class="adm-check-all"><input type="checkbox" data-adm-req-checkall="1"' + (rows.length && (reqFilter.selected || []).length >= rows.length ? ' checked' : '') + '> Select page</label></div>';
+var selected = reqFilter.selected || [];
+var bulkBar = '';
+if(selected.length){
+  var bulkBtns = '';
+  if(lifecycle === 'inbox') bulkBtns = '<button type="button" class="adm-btn-sm" data-adm-req-bulk="archive">Archive</button><button type="button" class="adm-btn-sm danger" data-adm-req-bulk="trash">Move to Trash</button>';
+  else if(lifecycle === 'archive') bulkBtns = '<button type="button" class="adm-btn-sm" data-adm-req-bulk="restore">Restore</button><button type="button" class="adm-btn-sm danger" data-adm-req-bulk="trash">Move to Trash</button>';
+  else bulkBtns = '<button type="button" class="adm-btn-sm" data-adm-req-bulk="restore">Restore</button><button type="button" class="adm-btn-sm danger" data-adm-req-bulk="permanent_delete">Delete permanently</button>';
+  bulkBar = '<div class="adm-bulk-bar" role="status" aria-live="polite"><span>' + selected.length + ' selected (max 50/batch)</span>' + bulkBtns + '<button type="button" class="adm-btn-sm" data-adm-req-bulk-clear="1">Clear</button></div>';
+}
 var listBody;
 if(panelState === 'error'){
   listBody = '<div class="adm-panel-state error"><p>' + esc(reqFilter.error || 'Requests could not be loaded.') + '</p><button type="button" class="adm-btn-sm" data-adm-req-retry="1">Try again</button></div>';
 } else if(panelState === 'loading' && !rows.length){
   listBody = '<div class="adm-panel-state">Loading requests…</div>';
 } else if(!rows.length){
-  listBody = '<div class="adm-panel-state">No requests match these filters.</div>';
+  listBody = '<div class="adm-panel-state">' + (lifecycle === 'trash' ? 'Trash is empty. Trashed requests stay here until restored or permanently deleted.' : lifecycle === 'archive' ? 'Archive is empty. Archived requests keep their full record and status.' : 'No requests match these filters.') + '</div>';
 } else {
   listBody = rows.map(function(r){
-var cls = r.status.toLowerCase();
-return '<div class="adm-req-row" role="option" data-adm-select="requests" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === (ADMIN_UI.selection.requests || (rows[0] && rows[0].id)) ? 'true' : 'false') + '"><div><div class="rr-name">' + esc(r.clientName) + '</div><div class="rr-meta">' + esc(r.commission) + ' · ' + esc(r.received) + '</div></div><span class="rr-status ' + cls + '">' + esc(r.status) + '</span></div>';
+var cls = String(r.status || '').toLowerCase();
+var checked = selected.indexOf(r.id) !== -1;
+var hold = r.retentionHold ? ' <span class="rr-hold" title="Retention hold: cannot be permanently deleted">🔒</span>' : '';
+return '<div class="adm-req-row" role="option" data-adm-select="requests" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === (ADMIN_UI.selection.requests || (rows[0] && rows[0].id)) ? 'true' : 'false') + '"><input type="checkbox" data-adm-req-check="' + esc(r.id) + '"' + (checked ? ' checked' : '') + ' aria-label="Select request from ' + esc(r.clientName || '') + '"><div><div class="rr-name">' + esc(r.clientName) + hold + '</div><div class="rr-meta">' + esc(r.commission) + ' · ' + esc(r.received) + '</div></div><span class="rr-status ' + cls + '">' + esc(r.status) + '</span></div>';
   }).join('');
 }
-var selected = ADMIN_UI.selection.requests || (rows[0] && rows[0].id);
-var rec = rows.filter(function(r){ return r.id === selected; })[0];
+var selId = ADMIN_UI.selection.requests || (rows[0] && rows[0].id);
+var rec = rows.filter(function(r){ return r.id === selId; })[0];
 var total = reqFilter.total || rows.length;
 var pages = Math.max(1, reqFilter.pageCount || 1);
 var pager = '<div class="adm-pagination"><button type="button" class="adm-btn-sm" data-adm-req-page="prev"' + (reqFilter.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span>Page ' + reqFilter.page + ' / ' + pages + ' · ' + total + ' requests</span><button type="button" class="adm-btn-sm" data-adm-req-page="next"' + (reqFilter.page >= pages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
 var editor = rec ? renderRequestDetail(rec) : '<div class="adm-editor"><h2>Select a request</h2></div>';
-return '<div class="adm-split"><div class="adm-list">' + toolbar + '<div>' + listBody + '</div>' + pager + '</div>' + editor + '</div>';
+return '<div class="adm-split"><div class="adm-list">' + tabs + toolbar + bulkBar + '<div>' + listBody + '</div>' + pager + '</div>' + editor + '</div>';
 }
 
 function renderRequestDetail(rec){
 var emailPanel = '<div class="adm-email-panel"><h4>Email notifications are not configured</h4><p>Use the client contact details to reply directly.</p></div>';
 var answers = (rec.answers || []).map(function(a){ return '<div class="ap-row"><span>' + esc(a[0]) + '</span><span>' + esc(a[1]) + '</span></div>'; }).join('');
 var base = 'requests.' + rec.id;
-return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + '</p>' + emailPanel +
+var lifecycle = rec.lifecycle || 'inbox';
+var holdNote = rec.retentionHold ? '<p class="af-hint">🔒 Retention hold is on: this request cannot be permanently deleted until the hold is released.</p>' : '';
+if(lifecycle === 'trash'){
+  /* Trash is read-only: status/notes stay visible but cannot be edited here. */
+  return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + ' · in Trash · status ' + esc(rec.status) + '</p>' + emailPanel +
+  '<div class="adm-section"><h4>Submitted answers</h4>' + (answers || '<p class="af-hint">No answers</p>') + '</div>' +
+  '<div class="adm-section"><h4>Notes (read-only in Trash)</h4><p class="af-hint">' + esc(rec.notes || '—') + '</p></div>' + holdNote +
+  '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button>' +
+  '<button type="button" class="adm-btn-sm" data-adm-req-hold="' + esc(rec.id) + '" data-adm-req-hold-value="' + (rec.retentionHold ? '0' : '1') + '">' + (rec.retentionHold ? 'Release hold' : 'Hold') + '</button>' +
+  '<button type="button" class="adm-btn-sm danger" data-adm-req-purge="' + esc(rec.id) + '">Delete permanently</button></div></div>';
+}
+var actions = lifecycle === 'archive'
+  ? '<button type="button" class="adm-btn-sm" data-adm-req-restore="' + esc(rec.id) + '">Restore</button><button type="button" class="adm-btn-sm danger" data-adm-req-trash="' + esc(rec.id) + '">Move to Trash</button>'
+  : '<button type="button" class="adm-btn-sm" data-adm-req-archive="' + esc(rec.id) + '">Archive</button><button type="button" class="adm-btn-sm danger" data-adm-req-trash="' + esc(rec.id) + '">Move to Trash</button>';
+return '<div class="adm-editor"><h2>' + esc(rec.clientName) + '</h2><p class="ae-sub">Request ' + esc(rec.id) + (lifecycle === 'archive' ? ' · in Archive' : '') + '</p>' + emailPanel +
 '<div class="adm-section"><h4>Submitted answers</h4>' + (answers || '<p class="af-hint">No answers</p>') + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.status')) + '</h4>' + inputSelect('Status', base + '.status', REQ_STATUSES) + '</div>' +
 '<div class="adm-section"><h4>Notes</h4>' + inputTextarea(tAdmin('label.notes'), base + '.notes', { minHeight:100, full:true }) + '</div>' +
-'<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="requests">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+'<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="requests">' + esc(tAdmin('btn.save')) + '</button>' + actions + '</div></div>';
 }
 
 function renderAdminAbout(){
@@ -6914,11 +7086,11 @@ var applySelect = function(){ ADMIN_UI.selection[listKey] = id; renderAdmin(modu
 if(ADMIN_UI.dirty) confirmDiscard(applySelect); else applySelect();
 };
 rec.addEventListener('click', function(e){
-if(e.target.closest('button')) return;
+if(e.target.closest('button,input,select,textarea')) return;
 activateRecord();
 });
 rec.addEventListener('keydown', function(e){
-if(e.target.closest('button')) return;
+if(e.target.closest('button,input,select,textarea')) return;
 if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); activateRecord(); }
 });
 });
@@ -7387,6 +7559,67 @@ btn.addEventListener('click', async function(){
   await loadRequestsPage();
   if(reqFilter.state === 'error') toast('Refresh failed: ' + reqFilter.error);
   else toast(tAdmin('toast.refreshed'));
+});
+});
+function reqSnapshotById(id){
+  return ((ADMIN_DRAFT.requests || []).filter(function(r){ return r && r.id === id; })[0]) || null;
+}
+$$('[data-adm-req-lifecycle]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  reqFilter.lifecycle = btn.getAttribute('data-adm-req-lifecycle') || 'inbox';
+  reqFilter.page = 1; reqFilter.selected = [];
+  loadRequestsPage();
+});
+});
+$$('[data-adm-req-check]', adminContent).forEach(function(box){
+box.addEventListener('change', function(){
+  var id = box.getAttribute('data-adm-req-check');
+  var sel = reqFilter.selected || [];
+  if(box.checked){ if(sel.indexOf(id) === -1) sel.push(id); }
+  else { sel = sel.filter(function(x){ return x !== id; }); }
+  reqFilter.selected = sel;
+  refreshAdminPanel('requests');
+});
+});
+$$('[data-adm-req-checkall]', adminContent).forEach(function(box){
+box.addEventListener('change', function(){
+  if(box.checked){
+    reqFilter.selected = (ADMIN_DRAFT.requests || []).map(function(r){ return r.id; }).filter(Boolean);
+  } else {
+    reqFilter.selected = [];
+  }
+  refreshAdminPanel('requests');
+});
+});
+$$('[data-adm-req-bulk]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  runRequestLifecycleBulk(btn.getAttribute('data-adm-req-bulk'));
+});
+});
+$$('[data-adm-req-bulk-clear]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  reqFilter.selected = [];
+  refreshAdminPanel('requests');
+});
+});
+function wireReqSingleAction(attr, fn){
+  $$('[' + attr + ']', adminContent).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = btn.getAttribute(attr);
+      fn(id, reqSnapshotById(id));
+    });
+  });
+}
+wireReqSingleAction('data-adm-req-archive', function(id, snap){ if(snap) runRequestLifecycle(id, 'archive', snap); });
+wireReqSingleAction('data-adm-req-trash', function(id, snap){ if(!snap) return; if(window.confirm('Move this request to Trash?')) runRequestLifecycle(id, 'trash', snap); });
+wireReqSingleAction('data-adm-req-restore', function(id, snap){ if(snap) runRequestLifecycle(id, 'restore', snap); });
+wireReqSingleAction('data-adm-req-purge', function(id, snap){ if(snap) runRequestPermanentDelete(id, snap); });
+$$('[data-adm-req-hold]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var id = btn.getAttribute('data-adm-req-hold');
+  var snap = reqSnapshotById(id);
+  if(!snap) return;
+  runRequestRetentionHold(id, snap, btn.getAttribute('data-adm-req-hold-value') === '1');
 });
 });
 $$('[data-adm-upload-cancel]', adminContent).forEach(function(btn){

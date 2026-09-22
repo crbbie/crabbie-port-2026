@@ -36,7 +36,8 @@ export const ADMIN_SELECT_COLUMNS = Object.freeze({
   site_settings: Object.freeze(['key', 'value', 'updated_at']),
   commission_requests: Object.freeze([
     'id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes',
-    'terms_accepted', 'service_id', 'form_id', 'created_at', 'updated_at'
+    'terms_accepted', 'service_id', 'form_id', 'created_at', 'updated_at',
+    'archived_at', 'deleted_at', 'retention_hold'
   ]),
   media: Object.freeze([
     'id', 'bucket_id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text',
@@ -54,7 +55,7 @@ export const HYDRATION_MAPPED_COLUMNS = Object.freeze({
   cms_pages: Object.freeze(['id', 'slug', 'title', 'content', 'published', 'data', 'updated_at']),
   cms_navigation: Object.freeze(['id', 'title', 'url', 'published', 'updated_at']),
   site_settings: Object.freeze(['key', 'value', 'updated_at']),
-  commission_requests: Object.freeze(['id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes', 'terms_accepted', 'created_at', 'updated_at']),
+  commission_requests: Object.freeze(['id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes', 'terms_accepted', 'created_at', 'updated_at', 'archived_at', 'deleted_at', 'retention_hold']),
   media: Object.freeze(['id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text', 'sha256', 'width', 'height', 'deletion_status', 'created_at'])
 });
 
@@ -136,10 +137,21 @@ export function sanitizeSearchTerm(term) {
   return cleaned || null;
 }
 
-export function requestFilterSpec({ status, search, commission } = {}) {
+export const REQUEST_LIFECYCLE_VIEWS = Object.freeze(['inbox', 'archive', 'trash']);
+
+export function normalizeRequestLifecycle(lifecycle) {
+  return REQUEST_LIFECYCLE_VIEWS.includes(lifecycle) ? lifecycle : 'inbox';
+}
+
+export function requestFilterSpec({ status, search, commission, lifecycle } = {}) {
   const cleanStatus = typeof status === 'string' && status && status !== 'all' ? status : null;
   const cleanCommission = typeof commission === 'string' && commission && commission !== 'all' ? commission : null;
-  return { status: cleanStatus, commission: cleanCommission, search: sanitizeSearchTerm(search) };
+  return {
+    status: cleanStatus,
+    commission: cleanCommission,
+    search: sanitizeSearchTerm(search),
+    lifecycle: normalizeRequestLifecycle(lifecycle || 'inbox')
+  };
 }
 
 export function mediaFilterSpec({ search } = {}) {

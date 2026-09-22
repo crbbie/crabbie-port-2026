@@ -234,9 +234,15 @@ export function formatRequestRowForAdmin(row = {}) {
     received,
     commission: answersObj.service || 'Commission',
     status: statusDisplay,
+    dbStatus: rawStatus,
     notes: row.admin_notes || '',
     termsAccepted: Boolean(row.terms_accepted),
-    answers: answerEntries
+    answers: answerEntries,
+    archivedAt: row.archived_at || null,
+    deletedAt: row.deleted_at || null,
+    retentionHold: row.retention_hold === true,
+    lifecycle: row.deleted_at ? 'trash' : (row.archived_at ? 'archive' : 'inbox'),
+    updatedAt: typeof row.updated_at === 'string' ? row.updated_at : null
   };
 }
 

@@ -120,7 +120,13 @@ A partial failure must remain recoverable/retryable.
 
 ### Commission requests
 
-Do not add a casual bulk hard-delete UI. Treat requests as business records containing personal data. If a privacy deletion is required, use a deliberate deletion/anonymization workflow rather than generic CMS deletion.
+Requests use the deliberate lifecycle `Inbox ⇄ Archive → Trash → Permanent Delete`
+(`archived_at` / `deleted_at` / `retention_hold`; see migration
+`202609220001_commission_request_lifecycle.sql`). Lifecycle never rewrites
+business status, Trash is read-only in Admin, permanent delete requires Trash +
+no retention hold, and bulk operations are capped at 50/batch with per-record
+outcomes. Do not add a casual one-click hard-delete outside this workflow.
+Treat requests as business records containing personal data.
 
 ### CMS content
 

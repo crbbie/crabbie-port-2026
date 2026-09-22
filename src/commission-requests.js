@@ -98,7 +98,8 @@ export async function fetchAdminCommissionRequests(options = {}) {
     pageSize: options.pageSize,
     status: options.status,
     commission: options.commission,
-    search: options.search
+    search: options.search,
+    lifecycle: options.lifecycle
   });
 
   return page.items;
