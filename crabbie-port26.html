@@ -491,7 +491,9 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .gallery-zoom img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s ease;}
 .gallery-zoom:hover img{transform:scale(1.025);}
 .gallery-zoom:focus-visible{outline:3px solid var(--purple-hot);outline-offset:4px;}
-.work.is-cms-featured,.item.is-cms-featured{box-shadow:0 0 0 4px rgba(255,190,220,.9),0 18px 34px -20px rgba(217,74,128,.58);}
+/* The featured ring is a resting-state accent; excluding :hover lets the shared
+   `.work:hover` / `.item:hover` lift and shadow still win on featured cards. */
+.work.is-cms-featured:not(:hover),.item.is-cms-featured:not(:hover){box-shadow:0 0 0 4px rgba(255,190,220,.9),0 18px 34px -20px rgba(217,74,128,.58);}
 .ph-gallery .ph{ min-height: 0; }
 .ph-gallery .g-a{ grid-column: span 2; grid-row: span 2; aspect-ratio: 1/1; }
 .ph-gallery .g-b{ aspect-ratio: 3/4; }
@@ -2246,6 +2248,11 @@ html.home-reveal-sequence.home-reveal-active footer{
 .view.is-active .assets-grid > *:nth-child(4),
 .view.is-active .mini-grid > *:nth-child(4){ animation-delay: .24s; }
 
+/* The one-shot entrance fill keeps `transform` pinned to its final keyframe,
+   which outranks the shared `.work:hover` lift on portfolio cards. Let the
+   fill drop after the entrance so the existing hover lift applies again. */
+.view.is-active .pf-grid > *{ animation-fill-mode: backwards; }
+
 /* ============================================================
    VIEW TRANSITION — mượt khi chuyển view
    ============================================================ */
@@ -2489,11 +2496,21 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
   transform-origin: center;
 }
 
+@keyframes gentleFloat{
+  0%,100% { transform: translateX(0); }
+  50%     { transform: translateX(15px); }
+}
+/* Cloud labels drift gently on the active Home view only; Portfolio and other
+   views stay still, and the reduced-motion rule below stills the loop. */
+.view[data-view="home"].is-active .cloud-tag{
+  animation: gentleFloat 5s ease-in-out infinite;
+}
+
 @keyframes boardSway{
   0%,100% { transform: rotate(-0.8deg); }
   50%     { transform: rotate(0.8deg); }
 }
-/* One small, slow sway on the CTA board; the cloud-tag float loop is removed. */
+/* One small, slow sway on the CTA board. */
 .view[data-view="home"].is-active .cta-panel{
   animation: boardSway 9s ease-in-out infinite;
   transform-origin: center bottom;
