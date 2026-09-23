@@ -209,16 +209,19 @@ button{font:inherit; color:inherit;}
 
 /* Shared public "bubble bounce": a soft squash on press, a small spring up
    and outward on release, then a gentle settle. One keyframe drives every
-   public control so the feel stays consistent. Public-only (body:not(.admin-mode)). */
+   public control so the feel stays consistent. It animates the individual
+   `translate`/`scale` properties (not `transform`) so it composes cleanly with
+   each control's hover lift instead of snapping back when `.is-jelly` is
+   removed. Public-only (body:not(.admin-mode)). */
 @keyframes jelly{
-  0%   { transform: translateY(0) scale(1, 1); }
-  28%  { transform: translateY(0) scale(1.06, 0.94); }
-  52%  { transform: translateY(-3px) scale(1.07, 1.05); }
-  74%  { transform: translateY(1px) scale(0.98, 1.02); }
-  100% { transform: translateY(0) scale(1, 1); }
+  0%   { translate: 0 0; scale: 1 1; }
+  30%  { translate: 0 0; scale: 1.035 0.975; }
+  58%  { translate: 0 -3px; scale: 0.985 1.03; }
+  78%  { translate: 0 0; scale: 1.01 0.992; }
+  100% { translate: 0 0; scale: 1 1; }
 }
 body:not(.admin-mode) .is-jelly{
-  animation: jelly .42s cubic-bezier(.34,1.56,.64,1) both !important;
+  animation: jelly .5s cubic-bezier(.34,1.12,.5,1) both !important;
   transform-origin: center bottom;
 }
 @media (prefers-reduced-motion: reduce){
@@ -2178,13 +2181,15 @@ html.home-reveal-sequence.home-reveal-active footer{
 }
 
 /* ---------- HOME CARD MOTION ---------- */
-/* Favorites cards are visible immediately; only hover lift + click shake remain. */
+/* Favorites cards are visible immediately; only hover lift + click shake remain.
+   The lift lives on `transform` (matching the global `.work:hover`) so the shared
+   public bubble — which animates `translate`/`scale` — composes without a snap. */
 .view[data-view="home"].is-active .works-grid > .work{
-  transition: translate .35s ease, box-shadow .35s ease;
-  translate: 0 0;
+  transition: transform .4s var(--ease), box-shadow .4s var(--ease);
+  transform: translateY(0);
 }
 .view[data-view="home"].is-active .works-grid > .work:hover{
-  translate: 0 -8px;
+  transform: translateY(-8px);
 }
 
 /* Free Assets cards are also visible immediately; keep hover lift + click shake only. */
@@ -10419,7 +10424,7 @@ var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 /* One shared bubble bounce for every public control. Delegated in the capture
    phase so the press plays before any navigation, replays on every click/tap,
    and still applies to CMS-rendered or re-rendered controls. */
-var JELLY_TARGETS = '.btn, .nav-cta, .work-more, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
+var JELLY_TARGETS = '.btn, .nav-cta, .work, .banner, .work-more, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
 function jelly(el){
   el.classList.remove('is-jelly');
   void el.offsetWidth;
@@ -10428,7 +10433,7 @@ function jelly(el){
   el.__jellyTimer = setTimeout(function(){
     el.classList.remove('is-jelly');
     el.__jellyTimer = null;
-  }, 440);
+  }, 520);
 }
 document.addEventListener('click', function(e){
   if(reduceMotion.matches) return;
