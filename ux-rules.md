@@ -42,8 +42,10 @@ per-element color settings.
 - The decorative background artwork (`src/site-decor.js`) is one fixed,
   `pointer-events:none`, `overflow:hidden` layer that crossfades the three local
   `/assets/decorations/deco-bg (N).png` images across the scroll range
-  (top → ~32% → ~66% → bottom) with a subtle floating animation; admin mode
-  hides it and `prefers-reduced-motion` stops the float. It must never add
+  (top → ~32% → ~66% → bottom); desktop adds scroll parallax and a subtle
+  floating animation, while coarse pointers (phones/tablets) keep the art
+  visible and fixed with no parallax or float. Admin mode hides it and
+  `prefers-reduced-motion` stops all motion. It must never add
   horizontal overflow or cover interactive content.
 - Saved palettes store the whole colour group in `theme.palettes`; Apply updates
   every colour field and the live preview immediately, and the normal Save
@@ -253,8 +255,10 @@ Important current behavior:
 - cleanup rows read path → metadata → actions on desktop and stack per record on phones; long cleanup lists are `<details open>` groups that keep their safety warnings visible;
 - public navigation switches to the hamburger at ≤900px; the mobile menu is bounded by the viewport (incl. safe area) and scrolls so every item is reachable;
 - the public footer keeps Brand on its own row and shows Explore/Contact in two columns on phones, falling back to one column at very narrow widths;
-- the public lightbox reserves the close band and the zoom toolbar via grid rows, so the image fits the remaining content box (caption in its own row) at any orientation;
-- public motion is restrained: one short hover spring on `.work-more` (no perpetual loop), a single gentle hero float, a slow drift on Home cloud-tag labels only, and sparkle only on primary CTAs; `.is-jelly` is a short press/release squash. `[data-goto]` navigation is never delayed by animation;
+- the public page must have zero unintended horizontal overflow: `document.documentElement.scrollWidth <= clientWidth + 1` at 320/360/375/390/430px portrait and phone landscape. Long CMS-authored tokens (project titles with no spaces, URL descriptions, long tags, long collaborator names) must wrap (`overflow-wrap:anywhere`, grid/flex `min-width:0`) instead of widening the page. Portfolio `.work` cards share the same shrink/wrap defense. Root defense stays `body{overflow-x:hidden}` plus `overscroll-behavior-x:none`; never put `overflow-x:clip` on `html` — Chromium stops pinning the sticky nav when the root clips either axis. Local horizontal scrollers (client thanks, media preview) own their own overflow; the page itself never pans;
+- portfolio project detail: `.pd-hero` tracks are `minmax(0,…)` with `min-width:0` children so hero content can always shrink; divider/spacer render without a numbered card, and untitled text/caption blocks drop the extra white card (one dashed frame); on phones Previous/Next share a row with Back to Portfolio on its own row; phone vertical rhythm is deliberate (compact hero gap, title→description, description→facts, facts→cover, cover→first block, final content→footnav) instead of inheriting the desktop cadence;
+- the public lightbox keeps the centered grid (close band / caption / credits / flexible image slot) on desktop, tablet and phone landscape. Phone portrait uses a compact natural vertical stack instead: caption (only when present) → collaborator credits (only when present) → image at the top of the screen with a small deliberate gap, in one scroll container; hidden rows consume zero space, tall images simply scroll, and the image is capped by `100dvh` so it never sits underneath the fixed zoom toolbar. Close/toolbar padding and position grow with `env(safe-area-inset-*)` on notch phones; close and zoom buttons keep ~44px touch targets;
+- public motion is restrained: one short hover spring on `.work-more` (no perpetual loop), a single gentle hero float, a slow drift on Home cloud-tag labels only, and sparkle only on primary CTAs; `.is-jelly` is a short press/release squash. `[data-goto]` navigation is never delayed by animation. The decorative artwork (`src/site-decor.js`) crossfades on desktop and phones, but scroll parallax and the continuous float drift are desktop/fine-pointer only — on coarse pointers the art stays visible and viewport-fixed with no transform, so the background never feels like it slides sideways while scrolling; `prefers-reduced-motion` still stops everything;
 - portfolio `.work` cards keep the shared hover lift: the `.pf-grid` entrance animation must not forward-fill `transform` after it settles, and the featured resting ring (`is-cms-featured`) is scoped to `:not(:hover)` so featured and normal cards share the same lift/shadow hover feedback;
 - the public music control sits below the nav/mobile menu in the stack (z-index 55) and hides while a field is focused on phones;
 - asset detail: short metadata keeps label/value side by side; long-form fields (description, usage/license, update note) stack the label over a left-aligned, full-width paragraph (authored line breaks preserved); empty optional rows stay hidden;

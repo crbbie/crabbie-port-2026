@@ -4158,6 +4158,218 @@ try {
     assert.equal(await page.evaluate(() => document.querySelectorAll('#clientThanksTrack .client-thanks-item').length), 0, 'empty snapshots clear old identities');
     console.log('PASS People credits strip, image lightbox credits and commissions client thanks render through production wiring (SDK fixture)');
 
+    // ---- Mobile responsive stabilization: overflow, wrapping, lightbox ----
+    // A pathological CMS payload (no-space title, URL-token description, long
+    // tags and a very long collaborator name) must never widen a 390px phone.
+    const longTokenTitle = 'YUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE';
+    const longCollabName = 'Alexandrina-Theodora-Montenegro-Wossisname-Longest-Collaborator-Name-Ever-Written-In-A-CMS';
+    const longPersonId = '00000000-0000-4000-8000-000000000b99';
+    const overflowProjectId = '00000000-0000-4000-8000-000000000a99';
+    const stabilizedRows = JSON.parse(await page.evaluate(() => JSON.stringify(window.__routerRows)));
+    stabilizedRows.people.forEach((row) => { row.published = true; row.show_in_thank_you = true; });
+    stabilizedRows.people.push({id: longPersonId, display_name: longCollabName, avatar_path: 'https://router-test.supabase.co/long.png', avatar_alt: '', profile_url: '', kind: 'collaborator', published: true, show_in_thank_you: false, sort_order: 9, updated_at: '2026-02-02T00:00:00Z'});
+    stabilizedRows.portfolio_projects.push({id: overflowProjectId, slug: 'overflow-proof', title: longTokenTitle, description: 'Long token https://example.test/a/very/long/unbroken/url/that/must/not/widen/the/mobile/viewport', tags: ['AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'], thumbnail_path: '', cover_path: '', content: {categorySlug: 'illustration', peopleCreditLabel: 'Made with'}, featured: false, published: true, sort_order: 9, updated_at: '2026-02-02T00:00:00Z'});
+    stabilizedRows.portfolio_project_people.push({project_id: overflowProjectId, person_id: longPersonId, sort_order: 0});
+    stabilizedRows.portfolio_project_people.push({project_id: '00000000-0000-4000-8000-000000000a03', person_id: longPersonId, sort_order: 1});
+    await page.addInitScript((rows) => { window.__routerRows = rows; window.__routerWrites = []; }, stabilizedRows);
+    await page.setViewportSize({width: 390, height: 844});
+    /* The query string forces a real reload (a hash-only change from the
+       current URL would be a same-document navigation and the init script
+       would never run). */
+    await page.goto(origin + '/?stabilize=1#project/overflow-proof', {waitUntil: 'load'});
+    await page.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 15000});
+    await page.waitForFunction(() => window.CrabbiePeople && window.CrabbiePeople.settled === true, null, {timeout: 15000});
+    await page.waitForFunction((title) => (document.getElementById('pdTitle') || {}).textContent === title, longTokenTitle, {timeout: 15000});
+    const stabilized = await page.evaluate(() => {
+      const doc = document.documentElement;
+      const hero = document.querySelector('.pd-hero');
+      const title = document.getElementById('pdTitle');
+      const wrapEl = title.closest('.wrap');
+      const desc = document.getElementById('pdDesc');
+      const strip = document.getElementById('pdCreditStrip');
+      const nameEl = strip.querySelector('.pcs-name .pcs-name-text');
+      const tags = document.getElementById('pdTags');
+      const rhythm = getComputedStyle(hero);
+      return {
+        pageOverflow: doc.scrollWidth - doc.clientWidth,
+        heroShrinkable: Array.from(hero.children).every(el => getComputedStyle(el).minWidth === '0px'),
+        titleFitsBox: title.scrollWidth <= title.clientWidth + 1,
+        titleHeight: title.getBoundingClientRect().height,
+        titleLineHeight: parseFloat(getComputedStyle(title).lineHeight) || 1.2 * 16,
+        titleInsideColumn: title.getBoundingClientRect().right <= wrapEl.getBoundingClientRect().right + 1,
+        descWraps: desc.scrollWidth <= desc.clientWidth + 1,
+        factMinWidth: getComputedStyle(tags).minWidth,
+        factWraps: tags.scrollWidth <= tags.clientWidth + 1,
+        stripVisible: !strip.hidden,
+        nameWhiteSpace: getComputedStyle(strip.querySelector('.pcs-name')).whiteSpace,
+        stripFits: strip.scrollWidth <= strip.clientWidth + 1,
+        heroGap: parseFloat(rhythm.gap),
+        heroMarginBottom: parseFloat(rhythm.marginBottom)
+      };
+    });
+    assert.ok(stabilized.pageOverflow <= 1, 'a pathological CMS payload never widens the 390px page');
+    assert.equal(stabilized.heroShrinkable, true, 'pd-hero direct children permit shrinking (min-width:0)');
+    assert.equal(stabilized.titleFitsBox, true, 'a long no-space title stays inside its own box instead of widening the page');
+    assert.ok(stabilized.titleHeight >= stabilized.titleLineHeight * 1.8, 'a long no-space title actually wraps onto multiple lines');
+    assert.equal(stabilized.titleInsideColumn, true, 'the wrapped project title stays inside the content column');
+    assert.equal(stabilized.descWraps, true, 'long URL tokens in the project description wrap');
+    assert.equal(stabilized.factMinWidth, '0px', 'project fact values use min-width:0');
+    assert.equal(stabilized.factWraps, true, 'long category/tag fact values wrap');
+    assert.equal(stabilized.stripVisible, true, 'the credit strip still renders with a long collaborator name');
+    assert.equal(stabilized.nameWhiteSpace, 'normal', 'collaborator names no longer force nowrap');
+    assert.ok(stabilized.stripFits, 'a very long collaborator name wraps inside the credit strip');
+    assert.ok(stabilized.heroGap <= 28 && stabilized.heroMarginBottom <= 40, 'project detail phone spacing is deliberate, not the desktop cadence');
+
+    // Vertical touch drag / wheel must never pan the page sideways, and the
+    // sticky nav must stay glued to the viewport while scrolling.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    // Let the nav entrance animation and fonts settle before the baseline.
+    await page.waitForTimeout(800);
+    const navBefore = await page.evaluate(() => { const r = document.querySelector('.nav-shell').getBoundingClientRect(); return {left: r.left, width: r.width}; });
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 195, y: 200, id: 1}]});
+    for (let i = 1; i <= 8; i++) {
+      await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: 195, y: 200 - i * 40, id: 1}]});
+      await page.waitForTimeout(16);
+    }
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(400);
+    const wobble = await page.evaluate(() => {
+      const r = document.querySelector('.nav-shell').getBoundingClientRect();
+      return {scrollX: window.scrollX, scrollY: window.scrollY, navLeft: r.left, navWidth: r.width};
+    });
+    await cdp.detach();
+    assert.ok(wobble.scrollY > 0, 'the vertical drag actually scrolls the page');
+    assert.equal(wobble.scrollX, 0, 'window.scrollX stays 0 during vertical phone scrolling');
+    assert.ok(Math.abs(wobble.navLeft - navBefore.left) < 1 && Math.abs(wobble.navWidth - navBefore.width) < 1, 'the sticky nav never slides sideways while scrolling');
+    const wobbleOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    assert.ok(wobbleOverflow <= 1, 'the page stays exactly one screen wide after touch scrolling');
+
+    // Core public routes: scrollWidth <= clientWidth + 1 at phone width.
+    for (const route of ['home', 'portfolio', 'free-assets', 'commissions', 'about', 'terms', 'contact']) {
+      await page.evaluate((name) => { location.hash = '#' + name; }, route);
+      await page.waitForFunction((name) => document.querySelector('.view.is-active')?.dataset.view === name, route);
+      await page.waitForTimeout(350);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 1, 'no page-level horizontal overflow at 390px on ' + route);
+    }
+
+    // Client thanks: the local horizontal scroller keeps working while the
+    // page itself never pans. Force reduced motion (like a real phone's
+    // coarse pointer does) so the 7 eligible people choose the scroll list
+    // instead of the desktop marquee, then restore the suite default.
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(async () => { await window.CrabbiePeopleRefresh.hydrate(); window.CrabbiePortfolio.renderPeople(); });
+    await page.waitForFunction(() => !document.getElementById('clientThanks').hidden && document.getElementById('clientThanks').classList.contains('is-scroll'), null, {timeout: 15000});
+    const thanksScroll = await page.evaluate(() => {
+      const track = document.getElementById('clientThanksTrack');
+      const before = track.scrollLeft;
+      track.scrollLeft = 120;
+      const moved = track.scrollLeft > before;
+      track.scrollLeft = 0;
+      return { scrollable: track.scrollWidth > track.clientWidth, moved, pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    assert.equal(thanksScroll.scrollable, true, 'six thanks entries form a local horizontal list on phones');
+    assert.equal(thanksScroll.moved, true, 'the local thanks scroller remains horizontally usable');
+    assert.ok(thanksScroll.pageOverflow <= 1, 'browsing thanks horizontally never pans the page');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    // Phone-portrait lightbox: compact natural stack (caption → credits →
+    // image), no giant centered slot, safe-area-aware controls.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="ink-splash"]') && document.querySelector('.view.is-active')?.dataset.view === 'portfolio', null, {timeout: 15000});
+    await page.evaluate(() => document.querySelector('#pfGrid [data-project="ink-splash"]').click());
+    await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+    await page.waitForTimeout(200);
+    const lightboxStack = await page.evaluate(() => {
+      const box = document.getElementById('publicLightbox');
+      const cap = document.getElementById('publicLightboxCaption').getBoundingClientRect();
+      const cred = document.getElementById('publicLightboxCredits').getBoundingClientRect();
+      const img = document.getElementById('publicLightboxImg').getBoundingClientRect();
+      const bar = document.getElementById('publicLightboxBar').getBoundingClientRect();
+      const close = document.getElementById('publicLightboxClose').getBoundingClientRect();
+      const zoom = document.getElementById('publicLightboxZoomIn').getBoundingClientRect();
+      const creditsEl = document.getElementById('publicLightboxCredits');
+      return {
+        display: getComputedStyle(box).display,
+        captionBeforeCredits: cap.top < cred.top,
+        creditsBeforeImage: cred.bottom <= img.top + 1,
+        gapCaptionCredits: cred.top - cap.bottom,
+        gapAboveImage: img.top - Math.max(cap.bottom, cred.bottom),
+        barClearsImage: bar.top >= img.bottom - 1,
+        creditsFit: creditsEl.scrollWidth <= creditsEl.clientWidth + 1,
+        closeTarget: close.height,
+        zoomTarget: Math.min(zoom.height, zoom.width)
+      };
+    });
+    assert.equal(lightboxStack.display, 'flex', 'phone portrait lightbox uses a natural vertical stack, not the centered grid slot');
+    assert.equal(lightboxStack.captionBeforeCredits, true, 'the caption renders above the collaborator credits');
+    assert.equal(lightboxStack.creditsBeforeImage, true, 'the image follows the caption/credits stack');
+    assert.ok(lightboxStack.gapAboveImage >= 0 && lightboxStack.gapAboveImage <= 48, 'no giant dead zone above the phone lightbox image');
+    assert.ok(lightboxStack.gapCaptionCredits <= 16, 'caption and credits read as one compact group');
+    assert.equal(lightboxStack.barClearsImage, true, 'the zoom toolbar never covers the image');
+    assert.ok(lightboxStack.creditsFit, 'lightbox credits wrap a very long collaborator name safely');
+    assert.ok(lightboxStack.closeTarget >= 43 && lightboxStack.zoomTarget >= 43, 'lightbox close and zoom controls keep ~44px touch targets');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Hidden caption/credit rows consume zero layout (gallery lightbox).
+    const hiddenRows = await page.evaluate(() => {
+      const btn = document.createElement('button');
+      btn.setAttribute('data-lightbox-src', 'https://router-test.supabase.co/gallery.png');
+      btn.id = 'stabilizeGalleryBtn';
+      document.body.appendChild(btn);
+      btn.click();
+      const caption = document.getElementById('publicLightboxCaption');
+      const credits = document.getElementById('publicLightboxCredits');
+      return {
+        open: !document.getElementById('publicLightbox').hidden,
+        captionDisplay: getComputedStyle(caption).display,
+        creditsDisplay: getComputedStyle(credits).display,
+        captionRects: caption.getClientRects().length,
+        creditsRects: credits.getClientRects().length
+      };
+    });
+    assert.equal(hiddenRows.open, true, 'the gallery lightbox opens');
+    assert.equal(hiddenRows.captionDisplay, 'none', 'a hidden caption row consumes no layout');
+    assert.equal(hiddenRows.creditsDisplay, 'none', 'a hidden credits row consumes no layout');
+    assert.equal(hiddenRows.captionRects, 0, 'hidden caption has no client rects');
+    assert.equal(hiddenRows.creditsRects, 0, 'hidden credits have no client rects');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { const btn = document.getElementById('stabilizeGalleryBtn'); if (btn) btn.remove(); });
+    // The fixed lightbox controls are safe-area aware in the stylesheet.
+    const safeAreaRules = await page.evaluate(() => {
+      let found = 0;
+      const scan = (rules) => {
+        for (const rule of Array.from(rules || [])) {
+          if (rule.type === 4) {
+            const media = rule.conditionText || (rule.media && rule.media.mediaText) || '';
+            if (/max-width:\s*640px/.test(media)) {
+              const text = Array.from(rule.cssRules).map(r => r.cssText).join('\n');
+              if (text.includes('.public-lightbox-close') && text.includes('safe-area-inset-top')) found++;
+              if (text.includes('.public-lightbox-bar') && text.includes('safe-area-inset-bottom')) found++;
+              if (text.includes('.public-lightbox') && text.includes('safe-area-inset-bottom')) found++;
+            }
+            scan(rule.cssRules);
+          }
+        }
+      };
+      Array.from(document.styleSheets).forEach(sheet => { try { scan(sheet.cssRules); } catch (e) {} });
+      return found;
+    });
+    assert.ok(safeAreaRules >= 3, 'phone lightbox close/toolbar/padding are safe-area aware');
+    // Desktop keeps the centered grid lightbox.
+    await page.setViewportSize({width: 1280, height: 800});
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('#pfGrid [data-project="ink-splash"]').click());
+    await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('publicLightbox')).display), 'grid', 'desktop keeps the centered grid lightbox');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    console.log('PASS mobile stabilization: no phone overflow, wrapping, phone lightbox stack, safe-area controls, thanks scroller (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));

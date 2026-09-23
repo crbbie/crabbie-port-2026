@@ -30,6 +30,11 @@ const FADE_HALF = 0.09;
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const isReduced = () => reduceMotion.matches;
+/* Phones/tablets (coarse pointers) keep the artwork visible and viewport-fixed,
+   but the scroll parallax and float drift are desktop-only: on a phone the
+   moving background reads as the whole page shifting while scrolling. */
+const finePointer = window.matchMedia('(pointer: fine)');
+const hasFinePointer = () => finePointer.matches;
 
 function isAdminView() {
   return document.body.classList.contains('admin-mode') ||
@@ -58,6 +63,12 @@ body.admin-mode #${LAYER_ID}{display:none !important;}
      reaching across the phone viewport while staying cropped and overflow-free. */
   .crabbie-deco-item{inset:-16%;}
   .crabbie-deco-item img{object-position:center 42%;}
+}
+/* Coarse pointers (phones/tablets): artwork stays visible and fixed, but the
+   continuous float (incl. its horizontal drift) stops so the background never
+   feels like it is sliding sideways under the content. Desktop keeps floating. */
+@media (pointer:coarse){
+  .crabbie-deco-float{animation:none !important;}
 }
 @media (prefers-reduced-motion: reduce){
   .crabbie-deco-float{animation:none !important;}
@@ -133,18 +144,18 @@ function applyProgress() {
   const fadeOne = smoothstep((progress - (THRESHOLD_ONE - FADE_HALF)) / (FADE_HALF * 2));
   const fadeTwo = smoothstep((progress - (THRESHOLD_TWO - FADE_HALF)) / (FADE_HALF * 2));
   const opacities = [1 - fadeOne, fadeOne * (1 - fadeTwo), fadeTwo];
-  const reduced = isReduced();
-  deco.items.forEach((item, i) => {
-    item.el.style.opacity = opacities[i].toFixed(3);
-    /* Parallax rides the outer wrapper; the CSS float animation owns the inner
-       wrapper, so the two transforms can never overwrite each other. */
-    if (reduced) {
-      item.el.style.transform = 'none';
-    } else {
-      const offset = (progress - 0.5) * item.depth;
-      item.el.style.transform = 'translate3d(0,' + offset.toFixed(1) + 'px,0)';
-    }
-  });
+    const reduced = isReduced();
+    deco.items.forEach((item, i) => {
+      item.el.style.opacity = opacities[i].toFixed(3);
+      /* Parallax rides the outer wrapper; the CSS float animation owns the inner
+        wrapper, so the two transforms can never overwrite each other. */
+      if (reduced || !hasFinePointer()) {
+        item.el.style.transform = 'none';
+      } else {
+        const offset = (progress - 0.5) * item.depth;
+        item.el.style.transform = 'translate3d(0,' + offset.toFixed(1) + 'px,0)';
+      }
+    });
 }
 
 function scheduleUpdate() {
