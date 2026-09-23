@@ -145,7 +145,7 @@ credit prefix lives in `portfolio_projects.content.peopleCreditLabel`
 ```text
 people + portfolio_project_people (published only, paged to completion)
   → src/people-cms.js (window.CrabbiePeople bridge) + portfolio junction attach
-  → project credit strip (after #pdDesc) + thank-you section (after #pfGrid)
+  → project credit strip (after #pdDesc) + image-lightbox credits + client thank-you section (Commissions, after Fees & add-ons)
 ```
 
 - Public adapters filter `published` even when an admin is signed in.

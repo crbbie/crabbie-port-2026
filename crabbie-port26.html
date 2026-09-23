@@ -461,49 +461,52 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pd-fact .k{font-family:var(--font-decorative); font-weight:600; font-size:11px;letter-spacing:.12em; text-transform:uppercase;color: var(--berry-faint); flex:0 0 84px;}
 .pd-fact .v{ font-size:13.5px; font-weight:800; color: var(--berry); }
 /* Project collaborator credit strip: pale pink/lilac surface, wraps naturally. */
-.pd-credit-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:16px; padding:10px 16px; background:linear-gradient(160deg,#fff5fa 0%,#f6f0ff 100%); border:2px solid var(--pink-light, #ffd3e6); border-radius:16px; font-family:var(--font-body); font-size:13.5px; color:var(--berry,#7a3d6e); }
+.pd-credit-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-top:16px; padding:12px 18px; background:linear-gradient(160deg,#fff5fa 0%,#f6f0ff 100%); border:2px solid var(--pink-light, #ffd3e6); border-radius:16px; font-family:var(--font-body); font-size:13.5px; }
 .pd-credit-strip .pcs-label{ font-weight:800; }
-.pd-credit-strip .pcs-heart{ color:var(--pink-hot,#ff5c9a); }
-.pd-credit-strip .pcs-name{ font-weight:600; white-space:nowrap; }
+.pd-credit-strip .pcs-name{ font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; }
 .pd-credit-strip .pcs-sep{ opacity:.65; }
-.pd-credit-strip img.pcs-avatar{ width:20px; height:20px; border-radius:50%; object-fit:cover; vertical-align:-4px; margin-right:4px; border:1px solid #fff; box-shadow:0 0 0 1px var(--pink-light,#ffd3e6); }
-/* Portfolio thank-you section: static accessible list first, progressive marquee. */
-.pf-thanks{ margin-top:64px; text-align:center; max-width:100%; }
-.pf-thanks-heading{ font-family:var(--font-display); font-weight:700; color:var(--berry,#7a3d6e); font-size:clamp(22px,3vw,30px); margin:0 0 10px; }
-.pf-thanks-body{ font-family:var(--font-body); color:var(--berry,#7a3d6e); font-size:15px; max-width:640px; margin:0 auto 26px; }
-.pf-thanks-controls{ margin-bottom:14px; }
-.pf-thanks-viewport{ overflow:hidden; max-width:100%; }
-.pf-thanks-viewport{ max-width:860px; margin:0 auto; }
-.pf-thanks-track{ display:flex; gap:28px; list-style:none; margin:0; padding:6px 4px 18px; align-items:flex-start; }
-.pf-thanks.is-static .pf-thanks-track{ justify-content:center; flex-wrap:wrap; }
-.pf-thanks.is-scroll .pf-thanks-track{ justify-content:flex-start; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:20px; }
-.pf-thanks.is-marquee .pf-thanks-viewport{ overflow:hidden; }
-.pf-thanks.is-marquee .pf-thanks-track{ width:max-content; animation:pfThanksSlide linear infinite; }
-.pf-thanks.is-marquee .pf-thanks-track{ gap:0; }
-.pf-thanks.is-marquee .pf-thanks-item{ margin-right:28px; }
-.pf-thanks.is-marquee .pf-thanks-viewport:hover .pf-thanks-track{ animation-play-state:paused; }
-.pf-thanks.is-paused .pf-thanks-track{ animation:none; }
-.pf-thanks.is-paused .pf-thanks-viewport, .pf-thanks.is-browsing .pf-thanks-viewport{ overflow-x:auto; }
-.pf-thanks.is-paused .pf-thanks-track, .pf-thanks.is-browsing .pf-thanks-track{ animation:none; width:auto; justify-content:flex-start; }
-@keyframes pfThanksSlide{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
-.pf-thanks-item{ display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 auto; width:104px; scroll-snap-align:center; }
-.pf-thanks-avatar{ width:88px; height:88px; aspect-ratio:1/1; border-radius:50%; object-fit:cover; background:#f6e9f4; border:3px solid #fff; box-shadow:0 0 0 3px var(--pink-light,#ffd3e6), 0 10px 22px -12px rgba(217,74,128,.55); transition:transform .25s ease, box-shadow .25s ease; }
-.pf-thanks-item:hover .pf-thanks-avatar{ transform:translateY(-4px); box-shadow:0 0 0 3px var(--pink-hot,#ff5c9a), 0 14px 26px -12px rgba(217,74,128,.6); }
-.pf-thanks-initials{ width:88px; height:88px; aspect-ratio:1/1; border-radius:50%; display:grid; place-items:center; font-family:var(--font-display); font-size:26px; color:#fff; background:linear-gradient(160deg,#ffb8d4,#b48aff); border:3px solid #fff; box-shadow:0 0 0 3px var(--pink-light,#ffd3e6), 0 10px 22px -12px rgba(217,74,128,.55); }
-.pf-thanks-name{ font-family:var(--font-body); font-size:12.5px; font-weight:700; color:var(--berry,#7a3d6e); max-width:104px; overflow-wrap:anywhere; line-height:1.3; }
-.pf-thanks.is-marquee .pf-thanks-name{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-.pf-thanks.is-marquee .pf-thanks-item{ position:relative; }
-.pf-thanks.is-marquee .pf-thanks-item:hover .pf-thanks-name, .pf-thanks.is-marquee .pf-thanks-item:focus-within .pf-thanks-name{ position:absolute; width:auto; height:auto; clip:auto; white-space:nowrap; max-width:none; bottom:-6px; transform:translateY(100%); background:#fff; border:2px solid var(--pink-light,#ffd3e6); border-radius:999px; padding:3px 12px; box-shadow:0 8px 18px -10px rgba(217,74,128,.6); z-index:3; }
-.pf-thanks.is-paused .pf-thanks-name, .pf-thanks.is-browsing .pf-thanks-name{ position:static; width:auto; height:auto; clip:auto; white-space:normal; }
+.pd-credit-strip img.pcs-avatar{ width:36px; height:36px; border-radius:50%; object-fit:cover; margin-right:7px; border:2px solid #fff; box-shadow:0 0 0 2px var(--pink-light,#ffd3e6); }
 @media (max-width:720px){
-  .pf-thanks{ margin-top:48px; }
-  .pf-thanks-avatar, .pf-thanks-initials{ width:64px; height:64px; }
-  .pf-thanks-initials{ font-size:20px; }
-  .pf-thanks-item{ width:84px; }
-  .pf-thanks-name{ max-width:84px; }
+  .pd-credit-strip img.pcs-avatar{ width:32px; height:32px; }
+  .pd-credit-strip{ padding:10px 14px; }
+}
+/* Client thank-you section (Commissions): static accessible list first, progressive marquee. */
+.client-thanks{ margin:0 auto 64px; text-align:center; max-width:100%; }
+.client-thanks-heading{ font-family:var(--font-display); font-weight:700; font-size:clamp(22px,3vw,30px); margin:0 0 10px; }
+.client-thanks-body{ font-family:var(--font-body); font-size:15px; max-width:640px; margin:0 auto 26px; }
+.client-thanks-controls{ margin-bottom:14px; }
+.client-thanks-viewport{ overflow:hidden; max-width:100%; }
+.client-thanks-viewport{ max-width:860px; margin:0 auto; }
+.client-thanks-track{ display:flex; gap:28px; list-style:none; margin:0; padding:6px 4px 18px; align-items:flex-start; }
+.client-thanks.is-static .client-thanks-track{ justify-content:center; flex-wrap:wrap; }
+.client-thanks.is-scroll .client-thanks-track{ justify-content:flex-start; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:20px; }
+.client-thanks.is-marquee .client-thanks-viewport{ overflow:hidden; }
+.client-thanks.is-marquee .client-thanks-track{ width:max-content; animation:clientThanksSlide linear infinite; }
+.client-thanks.is-marquee .client-thanks-track{ gap:0; }
+.client-thanks.is-marquee .client-thanks-item{ margin-right:28px; }
+.client-thanks.is-marquee .client-thanks-viewport:hover .client-thanks-track{ animation-play-state:paused; }
+.client-thanks.is-paused .client-thanks-track{ animation:none; }
+.client-thanks.is-paused .client-thanks-viewport, .client-thanks.is-browsing .client-thanks-viewport{ overflow-x:auto; }
+.client-thanks.is-paused .client-thanks-track, .client-thanks.is-browsing .client-thanks-track{ animation:none; width:auto; justify-content:flex-start; }
+@keyframes clientThanksSlide{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+.client-thanks-item{ display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 0 auto; width:104px; scroll-snap-align:center; }
+.client-thanks-avatar{ width:88px; height:88px; aspect-ratio:1/1; border-radius:50%; object-fit:cover; background:#f6e9f4; border:3px solid #fff; box-shadow:0 0 0 3px var(--pink-light,#ffd3e6), 0 10px 22px -12px rgba(217,74,128,.55); transition:transform .25s ease, box-shadow .25s ease; }
+.client-thanks-item:hover .client-thanks-avatar{ transform:translateY(-4px); box-shadow:0 0 0 3px var(--pink-hot,#ff5c9a), 0 14px 26px -12px rgba(217,74,128,.6); }
+.client-thanks-initials{ width:88px; height:88px; aspect-ratio:1/1; border-radius:50%; display:grid; place-items:center; font-family:var(--font-display); font-size:26px; color:#fff; background:linear-gradient(160deg,#ffb8d4,#b48aff); border:3px solid #fff; box-shadow:0 0 0 3px var(--pink-light,#ffd3e6), 0 10px 22px -12px rgba(217,74,128,.55); }
+.client-thanks-name{ font-family:var(--font-body); font-size:12.5px; font-weight:700; max-width:104px; overflow-wrap:anywhere; line-height:1.3; }
+.client-thanks.is-marquee .client-thanks-name{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.client-thanks.is-marquee .client-thanks-item{ position:relative; }
+.client-thanks.is-marquee .client-thanks-item:hover .client-thanks-name, .client-thanks.is-marquee .client-thanks-item:focus-within .client-thanks-name{ position:absolute; width:auto; height:auto; clip:auto; white-space:nowrap; max-width:none; bottom:-6px; transform:translateY(100%); background:#fff; border:2px solid var(--pink-light,#ffd3e6); border-radius:999px; padding:3px 12px; box-shadow:0 8px 18px -10px rgba(217,74,128,.6); z-index:3; }
+.client-thanks.is-paused .client-thanks-name, .client-thanks.is-browsing .client-thanks-name{ position:static; width:auto; height:auto; clip:auto; white-space:normal; }
+@media (max-width:720px){
+  .client-thanks{ margin-bottom:48px; }
+  .client-thanks-avatar, .client-thanks-initials{ width:64px; height:64px; }
+  .client-thanks-initials{ font-size:20px; }
+  .client-thanks-item{ width:84px; }
+  .client-thanks-name{ max-width:84px; }
 }
 @media (prefers-reduced-motion:reduce){
-  .pf-thanks-track{ animation:none !important; }
+  .client-thanks-track{ animation:none !important; }
 }
 .blk{ margin-bottom: 40px; }
 .blk-head{ display:flex; align-items:center; gap:14px; margin-bottom: 16px; }
@@ -1168,6 +1171,7 @@ body:not(.admin-mode) .exp-card h4,
 body:not(.admin-mode) .value-card h5,
 body:not(.admin-mode) .mini-name,
 body:not(.admin-mode) .panel h4,
+body:not(.admin-mode) .client-thanks-heading,
 body:not(.admin-mode) .empty h3{ color:var(--text-display); }
 
 body:not(.admin-mode) .comm-price,
@@ -1177,6 +1181,11 @@ body:not(.admin-mode) .rule .rv,
 body:not(.admin-mode) .cta-tier .price,
 body:not(.admin-mode) .tos-closing .big,
 body:not(.admin-mode) .v404-num,
+body:not(.admin-mode) .client-thanks-name,
+body:not(.admin-mode) .pd-credit-strip a.pcs-name,
+body:not(.admin-mode) .public-lightbox-credits a.pcs-name,
+body:not(.admin-mode) .pd-credit-strip .pcs-heart,
+body:not(.admin-mode) .public-lightbox-credits .pcs-heart,
 body:not(.admin-mode) .page-title .hi{ color:var(--text-accent); }
 
 body:not(.admin-mode) .eyebrow,
@@ -1245,6 +1254,9 @@ body:not(.admin-mode) .contact-row .ck,
 body:not(.admin-mode) .refund-table th,
 body:not(.admin-mode) .back-link,
 body:not(.admin-mode) .pd-footnav .mid,
+body:not(.admin-mode) .client-thanks-body,
+body:not(.admin-mode) .pd-credit-strip .pcs-label,
+body:not(.admin-mode) .public-lightbox-credits .pcs-label,
 body:not(.admin-mode) .chip{ color:var(--text-muted); }
 
 body:not(.admin-mode) .cms,
@@ -1252,6 +1264,9 @@ body:not(.admin-mode) .vlc-label,
 body:not(.admin-mode) .pd-fact .v,
 body:not(.admin-mode) .spec .v,
 body:not(.admin-mode) .panel,
+body:not(.admin-mode) .pd-credit-strip,
+body:not(.admin-mode) .public-lightbox-credits,
+body:not(.admin-mode) .public-lightbox-caption,
 body:not(.admin-mode) .unavailable p,
 body:not(.admin-mode) .acc-line b,
 body:not(.admin-mode) .cta-tier b,
@@ -1348,10 +1363,10 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
    zoom toolbar (bottom padding); the caption takes its own row and the image
    fills exactly what is left, so it can never exceed the content box. */
 .public-lightbox{position:fixed;inset:0;z-index:1000;display:grid;
-  grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
   align-items:center;justify-items:center;padding:76px 48px 96px;
   background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
-.public-lightbox img{grid-column:1;grid-row:2;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+.public-lightbox img{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
   border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;
   transform-origin:center center;transition:transform .16s ease;touch-action:none;}
 .public-lightbox-close{position:fixed;top:22px;right:24px;z-index:2;width:46px;height:46px;border-radius:50%;
@@ -1368,9 +1383,23 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 .public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
 .public-lightbox-caption{grid-column:1;grid-row:1;position:static;transform:none;z-index:2;margin:0 0 12px;
   max-width:min(90%,720px);padding:8px 18px;border-radius:14px;text-align:center;
-  background:rgba(255,255,255,.92);color:var(--berry);font-family:var(--font-body);font-size:13px;line-height:1.5;
+  background:rgba(255,255,255,.92);font-family:var(--font-body);font-size:13px;line-height:1.5;
   box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
 .public-lightbox-caption[hidden]{display:none !important;}
+/* Image-lightbox collaborator credits: same pcs-* concept as the detail
+   strip, on a pale pill so names stay readable over the dark backdrop.
+   Hidden (zero grid space) for gallery lightboxes without project People. */
+.public-lightbox-credits{grid-column:1;grid-row:2;z-index:2;margin:0 0 12px;max-width:min(92%,640px);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 8px;
+  padding:8px 16px;border-radius:14px;text-align:center;
+  background:linear-gradient(160deg,#fff5fa 0%,#f6f0ff 100%);border:2px solid var(--pink-light,#ffd3e6);
+  font-family:var(--font-body);font-size:12.5px;
+  box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
+.public-lightbox-credits[hidden]{display:none !important;}
+.public-lightbox-credits .pcs-label{font-weight:800;}
+.public-lightbox-credits .pcs-name{font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;}
+.public-lightbox-credits .pcs-sep{opacity:.65;}
+.public-lightbox-credits img.pcs-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;margin-right:6px;border:2px solid #fff;box-shadow:0 0 0 2px var(--pink-light,#ffd3e6);}
 @media (max-width:640px){
   .public-lightbox{padding:70px 14px 100px;}
   .public-lightbox img{border-radius:12px;}
@@ -3197,14 +3226,6 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
       </div>
       <p class="sr-only" id="pfStatus" role="status" aria-live="polite"></p>
       <div class="empty" id="pfEmpty"><div class="empty-art">❀</div><h3>Nothing here just yet</h3><button class="btn btn-primary" type="button" data-reset="pf">Reset filters</button></div>
-      <section class="pf-thanks" id="pfThanks" hidden aria-labelledby="pfThanksHeading">
-        <h3 class="pf-thanks-heading" id="pfThanksHeading"></h3>
-        <p class="pf-thanks-body" id="pfThanksBody"></p>
-        <div class="pf-thanks-controls"><button type="button" class="btn btn-ghost pf-thanks-toggle" id="pfThanksToggle" hidden>Pause motion</button></div>
-        <div class="pf-thanks-viewport" id="pfThanksViewport">
-          <ul class="pf-thanks-track" id="pfThanksTrack"></ul>
-        </div>
-      </section>
     </div>
   </div>
 </section>
@@ -3466,6 +3487,15 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         <div class="rule p"><div class="rk">Commercial use · USD source</div><div class="rv">x2</div><div class="rd">Where applicable.</div></div>
         <div class="rule b"><div class="rk">Commercial use · newer VND source</div><div class="rv">+50%</div><div class="rd">+50% base price.</div></div>
       </div>
+
+      <section class="client-thanks" id="clientThanks" hidden aria-labelledby="clientThanksHeading">
+        <h3 class="client-thanks-heading" id="clientThanksHeading"></h3>
+        <p class="client-thanks-body" id="clientThanksBody"></p>
+        <div class="client-thanks-controls"><button type="button" class="btn btn-ghost client-thanks-toggle" id="clientThanksToggle" hidden>Pause motion</button></div>
+        <div class="client-thanks-viewport" id="clientThanksViewport">
+          <ul class="client-thanks-track" id="clientThanksTrack"></ul>
+        </div>
+      </section>
 
       <div class="form-shell" id="requestForm">
         <div class="form-head">
@@ -3930,6 +3960,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
   <button class="public-lightbox-close" id="publicLightboxClose" type="button" aria-label="Close image preview">×</button>
   <img id="publicLightboxImg" alt="">
   <p class="public-lightbox-caption" id="publicLightboxCaption" hidden></p>
+  <div class="public-lightbox-credits" id="publicLightboxCredits" hidden></div>
   <div class="public-lightbox-bar" id="publicLightboxBar" role="group" aria-label="Image zoom controls">
     <button type="button" id="publicLightboxZoomOut" aria-label="Zoom out">−</button>
     <button type="button" id="publicLightboxReset" aria-label="Reset zoom">Reset</button>
@@ -4335,41 +4366,57 @@ function resolveProjectCreditPeople(p){
   }
   return ordered;
 }
-function renderProjectCredits(p){
-  var root = document.getElementById('pdCreditStrip');
-  if(!root) return;
-  var people = resolveProjectCreditPeople(p);
-  if(!people.length){ root.hidden = true; root.innerHTML = ''; return; }
+function creditLabelFor(p){
   var rawLabel = '';
   if(p){
     if(typeof p.peopleCreditLabel === 'string') rawLabel = p.peopleCreditLabel;
     else if(p.content && typeof p.content.peopleCreditLabel === 'string') rawLabel = p.content.peopleCreditLabel;
   }
-  var label = String(rawLabel || '').trim().slice(0, 80) || 'With';
-  var segments = people.map(function(person, i){
+  return String(rawLabel || '').trim().slice(0, 80) || 'With';
+}
+/* One shared safe credit-markup builder for Project Detail and the image
+   lightbox: ordered people, avatar, linked names, separators. Callers own
+   the label/heart frame and the visibility decision. */
+function creditPeopleHtml(people, eager){
+  return people.map(function(person, i){
     var name = personDisplayNamePublic(person);
     var avatar = String(person.avatar != null ? person.avatar : (person.avatar_path != null ? person.avatar_path : '')).trim();
-    var avatarHtml = avatar ? '<img class="pcs-avatar" src="' + esc(avatar) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
+    var avatarHtml = avatar ? '<img class="pcs-avatar" src="' + esc(avatar) + '" alt="" loading="' + (eager ? 'eager' : 'lazy') + '" onerror="this.remove()">' : '';
     var profileUrl = person.profileUrl != null ? person.profileUrl : person.profile_url;
     var inner = avatarHtml + '<span class="pcs-name-text">' + esc(name) + '</span>';
-    var units = { prefix: '', html: '' };
-    if(i < people.length - 2) units.suffix = ', ';
-    else if(i === people.length - 2) units.suffix = ' & ';
-    else units.suffix = '';
+    var suffix = '';
+    if(i < people.length - 2) suffix = ', ';
+    else if(i === people.length - 2) suffix = ' & ';
     if(isHttpsProfileUrl(profileUrl)){
       var linkLabel = name + ' (opens in a new tab)';
-      units.html = '<a class="pcs-name" href="' + esc(String(profileUrl).trim()) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(linkLabel) + '">' + inner + '</a>' + '<span class="pcs-sep" aria-hidden="true">' + esc(units.suffix) + '</span>';
-    } else {
-      units.html = '<span class="pcs-name">' + inner + '</span>' + '<span class="pcs-sep" aria-hidden="true">' + esc(units.suffix) + '</span>';
+      return '<a class="pcs-name" href="' + esc(String(profileUrl).trim()) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(linkLabel) + '">' + inner + '</a>' + '<span class="pcs-sep" aria-hidden="true">' + esc(suffix) + '</span>';
     }
-    return units.html;
+    return '<span class="pcs-name">' + inner + '</span>' + '<span class="pcs-sep" aria-hidden="true">' + esc(suffix) + '</span>';
   }).join('');
-  root.innerHTML = '<span class="pcs-label">' + esc(label) + '</span> <span class="pcs-heart" aria-hidden="true">♥</span> ' + segments;
+}
+function renderProjectCredits(p){
+  var root = document.getElementById('pdCreditStrip');
+  if(!root) return;
+  var people = resolveProjectCreditPeople(p);
+  if(!people.length){ root.hidden = true; root.innerHTML = ''; return; }
+  root.innerHTML = '<span class="pcs-label">' + esc(creditLabelFor(p)) + '</span> <span class="pcs-heart" aria-hidden="true">♥</span> ' + creditPeopleHtml(people, false);
   root.hidden = false;
 }
-/* Portfolio thank-you section: static accessible list first, then a desktop
-   progressive marquee enhancement. One CSS transform animation on the track;
-   no continuous JS layout or rAF loop. */
+/* Image-lightbox collaborator credits: the same concept as the detail strip,
+   rendered from the actual PROJECTS record (no People data in DOM attrs).
+   Hidden when the lightbox has no project slug or no public collaborators. */
+function renderLightboxCredits(slug){
+  var region = document.getElementById('publicLightboxCredits');
+  if(!region) return;
+  var record = slug && PROJECTS ? PROJECTS[slug] : null;
+  var people = record ? resolveProjectCreditPeople(record) : [];
+  if(!slug || !record || !people.length){ region.hidden = true; region.innerHTML = ''; return; }
+  region.innerHTML = '<span class="pcs-label">' + esc(creditLabelFor(record)) + '</span> <span class="pcs-heart" aria-hidden="true">♥</span> ' + creditPeopleHtml(people, true);
+  region.hidden = false;
+}
+/* Client thank-you section (Commissions view): static accessible list first,
+   then a desktop progressive marquee enhancement. One CSS transform
+   animation on the track; no continuous JS layout or rAF loop. */
 var ThanksMotion = { gen: 0, io: null, ro: null, reduceQuery: null, browsing: false, measured: false };
 function thanksUserPaused(){
   try{ return window.sessionStorage.getItem('crabbie:thanks-paused') === '1'; }catch(e){ return !!ThanksMotion.userPausedMem; }
@@ -4380,7 +4427,9 @@ function setThanksUserPaused(paused){
 function thanksSettingsPublic(){
   var defaults = { enabled: true, heading: 'Made with lovely people ♡', body: 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡' };
   var group = null;
-  try{ group = window.__cmsPublicSettings && window.__cmsPublicSettings.portfolioThanks; }catch(e){ group = null; }
+  /* Storage key stays `portfolioThanks` (legacy, preserves authored content);
+     a future `clientThanks` key wins when present. */
+  try{ group = window.__cmsPublicSettings && (window.__cmsPublicSettings.clientThanks || window.__cmsPublicSettings.portfolioThanks); }catch(e){ group = null; }
   if(!group || typeof group !== 'object') return defaults;
   return {
     enabled: group.enabled !== false,
@@ -4422,11 +4471,11 @@ function thanksItemHtml(person, clone){
   var profileUrl = person.profileUrl != null ? person.profileUrl : person.profile_url;
   var pid = String(person.id || '');
   var visual = avatar
-    ? '<img class="pf-thanks-avatar" src="' + esc(avatar) + '" width="88" height="88" alt="' + (clone ? '' : esc(alt)) + '" loading="eager" decoding="async" onerror="this.outerHTML=\'<span class=&quot;pf-thanks-initials&quot; aria-hidden=&quot;true&quot;>' + esc(initialsPublic(name)) + '</span>\'">'
-    : '<span class="pf-thanks-initials" aria-hidden="true">' + esc(initialsPublic(name)) + '</span>';
-  var label = '<span class="pf-thanks-name">' + esc(name) + '</span>';
+    ? '<img class="client-thanks-avatar" src="' + esc(avatar) + '" width="88" height="88" alt="' + (clone ? '' : esc(alt)) + '" loading="eager" decoding="async" onerror="this.outerHTML=\'<span class=&quot;client-thanks-initials&quot; aria-hidden=&quot;true&quot;>' + esc(initialsPublic(name)) + '</span>\'">'
+    : '<span class="client-thanks-initials" aria-hidden="true">' + esc(initialsPublic(name)) + '</span>';
+  var label = '<span class="client-thanks-name">' + esc(name) + '</span>';
   var inner = visual + label;
-  var liAttrs = 'class="pf-thanks-item" data-person-id="' + esc(pid) + '"' + (clone ? ' aria-hidden="true"' : '');
+  var liAttrs = 'class="client-thanks-item" data-person-id="' + esc(pid) + '"' + (clone ? ' aria-hidden="true"' : '');
   if(isHttpsProfileUrl(profileUrl) && !clone){
     return '<li ' + liAttrs + '><a href="' + esc(String(profileUrl).trim()) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(name + ' (opens in a new tab)') + '" style="display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;">' + inner + '</a></li>';
   }
@@ -4444,12 +4493,12 @@ function thanksMotionAllowed(){
   }catch(e){ /* conservative: allow static only */ }
   return { reduce: !!reduce, coarse: !!coarse, noHover: !!noHover };
 }
-function renderThanksSection(){
-  var section = document.getElementById('pfThanks');
-  var track = document.getElementById('pfThanksTrack');
-  var heading = document.getElementById('pfThanksHeading');
-  var body = document.getElementById('pfThanksBody');
-  var toggle = document.getElementById('pfThanksToggle');
+function renderClientThanks(){
+  var section = document.getElementById('clientThanks');
+  var track = document.getElementById('clientThanksTrack');
+  var heading = document.getElementById('clientThanksHeading');
+  var body = document.getElementById('clientThanksBody');
+  var toggle = document.getElementById('clientThanksToggle');
   if(!section || !track) return;
   var gen = ++ThanksMotion.gen;
   var settings = thanksSettingsPublic();
@@ -4519,9 +4568,9 @@ function renderThanksSection(){
 }
 /* One controller owns observers/listeners; teardown or reuse on refresh. */
 function thanksEnsureObservers(){
-  var section = document.getElementById('pfThanks');
-  var viewport = document.getElementById('pfThanksViewport');
-  var track = document.getElementById('pfThanksTrack');
+  var section = document.getElementById('clientThanks');
+  var viewport = document.getElementById('clientThanksViewport');
+  var track = document.getElementById('clientThanksTrack');
   if(!section || !viewport || !track) return;
   try{
     if('IntersectionObserver' in window){
@@ -4537,7 +4586,7 @@ function thanksEnsureObservers(){
         ThanksMotion.ro = new ResizeObserver(function(){
           if(deb) clearTimeout(deb);
           deb = setTimeout(function(){
-            var t = document.getElementById('pfThanksTrack');
+            var t = document.getElementById('clientThanksTrack');
             if(!t || ThanksMotion.browsing || thanksUserPaused()) return;
             try{
               var half = t.scrollWidth / 2;
@@ -4551,7 +4600,7 @@ function thanksEnsureObservers(){
     }
     if(!ThanksMotion.reduceQuery && window.matchMedia){
       ThanksMotion.reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-      var onReduce = function(){ ThanksMotion.browsing = false; renderThanksSection(); };
+      var onReduce = function(){ ThanksMotion.browsing = false; renderClientThanks(); };
       if(typeof ThanksMotion.reduceQuery.addEventListener === 'function') ThanksMotion.reduceQuery.addEventListener('change', onReduce);
       else if(typeof ThanksMotion.reduceQuery.addListener === 'function') ThanksMotion.reduceQuery.addListener(onReduce);
     }
@@ -4559,23 +4608,23 @@ function thanksEnsureObservers(){
       ThanksMotion.wiredGlobal = true;
       document.addEventListener('visibilitychange', function(){ thanksApplyVisibilityPause(); });
       window.addEventListener('crabbie:site-content-ready', function(){
-        try{ if(window.CrabbiePortfolio && typeof window.CrabbiePortfolio.renderPeople === 'function') window.CrabbiePortfolio.renderPeople(); else renderThanksSection(); }catch(e){ /* grid intact */ }
+        try{ if(window.CrabbiePortfolio && typeof window.CrabbiePortfolio.renderPeople === 'function') window.CrabbiePortfolio.renderPeople(); else renderClientThanks(); }catch(e){ /* grid intact */ }
       });
-      var toggle = document.getElementById('pfThanksToggle');
+      var toggle = document.getElementById('clientThanksToggle');
       if(toggle) toggle.addEventListener('click', function(){
-        if(ThanksMotion.browsing){ ThanksMotion.browsing = false; setThanksUserPaused(false); renderThanksSection(); return; }
+        if(ThanksMotion.browsing){ ThanksMotion.browsing = false; setThanksUserPaused(false); renderClientThanks(); return; }
         var willPause = !thanksUserPaused();
         setThanksUserPaused(willPause);
         /* User pause must not resume when hover/focus leaves. */
-        renderThanksSection();
+        renderClientThanks();
       });
-      var viewportEl = document.getElementById('pfThanksViewport');
+      var viewportEl = document.getElementById('clientThanksViewport');
       if(viewportEl){
         /* Keyboard focus enters canonical items: stop animation, drop clones,
            restore an untransformed scrollable list with revealed labels. */
         viewportEl.addEventListener('focusin', function(e){
-          var sectionEl = document.getElementById('pfThanks');
-          var trackEl = document.getElementById('pfThanksTrack');
+          var sectionEl = document.getElementById('clientThanks');
+          var trackEl = document.getElementById('clientThanksTrack');
           if(!sectionEl || !trackEl || !sectionEl.classList.contains('is-marquee') || ThanksMotion.browsing) return;
           var li = e.target && e.target.closest ? e.target.closest('[data-person-id]') : null;
           if(!li || li.hasAttribute('aria-hidden')) return;
@@ -4584,7 +4633,7 @@ function thanksEnsureObservers(){
           /* Ensure the focused item is scrolled visibly into the local
              viewport without moving page layout. */
           try{
-            var vp = document.getElementById('pfThanksViewport');
+            var vp = document.getElementById('clientThanksViewport');
             var item = vp.querySelector('[data-person-id="' + String(li.getAttribute('data-person-id')).replace(/"/g, '') + '"]');
             if(vp && item) vp.scrollLeft = Math.max(0, item.offsetLeft - (vp.clientWidth - item.clientWidth) / 2);
           }catch(err){ /* best-effort */ }
@@ -4594,9 +4643,9 @@ function thanksEnsureObservers(){
   }catch(e){ /* observers are progressive enhancement */ }
 }
 function renderThanksBrowsing(){
-  var section = document.getElementById('pfThanks');
-  var track = document.getElementById('pfThanksTrack');
-  var toggle = document.getElementById('pfThanksToggle');
+  var section = document.getElementById('clientThanks');
+  var track = document.getElementById('clientThanksTrack');
+  var toggle = document.getElementById('clientThanksToggle');
   if(!section || !track) return;
   ThanksMotion.gen += 1;
   var people = thanksPeoplePublic();
@@ -4608,13 +4657,13 @@ function renderThanksBrowsing(){
   if(toggle){ toggle.hidden = false; toggle.textContent = 'Resume motion'; }
 }
 function thanksApplyVisibilityPause(){
-  var section = document.getElementById('pfThanks');
-  var track = document.getElementById('pfThanksTrack');
+  var section = document.getElementById('clientThanks');
+  var track = document.getElementById('clientThanksTrack');
   if(!section || !track || !section.classList.contains('is-marquee')) return;
   var visible = true;
   try{
     if(document.hidden) visible = false;
-    else if(currentRoute && currentRoute.view && currentRoute.view !== 'portfolio' && currentRoute.view !== 'loading') visible = false;
+    else if(currentRoute && currentRoute.view && currentRoute.view !== 'commissions' && currentRoute.view !== 'loading') visible = false;
     else {
       var rect = section.getBoundingClientRect();
       if(rect.bottom < 0 || rect.top > (window.innerHeight || 0)) visible = false;
@@ -4743,7 +4792,7 @@ if(active) a.setAttribute('aria-current','page');
 else a.removeAttribute('aria-current');
 });
 document.title = titleFor(view, route.id, route.adminModule);
-if(view === 'portfolio'){ try{ renderThanksSection(); }catch(e){ /* grid stays intact */ } }
+if(view === 'commissions'){ try{ renderClientThanks(); }catch(e){ /* commissions stays intact */ } }
 closeMenu(false);
 if(!opts.noScroll){
 var restore = scrollMemory[view];
@@ -5436,7 +5485,7 @@ return Array.prototype.filter.call(publicLightbox.querySelectorAll('button, [hre
   return true;
 });
 }
-function openPublicLightbox(src, alt, caption){
+function openPublicLightbox(src, alt, caption, slug){
 if(!publicLightbox || !publicLightboxImg || !src) return;
 lightboxOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
 publicLightboxImg.src = src; publicLightboxImg.alt = alt || '';
@@ -5446,6 +5495,9 @@ if(publicLightboxCaption){
   publicLightboxCaption.textContent = text;
   publicLightboxCaption.hidden = !text;
 }
+/* Portfolio image cards show collaborator credits; gallery lightboxes
+   without a project slug render no credit UI and clear stale People. */
+renderLightboxCredits(slug || null);
 publicLightbox.hidden = false; document.body.style.overflow = 'hidden';
 if(publicLightboxClose) publicLightboxClose.focus();
 }
@@ -5454,6 +5506,7 @@ if(!publicLightbox || publicLightbox.hidden) return;
 publicLightbox.hidden = true; document.body.style.overflow = '';
 if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
 if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
+renderLightboxCredits(null);
 lightboxScale = 1;
 /* Return focus to the element that opened the lightbox. */
 if(lightboxOpener && lightboxOpener.isConnected && typeof lightboxOpener.focus === 'function'){
@@ -5504,7 +5557,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePu
 document.addEventListener('click', function(e){
 var t;
 t = e.target.closest('[data-lightbox-src]');
-if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption')); return; }
+if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption'), t.getAttribute('data-project')); return; }
 t = e.target.closest('[data-other-service]');
 if(t){ e.preventDefault(); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
 t = e.target.closest('[data-service]');
@@ -6775,7 +6828,7 @@ function validatePersonDraft(rec){
 }
 function renderAdminPeople(){
   var subtab = ADMIN_UI.subtab.people || 'items';
-  var tabs = '<div class="adm-tabs"><button type="button" class="adm-tab" data-adm-subtab="people:items" aria-pressed="' + (subtab === 'items') + '">People</button><button type="button" class="adm-tab" data-adm-subtab="people:thanks" aria-pressed="' + (subtab === 'thanks') + '">Thank-you section</button></div>';
+  var tabs = '<div class="adm-tabs"><button type="button" class="adm-tab" data-adm-subtab="people:items" aria-pressed="' + (subtab === 'items') + '">People</button><button type="button" class="adm-tab" data-adm-subtab="people:thanks" aria-pressed="' + (subtab === 'thanks') + '">Client thank-you</button></div>';
   if(subtab === 'thanks') return tabs + renderThanksTab();
   return tabs + renderPeopleItems();
 }
@@ -6885,7 +6938,8 @@ function renderThanksTab(){
   var enabled = s.enabled !== false;
   var heading = typeof s.heading === 'string' ? s.heading : 'Made with lovely people ♡';
   var body = typeof s.body === 'string' ? s.body : 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡';
-  return '<div class="adm-editor adm-editor-narrow"><h2>Thank-you section</h2>'
+  return '<div class="adm-editor adm-editor-narrow"><h2>Client thank-you section</h2>'
+    + '<p class="ae-sub">Shown on the Commissions page after Fees &amp; add-ons, before the request form. It thanks clients who trusted Crabbie with commissions.</p>'
     + '<div class="adm-section"><h4>Section</h4>'
     + '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px;"><label class="adm-check"><input type="checkbox" data-adm-path="' + base + '.enabled"' + (enabled ? ' checked' : '') + '> Enabled</label></div>'
     + '<label class="adm-field"><span class="af-label">Heading</span><input type="text" data-adm-path="' + base + '.heading" value="' + esc(heading) + '"></label>'
@@ -6923,7 +6977,7 @@ function renderProjectPeoplePicker(rec){
     return '<label class="adm-check"><input type="checkbox" data-adm-ppl-toggle="' + esc(rec.id) + ':' + esc(p.id) + '"' + (checked ? ' checked' : '') + (p.dbId ? '' : ' disabled title="Save this person first."') + '> ' + avatarMini + esc(personDisplayName(p)) + hidden + '</label>';
   }).join('');
   return '<div class="adm-section"><h4>People credits</h4>'
-    + '<p class="af-hint">Only saved People are selectable — save a new person first. Selection order drives credit order. Unpublished people stay hidden publicly. Image-only cards keep associations but do not display the strip in their lightbox.</p>'
+    + '<p class="af-hint">Only saved People are selectable — save a new person first. Selection order drives credit order. Unpublished people stay hidden publicly. Image-only cards display collaborator credits in their lightbox.</p>'
     + '<div class="adm-chip-list" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">' + (chips || '<span class="af-hint">No people selected.</span>') + '</div>'
     + '<div class="adm-row" style="margin-top:6px;">' + inputText('Credit prefix (default “With”)', base + '.peopleCreditLabel', { hint: 'Examples: With · Artwork for · In collaboration with · Client: · Character belongs to', placeholder: 'With' }) + '</div>'
     + '<div style="margin-top:10px;">' + inputTextarea(tAdmin('label.credits') + ' (production notes)', base + '.credits', { minHeight: 60 }) + '</div>'
@@ -10178,7 +10232,7 @@ renderPeople: function(){
     }
   }catch(e){ /* artwork stays intact */ }
   try{
-    if(typeof renderThanksSection === 'function') renderThanksSection();
+    if(typeof renderClientThanks === 'function') renderClientThanks();
   }catch(e){ /* grid stays intact */ }
 }
 };

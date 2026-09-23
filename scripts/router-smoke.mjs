@@ -3919,17 +3919,24 @@ try {
     console.log('PASS Storage & Cleanup scan classifies through the production loader (SDK fixture)');
 // P4_END
 
-    // ---- People / Clients, project credits, thank-you section ---------------
-    await page.addInitScript(() => {
-      window.__routerRows = {
+    // ---- People / Clients, project credits, client thanks --------------------
+    // Fixture images resolve so avatar <img> elements survive their onerror fallback.
+    await context.route('https://router-test.supabase.co/**/*.png', (route) => route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+    }));
+    const peopleFixtureRows = {
         portfolio_projects: [
           {id:'00000000-0000-4000-8000-000000000a01',slug:'credit-quest',title:'Credit Quest',description:'A quest',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration',peopleCreditLabel:'Artwork for'},featured:false,published:true,sort_order:0,updated_at:'2026-02-01T00:00:00Z'},
-          {id:'00000000-0000-4000-8000-000000000a02',slug:'solo-work',title:'Solo Work',description:'Solo',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:1,updated_at:'2026-02-01T00:00:00Z'}
+          {id:'00000000-0000-4000-8000-000000000a02',slug:'solo-work',title:'Solo Work',description:'Solo',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:1,updated_at:'2026-02-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000a03',slug:'ink-splash',title:'Ink Splash',description:'An inky illustration',tags:[],thumbnail_path:'',cover_path:'ink-splash.png',content:{categorySlug:'illustration',cardMode:'image',peopleCreditLabel:'Ink by'},featured:false,published:true,sort_order:2,updated_at:'2026-02-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000a04',slug:'ink-lonely',title:'Ink Lonely',description:'A lonely illustration',tags:[],thumbnail_path:'',cover_path:'ink-lonely.png',content:{categorySlug:'illustration',cardMode:'image'},featured:false,published:true,sort_order:3,updated_at:'2026-02-01T00:00:00Z'}
         ],
         portfolio_project_people: [
           {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b01',sort_order:0},
           {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b02',sort_order:1},
-          {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b03',sort_order:2}
+          {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b03',sort_order:2},
+          {project_id:'00000000-0000-4000-8000-000000000a03',person_id:'00000000-0000-4000-8000-000000000b01',sort_order:0}
         ],
         people: [
           {id:'00000000-0000-4000-8000-000000000b01',display_name:'Ami Client',avatar_path:'https://router-test.supabase.co/ami.png',avatar_alt:'',profile_url:'https://clients.test/ami',kind:'client',published:true,show_in_thank_you:true,sort_order:0,updated_at:'2026-02-01T00:00:00Z'},
@@ -3940,55 +3947,216 @@ try {
         cms_pages: [], cms_navigation: [],
         site_settings: [{key:'portfolioThanks',value:{enabled:true,heading:'Lovely people',body:'Thank you all.'},updated_at:'2026-02-01T00:00:00Z'}],
         commission_requests: [], media: []
-      };
-      window.__routerWrites = [];
-    });
+    };
+    const seedPeopleFixture = (rows) => { window.__routerRows = rows; window.__routerWrites = []; };
+    await page.addInitScript(seedPeopleFixture, peopleFixtureRows);
     await page.goto(origin + '/#portfolio', {waitUntil: 'load'});
     await page.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true);
     await page.waitForFunction(() => window.CrabbiePeople && window.CrabbiePeople.settled === true, null, {timeout: 15000});
-    await page.waitForFunction(() => !document.getElementById('pfThanks').hidden, null, {timeout: 15000});
-    const thanksStatic = await page.evaluate(() => ({
-      heading: document.getElementById('pfThanksHeading').textContent,
-      body: document.getElementById('pfThanksBody').textContent,
-      names: Array.from(document.querySelectorAll('#pfThanksTrack .pf-thanks-item:not([aria-hidden="true"]) .pf-thanks-name')).map(el => el.textContent),
-      cloneGroups: document.querySelectorAll('#pfThanksTrack [aria-hidden="true"]').length,
-      toggleHidden: document.getElementById('pfThanksToggle').hidden,
-      classes: document.getElementById('pfThanks').className
-    }));
-    assert.equal(thanksStatic.heading, 'Lovely people', 'thank-you heading renders from settings');
-    assert.equal(thanksStatic.body, 'Thank you all.', 'thank-you body renders from settings');
-    assert.deepEqual(thanksStatic.names, ['Ami Client', 'Bo Collaborator'], 'only eligible people render, in order, no fake identities');
-    assert.ok(thanksStatic.classes.includes('is-static'), 'two records render a centered static list');
-    assert.equal(thanksStatic.toggleHidden, true, 'motion controls hide when no marquee runs');
+    // Thank-you section no longer lives in the Portfolio view.
+    assert.equal(await page.evaluate(() => document.querySelector('[data-view="portfolio"] #clientThanks')), null, 'portfolio view contains no thank-you section');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-view="portfolio"] #pfThanks')), null, 'no legacy portfolio thanks markup remains');
     // Project credit strip: prefix override, unpublished filtered, link + plain text.
     await page.evaluate(name => { location.hash = '#project/' + name; }, 'credit-quest');
     await page.waitForFunction(() => (document.getElementById('pdTitle') || {}).textContent === 'Credit Quest', null, {timeout: 15000});
     const strip = await page.evaluate(() => ({
       hidden: document.getElementById('pdCreditStrip').hidden,
       text: document.getElementById('pdCreditStrip').textContent,
-      links: Array.from(document.getElementById('pdCreditStrip').querySelectorAll('a')).map(a => ({href: a.href, target: a.target, rel: a.rel}))
+      links: Array.from(document.getElementById('pdCreditStrip').querySelectorAll('a')).map(a => ({href: a.href, target: a.target, rel: a.rel})),
+      avatars: Array.from(document.getElementById('pdCreditStrip').querySelectorAll('img.pcs-avatar')).map(img => img.getAttribute('src')),
+      avatarWidth: (() => { const img = document.querySelector('#pdCreditStrip img.pcs-avatar'); return img ? getComputedStyle(img).width : null; })()
     }));
     assert.equal(strip.hidden, false, 'credit strip shows when public people resolve');
     assert.ok(strip.text.includes('Artwork for'), 'project prefix override renders');
     assert.ok(strip.text.includes('Ami Client') && strip.text.includes('Bo Collaborator'), 'ordered credit names render');
+    assert.ok(strip.text.indexOf('Ami Client') < strip.text.indexOf('Bo Collaborator'), 'multiple people preserve relationship order');
     assert.ok(!strip.text.includes('Ghost Draft'), 'unpublished people never render publicly');
     assert.deepEqual(strip.links, [{href: 'https://clients.test/ami', target: '_blank', rel: 'noopener noreferrer'}], 'valid https profile links open in a new safe tab; blank URLs stay plain text');
+    assert.deepEqual(strip.avatars, ['https://router-test.supabase.co/ami.png', 'https://router-test.supabase.co/bo.png'], 'one collaborator avatar per ordered person');
+    assert.equal(strip.avatarWidth, '36px', 'collaborator avatar is clearly visible at desktop size');
     // Generic credits stay independent.
     assert.equal(await page.evaluate(() => document.getElementById('pdCredits').textContent), '', 'generic credits remain their own field');
     // Project with zero people: no visible strip.
     await page.evaluate(() => { location.hash = '#project/solo-work'; });
     await page.waitForFunction(() => (document.getElementById('pdTitle') || {}).textContent === 'Solo Work', null, {timeout: 15000});
     assert.equal(await page.evaluate(() => document.getElementById('pdCreditStrip').hidden), true, 'no strip when no public people resolve');
+    // Image-only card WITH people: lightbox shows collaborator credit.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="ink-splash"]'), null, {timeout: 15000});
+    await page.locator('#pfGrid [data-project="ink-splash"]').click();
+    await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+    const lbWith = await page.evaluate(() => ({
+      creditsHidden: document.getElementById('publicLightboxCredits').hidden,
+      text: document.getElementById('publicLightboxCredits').textContent,
+      links: Array.from(document.getElementById('publicLightboxCredits').querySelectorAll('a')).map(a => ({href: a.href, target: a.target, rel: a.rel})),
+      avatars: document.getElementById('publicLightboxCredits').querySelectorAll('img.pcs-avatar').length,
+      caption: document.getElementById('publicLightboxCaption').textContent
+    }));
+    assert.equal(lbWith.creditsHidden, false, 'image-card lightbox shows collaborator credit');
+    assert.ok(lbWith.text.includes('Ink by') && lbWith.text.includes('Ami Client'), 'lightbox credit uses prefix, ordered names and avatars');
+    assert.ok(!lbWith.text.includes('Ghost Draft'), 'unpublished people never appear in the lightbox');
+    assert.deepEqual(lbWith.links, [{href: 'https://clients.test/ami', target: '_blank', rel: 'noopener noreferrer'}], 'lightbox links stay safe https-only');
+    assert.equal(lbWith.avatars, 1, 'lightbox credit avatar renders');
+    assert.ok(lbWith.caption.includes('inky'), 'lightbox caption is preserved');
+    // Image-only card WITHOUT people: clean lightbox, no empty credit UI.
+    await page.keyboard.press('Escape');
+    await page.locator('#pfGrid [data-project="ink-lonely"]').click();
+    await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxCredits').hidden), true, 'imageless-credit card opens a clean lightbox');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxCredits').innerHTML), '', 'no empty credit markup without people');
+    // Gallery lightbox without a project slug: unchanged, clears stale People.
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => {
+      const btn = document.createElement('button');
+      btn.setAttribute('data-lightbox-src', 'https://router-test.supabase.co/gallery.png');
+      btn.setAttribute('data-lightbox-caption', 'Gallery piece');
+      btn.id = 'peopleTestGalleryBtn';
+      document.body.appendChild(btn);
+      btn.click();
+    });
+    await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxCredits').hidden), true, 'gallery lightboxes gain no collaborator UI');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxCredits').innerHTML), '', 'opening a gallery clears previous people UI');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxCaption').textContent), 'Gallery piece', 'gallery caption unaffected');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { const btn = document.getElementById('peopleTestGalleryBtn'); if (btn) btn.remove(); });
+    // Commissions view: thank-you section after Fees & add-ons, before the form.
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => !document.getElementById('clientThanks').hidden, null, {timeout: 15000});
+    const thanksStatic = await page.evaluate(() => ({
+      heading: document.getElementById('clientThanksHeading').textContent,
+      body: document.getElementById('clientThanksBody').textContent,
+      names: Array.from(document.querySelectorAll('#clientThanksTrack .client-thanks-item:not([aria-hidden="true"]) .client-thanks-name')).map(el => el.textContent),
+      toggleHidden: document.getElementById('clientThanksToggle').hidden,
+      classes: document.getElementById('clientThanks').className,
+      order: (() => {
+        const section = document.getElementById('clientThanks');
+        const rules = document.querySelector('[data-view="commissions"] .rules-grid');
+        const form = document.getElementById('requestForm');
+        return {
+          afterRules: Boolean(rules.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING),
+          beforeForm: Boolean(section.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING)
+        };
+      })()
+    }));
+    assert.equal(thanksStatic.heading, 'Lovely people', 'legacy portfolioThanks settings populate the moved section');
+    assert.equal(thanksStatic.body, 'Thank you all.', 'thank-you body renders from settings');
+    assert.deepEqual(thanksStatic.names, ['Ami Client', 'Bo Collaborator'], 'only eligible people render, in order, no fake identities');
+    assert.ok(thanksStatic.classes.includes('is-static'), 'two records render a centered static list');
+    assert.equal(thanksStatic.toggleHidden, true, 'motion controls hide when no marquee runs');
+    assert.ok(thanksStatic.order.afterRules && thanksStatic.order.beforeForm, 'client thanks sits after Fees & add-ons and before the request form');
+    // Semantic text tokens govern People UI (no raw berry text colors).
+    const tokenCheck = await page.evaluate(() => {
+      const css = document.getElementById('semantic-text-tokens').textContent;
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--text-display)';
+      document.getElementById('clientThanks').appendChild(probe);
+      const same = getComputedStyle(document.getElementById('clientThanksHeading')).color === getComputedStyle(probe).color;
+      probe.remove();
+      return {
+        hasHeading: css.includes('.client-thanks-heading'),
+        hasName: css.includes('.client-thanks-name'),
+        hasStripLink: css.includes('.pd-credit-strip a.pcs-name'),
+        hasLbLink: css.includes('.public-lightbox-credits a.pcs-name'),
+        hasLbCredit: css.includes('.public-lightbox-credits'),
+        headingFollowsToken: same
+      };
+    });
+    assert.ok(tokenCheck.hasHeading && tokenCheck.hasName && tokenCheck.hasStripLink && tokenCheck.hasLbLink && tokenCheck.hasLbCredit, 'people selectors live in the semantic text-token grouping');
+    assert.ok(tokenCheck.headingFollowsToken, 'client heading color follows --text-display');
+    // Six eligible people render the full static-scroll list with persistent names.
+    await page.evaluate(() => {
+      const base = [
+        ['00000000-0000-4000-8000-000000000b04', 'Cee Client', 2],
+        ['00000000-0000-4000-8000-000000000b05', 'Dee Creator', 3],
+        ['00000000-0000-4000-8000-000000000b06', 'Eli Studio', 4],
+        ['00000000-0000-4000-8000-000000000b07', 'Fay Artist', 5]
+      ];
+      base.forEach(([id, name, order]) => {
+        window.__routerRows.people.push({id, display_name: name, avatar_path: 'https://router-test.supabase.co/' + id + '.png', avatar_alt: '', profile_url: '', kind: 'client', published: true, show_in_thank_you: true, sort_order: order, updated_at: '2026-02-01T00:00:00Z'});
+      });
+    });
+    await page.evaluate(async () => { await window.CrabbiePeopleRefresh.hydrate(); window.CrabbiePortfolio.renderPeople(); });
+    await page.waitForFunction(() => document.querySelectorAll('#clientThanksTrack .client-thanks-item:not([aria-hidden="true"])').length === 6, null, {timeout: 15000});
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#clientThanksTrack .client-thanks-item:not([aria-hidden="true"]) .client-thanks-name').length), 6, 'six people keep persistent readable names');
+    // Marquee branch (motion allowed): seamless clones, animation, pause control.
+    const ctxMotion = await browser.newContext();
+    await ctxMotion.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({ contentType: 'text/javascript', body: sdkFixture }));
+    await ctxMotion.route('https://router-test.supabase.co/**/*.png', (route) => route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+    }));
+    await ctxMotion.addInitScript(seedPeopleFixture, peopleFixtureRows);
+    const motionPage = await ctxMotion.newPage();
+    await motionPage.goto(origin + '/#commissions', {waitUntil: 'load'});
+    await motionPage.waitForFunction(() => window.__CRABBIE_SITE_CONTENT_HYDRATED__ === true, null, {timeout: 15000});
+    await motionPage.waitForFunction(() => window.CrabbiePeople && window.CrabbiePeople.settled === true, null, {timeout: 15000});
+    await motionPage.waitForFunction(() => !document.getElementById('clientThanks').hidden, null, {timeout: 15000});
+    // Seed the same six eligible people into this context's live rows, then rehydrate.
+    await motionPage.evaluate(() => {
+      window.__routerRows.people = (window.__routerRows.people || []).filter(row => row.published !== false);
+      const base = [
+        ['00000000-0000-4000-8000-000000000b04', 'Cee Client', 2],
+        ['00000000-0000-4000-8000-000000000b05', 'Dee Creator', 3],
+        ['00000000-0000-4000-8000-000000000b06', 'Eli Studio', 4],
+        ['00000000-0000-4000-8000-000000000b07', 'Fay Artist', 5]
+      ];
+      base.forEach(([id, name, order]) => {
+        if (!window.__routerRows.people.some(row => row.id === id)) {
+          window.__routerRows.people.push({id, display_name: name, avatar_path: 'https://router-test.supabase.co/' + id + '.png', avatar_alt: '', profile_url: '', kind: 'client', published: true, show_in_thank_you: true, sort_order: order, updated_at: '2026-02-01T00:00:00Z'});
+        }
+      });
+    });
+    await motionPage.evaluate(async () => { await window.CrabbiePeopleRefresh.hydrate(); window.CrabbiePortfolio.renderPeople(); });
+    await motionPage.waitForFunction(() => document.getElementById('clientThanks').classList.contains('is-marquee'), null, {timeout: 15000});
+    const marquee = await motionPage.evaluate(() => {
+      const track = document.getElementById('clientThanksTrack');
+      const clones = Array.from(track.querySelectorAll('[aria-hidden="true"]'));
+      return {
+        clones: clones.length,
+        cloneFocusable: track.querySelectorAll('[aria-hidden="true"] a:not([tabindex="-1"]), [aria-hidden="true"] button').length,
+        animation: getComputedStyle(track).animationName,
+        toggle: document.getElementById('clientThanksToggle').hidden === false && document.getElementById('clientThanksToggle').textContent === 'Pause motion'
+      };
+    });
+    assert.equal(marquee.clones, 6, 'marquee appends exactly one visual clone group');
+    assert.equal(marquee.cloneFocusable, 0, 'clones expose no focusable descendants');
+    assert.equal(marquee.animation, 'clientThanksSlide', 'one CSS transform animation drives the track');
+    assert.equal(marquee.toggle, true, 'pause control is visible while animating');
+    await motionPage.locator('#clientThanksToggle').click();
+    await motionPage.waitForFunction(() => document.getElementById('clientThanks').classList.contains('is-paused'), null, {timeout: 15000});
+    assert.equal(await motionPage.evaluate(() => document.getElementById('clientThanksToggle').textContent), 'Resume motion', 'explicit pause offers resume');
+    await ctxMotion.close();
+    // Mobile 390px: no page-level horizontal overflow anywhere in the new UI.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => !document.getElementById('clientThanks').hidden, null, {timeout: 15000});
+    await page.waitForTimeout(400);
+    const mobile = await page.evaluate(() => ({
+      pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      thanksOverflow: document.getElementById('clientThanks').scrollWidth - document.getElementById('clientThanks').clientWidth
+    }));
+    assert.ok(mobile.pageOverflow <= 1, 'no page-level horizontal overflow at 390px');
+    assert.ok(mobile.thanksOverflow <= 1, 'thanks section never overflows the page');
+    await page.evaluate(() => { location.hash = '#project/credit-quest'; });
+    await page.waitForFunction(() => (document.getElementById('pdTitle') || {}).textContent === 'Credit Quest', null, {timeout: 15000});
+    const mobileStrip = await page.evaluate(() => {
+      const strip = document.getElementById('pdCreditStrip');
+      const img = strip.querySelector('img.pcs-avatar');
+      return { wraps: strip.scrollWidth <= strip.clientWidth + 1, avatarWidth: img ? getComputedStyle(img).width : null };
+    });
+    assert.ok(mobileStrip.wraps, 'project credit wraps cleanly on mobile');
+    assert.equal(mobileStrip.avatarWidth, '32px', 'mobile avatar stays clearly visible at 32px');
+    await page.setViewportSize({width: 1280, height: 800});
     // Unpublish everyone publicly: section hides, markup clears (no stale identities).
     await page.evaluate(async () => {
       (window.__routerRows.people || []).forEach(row => { row.published = false; });
       await window.CrabbiePeopleRefresh.hydrate();
       window.CrabbiePortfolio.renderPeople();
     });
-    await page.evaluate(() => { location.hash = '#portfolio'; });
-    await page.waitForFunction(() => document.getElementById('pfThanks').hidden === true, null, {timeout: 15000});
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#pfThanksTrack .pf-thanks-item').length), 0, 'empty snapshots clear old identities');
-    console.log('PASS People credits strip and thank-you section render through production wiring (SDK fixture)');
+    await page.waitForFunction(() => document.getElementById('clientThanks').hidden === true, null, {timeout: 15000});
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#clientThanksTrack .client-thanks-item').length), 0, 'empty snapshots clear old identities');
+    console.log('PASS People credits strip, image lightbox credits and commissions client thanks render through production wiring (SDK fixture)');
 
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -4004,7 +4172,7 @@ try {
     await goToAdminModule('people');
     await page.locator('[data-adm-select="people"]').first().waitFor({state: 'visible'});
     assert.ok(await page.locator('[data-adm-select="people"]').count() >= 1, 'saved people render in the admin list');
-    assert.ok((await page.locator('#adminContent').innerText()).includes('Thank-you section'), 'thank-you tab is reachable');
+    assert.ok((await page.locator('#adminContent').innerText()).includes('Client thank-you'), 'client thank-you tab is reachable');
     await page.locator('[data-adm-subtab="people:thanks"]').click();
     assert.equal(await page.locator('[data-adm-path="settings.portfolioThanks.heading"]').inputValue(), 'Lovely people', 'thank-you settings hydrate into real form controls');
     console.log('PASS Admin People module lists records and edits thank-you settings (SDK fixture)');
