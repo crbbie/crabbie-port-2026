@@ -207,16 +207,22 @@ button{font:inherit; color:inherit;}
 .nav-cta{background:radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.62),transparent 65%),linear-gradient(180deg,#fef2b3 0%,#feeca4 50%,#fedea9 100%);color:#4a1f43;text-shadow:0 1px 2px rgba(255,255,255,.6);box-shadow:0 9px 18px -9px rgba(230,181,92,.48),inset 0 2px 1px rgba(255,255,255,.85),inset 0 -7px 12px -10px rgba(211,158,80,.34);}
 .nav-cta:hover{ transform: translateY(-2px); }
 
-/* Short press/release squash: a small spring, not a full wobble. */
+/* Shared public "bubble bounce": a soft squash on press, a small spring up
+   and outward on release, then a gentle settle. One keyframe drives every
+   public control so the feel stays consistent. Public-only (body:not(.admin-mode)). */
 @keyframes jelly{
-  0%   { transform: scale(1, 1); }
-  35%  { transform: scale(1.06, 0.94); }
-  70%  { transform: scale(0.98, 1.02); }
-  100% { transform: scale(1, 1); }
+  0%   { transform: translateY(0) scale(1, 1); }
+  28%  { transform: translateY(0) scale(1.06, 0.94); }
+  52%  { transform: translateY(-3px) scale(1.07, 1.05); }
+  74%  { transform: translateY(1px) scale(0.98, 1.02); }
+  100% { transform: translateY(0) scale(1, 1); }
 }
-.is-jelly{
-  animation: jelly .34s cubic-bezier(.25,.46,.45,.94) both !important;
+body:not(.admin-mode) .is-jelly{
+  animation: jelly .42s cubic-bezier(.34,1.56,.64,1) both !important;
   transform-origin: center bottom;
+}
+@media (prefers-reduced-motion: reduce){
+  body:not(.admin-mode) .is-jelly{ animation: none !important; }
 }
 
 /* Bright milk-pink section banners — matched to the supplied reference */
@@ -4376,13 +4382,6 @@ location.hash = hash;
 }
 window.addEventListener('hashchange', handleHash);
 
-/* Jelly on click (chỉ hiệu ứng nảy, KHÔNG ripple, KHÔNG overflow) */
-function jelly(el){
-if(!el || !el.classList || prefersReduced()) return;
-el.classList.remove('is-jelly'); void el.offsetWidth;
-el.classList.add('is-jelly');
-setTimeout(function(){ el.classList.remove('is-jelly'); }, 360);
-}
 function triggerStaggeredShake(triggerSelector, cardSelector){
 var trigger = $(triggerSelector);
 if(!trigger) return;
@@ -5087,9 +5086,9 @@ var t;
 t = e.target.closest('[data-lightbox-src]');
 if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption')); return; }
 t = e.target.closest('[data-other-service]');
-if(t){ e.preventDefault(); jelly(t); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
+if(t){ e.preventDefault(); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
 t = e.target.closest('[data-service]');
-if(t){ e.preventDefault(); jelly(t); selectService(t); return; }
+if(t){ e.preventDefault(); selectService(t); return; }
 t = e.target.closest('[data-project]');
 if(t){ e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return; }
 t = e.target.closest('[data-asset]');
@@ -10412,17 +10411,36 @@ window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 </script>
 
 <script id="home-jelly-buttons">
-document.querySelectorAll('.btn, .nav-cta').forEach(button => {
-  button.addEventListener('click', function() {
-    this.classList.remove('is-jelly');
-    void this.offsetWidth;
-    this.classList.add('is-jelly');
-
-    this.addEventListener('animationend', () => {
-      this.classList.remove('is-jelly');
-    }, { once: true });
-  });
-});
+(function(){
+'use strict';
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+/* One shared bubble bounce for every public control. Delegated in the capture
+   phase so the press plays before any navigation, replays on every click/tap,
+   and still applies to CMS-rendered or re-rendered controls. */
+var JELLY_TARGETS = '.btn, .nav-cta, .work-more, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
+function jelly(el){
+  el.classList.remove('is-jelly');
+  void el.offsetWidth;
+  el.classList.add('is-jelly');
+  if(el.__jellyTimer) clearTimeout(el.__jellyTimer);
+  el.__jellyTimer = setTimeout(function(){
+    el.classList.remove('is-jelly');
+    el.__jellyTimer = null;
+  }, 440);
+}
+document.addEventListener('click', function(e){
+  if(reduceMotion.matches) return;
+  if(document.body.classList.contains('admin-mode')) return;
+  var el = e.target.closest(JELLY_TARGETS);
+  if(!el){
+    var choice = e.target.closest('.choice');
+    if(choice) el = choice.querySelector('span');
+  }
+  if(!el || el.disabled) return;
+  if(el.closest('.view[data-view="admin"]')) return;
+  jelly(el);
+}, true);
+})();
 </script>
 
 <script id="home-bloom-transition-script">
