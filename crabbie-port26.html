@@ -9756,6 +9756,93 @@ function renderCmsTermsContent(content){
   var chunks = normalized.split(/(?=^#\s+)/m).map(function(part){ return part.trim(); }).filter(Boolean);
   if(!chunks.length) return;
 
+  /* Terms content is intentionally a small, safe markdown dialect rather than
+     arbitrary HTML. CMS authors can use ## subheads, fenced visual blocks
+     (panel, pink, purple, warning, closing, and purple-list), markdown tables, and
+     **bold** text. Every authored value is escaped before these components are
+     assembled. */
+  var inline = function(value){
+    return esc(value).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  };
+  var linesToList = function(lines, className){
+    var items = lines.map(function(line){ return line.replace(/^[-*]\s+/, '').trim(); });
+    return '<ul' + (className ? ' class="' + className + '"' : '') + '>' + items.map(function(item){ return '<li>' + inline(item) + '</li>'; }).join('') + '</ul>';
+  };
+  var table = function(lines){
+    var rows = lines.filter(function(line){ return /^\s*\|/.test(line); }).map(function(line){
+      return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function(cell){ return cell.trim(); });
+    });
+    if(rows.length < 2 || !rows[1].every(function(cell){ return /^:?-{3,}:?$/.test(cell); })) return null;
+    var head = rows[0];
+    var body = rows.slice(2);
+    return '<table class="refund-table"><thead><tr>' + head.map(function(cell){ return '<th>' + inline(cell) + '</th>'; }).join('') + '</tr></thead><tbody>' + body.map(function(row){
+      return '<tr>' + head.map(function(_, index){ return '<td>' + inline(row[index] || '') + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table>';
+  };
+  var ordinaryBlock = function(block, className){
+    var blockLines = block.split('\n').map(function(line){ return line.trim(); }).filter(Boolean);
+    if(!blockLines.length) return '';
+    var renderedTable = table(blockLines);
+    if(renderedTable) return renderedTable;
+    if(blockLines[0].indexOf('## ') === 0 && blockLines.length === 1){
+      return '<p class="tos-sub">' + inline(blockLines[0].slice(3).trim()) + '</p>';
+    }
+    if(blockLines.every(function(line){ return /^[-*]\s+/.test(line); })) return linesToList(blockLines, className || '');
+    var first = blockLines[0];
+    if(first.indexOf('## ') === 0){
+      return '<p class="tos-sub">' + inline(first.slice(3).trim()) + '</p>' + (blockLines.length > 1 ? '<p>' + inline(blockLines.slice(1).join('\n')) + '</p>' : '');
+    }
+    return '<p' + (className ? ' class="' + className + '"' : '') + '>' + inline(blockLines.join('\n')).replace(/\n/g, '<br>') + '</p>';
+  };
+  var panelBlock = function(block){
+    var blockLines = block.split('\n').map(function(line){ return line.trim(); }).filter(Boolean);
+    if(blockLines.length && blockLines[0].indexOf('## ') === 0){
+      return '<h4>' + inline(blockLines.shift().slice(3).trim()) + '</h4>' + (blockLines.length ? ordinaryBlock(blockLines.join('\n'), '') : '');
+    }
+    return ordinaryBlock(block, '');
+  };
+  var renderBody = function(body){
+    var bodyLines = body.split('\n');
+    var blocks = [];
+    var current = [];
+    var flush = function(){ if(current.length){ blocks.push({ type:'normal', value:current.join('\n') }); current = []; } };
+    for(var lineIndex = 0; lineIndex < bodyLines.length; lineIndex++){
+      var line = bodyLines[lineIndex];
+      var directive = line.match(/^\s*:::(panel|pink|purple|warning|purple-list|closing)\s*$/i);
+      if(directive){
+        flush();
+        var directiveLines = [];
+        lineIndex += 1;
+        while(lineIndex < bodyLines.length && !/^\s*:::\s*$/.test(bodyLines[lineIndex])){
+          directiveLines.push(bodyLines[lineIndex]);
+          lineIndex += 1;
+        }
+        blocks.push({ type:directive[1].toLowerCase(), value:directiveLines.join('\n').trim() });
+      } else if(/^\s*$/.test(line)) {
+        flush();
+      } else {
+        current.push(line);
+      }
+    }
+    flush();
+    return blocks.map(function(block){
+      if(block.type === 'panel' || block.type === 'pink' || block.type === 'purple' || block.type === 'warning'){
+        return '<div class="panel' + (block.type === 'panel' ? '' : ' ' + block.type) + '">' + block.value.split(/\n\s*\n/).map(panelBlock).join('') + '</div>';
+      }
+      if(block.type === 'purple-list') return linesToList(block.value.split('\n').map(function(line){ return line.trim(); }).filter(Boolean), 'purple');
+      if(block.type === 'closing'){
+        var closingLines = block.value.split('\n').map(function(line){ return line.trim(); }).filter(Boolean);
+        var divider = closingLines.indexOf('---');
+        var regular = divider === -1 ? closingLines : closingLines.slice(0, divider);
+        var ending = divider === -1 ? [] : closingLines.slice(divider + 1);
+        var signature = ending.length && /^--\s+/.test(ending[ending.length - 1]) ? ending.pop().replace(/^--\s+/, '') : '';
+        var big = ending.join(' ');
+        return '<div class="tos-closing">' + regular.map(function(line){ return '<p>' + inline(line) + '</p>'; }).join('') + (big ? '<p class="big">' + inline(big) + '</p>' : '') + (signature ? '<span class="sig">' + inline(signature) + '</span>' : '') + '</div>';
+      }
+      return ordinaryBlock(block.value, '');
+    }).join('');
+  };
+
   /* The TOC is a disclosure: expanded (and non-collapsible) on desktop, compact
      and collapsible on mobile so it never pushes the terms off screen. */
   var wide = window.innerWidth > 720;
@@ -9774,17 +9861,7 @@ function renderCmsTermsContent(content){
     var body = lines.join('\n').trim();
     navHtml += '<button type="button" data-jump="' + sectionId + '">' + esc(rawTitle || title) + '</button>';
 
-    var blocks = body ? body.split(/\n\s*\n/) : [];
-    var inner = blocks.map(function(block){
-      var blockLines = block.split('\n').map(function(line){ return line.trim(); }).filter(Boolean);
-      if(blockLines.length && blockLines.every(function(line){ return /^[-*]\s+/.test(line); })){
-        return '<ul>' + blockLines.map(function(line){
-          return '<li>' + esc(line.replace(/^[-*]\s+/, '')) + '</li>';
-        }).join('') + '</ul>';
-      }
-      var safe = esc(block).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-      return '<p>' + safe + '</p>';
-    }).join('');
+    var inner = renderBody(body);
 
     bodyHtml += '<section class="tos-sec" id="' + sectionId + '"><h3><span class="num-badge">' + esc(sectionNumber) + '</span> ' + esc(title) + '</h3><div class="tos-body">' + inner + '</div></section>';
   });
