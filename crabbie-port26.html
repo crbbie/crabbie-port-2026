@@ -310,7 +310,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .work:hover{transform: translateY(-8px);box-shadow:0 0 0 3px var(--pink),0 12px 0 -4px var(--pink-light),0 30px 44px -18px rgba(217,74,128,.5);}
 .work-hero{ grid-row: span 2; aspect-ratio: 4/5;}
 .work-a,.work-b,.work-c,.work-d{ aspect-ratio: 1/1;}
-.work .thumb{position:absolute; inset:0;border-radius: 25px;overflow: hidden;}
+.work .thumb{position:absolute; inset:0;min-width:0;max-width:100%;border-radius:25px;overflow:hidden;isolation:isolate;clip-path:inset(0 round 25px);}
 .thumb.t1{ background: linear-gradient(160deg, #ffb8d4 0%, #ff5c9a 100%);}
 .thumb.t2{ background: linear-gradient(160deg, #c5d4ff 0%, #8a5cff 100%);}
 .thumb.t3{ background: linear-gradient(160deg, #ffe1a8 0%, #ffa0c8 100%);}
@@ -462,6 +462,11 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 #pfGrid .work.is-image-card{cursor:zoom-in;}
 #pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
 #pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
+@media (hover:none), (pointer:coarse){
+  /* Touch browsers can keep :hover latched after a tap. Do not leave the
+     portfolio image scaled on phones; the thumb remains the paint boundary. */
+  #pfGrid .work.is-image-card:hover .thumb img{transform:none;}
+}
 
 /* PROJECT DETAIL */
 /* Both tracks use minmax(0,…) and every direct child gets min-width:0, so a
@@ -967,7 +972,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .foot-inner > *:first-child{ grid-column: 1 / -1;}
   .foot-bottom{ flex-direction: column; gap:6px; text-align:center;}
   .pf-grid{ grid-template-columns: 1fr; grid-auto-rows: auto; gap: 46px; }
-  .pf-grid .work{ height: auto; }
+  .pf-grid .work{ height:auto; width:100%; max-width:100%; min-width:0; }
   .pf-l, .pf-t, .pf-s, .pf-w{ grid-column: auto; grid-row: auto; aspect-ratio: 4/3; }
   .pf-l{ aspect-ratio: 4/5; }
   .page-title{ font-size: clamp(28px, 9vw, 38px); }
