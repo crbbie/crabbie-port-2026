@@ -9209,6 +9209,8 @@ function syncPortfolioCardMode(card, record){
 if(!card || !record) return;
 var imageOnly = portfolioIsImageCard(record);
 card.classList.toggle('is-image-card', imageOnly);
+var more = card.querySelector('.work-more');
+if(more) more.hidden = imageOnly;
 if(imageOnly){
   var src = safePublicUrl(record.cover || record.thumbnail, true);
   if(src){

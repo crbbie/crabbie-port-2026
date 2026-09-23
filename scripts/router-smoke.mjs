@@ -3488,8 +3488,10 @@ try {
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     await page.locator('#publicLightboxClose').click();
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
-    // The image-card label carries the title, and zoom/reset/caption work.
-    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION X', 'the image card label shows the title');
+    // The image-card cloud label carries the category, while the bottom title
+    // keeps the project/image title; zoom/reset/caption also work.
+    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION', 'the image card cloud label shows the category');
+    assert.equal((await imageCard.locator('.work-title').innerText()).trim(), 'Illustration X', 'the image card title remains visible');
     await imageCard.click();
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     await page.locator('#publicLightboxZoomIn').click();
