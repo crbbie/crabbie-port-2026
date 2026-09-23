@@ -163,6 +163,7 @@ export function getPerson(id) {
 
 if (typeof window !== 'undefined') {
   window.CrabbiePeople = window.CrabbiePeople || { byId: {}, order: [], thanks: [], settled: false, error: null };
+  window.CrabbiePeopleRefresh = { hydrate: hydratePeople, snapshot: getPeopleSnapshot };
 }
 
 hydratePeople();

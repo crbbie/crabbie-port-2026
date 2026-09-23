@@ -3919,6 +3919,96 @@ try {
     console.log('PASS Storage & Cleanup scan classifies through the production loader (SDK fixture)');
 // P4_END
 
+    // ---- People / Clients, project credits, thank-you section ---------------
+    await page.addInitScript(() => {
+      window.__routerRows = {
+        portfolio_projects: [
+          {id:'00000000-0000-4000-8000-000000000a01',slug:'credit-quest',title:'Credit Quest',description:'A quest',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration',peopleCreditLabel:'Artwork for'},featured:false,published:true,sort_order:0,updated_at:'2026-02-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000a02',slug:'solo-work',title:'Solo Work',description:'Solo',tags:[],thumbnail_path:'',cover_path:'',content:{categorySlug:'illustration'},featured:false,published:true,sort_order:1,updated_at:'2026-02-01T00:00:00Z'}
+        ],
+        portfolio_project_people: [
+          {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b01',sort_order:0},
+          {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b02',sort_order:1},
+          {project_id:'00000000-0000-4000-8000-000000000a01',person_id:'00000000-0000-4000-8000-000000000b03',sort_order:2}
+        ],
+        people: [
+          {id:'00000000-0000-4000-8000-000000000b01',display_name:'Ami Client',avatar_path:'https://router-test.supabase.co/ami.png',avatar_alt:'',profile_url:'https://clients.test/ami',kind:'client',published:true,show_in_thank_you:true,sort_order:0,updated_at:'2026-02-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000b02',display_name:'Bo Collaborator',avatar_path:'https://router-test.supabase.co/bo.png',avatar_alt:'Bo portrait',profile_url:'',kind:'collaborator',published:true,show_in_thank_you:true,sort_order:1,updated_at:'2026-02-01T00:00:00Z'},
+          {id:'00000000-0000-4000-8000-000000000b03',display_name:'Ghost Draft',avatar_path:'https://router-test.supabase.co/ghost.png',avatar_alt:'',profile_url:'',kind:'other',published:false,show_in_thank_you:false,sort_order:2,updated_at:'2026-02-01T00:00:00Z'}
+        ],
+        free_assets: [], commission_services: [], commission_forms: [], cms_categories: [],
+        cms_pages: [], cms_navigation: [],
+        site_settings: [{key:'portfolioThanks',value:{enabled:true,heading:'Lovely people',body:'Thank you all.'},updated_at:'2026-02-01T00:00:00Z'}],
+        commission_requests: [], media: []
+      };
+      window.__routerWrites = [];
+    });
+    await page.goto(origin + '/#portfolio', {waitUntil: 'load'});
+    await page.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true);
+    await page.waitForFunction(() => window.CrabbiePeople && window.CrabbiePeople.settled === true, null, {timeout: 15000});
+    await page.waitForFunction(() => !document.getElementById('pfThanks').hidden, null, {timeout: 15000});
+    const thanksStatic = await page.evaluate(() => ({
+      heading: document.getElementById('pfThanksHeading').textContent,
+      body: document.getElementById('pfThanksBody').textContent,
+      names: Array.from(document.querySelectorAll('#pfThanksTrack .pf-thanks-item:not([aria-hidden="true"]) .pf-thanks-name')).map(el => el.textContent),
+      cloneGroups: document.querySelectorAll('#pfThanksTrack [aria-hidden="true"]').length,
+      toggleHidden: document.getElementById('pfThanksToggle').hidden,
+      classes: document.getElementById('pfThanks').className
+    }));
+    assert.equal(thanksStatic.heading, 'Lovely people', 'thank-you heading renders from settings');
+    assert.equal(thanksStatic.body, 'Thank you all.', 'thank-you body renders from settings');
+    assert.deepEqual(thanksStatic.names, ['Ami Client', 'Bo Collaborator'], 'only eligible people render, in order, no fake identities');
+    assert.ok(thanksStatic.classes.includes('is-static'), 'two records render a centered static list');
+    assert.equal(thanksStatic.toggleHidden, true, 'motion controls hide when no marquee runs');
+    // Project credit strip: prefix override, unpublished filtered, link + plain text.
+    await page.evaluate(name => { location.hash = '#project/' + name; }, 'credit-quest');
+    await page.waitForFunction(() => (document.getElementById('pdTitle') || {}).textContent === 'Credit Quest', null, {timeout: 15000});
+    const strip = await page.evaluate(() => ({
+      hidden: document.getElementById('pdCreditStrip').hidden,
+      text: document.getElementById('pdCreditStrip').textContent,
+      links: Array.from(document.getElementById('pdCreditStrip').querySelectorAll('a')).map(a => ({href: a.href, target: a.target, rel: a.rel}))
+    }));
+    assert.equal(strip.hidden, false, 'credit strip shows when public people resolve');
+    assert.ok(strip.text.includes('Artwork for'), 'project prefix override renders');
+    assert.ok(strip.text.includes('Ami Client') && strip.text.includes('Bo Collaborator'), 'ordered credit names render');
+    assert.ok(!strip.text.includes('Ghost Draft'), 'unpublished people never render publicly');
+    assert.deepEqual(strip.links, [{href: 'https://clients.test/ami', target: '_blank', rel: 'noopener noreferrer'}], 'valid https profile links open in a new safe tab; blank URLs stay plain text');
+    // Generic credits stay independent.
+    assert.equal(await page.evaluate(() => document.getElementById('pdCredits').textContent), '', 'generic credits remain their own field');
+    // Project with zero people: no visible strip.
+    await page.evaluate(() => { location.hash = '#project/solo-work'; });
+    await page.waitForFunction(() => (document.getElementById('pdTitle') || {}).textContent === 'Solo Work', null, {timeout: 15000});
+    assert.equal(await page.evaluate(() => document.getElementById('pdCreditStrip').hidden), true, 'no strip when no public people resolve');
+    // Unpublish everyone publicly: section hides, markup clears (no stale identities).
+    await page.evaluate(async () => {
+      (window.__routerRows.people || []).forEach(row => { row.published = false; });
+      await window.CrabbiePeopleRefresh.hydrate();
+      window.CrabbiePortfolio.renderPeople();
+    });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.getElementById('pfThanks').hidden === true, null, {timeout: 15000});
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#pfThanksTrack .pf-thanks-item').length), 0, 'empty snapshots clear old identities');
+    console.log('PASS People credits strip and thank-you section render through production wiring (SDK fixture)');
+
+    // ---- Admin People module renders, validates and saves -------------------
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows.people = [
+        {id:'00000000-0000-4000-8000-000000000b01',display_name:'Ami Client',avatar_path:'https://router-test.supabase.co/ami.png',avatar_alt:'',profile_url:'https://clients.test/ami',kind:'client',published:true,show_in_thank_you:true,sort_order:0,updated_at:'2026-02-01T00:00:00Z'}
+      ];
+      window.__routerRows.portfolio_project_people = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goToAdminModule('people');
+    await page.locator('[data-adm-select="people"]').first().waitFor({state: 'visible'});
+    assert.ok(await page.locator('[data-adm-select="people"]').count() >= 1, 'saved people render in the admin list');
+    assert.ok((await page.locator('#adminContent').innerText()).includes('Thank-you section'), 'thank-you tab is reachable');
+    await page.locator('[data-adm-subtab="people:thanks"]').click();
+    assert.equal(await page.locator('[data-adm-path="settings.portfolioThanks.heading"]').inputValue(), 'Lovely people', 'thank-you settings hydrate into real form controls');
+    console.log('PASS Admin People module lists records and edits thank-you settings (SDK fixture)');
+
   }
 } finally {
   if (browser) await browser.close();
