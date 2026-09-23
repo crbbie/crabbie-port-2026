@@ -93,6 +93,16 @@ export function createClient(){
     if (column.endsWith('ilike')) {
       return ilikeToRegex(value).test(String(valueAt(row, column.replace('.ilike', '')) || ''));
     }
+    if (column.endsWith('.in')) {
+      const list = Array.isArray(value) ? value : [value];
+      return list.some((entry) => valueAt(row, column.replace(/\.in$/, '')) === entry);
+    }
+    if (column.endsWith('.gte')) {
+      return valueAt(row, column.replace(/\.gte$/, '')) >= value;
+    }
+    if (column.endsWith('.lte')) {
+      return valueAt(row, column.replace(/\.lte$/, '')) <= value;
+    }
     return valueAt(row, column) === value;
   };
 
@@ -122,7 +132,8 @@ export function createClient(){
       const filters = state.filters.slice();
       const matched = rowsFor(table).filter((row) => filters.every(filter => applyFilter(row, filter)));
       const total = matched.length;
-      const ranged = state.range ? matched.slice(state.range[0], state.range[1] + 1) : matched;
+      const limited = state.limit ? matched.slice(0, state.limit) : matched;
+      const ranged = state.range ? limited.slice(state.range[0], state.range[1] + 1) : limited;
       if (state.head) return {data: null, error: null, count: total};
       const withCount = state.count ? {count: total} : {};
       return state.single ? {data: ranged[0] || null, error: null, ...withCount} : {data: ranged, error: null, ...withCount};
@@ -185,6 +196,10 @@ export function createClient(){
         state.filters.push(['or', args[0]]);
       } else if (key === 'ilike') {
         state.filters.push([String(args[0]) + '.ilike', args[1]]);
+      } else if (key === 'in') {
+        state.filters.push([String(args[0]) + '.in', Array.isArray(args[1]) ? args[1].slice() : [args[1]]]);
+      } else if (key === 'limit') {
+        state.limit = Number(args[0]) || 0;
       } else if (key === 'gte' || key === 'lte') {
         state.filters.push([String(args[0]) + '.' + key, args[1]]);
       } else if (key === 'range') {
@@ -199,6 +214,22 @@ export function createClient(){
   } });
   return {
     from: table => query(table),
+    rpc: async (name, params) => {
+      (window.__routerWrites ||= []).push({table: 'rpc:' + name, operation: 'rpc', payload: params});
+      if (name === 'move_person') {
+        const rows = rowsFor('people').slice().sort((a, b) => ((a.sort_order || 0) - (b.sort_order || 0)) || (String(a.id) < String(b.id) ? -1 : 1));
+        const i = rows.findIndex(row => String(row.id) === String(params.p_person_id));
+        if (i === -1) return {data: null, error: {message: 'Person not found', code: '23503'}};
+        const j = params.p_direction === 'up' ? i - 1 : i + 1;
+        if (j < 0 || j >= rows.length) return {data: {moved: false, id: params.p_person_id}, error: null};
+        const a = rows[i]; const b = rows[j];
+        const tmp = a.sort_order; a.sort_order = b.sort_order; b.sort_order = tmp;
+        a.updated_at = stamp(); b.updated_at = stamp();
+        return {data: {moved: true, id: params.p_person_id, rows: rowsFor('people').map(row => ({id: row.id, sort_order: row.sort_order, updated_at: row.updated_at}))}, error: null};
+      }
+      if (name === 'save_project_with_people') return {data: {id: '00000000-0000-4000-8000-000000000999', slug: 'rpc-saved', updated_at: stamp(), people: []}, error: null};
+      return {data: null, error: {message: 'Unknown function ' + name}};
+    },
     supabaseUrl: 'https://router-test.supabase.co',
     supabaseKey: 'router-test-anon-key',
     storage: {from: bucket => ({
@@ -840,7 +871,7 @@ try {
       document.querySelectorAll('#adminNav [data-count]').forEach(el => { counts[el.getAttribute('data-count')] = el.textContent; });
       return counts;
     });
-    assert.deepEqual(navCounts, { portfolio: '0', assets: '0', commissions: '0', requests: '0' });
+    assert.deepEqual(navCounts, { portfolio: '0', people: '0', assets: '0', commissions: '0', requests: '0' });
     for (const module of ['assets', 'commissions', 'requests', 'media']) {
       await goToAdminModule(module);
       assert.equal(await page.locator('.adm-record, .adm-req-row, .adm-media-card').count(), 0, 'Empty ' + module + ' must render no records');

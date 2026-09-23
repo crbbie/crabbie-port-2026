@@ -12,6 +12,7 @@ window.CrabbieSaveRevision = { createDraftRevision, shouldFinalizeSave };
 window.CrabbiePersistedBaseline = { reconcileSavedTarget, advanceBaselinesFromOrder };
 window.CrabbieAdminFeatured = { enforceFeaturedLimit };
 import('./portfolio-cms.js');
+import('./people-cms.js');
 import('./free-assets-cms.js');
 import('./commissions-cms.js');
 import('./site-content-cms.js');

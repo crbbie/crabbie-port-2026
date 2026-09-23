@@ -460,6 +460,13 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .pd-fact{display:flex; align-items:center; gap:14px;background:#fff; border:2px solid var(--pink-light);border-radius: 18px; padding: 11px 18px;box-shadow: 0 5px 0 -2px var(--pink-light);}
 .pd-fact .k{font-family:var(--font-decorative); font-weight:600; font-size:11px;letter-spacing:.12em; text-transform:uppercase;color: var(--berry-faint); flex:0 0 84px;}
 .pd-fact .v{ font-size:13.5px; font-weight:800; color: var(--berry); }
+/* Project collaborator credit strip: pale pink/lilac surface, wraps naturally. */
+.pd-credit-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:16px; padding:10px 16px; background:linear-gradient(160deg,#fff5fa 0%,#f6f0ff 100%); border:2px solid var(--pink-light, #ffd3e6); border-radius:16px; font-family:var(--font-body); font-size:13.5px; color:var(--berry,#7a3d6e); }
+.pd-credit-strip .pcs-label{ font-weight:800; }
+.pd-credit-strip .pcs-heart{ color:var(--pink-hot,#ff5c9a); }
+.pd-credit-strip .pcs-name{ font-weight:600; white-space:nowrap; }
+.pd-credit-strip .pcs-sep{ opacity:.65; }
+.pd-credit-strip img.pcs-avatar{ width:20px; height:20px; border-radius:50%; object-fit:cover; vertical-align:-4px; margin-right:4px; border:1px solid #fff; box-shadow:0 0 0 1px var(--pink-light,#ffd3e6); }
 .blk{ margin-bottom: 40px; }
 .blk-head{ display:flex; align-items:center; gap:14px; margin-bottom: 16px; }
 .blk-num{width: 42px; height: 42px; flex: 0 0 42px;display:grid; place-items:center; border-radius: 50%;font-family:var(--font-display); font-weight:700; font-size:14px; color:#fff;background: linear-gradient(180deg, #ffc3dc 0%, var(--pink-hot) 100%);border: 3px solid #fff;box-shadow: 0 0 0 2px var(--pink-hot), 0 5px 0 -1px rgba(217,74,128,.5);}
@@ -3166,6 +3173,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <div class="eyebrow purple">PROJECT</div>
           <h2 class="page-title" id="pdTitle">Color Fiesta Booth</h2>
           <p class="page-sub" id="pdDesc">Fanmade merch I illustrated and sold at the Color Fiesta festival</p>
+          <div class="pd-credit-strip" id="pdCreditStrip" hidden></div>
           <div class="pd-facts">
             <div class="pd-fact"><span class="k">Category</span><span class="v" id="pdCat">Merch / Illustration</span></div>
             <div class="pd-fact"><span class="k">Tags</span><span class="v" id="pdTags">[PROJECT TAGS]</span></div>
@@ -3798,6 +3806,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         <button type="button" data-admin-module="dashboard" aria-current="page"><span class="an-ico">◆</span> <span data-t="nav.dashboard">Dashboard</span></button>
         <div class="an-group">Content</div>
         <button type="button" data-admin-module="portfolio"><span class="an-ico">❀</span> <span data-t="nav.portfolio">Portfolio / Projects</span> <span class="an-count" data-count="portfolio"></span></button>
+        <button type="button" data-admin-module="people"><span class="an-ico">♡</span> <span data-t="nav.people">People / Clients</span> <span class="an-count" data-count="people"></span></button>
         <button type="button" data-admin-module="assets"><span class="an-ico">★</span> <span data-t="nav.assets">Free Assets</span> <span class="an-count" data-count="assets"></span></button>
         <button type="button" data-admin-module="commissions"><span class="an-ico">✦</span> <span data-t="nav.commissions">Commissions</span> <span class="an-count" data-count="commissions"></span></button>
         <div class="an-group">Inbox</div>
@@ -3986,7 +3995,7 @@ var currentOtherService = null;
 var SIMPLE_VIEWS = ['home','portfolio','free-assets','commissions','about','terms','contact','404','loading'];
 var BADGES = { 'home':'HOME','portfolio':'PORTFOLIO','project-detail':'PORTFOLIO','free-assets':'ASSETS','free-asset-detail':'ASSETS','commissions':'COMMISSIONS','about':'ABOUT','terms':'TOS','contact':'CONTACT','404':'404','loading':'LOADING','admin':'ADMIN' };
 var NAVKEY = { 'project-detail':'portfolio', 'free-asset-detail':'free-assets' };
-var ADMIN_MODULES = ['dashboard','portfolio','assets','commissions','requests','about','terms','contact','media','cleanup','settings'];
+var ADMIN_MODULES = ['dashboard','portfolio','people','assets','commissions','requests','about','terms','contact','media','cleanup','settings'];
 
 function decodeRouteId(value){
 try { return decodeURIComponent(value || ''); } catch(e){ return value || ''; }
@@ -4234,10 +4243,89 @@ function publicBlockBody(block){
   if(type === 'spacer') return '<div aria-hidden="true" style="height:' + (block.size === 'large' ? '64' : block.size === 'small' ? '16' : '32') + 'px;"></div>';
   return '';
 }
+/* Project collaborator credit strip (immediately after #pdDesc).
+   Uses selected relationship order after removing unresolved/unpublished
+   People. #pdCredits (generic production notes) renders independently. */
+function personDisplayNamePublic(person){
+  if(!person || typeof person !== 'object') return '';
+  return String(person.displayName != null ? person.displayName : (person.display_name != null ? person.display_name : '')).trim();
+}
+function isHttpsProfileUrl(url){
+  var raw = String(url || '').trim();
+  if(!raw) return false;
+  if(!/^https:\/\/[^\/\s@]+(\.[^\/\s@]+)+[^\s]*$/i.test(raw)) return false;
+  if(/^https:\/\/[^\/]*@/i.test(raw)) return false;
+  return true;
+}
+function joinCreditNamesPublic(names){
+  var list = (Array.isArray(names) ? names : []).map(function(n){ return String(n || '').trim(); }).filter(Boolean);
+  if(list.length <= 1) return list;
+  if(list.length === 2) return [list[0] + ' & ' + list[1]];
+  /* Three+: comma-separated with a final & — model as segments so names stay
+     linkable: ["A, ", "B & ", "C"] joined with '' renders "A, B & C". */
+  return list.map(function(name, i){
+    if(i === list.length - 1) return name;
+    if(i === list.length - 2) return name + ' & ';
+    return name + ', ';
+  });
+}
+function resolveProjectCreditPeople(p){
+  var ordered = [];
+  var seen = {};
+  function push(person){
+    if(!person || typeof person !== 'object') return;
+    if(!person.published) return;
+    var name = personDisplayNamePublic(person);
+    if(!name) return;
+    var key = String(person.id || person.dbId || name);
+    if(seen[key]) return;
+    seen[key] = true;
+    ordered.push(person);
+  }
+  if(p && Array.isArray(p.people)) p.people.forEach(push);
+  var ids = (p && Array.isArray(p.peopleIds)) ? p.peopleIds : [];
+  if(ids.length && window.CrabbiePeople && window.CrabbiePeople.byId){
+    ids.forEach(function(id){ push(window.CrabbiePeople.byId[String(id)]); });
+  }
+  return ordered;
+}
+function renderProjectCredits(p){
+  var root = document.getElementById('pdCreditStrip');
+  if(!root) return;
+  var people = resolveProjectCreditPeople(p);
+  if(!people.length){ root.hidden = true; root.innerHTML = ''; return; }
+  var rawLabel = '';
+  if(p){
+    if(typeof p.peopleCreditLabel === 'string') rawLabel = p.peopleCreditLabel;
+    else if(p.content && typeof p.content.peopleCreditLabel === 'string') rawLabel = p.content.peopleCreditLabel;
+  }
+  var label = String(rawLabel || '').trim().slice(0, 80) || 'With';
+  var segments = people.map(function(person, i){
+    var name = personDisplayNamePublic(person);
+    var avatar = String(person.avatar != null ? person.avatar : (person.avatar_path != null ? person.avatar_path : '')).trim();
+    var avatarHtml = avatar ? '<img class="pcs-avatar" src="' + esc(avatar) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
+    var profileUrl = person.profileUrl != null ? person.profileUrl : person.profile_url;
+    var inner = avatarHtml + '<span class="pcs-name-text">' + esc(name) + '</span>';
+    var units = { prefix: '', html: '' };
+    if(i < people.length - 2) units.suffix = ', ';
+    else if(i === people.length - 2) units.suffix = ' & ';
+    else units.suffix = '';
+    if(isHttpsProfileUrl(profileUrl)){
+      var linkLabel = name + ' (opens in a new tab)';
+      units.html = '<a class="pcs-name" href="' + esc(String(profileUrl).trim()) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(linkLabel) + '">' + inner + '</a>' + '<span class="pcs-sep" aria-hidden="true">' + esc(units.suffix) + '</span>';
+    } else {
+      units.html = '<span class="pcs-name">' + inner + '</span>' + '<span class="pcs-sep" aria-hidden="true">' + esc(units.suffix) + '</span>';
+    }
+    return units.html;
+  }).join('');
+  root.innerHTML = '<span class="pcs-label">' + esc(label) + '</span> <span class="pcs-heart" aria-hidden="true">♥</span> ' + segments;
+  root.hidden = false;
+}
 function renderProject(id){
   var p = PROJECTS[id]; if(!p) return;
   setText('pdTitle', visibleCmsValue(p.title));
   setText('pdDesc', visibleCmsValue(p.desc != null ? p.desc : p.description));
+  renderProjectCredits(p);
   var facts = {pdCat:p.cat, pdTags:Array.isArray(p.tags) ? p.tags.join(' · ') : '', pdCredits:p.credits, pdYear:p.year};
   Object.keys(facts).forEach(function(key){
     var el = document.getElementById(key); if(!el) return;
@@ -5165,8 +5253,8 @@ if(driveBtn) driveBtn.addEventListener('click', function(){
    ========================================================== */
 var ADMIN_I18N = {
 en: {
-'nav.dashboard': 'Dashboard','nav.portfolio': 'Portfolio / Projects','nav.assets': 'Free Assets','nav.commissions': 'Commissions','nav.requests': 'Commission Requests','nav.about': 'About','nav.terms': 'Terms of Service','nav.contact': 'Contact / Social','nav.media': 'Media Library','nav.cleanup': 'Storage & Cleanup','nav.settings': 'Site Settings','nav.preview': 'Preview website','nav.signout': 'Sign out',
-'top.eyebrow': 'YOUR SWEET LITTLE WORLD','top.eyebrowAdmin': 'THE ATELIER CMS','top.desc.dashboard': 'Overview of your atelier','top.desc.portfolio': 'Manage your portfolio projects','top.desc.assets': 'Manage your free assets','top.desc.commissions': 'Manage commission types and request forms','top.desc.requests': 'Read and process commission requests','top.desc.about': 'Edit your About page','top.desc.terms': 'Edit your Terms of Service','top.desc.contact': 'Contact email and social links','top.desc.media': 'Upload and manage media files','top.desc.cleanup': 'Read-only overview of possibly unused media','top.desc.settings': 'Branding, typography, colors, SEO, and more',
+'nav.dashboard': 'Dashboard','nav.portfolio': 'Portfolio / Projects','nav.people': 'People / Clients','nav.assets': 'Free Assets','nav.commissions': 'Commissions','nav.requests': 'Commission Requests','nav.about': 'About','nav.terms': 'Terms of Service','nav.contact': 'Contact / Social','nav.media': 'Media Library','nav.cleanup': 'Storage & Cleanup','nav.settings': 'Site Settings','nav.preview': 'Preview website','nav.signout': 'Sign out',
+'top.eyebrow': 'YOUR SWEET LITTLE WORLD','top.eyebrowAdmin': 'THE ATELIER CMS','top.desc.dashboard': 'Overview of your atelier','top.desc.portfolio': 'Manage your portfolio projects','top.desc.people': 'Manage reusable people and client credits','top.desc.assets': 'Manage your free assets','top.desc.commissions': 'Manage commission types and request forms','top.desc.requests': 'Read and process commission requests','top.desc.about': 'Edit your About page','top.desc.terms': 'Edit your Terms of Service','top.desc.contact': 'Contact email and social links','top.desc.media': 'Upload and manage media files','top.desc.cleanup': 'Read-only overview of possibly unused media','top.desc.settings': 'Branding, typography, colors, SEO, and more',
 'status.saved': 'Saved','status.dirty': 'Unsaved changes','status.saving': 'Saving…','status.error': 'Error saving',
 'btn.saveChanges': 'Save Changes','btn.save': 'Save','btn.discard': 'Discard changes','btn.keepEditing': 'Keep editing','btn.cancel': 'Cancel','btn.close': 'Close','btn.create': 'Create','btn.new': 'New','btn.duplicate': 'Duplicate','btn.delete': 'Delete','btn.discardShort': 'Discard','btn.previewSaved': 'Preview saved version ↗','btn.search': 'Search…','btn.refresh': 'Refresh','btn.upload': 'Upload file','btn.addSection': '+ Add section','btn.addLink': '+ Add link','btn.addAddon': '+ Add add-on','btn.addQuestion': '+ Add question','btn.addMedia': '+ Add media','btn.addNav': '+ Add navigation item','btn.chooseMedia': 'Choose existing media…','btn.uploadReplace': 'Upload / replace','btn.openFile': 'Open file ↗','btn.choose': 'Choose…','btn.previous': '← Previous','btn.next': 'Next →',
 'badge.pub': 'Pub','badge.draft': 'Draft','badge.featured': 'Featured','badge.placeholder': 'PH',
@@ -5183,8 +5271,8 @@ en: {
 'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.'
 },
 vi: {
-'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.cleanup': 'Dọn dẹp Storage','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
-'top.eyebrow': 'THẾ GIỚI NHỎ XINH CỦA BẠN','top.eyebrowAdmin': 'ATELIER CMS','top.desc.dashboard': 'Tổng quan về atelier của bạn','top.desc.portfolio': 'Quản lý các dự án portfolio','top.desc.assets': 'Quản lý tài nguyên miễn phí','top.desc.commissions': 'Quản lý loại commission và form yêu cầu','top.desc.requests': 'Đọc và xử lý yêu cầu commission','top.desc.about': 'Chỉnh sửa trang Giới thiệu','top.desc.terms': 'Chỉnh sửa Điều khoản dịch vụ','top.desc.contact': 'Email liên hệ và mạng xã hội','top.desc.media': 'Tải lên và quản lý file media','top.desc.cleanup': 'Tổng quan read-only về media có thể không dùng','top.desc.settings': 'Thương hiệu, kiểu chữ, màu sắc, SEO, v.v.',
+'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.people': 'Mọi người / Khách hàng','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.cleanup': 'Dọn dẹp Storage','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
+'top.eyebrow': 'THẾ GIỚI NHỎ XINH CỦA BẠN','top.eyebrowAdmin': 'ATELIER CMS','top.desc.dashboard': 'Tổng quan về atelier của bạn','top.desc.portfolio': 'Quản lý các dự án portfolio','top.desc.people': 'Quản lý mọi người và ghi công khách hàng','top.desc.assets': 'Quản lý tài nguyên miễn phí','top.desc.commissions': 'Quản lý loại commission và form yêu cầu','top.desc.requests': 'Đọc và xử lý yêu cầu commission','top.desc.about': 'Chỉnh sửa trang Giới thiệu','top.desc.terms': 'Chỉnh sửa Điều khoản dịch vụ','top.desc.contact': 'Email liên hệ và mạng xã hội','top.desc.media': 'Tải lên và quản lý file media','top.desc.cleanup': 'Tổng quan read-only về media có thể không dùng','top.desc.settings': 'Thương hiệu, kiểu chữ, màu sắc, SEO, v.v.',
 'status.saved': 'Đã lưu','status.dirty': 'Có thay đổi chưa lưu','status.saving': 'Đang lưu…','status.error': 'Lỗi khi lưu',
 'btn.saveChanges': 'Lưu thay đổi','btn.save': 'Lưu','btn.discard': 'Hủy thay đổi','btn.keepEditing': 'Tiếp tục chỉnh sửa','btn.cancel': 'Hủy','btn.close': 'Đóng','btn.create': 'Tạo mới','btn.new': 'Mới','btn.duplicate': 'Nhân bản','btn.delete': 'Xóa','btn.discardShort': 'Hủy','btn.previewSaved': 'Xem trước bản đã lưu ↗','btn.search': 'Tìm kiếm…','btn.refresh': 'Làm mới','btn.upload': 'Tải file lên','btn.addSection': '+ Thêm phần','btn.addLink': '+ Thêm liên kết','btn.addAddon': '+ Thêm add-on','btn.addQuestion': '+ Thêm câu hỏi','btn.addMedia': '+ Thêm media','btn.addNav': '+ Thêm mục điều hướng','btn.chooseMedia': 'Chọn media có sẵn…','btn.uploadReplace': 'Tải lên / thay thế','btn.openFile': 'Mở file ↗','btn.choose': 'Chọn…','btn.previous': '← Trước','btn.next': 'Tiếp →',
 'badge.pub': 'Đã đăng','badge.draft': 'Nháp','badge.featured': 'Nổi bật','badge.placeholder': 'PH',
@@ -5276,7 +5364,7 @@ return {
 id: id, title: p.title || id, slug: id, description: p.desc || '',
 category: (p.cat || '').split('/')[0].trim().toLowerCase() || 'other',
 tags: (p.tags || []).slice(), thumbnail: '', cover: p.cover || '', media: '', mediaType: 'image',
-date: p.year || '', credits: p.credits || '[PROJECT CREDITS]', externalLinks: [], blocks: [],
+date: p.year || '', credits: p.credits || '[PROJECT CREDITS]', peopleCreditLabel: p.peopleCreditLabel || '', peopleIds: [], externalLinks: [], blocks: [],
 featured: id === 'color-fiesta', published: true, placeholder: false, seoTitle: '', seoDescription: '',
 viState: id === 'color-fiesta' ? 'up-to-date' : 'pending',
 titleCopy: { en: p.title || '', vi: '', viOverride: false },
@@ -5361,6 +5449,7 @@ var UI_COPY = [{ key:'cta.explore', group:'Home', en:'Explore my work', vi:'' },
 function buildAdminData(){
 return {
 portfolio: PROJECT_ORDER.map(buildProjectRecord),
+people: [],
 portfolioCategories: [
 { id:'illustration', title:'Illustration', slug:'illustration', published:true, titleCopy:{ en:'Illustration', vi:'', viOverride:false } },
 { id:'chibi', title:'Chibi', slug:'chibi', published:true, titleCopy:{ en:'Chibi', vi:'', viOverride:false } },
@@ -5410,8 +5499,9 @@ typography: { headingFont:'DFVN Starshines', bodyFont:'DFVN Hogfish', accentFont
 language: { defaultLanguage:'en' },
 seo: { title:'CRABBIE', description:'', socialImage:'' },
 footer: { footer:'a little candy shop of art' },
-interface: { uiCopy: UI_COPY.map(function(r){ return Object.assign({}, r); }) },
-contact: { email:'crabbie.art@gmail.com', twitter:'https://x.com/crbbie' }
+  interface: { uiCopy: UI_COPY.map(function(r){ return Object.assign({}, r); }) },
+  portfolioThanks: { enabled: true, heading: 'Made with lovely people ♡', body: 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡' },
+  contact: { email:'crabbie.art@gmail.com', twitter:'https://x.com/crbbie' }
 },
 navigation: [
 { id:'n1', title:'Home', url:'#home', published:true },
@@ -5448,7 +5538,7 @@ Object.keys(value || {}).forEach(function(k){ if(!(k in out)) out[k] = value[k];
 return out;
 }
 function initialAdminSelection(data){
-return { portfolio: data.portfolio[0] && data.portfolio[0].id, assets: data.assets[0] && data.assets[0].id, commissions: data.commissions[0] ? data.commissions[0].id : null, forms: data.forms[0] ? data.forms[0].id : null, requests: data.requests[0] ? data.requests[0].id : null };
+return { portfolio: data.portfolio[0] && data.portfolio[0].id, people: data.people[0] && data.people[0].id, assets: data.assets[0] && data.assets[0].id, commissions: data.commissions[0] ? data.commissions[0].id : null, forms: data.forms[0] ? data.forms[0].id : null, requests: data.requests[0] ? data.requests[0].id : null };
 }
 var ADMIN_UI = {
 dirty: false,
@@ -5463,7 +5553,7 @@ structuralScopes: {},
    never reset except by a fresh page state. */
 draftRevision: 0,
 selection: initialAdminSelection(ADMIN_DATA),
-subtab: { portfolio:'items', assets:'items', commissions:'items', settings:'settings' },
+subtab: { portfolio:'items', people:'items', assets:'items', commissions:'items', settings:'settings' },
 settingsGroup: 'Branding'
 };
 
@@ -5525,7 +5615,7 @@ return 'settings:' + target.scope;
 function adminTargetFromPath(path){
 var seg = String(path || '').split('.');
 var head = seg[0];
-if(seg.length > 1 && (head === 'portfolio' || head === 'assets' || head === 'commissions' || head === 'forms' || head === 'navigation' || head === 'requests')){
+if(seg.length > 1 && (head === 'portfolio' || head === 'people' || head === 'assets' || head === 'commissions' || head === 'forms' || head === 'navigation' || head === 'requests')){
 return { kind:'record', scope: head, recordId: seg[1] };
 }
 if((head === 'portfolioCategories' || head === 'assetCategories') && seg.length > 1){
@@ -5556,7 +5646,7 @@ if(resolved) ADMIN_UI.structuralScopes[resolved] = true;
 ADMIN_UI.draftRevision += 1;
 }
 function markAdminOrderDirty(listKey){
-if(listKey === 'portfolio' || listKey === 'assets' || listKey === 'commissions' || listKey === 'forms' || listKey === 'navigation' || listKey === 'portfolioCategories' || listKey === 'assetCategories'){
+if(listKey === 'portfolio' || listKey === 'people' || listKey === 'assets' || listKey === 'commissions' || listKey === 'forms' || listKey === 'navigation' || listKey === 'portfolioCategories' || listKey === 'assetCategories'){
 markAdminTarget({ kind:'order', scope: listKey });
 return;
 }
@@ -5586,6 +5676,7 @@ delete ADMIN_UI.dirtyTargets[key];
 }
 function currentAdminSaveScope(module){
   if(module === 'portfolio') return ADMIN_UI.subtab.portfolio === 'categories' ? 'portfolioCategories' : 'portfolio';
+  if(module === 'people') return ADMIN_UI.subtab.people === 'thanks' ? 'settings' : 'people';
   if(module === 'assets') return ADMIN_UI.subtab.assets === 'categories' ? 'assetCategories' : 'assets';
   if(module === 'commissions') return ADMIN_UI.subtab.commissions === 'forms' ? 'forms' : 'commissions';
   if(module === 'about' || module === 'terms') return 'pages.' + module;
@@ -5615,7 +5706,7 @@ var match = list.filter(function(c){ return (c.slug || c.id) === (record && reco
 return match && match.dbId ? match.dbId : null;
 }
 function adminOrderTargetForScope(scope){
-if(scope === 'portfolio' || scope === 'assets' || scope === 'commissions' || scope === 'forms' || scope === 'navigation' || scope === 'portfolioCategories' || scope === 'assetCategories'){
+if(scope === 'portfolio' || scope === 'people' || scope === 'assets' || scope === 'commissions' || scope === 'forms' || scope === 'navigation' || scope === 'portfolioCategories' || scope === 'assetCategories'){
 return { kind:'order', scope: scope };
 }
 return null;
@@ -5761,6 +5852,14 @@ async function doSaveCommit(msg, scope){
         }
       } else if(target.kind === 'settings'){
         if(!ADMIN_DRAFT.settingsMeta) ADMIN_DRAFT.settingsMeta = {};
+        /* Thank-you section: blank heading while enabled is a validation error. */
+        var writeKeysEarly = (Array.isArray(target.keys) && target.keys.length) ? target.keys : Object.keys(ADMIN_DRAFT.settings || {});
+        if(writeKeysEarly.indexOf('portfolioThanks') !== -1){
+          var thanksDraft = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.portfolioThanks) || {};
+          if(thanksDraft.enabled !== false && !String(thanksDraft.heading || '').trim()){
+            throw new Error('Add a heading while the thank-you section is enabled.');
+          }
+        }
         /* Normalize structural settings against defaults so a partial database
            row (missing nested fields) is never saved back incomplete. */
         var writeKeys = (Array.isArray(target.keys) && target.keys.length) ? target.keys : Object.keys(ADMIN_DRAFT.settings || {});
@@ -5804,11 +5903,36 @@ async function doSaveCommit(msg, scope){
       } else {
         var record = adminRecordForTarget(target);
         if(!record) continue;
+        /* People validation blocks save with a field message (bad https URL,
+           thank-you without avatar, blank name). */
+        if(target.scope === 'people'){
+          if(!record.dbId && !(record.displayName || '').trim()) throw new Error('Enter a display name before saving this person.');
+          var personErrors = validatePersonDraft(record);
+          var firstPersonError = Object.keys(personErrors).map(function(k){ return personErrors[k]; })[0];
+          if(firstPersonError) throw new Error(firstPersonError);
+        }
         var saveResult = await crud.saveRecord(target.scope, record, {
           sortOrder: adminRecordIndex(target.scope, record),
           categoryId: (target.scope === 'portfolio' || target.scope === 'assets') ? adminCategoryDbIdFor(target.scope, record) : null
         });
         reconcilePersistedTarget(target, captured, saveResult);
+        /* Project credits: persist ordered People UUIDs after the project row
+           is confirmed (empty selection removes all associations). */
+        if(target.scope === 'portfolio' && crud.saveProjectPeople){
+          var savedDbId = record.dbId || (saveResult && saveResult.row && saveResult.row.id);
+          if(savedDbId){
+            var orderedIds = (record.peopleIds || []).map(function(pid){
+              var p = personById(pid);
+              return p && p.dbId ? p.dbId : pid;
+            }).filter(function(pid){ return typeof pid === 'string' && pid && pid.indexOf('client-') !== 0; });
+            var peopleResult = await crud.saveProjectPeople(savedDbId, orderedIds);
+            if(peopleResult && Array.isArray(peopleResult.peopleIds)){
+              record.peopleIds = peopleResult.peopleIds.slice();
+              var savedRec = (ADMIN_DATA.portfolio || []).filter(function(r){ return r.dbId === savedDbId || r.id === record.id; })[0];
+              if(savedRec) savedRec.peopleIds = peopleResult.peopleIds.slice();
+            }
+          }
+        }
       }
     }
     /* Dirty clearing stays revision-gated, but the persisted baseline above
@@ -6244,12 +6368,13 @@ if(adminDesc) adminDesc.textContent = tAdmin('top.desc.' + module) || '';
 $$('.adm-lang button').forEach(function(b){ var on = b.getAttribute('data-admin-lang') === currentAdminLang; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
 if(adminTopSave){ adminTopSave.setAttribute('data-t','btn.saveChanges'); adminTopSave.textContent = tAdmin('btn.saveChanges'); }
 $$('#adminNav button[data-admin-module]').forEach(function(b){ if(b.getAttribute('data-admin-module') === module) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
-$$('#adminNav [data-count]').forEach(function(el){ var k = el.getAttribute('data-count'); if(k === 'portfolio') el.textContent = ADMIN_DRAFT.portfolio.length; if(k === 'assets') el.textContent = ADMIN_DRAFT.assets.length; if(k === 'commissions') el.textContent = ADMIN_DRAFT.commissions.length; if(k === 'requests') el.textContent = adminCounts.requests == null ? '–' : adminCounts.requests; if(k === 'media') el.textContent = adminCounts.media == null ? '–' : adminCounts.media; });
+$$('#adminNav [data-count]').forEach(function(el){ var k = el.getAttribute('data-count'); if(k === 'portfolio') el.textContent = ADMIN_DRAFT.portfolio.length; if(k === 'people') el.textContent = (ADMIN_DRAFT.people || []).length; if(k === 'assets') el.textContent = ADMIN_DRAFT.assets.length; if(k === 'commissions') el.textContent = ADMIN_DRAFT.commissions.length; if(k === 'requests') el.textContent = adminCounts.requests == null ? '–' : adminCounts.requests; if(k === 'media') el.textContent = adminCounts.media == null ? '–' : adminCounts.media; });
 setAdminSaveStatus(ADMIN_UI.dirty ? 'dirty' : 'saved');
 var html = '';
 switch(module){
 case 'dashboard': html = renderAdminDashboard(); break;
 case 'portfolio': html = renderAdminPortfolio(); break;
+case 'people': html = renderAdminPeople(); break;
 case 'assets': html = renderAdminAssets(); break;
 case 'commissions': html = renderAdminCommissions(); break;
 case 'requests': html = renderAdminRequests(); break;
@@ -6326,6 +6451,184 @@ if(subtab === 'categories') return tabs + renderCategoryList('portfolioCategorie
 return tabs + renderPortfolioItems();
 }
 
+/* ------------------------- People / Clients ------------------------- */
+var PEOPLE_KINDS_UI = ['client','collaborator','artist','studio','creator','other'];
+function personDisplayName(rec){ return (rec && (rec.displayName || rec.display_name)) || 'Untitled person'; }
+function personById(id){
+  var list = ADMIN_DRAFT.people || [];
+  for(var i = 0; i < list.length; i++){ if(list[i].id === id || list[i].dbId === id) return list[i]; }
+  return null;
+}
+function validatePersonDraft(rec){
+  var errors = {};
+  var name = String((rec && (rec.displayName || '')) || '').trim();
+  if(!name) errors.displayName = 'Enter a display name.';
+  else if(name.length > 120) errors.displayName = 'Keep the name under 120 characters.';
+  if(String((rec && rec.avatarAlt) || '').length > 240) errors.avatarAlt = 'Keep avatar alt under 240 characters.';
+  var url = String((rec && rec.profileUrl) || '').trim();
+  if(url && !/^https:\/\/[^\/\s@]+(\.[^\/\s@]+)+[^\s]*$/i.test(url)) errors.profileUrl = 'Profile URL must be a valid https:// link, or left blank.';
+  if(rec && rec.published && rec.showInThankYou && !String(rec.avatar || '').trim()) errors.showInThankYou = 'An avatar is required to show this person in the thank-you section.';
+  return errors;
+}
+function renderAdminPeople(){
+  var subtab = ADMIN_UI.subtab.people || 'items';
+  var tabs = '<div class="adm-tabs"><button type="button" class="adm-tab" data-adm-subtab="people:items" aria-pressed="' + (subtab === 'items') + '">People</button><button type="button" class="adm-tab" data-adm-subtab="people:thanks" aria-pressed="' + (subtab === 'thanks') + '">Thank-you section</button></div>';
+  if(subtab === 'thanks') return tabs + renderThanksTab();
+  return tabs + renderPeopleItems();
+}
+async function loadPeoplePanel(){
+  var crud = window.CrabbieAdminCrud;
+  if(!(crud && typeof crud.loadPeoplePage === 'function')){ peoplePage.state = 'error'; peoplePage.error = 'People paging is unavailable.'; return; }
+  var token = ++peoplePanelRequestId;
+  peoplePage.state = 'loading'; peoplePage.error = '';
+  if((currentRoute && currentRoute.adminModule) === 'people' && ADMIN_UI.subtab.people === 'items') renderAdmin('people');
+  try{
+    var result = await crud.loadPeoplePage({ page: peoplePage.page, pageSize: peoplePage.perPage, search: peoplePage.search, status: peoplePage.status, thanks: peoplePage.thanks });
+    if(token !== peoplePanelRequestId) return;
+    var rows = (result.rows || []).map(function(row){
+      return {
+        id: row.id, dbId: row.id, originalUpdatedAt: row.updated_at || null,
+        displayName: String(row.display_name || '').trim(),
+        avatar: row.avatar_path || '', avatarAlt: row.avatar_alt || '',
+        profileUrl: row.profile_url || '', kind: row.kind || 'other',
+        published: !!row.published, showInThankYou: !!row.show_in_thank_you,
+        sortOrder: Number(row.sort_order) || 0
+      };
+    });
+    /* Merge fetched records without overwriting dirty drafts; a failed panel
+       fetch never becomes an authoritative empty collection. */
+    var dirty = ADMIN_UI.dirtyTargets || {};
+    var dirtyIds = {};
+    Object.keys(dirty).forEach(function(key){
+      var t = dirty[key];
+      if(t && t.scope === 'people' && t.kind === 'record' && t.recordId != null) dirtyIds[t.recordId] = true;
+    });
+    var previous = ADMIN_DRAFT.people || [];
+    var keep = previous.filter(function(rec){ return dirtyIds[rec.id] || dirtyIds[rec.dbId] || !rec.dbId; });
+    var fresh = rows.filter(function(rec){ return !keep.some(function(k){ return (k.dbId && k.dbId === rec.dbId) || k.id === rec.id; }); });
+    ADMIN_DRAFT.people = fresh.concat(keep);
+    ADMIN_DRAFT.people.sort(function(a, b){ return (a.sortOrder - b.sortOrder) || (String(a.id) < String(b.id) ? -1 : 1); });
+    peoplePage.total = result.summary ? result.summary.total : rows.length;
+    peoplePage.pageCount = result.summary ? result.summary.pageCount : 1;
+    peoplePage.page = result.summary ? result.summary.page : peoplePage.page;
+    peoplePage.ids = rows.map(function(r){ return r.id; });
+    peoplePage.state = 'ready';
+  }catch(err){
+    if(token !== peoplePanelRequestId) return;
+    /* Panel failure disables mutations dependent on missing data and offers retry. */
+    peoplePage.state = 'error'; peoplePage.error = (err && err.message) || 'People panel failed to load.';
+  }
+  if((currentRoute && currentRoute.adminModule) === 'people' && ADMIN_UI.subtab.people === 'items') renderAdmin('people');
+}
+function renderPeopleItems(){
+  var unfiltered = peoplePage.search === '' && peoplePage.status === 'all' && peoplePage.thanks === 'all';
+  var pageIds = {};
+  (peoplePage.ids || []).forEach(function(id){ pageIds[id] = true; });
+  var visible = (ADMIN_DRAFT.people || []).filter(function(r){ return unfiltered ? true : pageIds[r.id] || pageIds[r.dbId]; });
+  /* Deterministic sort_order,id ordering for the visible window. */
+  visible = visible.slice().sort(function(a, b){ return (a.sortOrder - b.sortOrder) || (String(a.id) < String(b.id) ? -1 : 1); });
+  var selected = ADMIN_UI.selection.people || (visible[0] && visible[0].id);
+  var rec = personById(selected);
+  var rows = visible.map(function(r){
+    var badges = '<span class="adm-badge ' + (r.published ? 'published' : 'draft') + '">' + esc(tAdmin(r.published ? 'badge.pub' : 'badge.draft')) + '</span>'
+      + (r.showInThankYou ? '<span class="adm-badge featured">♡ thanks</span>' : '')
+      + (!r.dbId ? '<span class="adm-badge draft">unsaved</span>' : '');
+    var avatarMini = r.avatar ? '<img src="' + esc(r.avatar) + '" alt="" loading="lazy" style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;">' : '';
+    return '<div class="adm-record adm-record-two" role="option" data-adm-select="people" data-adm-id="' + esc(r.id) + '" aria-selected="' + (r.id === selected ? 'true' : 'false') + '">'
+      + '<span class="ar-main"><span class="ar-title">' + avatarMini + esc(personDisplayName(r)) + '</span><span class="ar-badges">' + badges + '</span></span>'
+      + '<span class="ar-actions"><button type="button" data-adm-move="up" data-adm-list="people" data-adm-id="' + esc(r.id) + '" aria-label="Move up"' + (unfiltered ? '' : ' disabled title="Reorder is available in the unfiltered global-order view."') + '>↑</button>'
+      + '<button type="button" data-adm-move="down" data-adm-list="people" data-adm-id="' + esc(r.id) + '" aria-label="Move down"' + (unfiltered ? '' : ' disabled title="Reorder is available in the unfiltered global-order view."') + '>↓</button></span></div>';
+  }).join('');
+  var filters = '<div class="adm-list-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'
+    + '<input type="search" placeholder="' + esc(tAdmin('btn.search')) + '" data-adm-people-search="1" value="' + esc(peoplePage.search || '') + '" aria-label="Search people">'
+    + '<select data-adm-people-status="1" aria-label="Publication filter"><option value="all"' + (peoplePage.status === 'all' ? ' selected' : '') + '>All statuses</option><option value="published"' + (peoplePage.status === 'published' ? ' selected' : '') + '>Published</option><option value="draft"' + (peoplePage.status === 'draft' ? ' selected' : '') + '>Draft</option></select>'
+    + '<select data-adm-people-thanks="1" aria-label="Thank-you filter"><option value="all"' + (peoplePage.thanks === 'all' ? ' selected' : '') + '>All</option><option value="yes"' + (peoplePage.thanks === 'yes' ? ' selected' : '') + '>In thank-you</option><option value="no"' + (peoplePage.thanks === 'no' ? ' selected' : '') + '>Not in thank-you</option></select>'
+    + '<button type="button" class="adm-btn-sm" data-adm-people-retry="1">↻</button></div>';
+  var pager = '<div class="adm-pager" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button type="button" class="adm-btn-sm" data-adm-people-prev="1"' + (peoplePage.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button>'
+    + '<span class="af-hint">Page ' + peoplePage.page + ' / ' + Math.max(1, peoplePage.pageCount) + ' · ' + peoplePage.total + ' people</span>'
+    + '<button type="button" class="adm-btn-sm" data-adm-people-next="1"' + (peoplePage.page >= peoplePage.pageCount ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div>';
+  var panelState = '';
+  if(peoplePage.state === 'loading') panelState = '<p class="af-hint">' + esc(tAdmin('load.loading')) + '</p>';
+  if(peoplePage.state === 'error') panelState = '<div class="adm-panel"><h3>' + esc(tAdmin('load.error')) + '</h3><p class="af-hint">' + esc(peoplePage.error || '') + '</p><p class="af-hint">Mutations that need missing data stay disabled until the panel loads.</p><div style="margin-top:8px;"><button type="button" class="adm-btn-sm primary" data-adm-people-retry="1">' + esc(tAdmin('load.retry')) + '</button></div></div>';
+  var editor = rec ? renderPersonEditor(rec) : '<div class="adm-editor"><h2>Select a person</h2></div>';
+  return '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><button type="button" class="adm-btn-sm primary" data-adm-new="people">+ ' + esc(tAdmin('btn.new')) + '</button></div>'
+    + filters + panelState + '<div>' + rows + '</div>' + pager
+    + (unfiltered ? '' : '<p class="af-hint">Reorder is disabled while search or filters are active — clear them to change global order.</p>')
+    + '</div>' + editor + '</div>';
+}
+function renderPersonEditor(rec){
+  var base = 'people.' + rec.id;
+  var errors = validatePersonDraft(rec);
+  var kindOptions = PEOPLE_KINDS_UI.map(function(k){ return { value: k, label: k }; });
+  var preview = '';
+  if(rec.avatar) preview = '<div class="adm-people-preview" style="display:flex;gap:12px;align-items:center;margin:10px 0;"><img src="' + esc(rec.avatar) + '" alt="' + esc(rec.avatarAlt || '') + '" style="width:64px;height:64px;border-radius:50%;object-fit:cover;"><span><b>' + esc(personDisplayName(rec)) + '</b><br><span class="af-hint">' + (rec.published ? (rec.showInThankYou ? 'Eligible for project credits and the thank-you section.' : 'May appear in project credits only.') : 'Hidden publicly: no credits or thank-you entry.') + '</span></span></div>';
+  var errHtml = Object.keys(errors).map(function(k){ return '<p class="af-hint" data-adm-person-error="' + esc(k) + '" style="color:#b3261e;">' + esc(errors[k]) + '</p>'; }).join('');
+  return '<div class="adm-editor"><h2>' + esc(personDisplayName(rec)) + '</h2><p class="ae-sub">' + (rec.dbId ? 'Saved person' : 'Unsaved draft — save to make it selectable on projects.') + '</p>'
+    + '<div class="adm-section"><h4>Identity</h4>'
+    + inputText('Display name', base + '.displayName', { required: true })
+    + '<div class="adm-row one" style="margin-top:10px;">' + mediaField('Avatar', base + '.avatar', { kind: 'image', hint: 'Required when Published + Show in thank-you. Storage stays public even if the person is unpublished.' }) + '</div>'
+    + '<div style="margin-top:10px;">' + inputText('Avatar alt (optional override)', base + '.avatarAlt') + '</div>'
+    + '<div style="margin-top:10px;">' + inputText('Profile URL (optional https)', base + '.profileUrl', { hint: 'Blank means plain-text identity. Invalid URLs block save.' }) + '</div>'
+    + '<div class="adm-row" style="margin-top:10px;">' + inputSelect('Type', base + '.kind', kindOptions) + '</div>'
+    + '</div>'
+    + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck('Published', base + '.published') + inputCheck('Show in thank-you section', base + '.showInThankYou') + '</div>'
+    + '<p class="af-hint">Published off: no public credits or thank-you entry. Published on + thank-you off: project credits only. Published on + thank-you on: eligible for both (avatar required).</p></div>'
+    + preview + errHtml
+    + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="people" data-adm-delete-name="' + esc(personDisplayName(rec)) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="people">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+}
+function renderThanksTab(){
+  var s = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.portfolioThanks) || {};
+  var base = 'settings.portfolioThanks';
+  var enabled = s.enabled !== false;
+  var heading = typeof s.heading === 'string' ? s.heading : 'Made with lovely people ♡';
+  var body = typeof s.body === 'string' ? s.body : 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡';
+  return '<div class="adm-editor adm-editor-narrow"><h2>Thank-you section</h2>'
+    + '<div class="adm-section"><h4>Section</h4>'
+    + '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px;"><label class="adm-check"><input type="checkbox" data-adm-path="' + base + '.enabled"' + (enabled ? ' checked' : '') + '> Enabled</label></div>'
+    + '<label class="adm-field"><span class="af-label">Heading</span><input type="text" data-adm-path="' + base + '.heading" value="' + esc(heading) + '"></label>'
+    + '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Body</span><textarea data-adm-path="' + base + '.body" style="min-height:90px;">' + esc(body) + '</textarea></label>'
+    + '<p class="af-hint">Real form controls (not raw JSON). A blank heading while enabled blocks save. An explicitly empty body stays empty.</p>'
+    + ((enabled && !String(heading).trim()) ? '<p class="af-hint" style="color:#b3261e;">Add a heading while the thank-you section is enabled.</p>' : '')
+    + '</div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+}
+/* -------- Project editor: People credits picker -------- */
+function renderProjectPeoplePicker(rec){
+  var base = 'portfolio.' + rec.id;
+  var selectedIds = Array.isArray(rec.peopleIds) ? rec.peopleIds.slice() : [];
+  var selected = selectedIds.map(function(id){ return personById(id); }).filter(Boolean);
+  var chips = selected.map(function(p, i){
+    var hidden = p.published ? '' : ' <span class="adm-badge draft">hidden publicly</span>';
+    var thanks = (p.published && p.showInThankYou) ? ' <span class="adm-badge featured">♡</span>' : '';
+    var avatarMini = p.avatar ? '<img src="' + esc(p.avatar) + '" alt="" loading="lazy" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">' : '';
+    return '<span class="adm-chip" data-adm-ppl-chip="' + esc(p.id) + '">' + avatarMini + esc(personDisplayName(p)) + hidden + thanks
+      + ' <button type="button" data-adm-ppl-up="' + esc(rec.id) + ':' + esc(p.id) + '" aria-label="Move up">↑</button>'
+      + ' <button type="button" data-adm-ppl-down="' + esc(rec.id) + ':' + esc(p.id) + '" aria-label="Move down">↓</button>'
+      + ' <button type="button" data-adm-ppl-remove="' + esc(rec.id) + ':' + esc(p.id) + '" aria-label="Remove">✕</button></span>';
+  }).join('');
+  var q = (peoplePickerPage.search || '').trim().toLowerCase();
+  var pool = (ADMIN_DRAFT.people || []).filter(function(p){
+    if(!q) return true;
+    return (personDisplayName(p) + ' ' + (p.kind || '')).toLowerCase().indexOf(q) !== -1;
+  }).slice().sort(function(a, b){ return (a.sortOrder - b.sortOrder) || (String(a.id) < String(b.id) ? -1 : 1); });
+  var totalPages = Math.max(1, Math.ceil(pool.length / peoplePickerPage.perPage));
+  if(peoplePickerPage.page > totalPages) peoplePickerPage.page = totalPages;
+  var start = (peoplePickerPage.page - 1) * peoplePickerPage.perPage;
+  var pageRows = pool.slice(start, start + peoplePickerPage.perPage).map(function(p){
+    var checked = selectedIds.indexOf(p.id) !== -1 || (p.dbId && selectedIds.indexOf(p.dbId) !== -1);
+    var hidden = p.published ? '' : ' <span class="adm-badge draft">hidden publicly</span>';
+    var avatarMini = p.avatar ? '<img src="' + esc(p.avatar) + '" alt="" loading="lazy" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">' : '';
+    return '<label class="adm-check"><input type="checkbox" data-adm-ppl-toggle="' + esc(rec.id) + ':' + esc(p.id) + '"' + (checked ? ' checked' : '') + (p.dbId ? '' : ' disabled title="Save this person first."') + '> ' + avatarMini + esc(personDisplayName(p)) + hidden + '</label>';
+  }).join('');
+  return '<div class="adm-section"><h4>People credits</h4>'
+    + '<p class="af-hint">Only saved People are selectable — save a new person first. Selection order drives credit order. Unpublished people stay hidden publicly. Image-only cards keep associations but do not display the strip in their lightbox.</p>'
+    + '<div class="adm-chip-list" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">' + (chips || '<span class="af-hint">No people selected.</span>') + '</div>'
+    + '<div class="adm-row" style="margin-top:6px;">' + inputText('Credit prefix (default “With”)', base + '.peopleCreditLabel', { hint: 'Examples: With · Artwork for · In collaboration with · Client: · Character belongs to', placeholder: 'With' }) + '</div>'
+    + '<div style="margin-top:10px;">' + inputTextarea(tAdmin('label.credits') + ' (production notes)', base + '.credits', { minHeight: 60 }) + '</div>'
+    + '<div style="margin-top:10px;"><label class="adm-field"><span class="af-label">Find people</span><input type="search" data-adm-ppl-search="1" value="' + esc(peoplePickerPage.search || '') + '" placeholder="' + esc(tAdmin('btn.search')) + '"></label>'
+    + '<div style="margin-top:8px;display:grid;gap:6px;">' + (pageRows || '<span class="af-hint">No people match.</span>') + '</div>'
+    + '<div class="adm-pager" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button type="button" class="adm-btn-sm" data-adm-ppl-prev="1"' + (peoplePickerPage.page <= 1 ? ' disabled' : '') + '>' + esc(tAdmin('btn.previous')) + '</button><span class="af-hint">Page ' + peoplePickerPage.page + ' / ' + totalPages + '</span><button type="button" class="adm-btn-sm" data-adm-ppl-next="1"' + (peoplePickerPage.page >= totalPages ? ' disabled' : '') + '>' + esc(tAdmin('btn.next')) + '</button></div></div></div>';
+}
+
 function renderPortfolioItems(){
 var list = ADMIN_DRAFT.portfolio;
 var selected = ADMIN_UI.selection.portfolio || (list[0] && list[0].id);
@@ -6361,7 +6664,7 @@ var projectOnly = imageOnly ? '' :
 '<div class="adm-section"><h4>' + esc(tAdmin('label.sections')) + '</h4><div>' + blocksHtml + '</div><div class="adm-block-add"><select id="admNewBlockType">' + BLOCK_TYPES.map(function(t){ return '<option value="' + t + '">' + esc(BLOCK_LABELS[t]) + '</option>'; }).join('') + '</select><button type="button" class="adm-btn-sm purple" data-adm-new-block="' + esc(rec.id) + '">' + esc(tAdmin('btn.addSection')) + '</button></div></div>';
 return '<div class="adm-editor"><h2>' + esc(rec.title || 'New project') + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="portfolio.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b> · ' + (imageOnly ? (currentAdminLang === 'vi' ? 'Thẻ ảnh' : 'Image card') : (rec.published ? tAdmin('badge.pub') : tAdmin('badge.draft'))) + '</p>' +
 checklistPanel(pAudit) +
-basic + projectOnly +
+basic + renderProjectPeoplePicker(rec) + projectOnly +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(pAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="portfolio" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm" data-adm-preview="project" data-adm-id="' + esc(rec.id) + '">' + esc(tAdmin('btn.previewSaved')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="portfolio">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -6547,6 +6850,12 @@ var mediaPage = {
   previewId: null
 };
 var pickerMediaPage = { page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', search:'', type:'all', sort:'newest', from:'', to:'', selected:[], items:[] };
+/* People / Clients panel: server-side search, filters and 30-record pages.
+   `ids` is the current page window; edited/selected records stay in the
+   draft with their baselines via mergePagedIntoDraft. */
+var peoplePage = { page:1, perPage:30, total:0, pageCount:1, state:'idle', error:'', search:'', status:'all', thanks:'all', ids:[] };
+var peoplePickerPage = { search:'', page:1, perPage:30 };
+var peoplePanelRequestId = 0;
 var adminCounts = { requests:null, media:null };
 var adminCountsPending = {};
 
@@ -7684,6 +7993,7 @@ function wireAdminContent(module){
 /* A paged panel loads itself the first time its module is shown. */
 if(module === 'requests' && reqFilter.state === 'idle') loadRequestsPage();
 if(module === 'media' && mediaPage.state === 'idle') loadMediaPage({ page: 1 });
+if(module === 'people' && (ADMIN_UI.subtab.people || 'items') === 'items' && peoplePage.state === 'idle') loadPeoplePanel();
 installMediaUiDelegation();
 installChecklistDelegation();
 installAdminJumpDelegation();
@@ -7820,6 +8130,9 @@ e.stopPropagation();
 var listKey = btn.getAttribute('data-adm-list');
 var id = btn.getAttribute('data-adm-id');
 var dir = btn.getAttribute('data-adm-move');
+/* People global order uses a transactional adjacent-move RPC (page-safe),
+   never a single-page renumber. */
+if(listKey === 'people'){ movePersonGlobal(id, dir, module); return; }
 var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
 var i = list.findIndex(function(r){ return r.id === id; }); if(i === -1) return;
@@ -7834,6 +8147,18 @@ btn.addEventListener('click', function(){
 var listKey = btn.getAttribute('data-adm-delete-list');
 var id = btn.getAttribute('data-adm-delete');
 var name = btn.getAttribute('data-adm-delete-name') || 'this item';
+/* People: also block against unsaved references in the current Admin draft. */
+if(listKey === 'people'){
+  var blockedBy = (ADMIN_DRAFT.portfolio || []).filter(function(proj){
+    var ids = Array.isArray(proj.peopleIds) ? proj.peopleIds : [];
+    return ids.indexOf(id) !== -1;
+  });
+  if(blockedBy.length){
+    var titles = blockedBy.slice(0, 5).map(function(proj){ return proj.title || proj.slug || proj.id; }).join(', ');
+    toast('Delete blocked: this person is still credited on ' + blockedBy.length + ' project' + (blockedBy.length === 1 ? '' : 's') + ' (' + titles + (blockedBy.length > 5 ? ', …' : '') + '). Remove the credit or unpublish the person instead.');
+    return;
+  }
+}
 confirmDelete(name, async function(){
 var list = getByPath(ADMIN_DRAFT, listKey);
 if(!Array.isArray(list)) return;
@@ -7883,6 +8208,7 @@ else if(listKey === 'forms') ADMIN_DRAFT.forms.unshift({ id:id, dbId:null, origi
 else if(listKey === 'navigation') ADMIN_DRAFT.navigation.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New item', url:'#', published:true });
 else if(listKey === 'portfolioCategories') ADMIN_DRAFT.portfolioCategories.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New category', slug:'', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
 else if(listKey === 'assetCategories') ADMIN_DRAFT.assetCategories.push({ id:id, dbId:null, originalUpdatedAt:null, title:'New category', slug:'', published:false, titleCopy:{en:'New category',vi:'',viOverride:false} });
+else if(listKey === 'people') ADMIN_DRAFT.people.unshift({ id:id, dbId:null, originalUpdatedAt:null, displayName:'New person', avatar:'', avatarAlt:'', profileUrl:'', kind:'other', published:false, showInThankYou:false, sortOrder:0 });
 ADMIN_UI.selection[listKey] = id;
 markAdminTarget({ kind:'record', scope: listKey, recordId: id });
 setAdminDirtyFlag();
@@ -8497,6 +8823,126 @@ row.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
 });
 });
 });
+wirePeopleAdmin(module);
+}
+
+/* People panel + project picker wiring (paged, selection-safe). */
+function wirePeopleAdmin(module){
+if(!adminContent) return;
+/* Server-side panel filters: debounced search, status/thanks, pager. */
+var searchInput = adminContent.querySelector('[data-adm-people-search="1"]');
+if(searchInput){
+  var deb = null;
+  searchInput.addEventListener('input', function(){
+    if(deb) clearTimeout(deb);
+    deb = setTimeout(function(){ peoplePage.search = searchInput.value.trim(); peoplePage.page = 1; loadPeoplePanel(); }, 350);
+  });
+}
+$$('[data-adm-people-status="1"], [data-adm-people-thanks="1"]', adminContent).forEach(function(sel){
+  sel.addEventListener('change', function(){
+    if(sel.hasAttribute('data-adm-people-status')) peoplePage.status = sel.value;
+    else peoplePage.thanks = sel.value;
+    peoplePage.page = 1; loadPeoplePanel();
+  });
+});
+$$('[data-adm-people-retry="1"]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ loadPeoplePanel(); });
+});
+$$('[data-adm-people-prev="1"]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ if(peoplePage.page > 1){ peoplePage.page -= 1; loadPeoplePanel(); } });
+});
+$$('[data-adm-people-next="1"]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ if(peoplePage.page < peoplePage.pageCount){ peoplePage.page += 1; loadPeoplePanel(); } });
+});
+/* Project picker: toggle / reorder selected chips (order drives credit order). */
+$$('[data-adm-ppl-toggle]', adminContent).forEach(function(box){
+  box.addEventListener('change', function(){
+    var parts = (box.getAttribute('data-adm-ppl-toggle') || '').split(':');
+    var rec = (ADMIN_DRAFT.portfolio || []).filter(function(r){ return r.id === parts[0]; })[0];
+    if(!rec) return;
+    var ids = Array.isArray(rec.peopleIds) ? rec.peopleIds.slice() : [];
+    var person = personById(parts[1]);
+    var key = person ? person.id : parts[1];
+    if(box.checked){ if(ids.indexOf(key) === -1) ids.push(key); }
+    else { ids = ids.filter(function(id){ return id !== key && id !== (person && person.dbId); }); }
+    rec.peopleIds = ids;
+    markDirty('portfolio.' + rec.id + '.peopleIds');
+    renderAdmin(module);
+  });
+});
+function moveChip(projectId, personId, dir){
+  var rec = (ADMIN_DRAFT.portfolio || []).filter(function(r){ return r.id === projectId; })[0];
+  if(!rec || !Array.isArray(rec.peopleIds)) return;
+  var i = rec.peopleIds.indexOf(personId); if(i === -1) return;
+  var j = dir === 'up' ? i - 1 : i + 1;
+  if(j < 0 || j >= rec.peopleIds.length) return;
+  var t = rec.peopleIds[i]; rec.peopleIds[i] = rec.peopleIds[j]; rec.peopleIds[j] = t;
+  markDirty('portfolio.' + rec.id + '.peopleIds');
+  renderAdmin(module);
+}
+$$('[data-adm-ppl-up]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ var p = btn.getAttribute('data-adm-ppl-up').split(':'); moveChip(p[0], p[1], 'up'); });
+});
+$$('[data-adm-ppl-down]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ var p = btn.getAttribute('data-adm-ppl-down').split(':'); moveChip(p[0], p[1], 'down'); });
+});
+$$('[data-adm-ppl-remove]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var p = btn.getAttribute('data-adm-ppl-remove').split(':');
+    var rec = (ADMIN_DRAFT.portfolio || []).filter(function(r){ return r.id === p[0]; })[0];
+    if(!rec) return;
+    rec.peopleIds = (rec.peopleIds || []).filter(function(id){ return id !== p[1]; });
+    markDirty('portfolio.' + rec.id + '.peopleIds');
+    renderAdmin(module);
+  });
+});
+var pplSearch = adminContent.querySelector('[data-adm-ppl-search="1"]');
+if(pplSearch){
+  var deb2 = null;
+  pplSearch.addEventListener('input', function(){
+    if(deb2) clearTimeout(deb2);
+    deb2 = setTimeout(function(){ peoplePickerPage.search = pplSearch.value; peoplePickerPage.page = 1; renderAdmin(module); }, 300);
+  });
+}
+$$('[data-adm-ppl-prev="1"]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ if(peoplePickerPage.page > 1){ peoplePickerPage.page -= 1; renderAdmin(module); } });
+});
+$$('[data-adm-ppl-next="1"]', adminContent).forEach(function(btn){
+  btn.addEventListener('click', function(){ peoplePickerPage.page += 1; renderAdmin(module); });
+});
+}
+
+/* Transactional adjacent people move: locks rows server-side, validates the
+   expected baseline/neighbor and returns confirmed order/timestamps. */
+async function movePersonGlobal(id, dir, module){
+  var rec = personById(id);
+  if(!rec){ toast('Person not found.'); return; }
+  if(!rec.dbId){ toast('Save this person before changing global order.'); return; }
+  if(adminSaveTransactionActive()){ toast('Save in progress. Wait for it to finish.'); return; }
+  var crud = window.CrabbieAdminCrud;
+  if(!(crud && typeof crud.movePerson === 'function')){ toast('Ordering service is unavailable.'); return; }
+  try{
+    var result = await crud.movePerson(rec.dbId, dir, rec.originalUpdatedAt || null);
+    if(result && Array.isArray(result.rows)){
+      var byId = {};
+      result.rows.forEach(function(row){ byId[String(row.id)] = row; });
+      [ADMIN_DRAFT.people, ADMIN_DATA.people].forEach(function(list){
+        (list || []).forEach(function(p){
+          var confirmed = p.dbId && byId[p.dbId];
+          if(confirmed){
+            p.sortOrder = Number(confirmed.sort_order) || 0;
+            if(confirmed.updated_at) p.originalUpdatedAt = confirmed.updated_at;
+          }
+        });
+        (list || []).sort(function(a, b){ return (a.sortOrder - b.sortOrder) || (String(a.id) < String(b.id) ? -1 : 1); });
+      });
+    }
+    toast(tAdmin('toast.saved'));
+    renderAdmin(module || 'people');
+  }catch(err){
+    console.error('Person reorder failed:', err);
+    toast('Reorder failed: ' + (err && err.message ? err.message : 'Unknown error'));
+  }
 }
 var wireAdminEditor = wireAdminContent;
 
@@ -8949,6 +9395,16 @@ if(multiple){
 } else {
   var result = typeof media.pickerResultFor === 'function' ? media.pickerResultFor(urls, { multiple: false }) : { value: urls[0] };
   setByPath(ADMIN_DRAFT, activeMediaTarget, result.value);
+  /* Person avatar alt may be initialized from selected media alt, but an
+     authored override is never overwritten on replacement. */
+  var avatarMatch = String(activeMediaTarget || '').match(/^people\.([^.]+)\.avatar$/);
+  if(avatarMatch){
+    var altPath = 'people.' + avatarMatch[1] + '.avatarAlt';
+    if(!String(getByPath(ADMIN_DRAFT, altPath) || '').trim()){
+      var pickedAlt = picked[0] && (picked[0].alt || picked[0].title);
+      if(pickedAlt) setByPath(ADMIN_DRAFT, altPath, String(pickedAlt).slice(0, 240));
+    }
+  }
 }
 adminMediaReplaceTarget = null;
 markDirty(activeMediaTarget);
@@ -9409,8 +9865,25 @@ if(typeof filterState !== 'undefined' && filterState.pf){
     /* Revive a detail route that was parsed before this record existed. */
     applyRoute(parseRoute('project/' + lastDetailRequest.id));
   }
+},
+renderPeople: function(){
+  /* Re-render current credits whenever either projects or People settles:
+     first load, direct project load, repeated apply calls and refresh. */
+  try{
+    if(currentRoute && currentRoute.view === 'project-detail' && currentRoute.id && PROJECTS[currentRoute.id]){
+      renderProjectCredits(PROJECTS[currentRoute.id]);
+    }
+  }catch(e){ /* artwork stays intact */ }
+  try{
+    if(typeof renderThanksSection === 'function') renderThanksSection();
+  }catch(e){ /* grid stays intact */ }
 }
 };
+window.addEventListener('crabbie:people-settled', function(){
+  try{
+    if(window.CrabbiePortfolio && typeof window.CrabbiePortfolio.renderPeople === 'function') window.CrabbiePortfolio.renderPeople();
+  }catch(e){ /* public grid stays intact */ }
+});
 window.CrabbieAssets = {
 getPrototype: function(slug){ return clone(ASSETS[slug] || {}); },
 settled: function(){
