@@ -58,6 +58,8 @@ const TABLE_SOURCES = [
   { key: 'commission_requests', label: 'Requests', orderBy: 'created_at', columns: 'id,client_name,contact,answers,status,archived_at,deleted_at,created_at' },
   { key: 'cms_pages', label: 'Pages', orderBy: 'slug', columns: 'id,slug,title,content,published,data,translations,updated_at' },
   { key: 'cms_navigation', label: 'Navigation', orderBy: 'sort_order', columns: 'id,title,url,published,sort_order,updated_at' },
+  { key: 'people', label: 'People', orderBy: 'sort_order', columns: 'id,display_name,avatar_path,avatar_alt,profile_url,kind,published,show_in_thank_you,sort_order,updated_at' },
+  { key: 'portfolio_project_people', label: 'Project credits', orderBy: 'project_id', columns: 'project_id,person_id,sort_order' },
   { key: 'site_settings', label: 'Settings', orderBy: 'key', columns: 'key,value,updated_at' }
 ];
 

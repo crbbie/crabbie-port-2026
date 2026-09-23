@@ -16,6 +16,7 @@ import {
   formatCommissionRow,
   formatNavigationRow,
   formatPageRow,
+  formatPersonRow,
   formatSettingRow
 } from './admin-crud-core.js';
 import { mapAdminStatusToDbStatus } from './commission-requests-core.js';
@@ -27,6 +28,7 @@ export const ADMIN_RECORD_TABLES = Object.freeze({
   forms: 'commission_forms',
   navigation: 'cms_navigation',
   requests: 'commission_requests',
+  people: 'people',
   'pages.about': 'cms_pages',
   'pages.terms': 'cms_pages',
   portfolioCategories: 'cms_categories',
@@ -116,6 +118,12 @@ export function buildAdminWritePlan(scope, record, options = {}) {
 
   if (scope === 'settings') {
     throw new Error('Settings are saved per key, not as a single record.');
+  }
+
+  if (scope === 'people') {
+    const sortOrderPeople = Number.isInteger(options.sortOrder) ? options.sortOrder : 0;
+    plan.payload = formatPersonRow(source, sortOrderPeople);
+    return plan;
   }
 
   if (scope === 'portfolioCategories' || scope === 'assetCategories') {

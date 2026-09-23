@@ -36,6 +36,10 @@ export const PAGE_MEDIA_FIELDS = Object.freeze([
   { field: 'profileImage', label: 'Profile image' }
 ]);
 
+export const PEOPLE_MEDIA_FIELDS = Object.freeze([
+  { field: 'avatar', label: 'Avatar' }
+]);
+
 export const SETTINGS_MEDIA_FIELDS = Object.freeze([
   { path: 'branding.logo', label: 'Branding logo' },
   { path: 'branding.heroMedia', label: 'Hero media' },
@@ -170,6 +174,7 @@ export function findMediaUsage(media, adminState) {
     collectListUsage(source.portfolio, 'portfolio', PORTFOLIO_MEDIA_FIELDS, media, usages);
     collectListUsage(source.assets, 'assets', ASSET_MEDIA_FIELDS, media, usages);
     collectListUsage(source.commissions, 'commissions', COMMISSION_MEDIA_FIELDS, media, usages);
+    collectListUsage(source.people, 'people', PEOPLE_MEDIA_FIELDS, media, usages);
     if (source.pages && typeof source.pages === 'object') {
       Object.keys(source.pages).forEach((pageKey) => {
         const page = source.pages[pageKey];

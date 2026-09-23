@@ -19,6 +19,8 @@ export function mapPortfolioProject(row, fallback = {}) {
     published: !!row.published,
     blocks: Array.isArray(content.blocks) ? content.blocks : [],
     credits: content.credits ?? '',
+    peopleCreditLabel: typeof content.peopleCreditLabel === 'string' ? content.peopleCreditLabel : '',
+    peopleIds: [],
     year: content.year ?? '',
     intro: content.intro ?? '',
     sketch: content.sketch ?? '',

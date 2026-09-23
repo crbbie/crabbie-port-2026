@@ -55,6 +55,37 @@ export function cmsSeoTitle(settings) {
   return title || '';
 }
 
+export const PORTFOLIO_THANKS_DEFAULTS = Object.freeze({
+  enabled: true,
+  heading: 'Made with lovely people ♡',
+  body: 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡'
+});
+
+/**
+ * portfolioThanks settings (site_settings key "portfolioThanks").
+ * Missing key uses defaults; an explicitly empty authored body stays empty.
+ */
+export function portfolioThanksSettings(settings) {
+  const group = settings && settings.portfolioThanks && typeof settings.portfolioThanks === 'object'
+    ? settings.portfolioThanks
+    : null;
+  if (!group) return { ...PORTFOLIO_THANKS_DEFAULTS };
+  return {
+    enabled: group.enabled !== false,
+    heading: typeof group.heading === 'string' ? group.heading : PORTFOLIO_THANKS_DEFAULTS.heading,
+    body: typeof group.body === 'string' ? group.body : PORTFOLIO_THANKS_DEFAULTS.body
+  };
+}
+
+export function validatePortfolioThanks(settings) {
+  const normalized = portfolioThanksSettings({ portfolioThanks: settings });
+  const errors = {};
+  if (normalized.enabled && !String(normalized.heading || '').trim()) {
+    errors.heading = 'Add a heading while the thank-you section is enabled.';
+  }
+  return { settings: normalized, errors, ok: Object.keys(errors).length === 0 };
+}
+
 /* Route titles use the CMS SEO/branding baseline: navigation never resets the
  * title to a hard-coded brand string. */
 export function routeTitleFor(view, id, options = {}) {

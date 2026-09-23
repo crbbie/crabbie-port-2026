@@ -129,21 +129,23 @@ async function fetchMediaRow(id) {
  * can still slip through. The tombstone narrows the window to check->claim.
  */
 async function fetchAuthoritativeReferenceBundle() {
-  const [portfolio, assets, commissions, pages, settings] = await Promise.all([
+  const [portfolio, assets, commissions, pages, settings, people] = await Promise.all([
     supabase.from('portfolio_projects').select('thumbnail_path, cover_path, content'),
     supabase.from('free_assets').select('thumbnail_path, file_path, metadata'),
     supabase.from('commission_services').select('thumbnail_path, details'),
     supabase.from('cms_pages').select('slug, data'),
-    supabase.from('site_settings').select('key, value')
+    supabase.from('site_settings').select('key, value'),
+    supabase.from('people').select('id, display_name, avatar_path, published').order('sort_order', { ascending: true }).order('id', { ascending: true })
   ]);
-  const failed = [portfolio, assets, commissions, pages, settings].find((res) => res && res.error);
+  const failed = [portfolio, assets, commissions, pages, settings, people].find((res) => res && res.error);
   if (failed) throw new Error(`Media reference re-check failed: ${failed.error.message}`);
   return {
     portfolio_projects: (portfolio && portfolio.data) || [],
     free_assets: (assets && assets.data) || [],
     commission_services: (commissions && commissions.data) || [],
     cms_pages: (pages && pages.data) || [],
-    site_settings: (settings && settings.data) || []
+    site_settings: (settings && settings.data) || [],
+    people: (people && people.data) || []
   };
 }
 

@@ -11,6 +11,7 @@ export function formatPortfolioRow(rec, sort_order = 0) {
     externalLinks: rec.externalLinks || [],
     placeholder: !!rec.placeholder,
     credits: rec.credits || '',
+    peopleCreditLabel: typeof rec.peopleCreditLabel === 'string' ? rec.peopleCreditLabel : '',
     year: rec.year || '',
     intro: rec.intro || '',
     sketch: rec.sketch || '',
@@ -154,6 +155,35 @@ export function formatPageRow(slug, pageData) {
     content: pageData.content || '',
     published: !!pageData.published,
     data: pageData.data || {}
+  };
+}
+
+export function formatPersonRow(rec, sort_order = 0) {
+  const name = String(rec.displayName ?? rec.display_name ?? rec.title ?? '').trim();
+  if (!name) throw new Error('Enter a display name before saving this person.');
+  const rawUrl = rec.profileUrl ?? rec.profile_url ?? '';
+  const url = String(rawUrl || '').trim();
+  if (url) {
+    const ok = /^https:\/\/[^\/\s@]+(\.[^\/\s@]+)+[^\s]*$/i.test(url)
+      && !/^(https:\/\/[^\/]*@)/i.test(url)
+      && !/\s/.test(url);
+    if (!ok) throw new Error('Profile URL must be a valid https:// link, or left blank.');
+  }
+  const kinds = ['client', 'collaborator', 'artist', 'studio', 'creator', 'other'];
+  const kind = kinds.includes(String(rec.kind || '').toLowerCase()) ? String(rec.kind).toLowerCase() : 'other';
+  const avatar = rec.avatar ?? rec.avatar_path ?? '';
+  if (rec.published && rec.showInThankYou && !String(avatar || '').trim()) {
+    throw new Error('An avatar is required to show this person in the thank-you section.');
+  }
+  return {
+    display_name: name.slice(0, 120),
+    avatar_path: String(avatar || '').trim() ? String(avatar).trim() : null,
+    avatar_alt: String(rec.avatarAlt ?? rec.avatar_alt ?? '').slice(0, 240),
+    profile_url: url ? url : null,
+    kind,
+    published: !!rec.published,
+    show_in_thank_you: !!rec.showInThankYou,
+    sort_order
   };
 }
 

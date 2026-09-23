@@ -14,6 +14,7 @@ import {
   paginationRange,
   pagedSummary,
   requestFilterSpec,
+  sanitizeSearchTerm,
   pendingCountDatasets,
   REQUESTS_PAGE_SIZE,
   MEDIA_PAGE_SIZE
@@ -79,7 +80,9 @@ export async function loadAllAdminDataFromSupabase() {
       fRes,
       pagesRes,
       navRes,
-      settingsRes
+      settingsRes,
+      peopleRes,
+      projectPeopleRes
     ] = await Promise.all([
       supabase.from('portfolio_projects').select(selectList('portfolio_projects')).order('sort_order', { ascending: true }),
       supabase.from('free_assets').select(selectList('free_assets')).order('sort_order', { ascending: true }),
@@ -88,7 +91,9 @@ export async function loadAllAdminDataFromSupabase() {
       supabase.from('commission_forms').select(selectList('commission_forms')),
       supabase.from('cms_pages').select(selectList('cms_pages')),
       supabase.from('cms_navigation').select(selectList('cms_navigation')).order('sort_order', { ascending: true }),
-      supabase.from('site_settings').select(selectList('site_settings'))
+      supabase.from('site_settings').select(selectList('site_settings')),
+      supabase.from('people').select(selectList('people')).order('sort_order', { ascending: true }).order('id', { ascending: true }),
+      supabase.from('portfolio_project_people').select(selectList('portfolio_project_people')).order('project_id', { ascending: true }).order('sort_order', { ascending: true })
     ]);
 
     const snapshot = mapAdminHydrationResults({
@@ -99,7 +104,9 @@ export async function loadAllAdminDataFromSupabase() {
       forms: fRes,
       pages: pagesRes,
       navigation: navRes,
-      settings: settingsRes
+      settings: settingsRes,
+      people: peopleRes,
+      projectPeople: projectPeopleRes
     }, (path) => supabase.storage.from('media').getPublicUrl(path).data.publicUrl);
 
     adminLoadState = 'ready';
@@ -129,7 +136,7 @@ const SLUGGED_TABLES = new Set(['portfolio_projects', 'free_assets', 'commission
 function recordSelectFor(table) {
   return SLUGGED_TABLES.has(table) ? 'id, slug, updated_at' : 'id, updated_at';
 }
-const DELETABLE_SCOPES = new Set(['portfolio', 'assets', 'commissions', 'forms', 'navigation', 'requests']);
+const DELETABLE_SCOPES = new Set(['portfolio', 'assets', 'commissions', 'forms', 'navigation', 'requests', 'people']);
 
 async function insertAdminRow(plan) {
   const response = await supabase.from(plan.table).insert(plan.payload).select(recordSelectFor(plan.table)).maybeSingle();
@@ -319,11 +326,100 @@ export async function deleteAdminRecord(listKey, target) {
   const dbId = recordDbId(target);
   if (!dbId) throw new Error('This record has not been saved to the database yet.');
 
+  if (listKey === 'people') {
+    const refs = await supabase.from('portfolio_project_people').select('project_id').eq('person_id', dbId).limit(50);
+    if (refs.error) throw adminWriteError(refs.error);
+    if (Array.isArray(refs.data) && refs.data.length) {
+      const err = new Error(`This person is still credited on ${refs.data.length} project${refs.data.length === 1 ? '' : 's'}. Remove the credit or unpublish the person instead.`);
+      err.code = 'person_referenced';
+      err.referencing = refs.data.map((r) => r.project_id);
+      throw err;
+    }
+  }
+
   const response = await supabase.from(table).delete().eq('id', dbId).select('id');
   if (response.error) throw adminWriteError(response.error);
   const deleted = Array.isArray(response.data) ? response.data : [];
   if (!deleted.length) throw missingRecordError(listKey);
   return { success: true, table, dbId };
+}
+
+/**
+ * People panel paging (30/page, server-side search/filter, deterministic
+ * sort_order,id order). Merges into the draft without replacing it; the
+ * caller keeps dirty drafts and baselines.
+ */
+export async function loadAdminPeoplePage(options = {}) {
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const range = paginationRange(options.page, options.pageSize || 30);
+  const search = sanitizeSearchTerm(options.search);
+  const status = options.status === 'published' || options.status === 'draft' ? options.status : 'all';
+  const thanks = options.thanks === 'yes' || options.thanks === 'no' ? options.thanks : 'all';
+  let query = supabase.from('people').select(selectList('people'), { count: 'exact' });
+  if (search) query = query.ilike('display_name', `%${search}%`);
+  if (status === 'published') query = query.eq('published', true);
+  if (status === 'draft') query = query.eq('published', false);
+  if (thanks === 'yes') query = query.eq('show_in_thank_you', true);
+  if (thanks === 'no') query = query.eq('show_in_thank_you', false);
+  const response = await query.order('sort_order', { ascending: true }).order('id', { ascending: true }).range(range.from, range.to);
+  if (response.error) throw adminWriteError(response.error);
+  return { rows: Array.isArray(response.data) ? response.data : [], summary: pagedSummary({ count: response.count, page: range.page, pageSize: range.pageSize }) };
+}
+
+/** Ordered junction replacement for one saved project (UUID identity). */
+export async function saveProjectPeople(projectDbId, peopleIds) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  if (!projectDbId) throw new Error('Save the project before attaching people.');
+  const ids = Array.isArray(peopleIds) ? peopleIds.map((id) => String(id).trim()).filter(Boolean) : [];
+  const deduped = Array.from(new Set(ids));
+  const current = await supabase.from('portfolio_project_people').select('person_id, sort_order').eq('project_id', projectDbId);
+  if (current.error) throw adminWriteError(current.error);
+  // Replace ordered relationships: delete removed, upsert kept in order.
+  const prev = new Set((current.data || []).map((r) => String(r.person_id)));
+  const next = new Set(deduped);
+  const toDelete = Array.from(prev).filter((id) => !next.has(id));
+  if (toDelete.length) {
+    const del = await supabase.from('portfolio_project_people').delete().eq('project_id', projectDbId).in('person_id', toDelete);
+    if (del.error) throw adminWriteError(del.error);
+  }
+  for (let i = 0; i < deduped.length; i += 1) {
+    const up = await supabase.from('portfolio_project_people').upsert(
+      { project_id: projectDbId, person_id: deduped[i], sort_order: i },
+      { onConflict: 'project_id,person_id' }
+    );
+    if (up.error) throw adminWriteError(up.error);
+  }
+  const confirm = await supabase.from('portfolio_project_people').select('person_id, sort_order').eq('project_id', projectDbId).order('sort_order', { ascending: true });
+  if (confirm.error) throw adminWriteError(confirm.error);
+  return { success: true, peopleIds: (confirm.data || []).map((r) => String(r.person_id)) };
+}
+
+/** Transactional adjacent people move (server-side, baseline-guarded). */
+export async function movePerson(personId, direction, expectedUpdatedAt) {
+  assertAdminReadyForMutation();
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const response = await supabase.rpc('move_person', {
+    p_person_id: personId,
+    p_direction: direction,
+    p_expected_updated_at: expectedUpdatedAt || null
+  });
+  if (response.error) throw adminWriteError(response.error);
+  return response.data;
+}
+
+/** Referencing projects for the safe-delete dialog (paged count + sample). */
+export async function referencingProjectsForPerson(personId, limit = 10) {
+  if (!isConfigured || !supabase) throw new Error('Supabase is not configured.');
+  const refs = await supabase.from('portfolio_project_people').select('project_id', { count: 'exact' }).eq('person_id', personId).limit(limit);
+  if (refs.error) throw adminWriteError(refs.error);
+  let titles = [];
+  if (Array.isArray(refs.data) && refs.data.length) {
+    const ids = refs.data.map((r) => r.project_id);
+    const projs = await supabase.from('portfolio_projects').select('id, slug, title').in('id', ids);
+    if (!projs.error && Array.isArray(projs.data)) titles = projs.data.map((p) => ({ id: p.id, slug: p.slug, title: p.title }));
+  }
+  return { count: typeof refs.count === 'number' ? refs.count : (refs.data || []).length, projects: titles };
 }
 
 /**
@@ -527,6 +623,10 @@ export async function bulkUpdateRequestLifecycle(items, action) {
 window.CrabbieAdminCrud = {
   loadAllAdminData: loadAllAdminDataFromSupabase,
   loadRequestPage: loadAdminRequestPage,
+  loadPeoplePage: loadAdminPeoplePage,
+  saveProjectPeople,
+  movePerson,
+  referencingProjectsForPerson,
   countRows: countAdminRows,
   countRequestLifecycles,
   updateRequestLifecycle,

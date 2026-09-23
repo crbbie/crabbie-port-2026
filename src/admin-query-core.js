@@ -9,6 +9,8 @@
 export const REQUESTS_PAGE_SIZE = 30;
 export const MEDIA_PAGE_SIZE = 30;
 
+export const PEOPLE_PAGE_SIZE = 30;
+
 const NESTED_CATEGORY = 'category:cms_categories(slug,title)';
 
 /**
@@ -34,6 +36,8 @@ export const ADMIN_SELECT_COLUMNS = Object.freeze({
   cms_pages: Object.freeze(['id', 'slug', 'title', 'content', 'published', 'data', 'translations', 'updated_at']),
   cms_navigation: Object.freeze(['id', 'title', 'url', 'published', 'sort_order', 'updated_at']),
   site_settings: Object.freeze(['key', 'value', 'updated_at']),
+  people: Object.freeze(['id', 'display_name', 'avatar_path', 'avatar_alt', 'profile_url', 'kind', 'published', 'show_in_thank_you', 'sort_order', 'updated_at']),
+  portfolio_project_people: Object.freeze(['project_id', 'person_id', 'sort_order']),
   commission_requests: Object.freeze([
     'id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes',
     'terms_accepted', 'service_id', 'form_id', 'created_at', 'updated_at',
@@ -55,6 +59,8 @@ export const HYDRATION_MAPPED_COLUMNS = Object.freeze({
   cms_pages: Object.freeze(['id', 'slug', 'title', 'content', 'published', 'data', 'updated_at']),
   cms_navigation: Object.freeze(['id', 'title', 'url', 'published', 'updated_at']),
   site_settings: Object.freeze(['key', 'value', 'updated_at']),
+  people: Object.freeze(['id', 'display_name', 'avatar_path', 'avatar_alt', 'profile_url', 'kind', 'published', 'show_in_thank_you', 'sort_order', 'updated_at']),
+  portfolio_project_people: Object.freeze(['project_id', 'person_id', 'sort_order']),
   commission_requests: Object.freeze(['id', 'client_name', 'client_email', 'contact', 'answers', 'status', 'admin_notes', 'terms_accepted', 'created_at', 'updated_at', 'archived_at', 'deleted_at', 'retention_hold']),
   media: Object.freeze(['id', 'storage_path', 'original_name', 'mime_type', 'size_bytes', 'alt_text', 'sha256', 'width', 'height', 'deletion_status', 'created_at'])
 });

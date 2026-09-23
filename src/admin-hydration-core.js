@@ -5,7 +5,8 @@ import { formattedCommissionPrice } from './admin-roundtrip-core.js';
 const LOAD_LABELS = {
   portfolio: 'Portfolio load failed', assets: 'Free Assets load failed', categories: 'Categories load failed',
   commissions: 'Commission Services load failed', forms: 'Commission Forms load failed', pages: 'CMS Pages load failed',
-  navigation: 'Navigation load failed', settings: 'Site Settings load failed', requests: 'Commission Requests load failed', media: 'Media load failed'
+  navigation: 'Navigation load failed', settings: 'Site Settings load failed', requests: 'Commission Requests load failed', media: 'Media load failed',
+  people: 'People load failed', projectPeople: 'Project credits load failed'
 };
 
 export function assertAdminHydrationResults(results) {
@@ -54,6 +55,8 @@ function mapPortfolioRow(row) {
     externalLinks: content.externalLinks || [],
     blocks: content.blocks || [],
     credits: content.credits || '',
+    peopleCreditLabel: typeof content.peopleCreditLabel === 'string' ? content.peopleCreditLabel : '',
+    peopleIds: [],
     year: content.year || '',
     intro: content.intro || '',
     sketch: content.sketch || '',
@@ -180,6 +183,44 @@ function mapNavigationRow(row) {
   };
 }
 
+export function mapPersonRow(row) {
+  if (!row) return null;
+  const kinds = ['client', 'collaborator', 'artist', 'studio', 'creator', 'other'];
+  const kind = kinds.includes(String(row.kind || '').toLowerCase()) ? String(row.kind).toLowerCase() : 'other';
+  return {
+    id: row.id,
+    displayName: String(row.display_name ?? '').trim(),
+    avatar: row.avatar_path || '',
+    avatarAlt: row.avatar_alt || '',
+    profileUrl: typeof row.profile_url === 'string' ? row.profile_url : '',
+    kind,
+    published: !!row.published,
+    showInThankYou: !!row.show_in_thank_you,
+    sortOrder: Number(row.sort_order) || 0
+  };
+}
+
+export function attachProjectPeople(projects, links) {
+  const list = Array.isArray(projects) ? projects : [];
+  const grouped = {};
+  (Array.isArray(links) ? links : []).forEach((link) => {
+    const dbId = String(link.project_id || '');
+    const personId = String(link.person_id || '');
+    if (!dbId || !personId) return;
+    if (!grouped[dbId]) grouped[dbId] = [];
+    grouped[dbId].push({ id: personId, order: Number(link.sort_order) || 0 });
+  });
+  Object.keys(grouped).forEach((dbId) => {
+    grouped[dbId].sort((a, b) => a.order - b.order);
+    grouped[dbId] = grouped[dbId].map((entry) => entry.id);
+  });
+  list.forEach((project) => {
+    if (project && project.dbId && grouped[project.dbId]) project.peopleIds = grouped[project.dbId].slice();
+    else if (project && !project.peopleIds) project.peopleIds = [];
+  });
+  return list;
+}
+
 // A successful empty page result is authoritative: a missing page record must
 // never fall back to prototype content.
 export function mapAdminPages(data) {
@@ -249,9 +290,11 @@ export function mapAdminHydrationResults(results, getPublicUrl) {
 
   const categoryRows = Array.isArray(results?.categories?.data) ? results.categories.data : [];
   const urlFor = typeof getPublicUrl === 'function' ? getPublicUrl : () => '';
+  const portfolio = withRecordIdentity(results?.portfolio?.data, mapPortfolioRow);
+  attachProjectPeople(portfolio, results?.projectPeople?.data);
 
   return {
-    portfolio: withRecordIdentity(results?.portfolio?.data, mapPortfolioRow),
+    portfolio,
     assets: withRecordIdentity(results?.assets?.data, mapAssetRow),
     portfolioCategories: categoryRows.filter((row) => row.kind === 'portfolio').map(mapCategoryRow),
     assetCategories: categoryRows.filter((row) => row.kind === 'asset').map(mapCategoryRow),
@@ -259,6 +302,7 @@ export function mapAdminHydrationResults(results, getPublicUrl) {
     forms: withRecordIdentity(results?.forms?.data, mapFormRow),
     pages: mapAdminPages(results?.pages?.data),
     navigation: withRecordIdentity(results?.navigation?.data, mapNavigationRow),
+    people: withRecordIdentity(results?.people?.data, mapPersonRow),
     settings: mapAdminSettings(results?.settings?.data),
     settingsMeta: mapSettingsMeta(results?.settings?.data),
     requests: withRecordIdentity(results?.requests?.data, (row) => formatRequestRowForAdmin(row)),
