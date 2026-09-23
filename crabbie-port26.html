@@ -998,6 +998,7 @@ body:not(.admin-mode) .nav-links a:hover{
 body:not(.admin-mode) .nav-links a.active{
   background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
   color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:inset 0 -3px 0 rgba(214,105,162,.17),inset 0 2px 0 rgba(255,255,255,.78);
 }
 
@@ -1035,7 +1036,7 @@ body:not(.admin-mode) .btn-yellow{
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
   color:#fff;
-  text-shadow:0 1px 2px rgba(255,255,255,.55);
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:
     0 12px 24px -12px rgba(195,141,252,.42),
     0 4px 10px -4px rgba(195,141,252,.18),
@@ -1050,14 +1051,14 @@ body:not(.admin-mode) .mobile-menu .mm-cta{
     radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#ffe4ef 0%,#fbc0da 48%,#f793bf 100%);
   color:#fff;
-  text-shadow:0 1px 2px rgba(255,255,255,.55);
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:
     0 9px 18px -9px rgba(247,147,191,.42),
     inset 0 2px 1px rgba(255,255,255,.90),
     inset 0 -7px 12px -10px rgba(211,112,158,.22);
 }
-body:not(.admin-mode) .work-more{ color:#fff; }
-body:not(.admin-mode) .mobile-menu .mm-cta.active{ color:#fff; }
+body:not(.admin-mode) .work-more{ color:#fff; text-shadow:0 1px 3px rgba(200,60,120,.55); }
+body:not(.admin-mode) .mobile-menu .mm-cta.active{ color:#fff; text-shadow:0 1px 3px rgba(200,60,120,.55); }
 
 /* Hero typography: one focal display face, decorative accent, calm body copy.
    Colors collapse to the semantic tokens (display / decorative / body / muted). */
@@ -1225,7 +1226,6 @@ body:not(.admin-mode) .field label .req{ color:var(--text-accent); }
 
 /* Interactive states keep their emphasis; selected states stay legible on
    their coloured pills. */
-body:not(.admin-mode) .nav-links a.active,
 body:not(.admin-mode) .mobile-menu a.active,
 body:not(.admin-mode) .choice input:checked + span{ color:#4a1f43; text-shadow:0 1px 2px rgba(255,255,255,.5); }
 body:not(.admin-mode) .nav-links a:hover,
