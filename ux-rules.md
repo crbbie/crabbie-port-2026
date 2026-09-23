@@ -35,10 +35,16 @@ per-element color settings.
   never be shown as a broken image. Structural settings (`theme`, `motion`,
   `music`, `typography`) are merged with defaults at save time so a partial
   database row is never written back incomplete.
-- The public stacking model is: background (`body::before`) → falling candy →
-  content → pet → nav/music/modals. The public `body` stays transparent so the
-  fixed background and candy layers remain visible; `html` carries the overscroll
-  fallback colour (`--cms-bg-color`).
+- The public stacking model is: background (`body::before`) → decorative
+  artwork (`#crabbieDecoLayer`) → falling candy → content → pet → nav/music/modals.
+  The public `body` stays transparent so the fixed background and candy layers
+  remain visible; `html` carries the overscroll fallback colour (`--cms-bg-color`).
+- The decorative background artwork (`src/site-decor.js`) is one fixed,
+  `pointer-events:none`, `overflow:hidden` layer that crossfades the three local
+  `/assets/decorations/deco-bg (N).png` images across the scroll range
+  (top → ~32% → ~66% → bottom) with a subtle floating animation; admin mode
+  hides it and `prefers-reduced-motion` stops the float. It must never add
+  horizontal overflow or cover interactive content.
 - Saved palettes store the whole colour group in `theme.palettes`; Apply updates
   every colour field and the live preview immediately, and the normal Save
   persists the theme key. Swatches must make each palette recognisable at a glance.
