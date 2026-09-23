@@ -538,6 +538,20 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 /* Cards share one height so the CTA rows line up; once an accordion opens the
    row switches to natural heights so siblings never gain dead whitespace. */
 .comm-grid:has(.acc.open){ align-items:start; }
+/* Each card and its "What's included & fees" panel form one stacked cell: the
+   panel sits just outside the white card, 8px below, sharing the pink outline. */
+.comm-item{display:flex; flex-direction:column; min-width:0;}
+.comm-item > .comm-card{flex:1 1 auto;}
+.comm-item > .acc{
+  margin-top:8px;
+  padding:8px;
+  border:0;
+  border-radius:24px;
+  background:linear-gradient(180deg,#fff 0%, var(--pink-soft) 100%);
+  box-shadow:0 0 0 3px var(--pink-light), 0 8px 0 -4px var(--pink-light), 0 20px 30px -22px rgba(217,74,128,.45);
+}
+.comm-item > .acc .acc-btn{ border-radius:16px; }
+.comm-item > .acc .acc-inner{ padding:0 12px; }
 .comm-card{display:flex; flex-direction:column;background:#fff; border: 3px solid #fff; border-radius: 30px;overflow: hidden;box-shadow:0 0 0 3px var(--pink-light),0 10px 0 -4px var(--pink-light),0 24px 36px -20px rgba(217,74,128,.45);transition: transform .4s var(--ease), box-shadow .4s var(--ease);}
 /* One fixed media frame for the preview: a real image fills it at the same
    ratio as the placeholder instead of stretching the card to its own size. */
@@ -1234,6 +1248,53 @@ body:not(.admin-mode) .search-box input,
 body:not(.admin-mode) .field input,
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
+
+/* ---- Public button system: pastel-pink fills, always a white label ----
+   Every clickable button/pill on the public site keeps white text in every
+   state (default, hover, active, focus). Light surfaces are deepened just
+   enough for the white label to stay readable. Admin surfaces are untouched. */
+body:not(.admin-mode) .btn,
+body:not(.admin-mode) .nav-cta,
+body:not(.admin-mode) .mobile-menu .mm-cta,
+body:not(.admin-mode) .tab-btn,
+body:not(.admin-mode) .chip,
+body:not(.admin-mode) .mini-card,
+body:not(.admin-mode) .acc-btn,
+body:not(.admin-mode) .work-more,
+body:not(.admin-mode) .tos-note,
+body:not(.admin-mode) .back-link,
+body:not(.admin-mode) .link-pill{
+  color:#fff !important;
+  text-shadow:0 1px 3px rgba(200,60,120,.45);
+}
+body:not(.admin-mode) .btn-yellow,
+body:not(.admin-mode) .btn-ghost,
+body:not(.admin-mode) .nav-cta,
+body:not(.admin-mode) .mobile-menu .mm-cta,
+body:not(.admin-mode) .tab-btn,
+body:not(.admin-mode) .chip,
+body:not(.admin-mode) .acc-btn,
+body:not(.admin-mode) .tos-note,
+body:not(.admin-mode) .back-link,
+body:not(.admin-mode) .link-pill{
+  background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.5),transparent 65%),linear-gradient(180deg,#ffb3d5 0%,#f47fb4 100%);
+  border-color:#fff;
+}
+body:not(.admin-mode) .mini-card{
+  background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.45),transparent 65%),linear-gradient(180deg,#ffbcd9 0%,#f489bb 100%);
+  border-color:#fff;
+  box-shadow:0 0 0 2px var(--pink-light), 0 8px 0 -4px var(--pink-light), 0 18px 30px -20px rgba(217,74,128,.5);
+}
+body:not(.admin-mode) .mini-card .mini-name,
+body:not(.admin-mode) .mini-card .mini-note,
+body:not(.admin-mode) .mini-card .mini-price{ color:#fff !important; }
+body:not(.admin-mode) .tab-btn.on,
+body:not(.admin-mode) .chip.on{ background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.5),transparent 65%),linear-gradient(180deg,#ffc3dc 0%,#ff9cc6 48%,#ff5c9a 100%); border-color:#fff; }
+body:not(.admin-mode) .mini-card[aria-pressed="true"]{
+  background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.5),transparent 65%),linear-gradient(180deg,#ffc3dc 0%,#ff9cc6 48%,#ff5c9a 100%);
+  border-color:#fff;
+}
+body:not(.admin-mode) .acc.open .acc-btn{ background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.5),transparent 65%),linear-gradient(180deg,#ffc3dc 0%,#ff9cc6 48%,#ff5c9a 100%); border-color:#fff; }
 </style>
 
 <!-- ============================================================
@@ -3128,6 +3189,7 @@ try{
 
       <h3 class="section-title" style="text-align:center;">Normal / Anime &amp; Chibi</h3>
       <div class="comm-grid">
+        <div class="comm-item">
         <article class="comm-card">
           <div class="comm-thumb v1"><span class="avail open">OPEN</span>BUST UP PREVIEW</div>
           <div class="comm-body">
@@ -3137,7 +3199,8 @@ try{
             <div class="comm-mini"><span>USD $70</span><span>VND 500,000</span></div>
           </div>
           <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Bust Up" data-service-slug="bust-up" data-form="illustration" data-avail="open">Request this</button></div>
-          <div class="acc">
+        </article>
+        <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
               <div class="acc-line"><span>Delivery estimate</span><b>around 1.5 months</b></div>
@@ -3152,7 +3215,8 @@ try{
               <div class="acc-line"><span>Private commission</span><b>+20%</b></div>
             </div></div>
           </div>
-        </article>
+        </div>
+        <div class="comm-item">
         <article class="comm-card">
           <div class="comm-thumb v2"><span class="avail open">OPEN</span>HALF BODY PREVIEW</div>
           <div class="comm-body">
@@ -3162,7 +3226,8 @@ try{
             <div class="comm-mini"><span>USD $100</span><span>VND 750,000</span></div>
           </div>
           <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Half Body" data-service-slug="half-body" data-form="illustration" data-avail="open">Request this</button></div>
-          <div class="acc">
+        </article>
+        <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
               <div class="acc-line"><span>Delivery estimate</span><b>around 1.5 months</b></div>
@@ -3177,7 +3242,8 @@ try{
               <div class="acc-line"><span>Private commission</span><b>+20%</b></div>
             </div></div>
           </div>
-        </article>
+        </div>
+        <div class="comm-item">
         <article class="comm-card">
           <div class="comm-thumb v3"><span class="avail inq">BY INQUIRY</span>FULL BODY PREVIEW</div>
           <div class="comm-body">
@@ -3187,7 +3253,8 @@ try{
             <div class="comm-mini"><span>USD $150</span><span>VND 1,100,000</span></div>
           </div>
           <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Full Body" data-service-slug="full-body" data-form="illustration" data-avail="inquiry">Request this</button></div>
-          <div class="acc">
+        </article>
+        <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
               <div class="acc-line"><span>Delivery estimate</span><b>around 1.5 months</b></div>
@@ -3202,7 +3269,8 @@ try{
               <div class="acc-line"><span>Private commission</span><b>+20%</b></div>
             </div></div>
           </div>
-        </article>
+        </div>
+        <div class="comm-item">
         <article class="comm-card">
           <div class="comm-thumb v4"><span class="avail open">OPEN</span>CHIBI FULL BODY PREVIEW</div>
           <div class="comm-body">
@@ -3212,7 +3280,8 @@ try{
             <div class="comm-mini"><span>VND 380,000</span><span>Chibi</span></div>
           </div>
           <div class="comm-actions"><button class="btn btn-primary" type="button" data-service="Chibi Full Body" data-service-slug="chibi-full-body" data-form="illustration" data-avail="open">Request this</button></div>
-          <div class="acc">
+        </article>
+        <div class="acc">
             <button class="acc-btn" type="button">What's included &amp; fees <span class="caret">▾</span></button>
             <div class="acc-body"><div class="acc-inner">
               <div class="acc-line"><span>Delivery estimate</span><b>2–3 weeks</b></div>
@@ -3226,7 +3295,7 @@ try{
               <div class="acc-line"><span>Private commission</span><b>+20%</b></div>
             </div></div>
           </div>
-        </article>
+        </div>
       </div>
 
       <h3 class="section-title" style="text-align:center;">Other commission types</h3>
@@ -9417,17 +9486,23 @@ apply: function(services, forms){
         if(commGrid){
           var feeRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]]
             .filter(function(r){ var t = String(r[1] == null ? '' : r[1]).trim(); return t && t !== 'undefined' && t !== 'NaN'; });
+          var newItem = document.createElement('div');
+          newItem.className = 'comm-item';
+          newItem.setAttribute('data-cms-service', slug);
           var newCard = document.createElement('article');
           newCard.className = 'comm-card';
-          newCard.setAttribute('data-cms-service', slug);
           newCard.innerHTML = '<div class="comm-thumb"><span class="avail ' + availabilityClass(s.availability) + '">' + availabilityLabel(s.availability) + '</span>' + (publicImage(s.thumbnail, s.title || s.name) || esc(s.title || s.name || slug)) + '</div>' +
             '<div class="comm-body"><div class="comm-name">' + esc(s.title || s.name || slug) + '</div><div class="comm-price">' + esc(s.price || '') + (s.priceNote ? ' <small>' + esc(s.priceNote) + '</small>' : '') + '</div><p class="comm-desc">' + esc(s.description || '') + '</p><div class="comm-mini"></div></div>' +
-            '<div class="comm-actions"><button class="btn btn-primary" type="button" data-service="' + esc(s.name || s.title || slug) + '" data-service-slug="' + esc(slug) + '" data-form="' + esc(s.formType || '') + '" data-avail="' + esc(s.availability || 'open') + '">Request this</button></div>' +
-            '<div class="acc"><button class="acc-btn" type="button">What\'s included &amp; fees <span class="caret">▾</span></button><div class="acc-body"><div class="acc-inner">' +
+            '<div class="comm-actions"><button class="btn btn-primary" type="button" data-service="' + esc(s.name || s.title || slug) + '" data-service-slug="' + esc(slug) + '" data-form="' + esc(s.formType || '') + '" data-avail="' + esc(s.availability || 'open') + '">Request this</button></div>';
+          var newAcc = document.createElement('div');
+          newAcc.className = 'acc';
+          newAcc.innerHTML = '<button class="acc-btn" type="button">What\'s included &amp; fees <span class="caret">▾</span></button><div class="acc-body"><div class="acc-inner">' +
             feeRows.map(function(r){ return '<div class="acc-line"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') +
-            '</div></div></div>';
-          commGrid.appendChild(newCard);
-          wireAccordions(newCard);
+            '</div></div>';
+          newItem.appendChild(newCard);
+          newItem.appendChild(newAcc);
+          commGrid.appendChild(newItem);
+          wireAccordions(newItem);
           cardBtn = newCard.querySelector('button[data-service]');
         }
       }
@@ -9475,7 +9550,7 @@ apply: function(services, forms){
             if(!clean || clean === 'undefined' || clean === 'NaN') return null;
             return { key: def[0], label: def[1], value: visibleCmsValue(clean) };
           }).filter(function(r){ return r && r.value; });
-          var accInner = card.querySelector('.acc-inner');
+          var accInner = (card.closest('.comm-item') || card).querySelector('.acc-inner');
           if(accInner) accInner.innerHTML = feeRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r.key) + '"><span>' + esc(r.label) + '</span><b>' + esc(r.value) + '</b></div>'; }).join('');
         }
       }
@@ -9514,8 +9589,8 @@ apply: function(services, forms){
         var slug = s.slug || s.id || '';
         if(!slug || s.isOtherService) return;
         var btn = commGrid.querySelector('button[data-service-slug="' + String(slug).replace(/"/g, '') + '"]');
-        var card = btn ? btn.closest('.comm-card') : null;
-        if(card) commGrid.appendChild(card);
+        var item = btn ? btn.closest('.comm-item') : null;
+        if(item) commGrid.appendChild(item);
       });
     }
 
@@ -9524,7 +9599,8 @@ apply: function(services, forms){
       if(!btn) return;
       var slug = btn.getAttribute('data-service-slug') || '';
       var title = btn.getAttribute('data-service') || '';
-      card.style.display = (liveServices[slug] || liveTitles[title]) ? '' : 'none';
+      var target = card.closest('.comm-item') || card;
+      target.style.display = (liveServices[slug] || liveTitles[title]) ? '' : 'none';
     });
 
     if(currentOtherService){

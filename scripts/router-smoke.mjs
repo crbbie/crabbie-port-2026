@@ -686,6 +686,28 @@ try {
     assert.equal(await page.locator('.comm-card [data-service-slug="bust-up"]').count(), 1);
     assert.equal(await page.locator('.comm-card .comm-thumb img').first().getAttribute('src'), 'https://example.test/normal.png');
     assert.equal(await page.locator('#miniServicesGrid [data-other-service="static-emote"] .mini-icon img').getAttribute('src'), 'https://example.test/mini.png');
+    // The fees panel is a sibling of the white card (not nested inside it), and
+    // every public button keeps a white label on its pastel fill.
+    assert.equal(await page.locator('.comm-item > .comm-card + .acc').count() > 0, true, 'the fees panel sits just outside the card');
+    assert.equal(await page.locator('.comm-card .acc').count(), 0, 'the fees panel is no longer a child of the white card');
+    const publicBtnColors = await page.evaluate(() => {
+      const read = (sel) => {
+        const el = document.querySelector(sel);
+        return el ? getComputedStyle(el).color : null;
+      };
+      return {
+        request: read('.comm-grid .comm-actions .btn-primary'),
+        fees: read('.comm-grid .acc-btn'),
+        mini: read('#miniServicesGrid .mini-card .mini-name'),
+        nav: read('.nav-cta'),
+        tos: read('.tos-note')
+      };
+    });
+    assert.equal(publicBtnColors.request, 'rgb(255, 255, 255)', 'Request this keeps a white label');
+    assert.equal(publicBtnColors.fees, 'rgb(255, 255, 255)', 'the fees toggle keeps a white label');
+    assert.equal(publicBtnColors.mini, 'rgb(255, 255, 255)', 'the mini service card label is white');
+    assert.equal(publicBtnColors.nav, 'rgb(255, 255, 255)', 'the navbar Commission CTA keeps a white label');
+    assert.equal(publicBtnColors.tos, 'rgb(255, 255, 255)', 'the Terms pill keeps a white label');
     console.log('PASS public CMS card/detail rendering, safe blocks, asset download, About links, Commission thumbnails (SDK fixture)');
     // The saved row must still exist so the editor save is an UPDATE of it.
     await page.evaluate(() => {
@@ -2512,17 +2534,20 @@ try {
       assert.equal(jumpVisible, probe.jumpbar, probe.label + ' jumpbar visibility matches the stacked layout');
     }
     console.log('PASS the admin jump helper tracks the stacked layout at tablet widths (SDK fixture)');
-    // UI-02: pastel CTA buttons keep dark text (never regress to white-on-pastel).
+    // UI-02: the white-label rule is public-only, so admin-rendered controls
+    // keep dark text on their pastel surfaces (public buttons are asserted white
+    // in the public-mode suites above).
     const ctaColors = await page.evaluate(() => {
       const read = (sel) => {
         const el = document.querySelector(sel);
         return el ? window.getComputedStyle(el).color : null;
       };
-      return { navCta: read('.nav-cta'), btnYellow: read('.btn-yellow') };
+      return { adminMode: document.body.classList.contains('admin-mode'), navCta: read('.nav-cta'), btnYellow: read('.btn-yellow') };
     });
-    assert.equal(ctaColors.navCta, 'rgb(74, 31, 67)', 'the nav CTA keeps dark text on its pastel background');
-    if (ctaColors.btnYellow) assert.equal(ctaColors.btnYellow, 'rgb(74, 31, 67)', 'the yellow button keeps dark text on pastel');
-    console.log('PASS pastel CTA buttons keep dark readable text (SDK fixture)');
+    assert.equal(ctaColors.adminMode, true, 'the admin shell does not inherit the public white-label rule');
+    assert.equal(ctaColors.navCta, 'rgb(74, 31, 67)', 'admin-rendered nav CTA keeps dark text');
+    if (ctaColors.btnYellow) assert.equal(ctaColors.btnYellow, 'rgb(74, 31, 67)', 'admin-rendered yellow button keeps dark text');
+    console.log('PASS admin controls keep dark readable text while public buttons stay white (SDK fixture)');
     await page.setViewportSize({width: 1280, height: 800});
     assert.equal(await page.locator('#adminContent [data-adm-block-field][data-adm-block-path]').count() >= 7, true, 'every media block keeps its editable fields');
     console.log('PASS the media library is wired into every portfolio media block (SDK fixture)');
@@ -3477,7 +3502,7 @@ try {
     await page.waitForFunction(() => Boolean(document.querySelector('#pfGrid [data-project="illustration-x"].is-image-card')));
     const imageCard = page.locator('#pfGrid [data-project="illustration-x"]');
     assert.equal(await imageCard.getAttribute('data-lightbox-src'), 'https://example.test/x.png', 'the image card carries a lightbox source');
-    assert.equal(await imageCard.locator('.work-more').isVisible(), false, 'the image card shows no See more link');
+    assert.equal(await imageCard.locator('.work-more').isVisible(), true, 'the image card shows the same See more affordance in its meta bar');
     await imageCard.click();
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/x.png', 'clicking the image card opens the full-size image');
@@ -3488,8 +3513,9 @@ try {
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     await page.locator('#publicLightboxClose').click();
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
-    // The image-card label carries the title, and zoom/reset/caption work.
-    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION X', 'the image card label shows the title');
+    // The image-card cloud keeps the category while the title lives in the bottom meta, and zoom/reset/caption work.
+    assert.equal((await imageCard.locator('.cloud-tag span').innerText()).trim(), 'ILLUSTRATION', 'the image-card cloud shows the category');
+    assert.equal((await imageCard.locator('.work-title').innerText()).trim(), 'Illustration X', 'the image-card meta shows the title');
     await imageCard.click();
     await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
     await page.locator('#publicLightboxZoomIn').click();
