@@ -67,8 +67,16 @@ Do not introduce blanket policies such as `using (true)` for private/admin data 
 Public read/write rules must stay intentionally scoped:
 
 - only published CMS content is public;
+- people reads are published-only, and junction reads additionally require the parent project to be published;
+- public People adapters keep filtering `published` even for signed-in admins (no private fields hidden merely by omitting them from a query);
 - visitor commission inserts are constrained;
 - admin management requires admin role.
+
+Project/People relation writes go only through the narrow admin-only RPCs
+(`save_project_with_people`, `move_person`): SECURITY INVOKER, fixed
+`search_path`, execution revoked from PUBLIC/anon, no generic
+arbitrary-table writes. Person profile URLs accept `https://` only, render
+as `target=_blank rel="noopener noreferrer"`, and fall back to plain text.
 
 ## Media privacy limitation
 

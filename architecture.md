@@ -58,6 +58,7 @@ When adding a public route, update all relevant route parsing, title handling, n
 Examples:
 
 - `src/portfolio-cms.js`
+- `src/people-cms.js`
 - `src/free-assets-cms.js`
 - `src/commissions-cms.js`
 - `src/site-content-cms.js`
@@ -133,6 +134,35 @@ Supabase public table
   → view render
   → route/detail UI
 ```
+
+## People / Clients data flow
+
+Reusable identities live in `people`; project credits are ordered rows in
+`portfolio_project_people` (no copied name/avatar/URL). The per-project
+credit prefix lives in `portfolio_projects.content.peopleCreditLabel`
+(`content.credits` stays the generic production-notes field).
+
+```text
+people + portfolio_project_people (published only, paged to completion)
+  → src/people-cms.js (window.CrabbiePeople bridge) + portfolio junction attach
+  → project credit strip (after #pdDesc) + thank-you section (after #pfGrid)
+```
+
+- Public adapters filter `published` even when an admin is signed in.
+- A failed/partial People fetch hides People presentation; artwork and the
+  Portfolio grid keep working.
+- Stale-response races are guarded with a generation token; public updates
+  happen on hydration/explicit CMS refresh (no Realtime, no polling).
+
+Project relation writes go through the narrow `save_project_with_people`
+RPC (project row + ordered junction replacement in one transaction, UUID
+identity, `updated_at` baseline, unknown IDs rejected, empty selection
+clears). People global reorder uses the transactional `move_person` RPC
+(adjacent swap, baseline/neighbor validated, ranks normalized).
+
+The Admin People panel pages server-side (30/page, `sort_order,id` order)
+and merges fetched rows without overwriting dirty drafts; a failed panel
+fetch never becomes an authoritative empty collection.
 
 ## Admin save flow example
 

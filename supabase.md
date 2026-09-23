@@ -24,6 +24,8 @@ The browser uses a publishable key. Privileged authorization is enforced with RL
 | `cms_navigation` | CMS navigation |
 | `site_settings` | Key/value site configuration |
 | `media` | Storage metadata and deletion state |
+| `people` | Reusable People / Clients identities |
+| `portfolio_project_people` | Ordered project ↔ person credits (junction) |
 | `media_cleanup_state` | Read-only scanner state: Protected flag, first-unreferenced anchor, object fingerprint (keyed by storage path; never authorizes deletion) |
 | `admin_audit_log` | Append-only admin/media audit trail |
 
@@ -35,6 +37,22 @@ The browser uses a publishable key. Privileged authorization is enforced with RL
 - `commission_requests.form_id → commission_forms.id ON DELETE SET NULL`
 
 Keep `SET NULL` for these relations by default. It preserves historical/content records when a category/service/form is removed instead of cascading deletion.
+
+## People relations
+
+- `portfolio_project_people.project_id → portfolio_projects.id ON DELETE CASCADE` (deleting a project drops its credits)
+- `portfolio_project_people.person_id → people.id ON DELETE RESTRICT` (a credited person cannot be deleted while referenced, including by draft projects; FK is the race-safe guard)
+- `portfolio_projects.content.peopleCreditLabel` is a plain-text prefix (max 80 chars, default `With`); `content.credits` is unchanged generic notes
+- The junction stores no copied name/avatar/URL; Admin `peopleIds` order is hydrated from junction rows
+
+## People RLS and functions
+
+- `people`: anonymous/non-admin reads see published rows only; admin mutations require JWT `app_metadata.role = 'admin'`
+- `portfolio_project_people`: public reads require BOTH the parent project and the person to be published (`show_in_thank_you` only gates section membership, not credit eligibility)
+- `save_project_with_people(jsonb, uuid[], timestamptz)`: SECURITY INVOKER, admin-only, fixed `search_path`, whitelisted project fields, deduped contiguous ordering, guarded `updated_at` concurrency, full rollback on relationship errors; revoked from PUBLIC/anon
+- `move_person(uuid, text, timestamptz)`: SECURITY INVOKER adjacent reorder with row locks, baseline/neighbor validation and transactional rank normalization; revoked from PUBLIC/anon
+
+People avatars are protected media references: saved AND draft `people.<id>.avatar` fields are scanned by `findMediaUsage()`, all persisted People rows are included in `fetchAuthoritativeReferenceBundle()`, and `people` + `portfolio_project_people` are `TABLE_SOURCES` entries in fresh cleanup/purge scans (partial/error reads block deletion or mark scans INCOMPLETE). Person deletion or avatar replacement never purges storage bytes directly.
 
 ## RLS
 

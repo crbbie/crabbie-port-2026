@@ -137,6 +137,13 @@ If delete fails, keep the record visible/editable locally.
 
 Media follows its separate recoverable deletion lifecycle and usage checks.
 
+### People deletion
+
+- Deleting a Person is blocked while any persisted project references it (draft projects count); the dialog shows a referencing-project count/sample and offers Unpublish instead.
+- Draft (unsaved) references in the current Admin session block deletion too.
+- Never auto-remove credits from projects. Unpublishing keeps associations and hides the identity everywhere.
+- Person deletion never deletes avatar bytes automatically.
+
 ## Confirmations
 
 Keep confirmation for:
@@ -267,3 +274,11 @@ After responsive changes, verify at least desktop, tablet, and mobile widths wit
 - Keep `aria-busy`, `aria-expanded`, `aria-current`, and disabled semantics where already used.
 - Respect `prefers-reduced-motion`.
 - Do not encode critical status only by color.
+
+## People visibility and thank-you motion
+
+- Published off: no public credits or thank-you entry. Published on + thank-you off: project credits only. Published on + thank-you on (with avatar): eligible for both.
+- A blank profile URL renders a plain-text identity; only valid `https://` URLs become `target=_blank rel="noopener noreferrer"` links.
+- The thank-you section hides entirely with zero eligible people; 1–5 render a static centered list; 6+ progressively enhance to a desktop marquee.
+- The marquee is one CSS transform animation (no JS loop), pauses on hover, route change, hidden page or offscreen section, and honors an explicit session-persistent Pause/Resume control plus live `prefers-reduced-motion` changes.
+- Keyboard focus into marquee items stops the animation, drops visual clones and restores a scrollable canonical list with revealed names until Resume; clones are `aria-hidden` with no focusable descendants, so there are never duplicate focus stops.

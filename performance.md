@@ -12,10 +12,16 @@ Current default page sizes:
 
 - Commission Requests: 30
 - Media: 30
+- People / Clients: 30 (server-side search, filters and 30-record pages)
 
 Requests and media are intentionally not part of the main full admin hydration. They load per panel/page.
 
 Do not replace this with “load every request/media row then filter in JavaScript”.
+
+## Public People queries
+
+- People and project-people reads paginate to completion (never truncated at the API default row cap), use explicit column lists and deterministic `sort_order,id` ordering, and resolve associations without N+1 requests.
+- The thank-you marquee uses one CSS transform animation (duration from group width at ~24 CSS px/second), one controller owning a bounded IntersectionObserver/ResizeObserver pair, and pauses offscreen/hidden — no timers, rAF loops or DOM growth on refresh.
 
 ## Query rules
 

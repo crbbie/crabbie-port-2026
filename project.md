@@ -42,6 +42,7 @@ The code currently implements only anonymous/public access plus an authenticated
 
 - Dashboard
 - Portfolio
+- People / Clients
 - Free Assets
 - Commissions
 - Commission Requests
