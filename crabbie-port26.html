@@ -2811,6 +2811,105 @@ try{
 })();
 </script>
 
+<!-- ============================================================
+     DECORATIONS — bows on bubble CTAs + flowers on featured headings
+     Artwork keeps its original multi-tone fills; variants are the
+     two supplied files per type (assigned once at init).
+     ============================================================ -->
+<style id="decoration-styles">
+/* --- Flowers on selected public headings -------------------------- */
+.has-flower-deco::before{
+  content:"";
+  display:inline-block;
+  width:19px;
+  height:19px;
+  margin-right:8px;
+  vertical-align:-0.18em;
+  background-image:var(--deco-flower, url("/assets/decorations/flowers1.svg"));
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  pointer-events:none;
+  transform-origin:50% 72%;
+  animation:decoFlowerSway 4.2s ease-in-out infinite;
+}
+.page-title.has-flower-deco::before{ width:24px; height:24px; }
+
+@keyframes decoFlowerSway{
+  0%   { transform:rotate(-8deg) scale(.98); }
+  50%  { transform:rotate(6deg)  scale(1.03); }
+  100% { transform:rotate(-8deg) scale(.98); }
+}
+
+/* --- Bows on eligible bubble CTAs --------------------------------- */
+body:not(.admin-mode) .btn-primary::before,
+body:not(.admin-mode) .btn-purple::before,
+body:not(.admin-mode) .btn-yellow::before,
+body:not(.admin-mode) .nav-cta::before{
+  content:"";
+  position:absolute;
+  top:-20px;
+  right:-9px;
+  width:56px;
+  height:30px;
+  background-image:var(--deco-bow, url("/assets/decorations/bow1.svg"));
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  opacity:0;
+  transform:scale(.72) rotate(4deg);
+  transform-origin:70% 74%;
+  pointer-events:none;
+  z-index:4;
+  transition:opacity .2s ease, transform .2s ease;
+}
+body:not(.admin-mode) .nav-cta::before{ width:44px; height:23px; top:-15px; right:-7px; }
+
+body:not(.admin-mode) .btn-primary:hover::before,
+body:not(.admin-mode) .btn-primary:focus-visible::before,
+body:not(.admin-mode) .btn-purple:hover::before,
+body:not(.admin-mode) .btn-purple:focus-visible::before,
+body:not(.admin-mode) .btn-yellow:hover::before,
+body:not(.admin-mode) .btn-yellow:focus-visible::before,
+body:not(.admin-mode) .nav-cta:hover::before,
+body:not(.admin-mode) .nav-cta:focus-visible::before{
+  animation:decoBowPop .36s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+@keyframes decoBowPop{
+  0%   { opacity:0; transform:scale(.72) rotate(3deg) translateY(3px); }
+  55%  { opacity:1; transform:scale(1.08) rotate(13deg) translateY(-2px); }
+  100% { opacity:1; transform:scale(1) rotate(10deg) translateY(0); }
+}
+
+/* --- Mobile: smaller decorations, still within the viewport ------- */
+@media (max-width:640px){
+  .has-flower-deco::before{ width:17px; height:17px; margin-right:7px; }
+  .page-title.has-flower-deco::before{ width:20px; height:20px; }
+  body:not(.admin-mode) .btn-primary::before,
+  body:not(.admin-mode) .btn-purple::before,
+  body:not(.admin-mode) .btn-yellow::before,
+  body:not(.admin-mode) .nav-cta::before{ width:46px; height:24px; top:-16px; right:-8px; }
+}
+
+/* --- Reduced motion: flowers static, bow appears without pop ------- */
+@media (prefers-reduced-motion: reduce){
+  .has-flower-deco::before{ animation:none !important; transform:rotate(-6deg); }
+  body:not(.admin-mode) .btn-primary:hover::before,
+  body:not(.admin-mode) .btn-primary:focus-visible::before,
+  body:not(.admin-mode) .btn-purple:hover::before,
+  body:not(.admin-mode) .btn-purple:focus-visible::before,
+  body:not(.admin-mode) .btn-yellow:hover::before,
+  body:not(.admin-mode) .btn-yellow:focus-visible::before,
+  body:not(.admin-mode) .nav-cta:hover::before,
+  body:not(.admin-mode) .nav-cta:focus-visible::before{
+    animation:none !important;
+    opacity:1;
+    transform:scale(1) rotate(10deg);
+  }
+}
+</style>
+
 </head>
 <body class="">
 <script>
@@ -2985,7 +3084,7 @@ try{
     <div class="wrap">
       <div class="page-head">
         <div class="eyebrow">THE ARTBOOK</div>
-        <h2 class="page-title">Little worlds, big feelings.</h2>
+        <h2 class="page-title has-flower-deco">Little worlds, big feelings.</h2>
         <p class="page-sub">Illustrations, characters, and stories from my atelier.</p>
       </div>
       <div class="filter-bar">
@@ -3051,7 +3150,7 @@ try{
     <div class="wrap">
       <div class="page-head">
         <div class="eyebrow blue">FROM ME TO YOU</div>
-        <h2 class="page-title">The free shelf.</h2>
+        <h2 class="page-title has-flower-deco">The free shelf.</h2>
         <p class="page-sub">A little something for your next creative adventure.</p>
       </div>
       <div class="filter-bar">
@@ -3134,12 +3233,12 @@ try{
     <div class="wrap">
       <div class="page-head">
         <div class="eyebrow">MADE JUST FOR YOU</div>
-        <h2 class="page-title">Let's make <span class="hi">cute magic</span>.</h2>
+        <h2 class="page-title has-flower-deco">Let's make <span class="hi">cute magic</span>.</h2>
         <p class="page-sub">Find your little piece of the atelier. Contact me to discuss availability and your idea.</p>
         <div style="margin-top:22px;"><a class="tos-note" href="#terms" data-goto="terms">Read the Terms of Service</a></div>
       </div>
 
-      <h3 class="section-title" style="text-align:center;">Normal / Anime &amp; Chibi</h3>
+      <h3 class="section-title has-flower-deco" style="text-align:center;">Normal / Anime &amp; Chibi</h3>
       <div class="comm-grid">
         <div class="comm-item">
         <article class="comm-card">
@@ -3250,7 +3349,7 @@ try{
         </div>
       </div>
 
-      <h3 class="section-title" style="text-align:center;">Other commission types</h3>
+      <h3 class="section-title has-flower-deco" style="text-align:center;">Other commission types</h3>
       <div class="mini-grid" id="miniServicesGrid">
         <button type="button" class="mini-card" data-other-service="static-emote" aria-pressed="false"><span class="mini-icon">✦</span><span><span class="mini-name">Static Emote / Badge</span><span class="mini-note">each</span></span><span class="mini-price">$25</span></button>
         <button type="button" class="mini-card" data-other-service="animated-emote" aria-pressed="false"><span class="mini-icon">✧</span><span><span class="mini-name">Animated Emote</span><span class="mini-note">each · PSD only</span></span><span class="mini-price">$30</span></button>
@@ -3262,7 +3361,7 @@ try{
 
       <div class="other-service-detail" id="otherServiceDetail" aria-live="polite"></div>
 
-      <h3 class="section-title" style="text-align:center;">Fees &amp; add-ons</h3>
+      <h3 class="section-title has-flower-deco" style="text-align:center;">Fees &amp; add-ons</h3>
       <div class="rules-grid" style="margin-bottom:64px;">
         <div class="rule"><div class="rk">Tax</div><div class="rv">5%</div><div class="rd">Added on top of the total invoice amount.</div></div>
         <div class="rule p"><div class="rk">Rush</div><div class="rv">+20%</div><div class="rd">For urgent deadlines.</div></div>
@@ -3276,7 +3375,7 @@ try{
       <div class="form-shell" id="requestForm">
         <div class="form-head">
           <div class="eyebrow">YOUR IDEA STARTS HERE</div>
-          <h2 class="page-title" style="font-size: clamp(28px, 3.6vw, 42px);">A little brief.</h2>
+          <h2 class="page-title has-flower-deco" style="font-size: clamp(28px, 3.6vw, 42px);">A little brief.</h2>
           <span class="label-fixed">Commission type</span>
         </div>
 
@@ -3399,13 +3498,13 @@ try{
         <div class="profile-frame"><div class="flower-tag"><span>HELLO!</span></div><div class="profile-inner">PROFILE IMAGE</div></div>
         <div>
           <div class="eyebrow">THE HEART BEHIND THE ART</div>
-          <h2 class="page-title">Hello, I'm <span class="hi">Crabbie.</span></h2>
+          <h2 class="page-title has-flower-deco">Hello, I'm <span class="hi">Crabbie.</span></h2>
           <p class="page-sub" style="margin-bottom:22px;">Sweet little illustrations, dreamy characters, and a sprinkle of heart.</p>
           <p class="bio">I'm Crabbie, an illustrator creating sweet anime and chibi artwork, character art, VTuber assets, emotes, merch, comics, and little visual worlds filled with color and personality.</p>
           <span class="hand-note">made with sugar &amp; sparkle ♡</span>
         </div>
       </div>
-      <h3 class="section-title">What I make</h3>
+      <h3 class="section-title has-flower-deco">What I make</h3>
       <div class="chip-cloud" style="margin-bottom:64px;">
         <span class="make-chip"><span class="dot"></span>Illustration</span>
         <span class="make-chip"><span class="dot"></span>Chibi</span>
@@ -10566,6 +10665,25 @@ document.querySelectorAll('.btn, .nav-cta').forEach(button => {
       },5000);
     },1450);
   });
+})();
+</script>
+
+<script id="decoration-variant-assign">
+(function(){
+'use strict';
+/* Assigns each decoration its bow/flower file once, at init, so the variant
+   stays stable across hovers and no flashing occurs. CSS runs the motion. */
+if(window.__crabbieDecorationsInit){ return; }
+window.__crabbieDecorationsInit = true;
+function url(path){ return 'url("' + path + '")'; }
+var bows = ['/assets/decorations/bow1.svg', '/assets/decorations/bow2.svg'];
+var flowers = ['/assets/decorations/flowers1.svg', '/assets/decorations/flowers2.svg'];
+document.querySelectorAll('.btn-primary, .btn-purple, .btn-yellow, .nav-cta').forEach(function(el){
+  el.style.setProperty('--deco-bow', url(bows[Math.random() < 0.5 ? 0 : 1]));
+});
+document.querySelectorAll('.has-flower-deco').forEach(function(el, i){
+  el.style.setProperty('--deco-flower', url(flowers[i % flowers.length]));
+});
 })();
 </script>
 
