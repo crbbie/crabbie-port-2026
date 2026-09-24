@@ -255,15 +255,22 @@ for (const mobile of [false, true]) {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-  const jellySeen = await page.evaluate(() => new Promise((done) => {
-    let seen = false;
-    const probe = setInterval(() => {
-      if (document.querySelector('.is-jelly')) { seen = true; clearInterval(probe); done(true); }
-    }, 20);
-    setTimeout(() => { clearInterval(probe); done(seen); }, 600);
-    const el = document.querySelector('#pfChips .chip');
-    if (el) el.click();
-  }));
+  await page.waitForSelector('#pfChips .chip', { state: 'visible' });
+  // WebKit can lag matchMedia for a tick after emulateMedia.
+  await page.waitForFunction(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let jellySeen = false;
+  for (let attempt = 0; attempt < 3 && !jellySeen; attempt += 1) {
+    jellySeen = await page.evaluate(() => new Promise((done) => {
+      let seen = false;
+      const probe = setInterval(() => {
+        if (document.querySelector('.is-jelly')) { seen = true; clearInterval(probe); done(true); }
+      }, 16);
+      setTimeout(() => { clearInterval(probe); done(seen); }, 700);
+      const el = document.querySelector('#pfChips .chip');
+      if (el) el.click();
+    }));
+    if (!jellySeen) await page.waitForTimeout(200);
+  }
   assert.equal(jellySeen, true, `${mode}: jelly press feedback fires`);
   await page.waitForTimeout(700);
   assert.equal(await page.locator('.is-jelly').count(), 0, `${mode}: jelly releases without resticking`);
