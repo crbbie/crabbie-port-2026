@@ -5017,17 +5017,19 @@ try {
       }
       window.CrabbiePortfolio.apply(recs);
     }, {n, imageEvery: imageEvery || 0});
-    const settleComposition = async (width, height) => {
+    const settleComposition = async (width, height, n, imageEvery) => {
       await page.setViewportSize({width, height});
       await page.evaluate(() => { location.hash = '#portfolio'; });
       await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-      await page.waitForTimeout(220);
+      /* Re-seed at the settled width so the composition is computed through the
+         synchronous apply path (a pure function of the visible count), not by
+         racing the resize debounce. */
+      await compSeed(n, imageEvery || 0);
+      await page.waitForTimeout(60);
     };
     const desktopCycle = ['pf-l', 'pf-t', 'pf-s', 'pf-s', 'pf-s', 'pf-w', 'pf-w'];
     const desktopNine = desktopCycle.concat(['pf-l', 'pf-t']);
-    await settleComposition(1440, 900);
-    await compSeed(7);
+    await settleComposition(1440, 900, 7);
     assert.deepEqual(await pfVisibleVariants(), desktopCycle, 'a complete seven-card cycle tiles the three desktop bands');
     assert.equal((await pfVisibleVariants()).filter((v) => v === 'pf-l').length, 1, 'at most one large card per complete seven-card cycle');
     await compSeed(9);
@@ -5050,7 +5052,11 @@ try {
       cards.reverse().forEach((c) => grid.appendChild(c));
       window.dispatchEvent(new Event('resize'));
     });
-    await page.waitForTimeout(220);
+    await page.waitForFunction((expected) => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      const vis = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+      return JSON.stringify(vis) === JSON.stringify(expected);
+    }, desktopNine, {timeout: 5000});
     assert.deepEqual(await pfVisibleVariants(), desktopNine, 'reorder recomputes the same positional pattern');
     // Remove + reintroduce the identical set -> identical composition.
     await compSeed(9);
@@ -5061,11 +5067,10 @@ try {
     await page.locator('#pfChips .chip[data-filter="all"]').click();
     assert.deepEqual(await pfVisibleVariants(), desktopNine, 'clearing the filter restores the full composition');
     // Tablet: ordinary cards drop to paired small bands (no legacy three-row spans).
-    await settleComposition(900, 1000);
+    await settleComposition(900, 1000, 9);
     assert.ok((await pfVisibleVariants()).every((v) => v === 'pf-s'), 'tablet drops every legacy three-row span');
     // Mixed tablet: image cards take full-width rows, ordinary neighbors stay paired.
-    await compSeed(6, 3);
-    await settleComposition(900, 1000);
+    await settleComposition(900, 1000, 6, 3);
     const mixed = await page.evaluate(() => {
       const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
       return Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => ({

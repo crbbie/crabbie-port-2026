@@ -316,17 +316,15 @@ for (const mobile of [false, true]) {
     const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
     return Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
   });
+  const pfSeven = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ slug: 'pf-' + i, title: 'PF ' + i, description: '', cat: 'Illustration', tags: [], thumbnail: 'https://matrix-art.test/art-800x600.svg', cover: '', cardMode: 'project', blocks: [], credits: '', year: '2026', featured: false, published: true }));
+  const cycle = ['pf-l', 'pf-t', 'pf-s', 'pf-s', 'pf-s', 'pf-w', 'pf-w'];
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-  await page.waitForTimeout(160);
-  const cycle = ['pf-l', 'pf-t', 'pf-s', 'pf-s', 'pf-s', 'pf-w', 'pf-w'];
-  await page.evaluate(() => window.CrabbiePortfolio.apply([0, 1, 2, 3, 4, 5, 6].map((i) => ({ slug: 'pf-' + i, title: 'PF ' + i, description: '', cat: 'Illustration', tags: [], thumbnail: 'https://matrix-art.test/art-800x600.svg', cover: '', cardMode: 'project', blocks: [], credits: '', year: '2026', featured: false, published: true }))));
+  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
   assert.deepEqual(await matrixVariants(), cycle, `${mode} a seven-card cycle tiles the desktop bands`);
   await page.setViewportSize({ width: 900, height: 1000 });
-  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-  await page.waitForTimeout(160);
+  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
   assert.ok((await matrixVariants()).every((v) => v === 'pf-s'), `${mode} tablet drops legacy three-row spans`);
   note(`${mode} portfolio image cards + deterministic composition`, '640–1440 + phone landscape, ratios, fallbacks, bands');
 
@@ -335,7 +333,11 @@ for (const mobile of [false, true]) {
   await page.evaluate(() => { location.hash = '#asset/mx-asset'; });
   await page.waitForFunction(() => document.querySelector('#adTitle').textContent === 'Matrix Asset');
   const opener = page.locator('#adGallery .ad-thumb[data-ad-index="2"]');
-  if (mobile) await opener.tap(); else await opener.click();
+  // Open via a synthetic click so no auto-scroll happens; capture the exact
+  // resting page position the viewer must restore on close.
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+  const beforeOpenY = await page.evaluate(() => window.scrollY || 0);
+  await page.evaluate(() => document.querySelector('#adGallery .ad-thumb[data-ad-index="2"]').click());
   await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
   assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('g1.png'), `${mode}: viewer opens the selected original`);
   assert.equal(await page.locator('#publicLightboxPosition').innerText(), '3 / 14', `${mode}: position tracks cover-first collection`);
@@ -356,7 +358,6 @@ for (const mobile of [false, true]) {
   assert.ok(Math.abs(stageFit.dx) <= 2 && Math.abs(stageFit.dy) <= 2, `${mode}: artwork centers on the media stage (dx=${stageFit.dx.toFixed(2)}, dy=${stageFit.dy.toFixed(2)})`);
   assert.ok(stageFit.navOffsets.every((d) => d <= 2), `${mode}: viewer navigation centers on the media stage`);
   assert.equal(stageFit.barClears, true, `${mode}: the toolbar clears the media stage`);
-  const lockY = await page.evaluate(() => window.scrollY);
   assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', `${mode}: background locks while open`);
   await page.locator('#publicLightboxZoomIn').click();
   const zoomed = await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform);
@@ -366,7 +367,9 @@ for (const mobile of [false, true]) {
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
   assert.equal(await page.evaluate(() => document.body.style.overflow === '' || document.body.style.overflow === 'visible' || getComputedStyle(document.body).overflow === 'visible'), true, `${mode}: lock restores on close`);
-  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - lockY) <= 2, `${mode}: no scroll jump on close`);
+  // Escape owns a history entry, so the scroll restore lands on the async popstate path.
+  await page.waitForFunction((y) => Math.abs((window.scrollY || 0) - y) <= 2, beforeOpenY, { timeout: 3000 }).catch(() => {});
+  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - beforeOpenY) <= 2, `${mode}: no scroll jump on close (before=${beforeOpenY}, after=${await page.evaluate(() => window.scrollY)})`);
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '2', `${mode}: focus returns to the opener`);
   // Back dismisses before route change.
   if (mobile) await opener.tap(); else await opener.click();
