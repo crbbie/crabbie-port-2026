@@ -5238,6 +5238,179 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS shared touch controls: music/menu stack, 44px targets and 16px fields across 13 viewports, DPR and touch states (SDK fixture)');
 
+    // ---- Cross-device integration sweep: every view at the exact matrix ----
+    // Final regression net over BUG-01..BUG-08: document/body widths on every
+    // public view at all 18 audit viewports, with escaping-descendant traces
+    // so a failure names its culprit instead of just a number. No application
+    // behavior changes here; a genuinely new defect must be reported, not
+    // compensated for.
+    const SWEEP_MATRIX = [[320, 568], [360, 640], [375, 667], [375, 812], [390, 844], [393, 852], [414, 896], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [810, 1080], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    const SWEEP_VIEWS = [['home', 'home'], ['portfolio', 'portfolio'], ['project/long-title-stress', 'project-detail'], ['commissions', 'commissions'], ['free-assets', 'free-assets'], ['asset/sun-petal-pack', 'free-asset-detail'], ['about', 'about'], ['terms', 'terms'], ['contact', 'contact'], ['nope-missing-route', '404']];
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'long-title-stress', title:'Title'.repeat(50), description:'https://example.test/caption/' + 'X'.repeat(120) + '/end', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'long-badge-stress', title:'Badge Stress', description:'', cat:'Category'.repeat(15), tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'img-r11', title:'Art 1:1', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'img-r916', title:'Art 9:16', description:'', cat:'Vtuber', tags:[], thumbnail:'', cover:'https://example.test/art-720x1280.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'img-missing', title:'Missing', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true}
+      ]);
+      window.CrabbieAssets.apply([
+        {slug:'sun-petal-pack', title:'Sun Petal Pack', cat:'Brushes', format:'ZIP', availability:'available', downloadUrl:'https://example.test/sun.zip', showDirectDownload:true, showDriveDownload:false, flowerTag:'', featured:false, filterCat:'brushes', tags:[], thumbnail:'', icon:'❀'}
+      ]);
+      window.CrabbieCommissions.apply([{slug:'illus-service', name:'Illus Service', title:'Illus Service', description:'An illustration service.', price:'$50', priceNumeric:50, currency:'USD', availability:'open', formType:'illustration', formLabel:'Illustration form', thumbnail:'', featured:false, published:true, includedFiles:'PNG', canvas:'', deliveryEstimate:'2 weeks'}], [{slug:'illustration', title:'Illustration', description:'', published:true, fields:[
+        {id:'name', type:'text', label:'Name', placeholder:'Your name', help:'', required:true, contactRole:'name'},
+        {id:'idea', type:'textarea', label:'Idea', placeholder:'Describe', help:'', required:false, contactRole:'none'}
+      ]}]);
+      const inner = document.querySelector('.profile-inner');
+      if (inner && !inner.querySelector('img')) {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+        inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+      }
+    });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const sweepView = async (pg, hash, view) => {
+      await pg.evaluate((h) => { location.hash = '#' + h; }, hash);
+      await pg.waitForFunction((v) => document.querySelector('.view.is-active')?.dataset.view === v, view);
+      await pg.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      return pg.evaluate(() => {
+        const doc = document.documentElement, body = document.body;
+        const right = body.getBoundingClientRect().right;
+        const culprits = [];
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+        let el;
+        while ((el = walker.nextNode())) {
+          if (culprits.length >= 3) break;
+          const b = el.getBoundingClientRect();
+          if (b.width > 0 && b.height > 0 && b.right > right + 1) {
+            const cls = el.className && el.className.baseVal !== undefined ? '[svg]' : String(el.className || '').slice(0, 40);
+            culprits.push(`<${el.tagName}${el.id ? '#' + el.id : ''}.${cls}>@${Math.round(b.right)}`);
+          }
+        }
+        return {
+          docCW: doc.clientWidth, docSW: doc.scrollWidth,
+          bodyCW: body.clientWidth, bodySW: body.scrollWidth,
+          scrollX: window.scrollX, culprits
+        };
+      });
+    };
+    for (const [width, height] of SWEEP_MATRIX) {
+      await page.setViewportSize({width, height});
+      for (const [hash, view] of SWEEP_VIEWS) {
+        const m = await sweepView(page, hash, view);
+        const at = `${width}x${height} ${view}`;
+        assert.ok(m.docSW <= m.docCW + 1, `no document overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        assert.ok(m.bodySW <= m.bodyCW + 1, `no body overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        assert.equal(m.scrollX, 0, `root never drifts at ${at}`);
+      }
+    }
+    // Stress interactions on the integrated fixtures (no real submissions).
+    await page.setViewportSize({width: 390, height: 844});
+    await sweepView(page, 'portfolio', 'portfolio');
+    const longMeta = await page.evaluate(() => {
+      const card = document.querySelector('#pfGrid [data-project="long-title-stress"]');
+      const meta = card.querySelector('.meta');
+      const cb = card.getBoundingClientRect(), mb = meta.getBoundingClientRect();
+      return {inside: mb.top >= cb.top - 1 && mb.bottom <= cb.bottom + 1, titleChars: card.querySelector('.work-title').textContent.length};
+    });
+    assert.ok(longMeta.inside && longMeta.titleChars === 250, 'integrated long title stays bounded with full text');
+    const r916 = await page.evaluate(() => {
+      const card = document.querySelector('#pfGrid [data-project="img-r916"]');
+      const img = card.querySelector('.thumb img');
+      const ib = img.getBoundingClientRect();
+      return {ratioOk: Math.abs(ib.height - ib.width * img.naturalHeight / img.naturalWidth) <= 1.5, metaBelow: card.querySelector('.meta').getBoundingClientRect().top >= ib.bottom - 1};
+    });
+    assert.ok(r916.ratioOk && r916.metaBelow, 'integrated tall artwork stays complete with meta below');
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="short-normal"]:visible').count(), 1, 'filter keeps the match');
+    assert.equal(await page.locator('#pfGrid [data-project="long-title-stress"]:visible').count(), 0, 'filter hides the rest');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    await page.locator('#pfSearch').fill('zzz-no-such-project');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('#pfGrid [data-project]:visible').count(), 0, 'empty search matches nothing');
+    assert.ok(await page.locator('#pfEmpty').isVisible(), 'empty search shows the empty state');
+    await page.locator('#pfSearch').fill('');
+    await sweepView(page, 'commissions', 'commissions');
+    await page.locator('[data-cms-service="illus-service"] .acc-btn').click();
+    assert.ok(await page.locator('[data-cms-service="illus-service"] .acc.open').isVisible(), 'commission accordion expands');
+    await page.locator('#commissionSubmit').click();
+    await page.waitForTimeout(300);
+    assert.ok((await page.locator('#commissionForm .field-error').count()) >= 1, 'empty submit shows validation errors');
+    assert.equal(await page.locator('#briefResult:not([hidden])').count(), 0, 'invalid submit never reports success');
+    await sweepView(page, 'project/long-title-stress', 'project-detail');
+    assert.ok((await page.locator('#pdTitle').innerText()).length >= 200, 'long project detail renders its full title');
+    await sweepView(page, 'asset/sun-petal-pack', 'free-asset-detail');
+    assert.ok(await page.locator('[data-view="free-asset-detail"]').isVisible(), 'asset detail renders');
+    // Motion-allowed leg: layout must hold while animations run.
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
+      await page.setViewportSize({width, height});
+      for (const [hash, view] of [['home', 'home'], ['portfolio', 'portfolio'], ['about', 'about']]) {
+        const m = await sweepView(page, hash, view);
+        assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, `motion-allowed layout holds at ${width}x${height} ${view}`);
+      }
+    }
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    // Touch context: matrix widths on the touch-heavy views plus menu/focus.
+    const sweepTouch = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await sweepTouch.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const sp = await sweepTouch.newPage();
+      sp.setDefaultTimeout(20000);
+      await sp.goto(origin + '/#home', {waitUntil: 'load'});
+      await sp.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await sp.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+      await sp.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      await sp.evaluate(() => {
+        window.CrabbiePortfolio.apply([
+          {slug:'long-title-stress', title:'Title'.repeat(50), description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+      window.CrabbieCommissions.apply([{slug:'illus-service', name:'Illus Service', title:'Illus Service', description:'An illustration service.', price:'$50', priceNumeric:50, currency:'USD', availability:'open', formType:'illustration', formLabel:'Illustration form', thumbnail:'', featured:false, published:true, includedFiles:'PNG', canvas:'', deliveryEstimate:'2 weeks'}], [{slug:'illustration', title:'Illustration', description:'', published:true, fields:[
+          {id:'name', type:'text', label:'Name', placeholder:'Your name', help:'', required:true, contactRole:'name'}
+        ]}]);
+      });
+      for (const [width, height] of SWEEP_MATRIX) {
+        await sp.setViewportSize({width, height});
+        for (const [hash, view] of [['home', 'home'], ['portfolio', 'portfolio'], ['commissions', 'commissions'], ['about', 'about']]) {
+          const m = await sweepView(sp, hash, view);
+          const at = `${width}x${height} touch ${view}`;
+          assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, `no touch overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        }
+      }
+      await sp.setViewportSize({width: 844, height: 390});
+      await sweepView(sp, 'home', 'home');
+      await sp.locator('#navBurger').tap();
+      await sp.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+      const touchMenu = await menuAudit(sp);
+      assert.ok(touchMenu.items.every((it) => it.owned), 'touch sweep menu items own hit-testing');
+      await sp.locator('#navBurger').tap();
+      await sweepView(sp, 'commissions', 'commissions');
+      await sp.locator('#commissionForm .tab-panel.on input').first().tap();
+      await sp.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await sp.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'touch sweep music hides on focus');
+      // DPR2 sanity in CSS px.
+      const dprCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce', deviceScaleFactor: 2});
+      try {
+        await dprCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+        const dp = await dprCtx.newPage();
+        dp.setDefaultTimeout(20000);
+        await dp.goto(origin + '/#home', {waitUntil: 'load'});
+        await dp.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+        await dp.setViewportSize({width: 390, height: 844});
+        const m = await sweepView(dp, 'home', 'home');
+        assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, 'no overflow at DPR2');
+      } finally {
+        await dprCtx.close();
+      }
+    } finally {
+      await sweepTouch.close();
+    }
+    // Restore boot baselines for the admin sections.
+    await page.evaluate(() => { window.CrabbieCommissions.apply([], []); });
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS cross-device integration sweep: 18 viewports x every public view plus touch, motion and DPR legs (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
