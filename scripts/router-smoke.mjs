@@ -3598,6 +3598,207 @@ try {
     assert.equal(await page.evaluate(() => location.hash), '#project/normal-b', 'detail prev/next skips image cards');
     console.log('PASS image cards lightbox without navigating and galleries zoom uncropped (SDK fixture)');
 
+    // ---- Asset preview galleries + shared viewer collections ----
+    await page.evaluate(() => {
+      window.CrabbieAssets.apply([
+        {slug:'gal-many',title:'Gallery Many',cat:'Brushes',format:'PNG',icon:'★',description:'Has previews',version:'',date:'',credit:'',license:'',update:'',availability:'available',downloadUrl:'media/pack.zip',driveUrl:'',showDirectDownload:true,showDriveDownload:false,featured:false,published:true,tags:[],thumbnail:'media/cover.png',coverAlt:'Cover words',gallery:[
+          {id:'p1',url:'media/prev1.png',alt:'First',caption:'First caption'},
+          {id:'p2',url:'media/anim.gif',alt:'Animated',caption:''},
+          {id:'p3',url:'media/broken.png',alt:'Broken',caption:''}
+        ]},
+        {slug:'gal-single',title:'Gallery Single',cat:'Brushes',format:'PNG',icon:'★',description:'',version:'',date:'',credit:'',license:'',update:'',availability:'available',downloadUrl:'media/pack.zip',driveUrl:'',showDirectDownload:true,showDriveDownload:false,featured:false,published:true,tags:[],thumbnail:'media/cover.png',coverAlt:'',gallery:[]},
+        {slug:'gal-nocover',title:'Gallery No Cover',cat:'Brushes',format:'PNG',icon:'❀',description:'',version:'',date:'',credit:'',license:'',update:'',availability:'unavailable',downloadUrl:'',driveUrl:'',showDirectDownload:true,showDriveDownload:false,featured:false,published:true,tags:[],thumbnail:'',coverAlt:'',gallery:[
+          {id:'n1',url:'media/only.png',alt:'Only',caption:''}
+        ]}
+      ]);
+      location.hash = '#asset/gal-many';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    await page.locator('#adGallery .ad-thumb').first().waitFor({state:'visible'});
+    assert.equal(await page.locator('#adGallery .ad-thumb').count(), 3, 'ordered gallery thumbs render below the cover');
+    const firstThumbSrc = await page.locator('#adGallery .ad-thumb img').first().getAttribute('src');
+    assert.ok(firstThumbSrc.includes('/render/image/'), 'raster thumbs use the small transformed variant, not the original');
+    const gifThumbSrc = await page.locator('#adGallery .ad-thumb img').nth(1).getAttribute('src');
+    assert.ok(!gifThumbSrc.includes('/render/image/'), 'animated sources keep their original in thumbnails');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#adGallery img[src$="prev1.png"]').length), 0, 'full-resolution originals are not preloaded by the grid');
+    // Broken thumbs keep a stable fallback box instead of collapsing.
+    await page.evaluate(() => {
+      const img = document.querySelectorAll('#adGallery .ad-thumb img')[2];
+      img.dispatchEvent(new Event('error'));
+      img.dispatchEvent(new Event('error'));
+    });
+    assert.equal(await page.locator('#adGallery .ad-thumb').nth(2).isVisible(), true, 'a broken thumb keeps its stable box');
+    // Thumb 2 of 3 opens the viewer at position 3/4 (cover is first).
+    await page.locator('#adGallery .ad-thumb[data-ad-index="2"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('anim.gif'), 'the viewer opens the selected original on demand');
+    assert.equal(await page.locator('#publicLightboxPosition').innerText(), '3 / 4', 'the position indicator tracks the collection');
+    await page.locator('#publicLightboxNext').click();
+    await page.waitForFunction(() => document.getElementById('publicLightboxPosition').textContent === '4 / 4');
+    await page.locator('#publicLightboxNext').click();
+    await page.waitForFunction(() => document.getElementById('publicLightboxPosition').textContent === '1 / 4');
+    assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('cover.png'), 'next wraps from the last preview to the cover');
+    await page.locator('#publicLightboxPrev').click();
+    await page.waitForFunction(() => document.getElementById('publicLightboxPosition').textContent === '4 / 4');
+    // A slow/broken image shows error + retry instead of stranding the UI.
+    await page.waitForFunction(() => !document.getElementById('publicLightboxError').hidden);
+    assert.equal(await page.locator('#publicLightboxStatus').innerText(), 'This image could not be loaded. Retry is available.', 'load failures are announced once');
+    await page.locator('#publicLightboxRetry').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightboxError').hidden);
+    await page.locator('#publicLightboxErrorClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Rapid stepping never displays a stale image/caption pair.
+    await page.locator('#adGallery .ad-thumb[data-ad-index="1"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    for (let i = 0; i < 6; i += 1) await page.locator('#publicLightboxNext').click();
+    await page.waitForFunction(() => document.getElementById('publicLightboxPosition').textContent === '4 / 4');
+    assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('broken.png'), 'rapid next steps land on the newest image, never a stale one');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // The cover opens the same viewer as item one, with focus restored after.
+    await page.locator('[data-view="free-asset-detail"] .ad-preview-trigger').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxPosition').innerText(), '1 / 4', 'the asset cover inspects as the first viewer item');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '0', 'focus returns to the actual opener');
+    // Browser Back dismisses the viewer before any route change.
+    await page.locator('#adGallery .ad-thumb[data-ad-index="1"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    const viewerHash = await page.evaluate(() => location.hash);
+    await page.goBack();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.evaluate(() => location.hash), viewerHash, 'Back closes the viewer without navigating away');
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '1', 'Back restores focus to the opener');
+    // Single-image assets keep single-image behavior: no prev/next chrome.
+    await page.evaluate(() => { location.hash = '#asset/gal-single'; });
+    await page.waitForFunction(() => document.querySelector('#adTitle').textContent === 'Gallery Single');
+    assert.equal(await page.locator('#adGalleryWrap').isVisible(), false, 'a cover-only asset shows no gallery section');
+    await page.locator('[data-view="free-asset-detail"] .ad-preview-trigger').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxPrev').isVisible(), false, 'single images show no previous control');
+    assert.equal(await page.locator('#publicLightboxPosition').isVisible(), false, 'single images show no position indicator');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // No cover never hides valid additional previews.
+    await page.evaluate(() => { location.hash = '#asset/gal-nocover'; });
+    await page.waitForFunction(() => document.querySelector('#adTitle').textContent === 'Gallery No Cover');
+    assert.equal(await page.locator('#adGallery .ad-thumb').count(), 1, 'previews render without a cover');
+    assert.equal(await page.locator('[data-view="free-asset-detail"] .ad-preview img').count(), 0, 'the missing cover falls back to the icon');
+    // Portfolio cover inspection keeps cover geometry and skips history noise.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'cover-probe',title:'Cover Probe',desc:'',cat:'Illustration',tags:[],thumbnail:'',cover:'media/projcover.png',blocks:[],credits:'',year:''}
+      ]);
+      location.hash = '#project/cover-probe';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    const coverProbe = await page.evaluate(() => {
+      const cover = document.getElementById('pdCover');
+      const img = cover ? cover.querySelector(':scope > img') : null;
+      return {
+        directImg: Boolean(img),
+        trigger: Boolean(cover && cover.querySelector('[data-cover-viewer]')),
+        aspect: cover ? cover.getBoundingClientRect().width / Math.max(1, cover.getBoundingClientRect().height) : 0
+      };
+    });
+    assert.equal(coverProbe.directImg, true, 'the cover artwork stays the direct layout child');
+    assert.equal(coverProbe.trigger, true, 'the cover exposes a keyboard-accessible trigger');
+    assert.ok(Math.abs(coverProbe.aspect - (4 / 3)) < 0.08, 'the trigger changes no cover geometry');
+    await page.locator('#pdCover [data-cover-viewer]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('projcover.png'), 'the cover inspects its original source');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Keyboard-only open through the trigger.
+    await page.locator('#pdCover [data-cover-viewer]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-cover-viewer')), true, 'keyboard focus returns to the cover trigger');
+    // No scroll jump, no page-level overflow from viewer or gallery work.
+    const viewerOverflow = await page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      body: document.body.scrollWidth - document.body.clientWidth,
+      x: window.scrollX || 0
+    }));
+    assert.ok(viewerOverflow.doc <= 1 && viewerOverflow.body <= 1 && viewerOverflow.x === 0, 'document and body overflow stay within 1px with zero scrollX');
+    console.log('PASS asset preview galleries and shared viewer collections (SDK fixture)');
+
+    // ---- Asset preview galleries: admin authoring round trip ----
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.free_assets = [{
+        id: '00000000-0000-4000-8000-000000000701', slug: 'gal-edit', title: 'Gal Edit',
+        description: 'Editable gallery asset', thumbnail_path: 'media/gal-cover.png', cover_path: '',
+        file_path: 'media/gal-edit.zip', file_type: 'ZIP', availability: 'available',
+        featured: false, published: true, sort_order: 0, updated_at: '2026-01-01T00:00:00Z',
+        metadata: {
+          cat: 'Brushes', tags: ['Brushes'],
+          gallery: [
+            {id:'e1', url:'media/e1.png', alt:'E1', caption:''},
+            {id:'e2', url:'media/e2.png', alt:'E2', caption:'Second'}
+          ]
+        }
+      }];
+      window.__routerRows.portfolio_projects = [];
+      window.__routerRows.site_settings = [];
+      window.__routerWrites = [];
+    });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('assets');
+    await page.locator('[data-adm-ag-list="gal-edit"] .adm-gallery-item').first().waitFor({state:'visible'});
+    assert.equal(await page.locator('[data-adm-ag-list="gal-edit"] .adm-gallery-item').count(), 2, 'hydrated gallery rows render in order');
+    assert.equal(await page.locator('[data-adm-ag-lib="gal-edit"]').count(), 1, 'the gallery has one library multi-select entry');
+    assert.equal(await page.locator('[data-adm-ag-upload="gal-edit"]').count(), 1, 'the gallery uploads through the existing pipeline');
+    // Alt typing touches only the draft; move reorders; remove drops one row.
+    await page.locator('[data-adm-ag-id="gal-edit"][data-adm-ag-item="e1"][data-adm-ag-key="alt"]').fill('Edited alt');
+    await page.locator('[data-adm-ag-move="gal-edit"][data-adm-ag-item="e1"][data-adm-ag-dir="down"]').click();
+    assert.deepEqual(
+      await page.locator('[data-adm-ag-list="gal-edit"] .adm-gallery-item').evaluateAll((rows) => rows.map((r) => r.getAttribute('data-adm-ag-row'))),
+      ['e2', 'e1'],
+      'move down swaps keyboard-accessibly and keeps focus context'
+    );
+    await page.locator('[data-adm-ag-del="gal-edit"][data-adm-ag-item="e2"]').click();
+    assert.equal(await page.locator('[data-adm-ag-list="gal-edit"] .adm-gallery-item').count(), 1, 'removal unlinks the row without touching Storage');
+    await page.locator('[data-adm-path="assets.gal-edit.coverAlt"]').fill('Cover words');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'free_assets'));
+    const galleryWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'free_assets').slice(-1)[0]);
+    assert.deepEqual(
+      galleryWrite.payload.metadata.gallery,
+      [{id:'e1', url:'media/e1.png', alt:'Edited alt', caption:''}],
+      'the save serializes order, stable ids and edited text with no cover duplication'
+    );
+    assert.equal(galleryWrite.payload.metadata.coverAlt, 'Cover words', 'the cover alt persists beside the gallery');
+    assert.equal(galleryWrite.payload.file_path, 'media/gal-edit.zip', 'the download reference is untouched by gallery edits');
+    // Reload: the saved gallery survives hydration and reaches the public page.
+    const savedAssetRow = await page.evaluate(() => (window.__routerRows.free_assets || []).slice(-1)[0]);
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.free_assets = row ? [row] : [];
+    }, savedAssetRow);
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('assets');
+    await page.locator('[data-adm-ag-list="gal-edit"] .adm-gallery-item').first().waitFor({state:'visible'});
+    assert.equal(await page.locator('[data-adm-ag-id="gal-edit"][data-adm-ag-item="e1"][data-adm-ag-key="alt"]').inputValue(), 'Edited alt', 'the saved alt survives an admin reload');
+    await page.addInitScript((row) => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.free_assets = row ? [row] : [];
+    }, savedAssetRow);
+    await page.goto(origin + '/#asset/gal-edit', {waitUntil: 'load'});
+    await page.locator('#adGallery .ad-thumb').first().waitFor({state:'visible'});
+    assert.equal(await page.locator('#adGallery .ad-thumb').count(), 1, 'the saved preview reaches the public gallery');
+    console.log('PASS asset gallery admin authoring round trip (SDK fixture)');
+
     // ---- Patch 5 J: category clouds/filters, flower badges, download buttons ----
     await page.evaluate(() => {
       window.CrabbiePortfolio.apply([
@@ -3728,7 +3929,14 @@ try {
     await page.locator('[data-adm-settings-group="Music"]').click();
     await page.waitForSelector('[data-adm-mediaupload="settings.music.url"]');
     // A storage audio URL must render an audio player, never a broken image.
-    await page.waitForSelector('[data-adm-media-preview="settings.music.url"] audio');
+    // The offline fixture fails the media fetch fast, so the audio may beat
+    // this check into its settled audio-error state; either settled state
+    // proves the audio-kind preview rendered (never an image).
+    await page.waitForFunction(() => {
+      const wrap = document.querySelector('[data-adm-media-preview="settings.music.url"]');
+      const audio = wrap && wrap.querySelector('audio');
+      return Boolean(audio) && (audio.offsetParent !== null || wrap.classList.contains('is-audio-error'));
+    });
     assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"]').getAttribute('data-adm-media-resolved'), 'audio', 'a storage audio URL resolves to the audio preview');
     assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"] img').count(), 0, 'an audio URL is never rendered as an image');
     assert.equal(await page.locator('[data-adm-media-preview="settings.music.url"].is-broken').count(), 0, 'an audio URL never shows the broken-image warning');

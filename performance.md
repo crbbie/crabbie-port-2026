@@ -44,6 +44,13 @@ Use the canonical original for:
 
 Do not render large original artwork everywhere just because the public URL exists.
 
+Asset preview galleries render at most 12 contained thumbnails per batch
+(`loading="lazy"`, stable boxes, transform variant with original fallback for
+still raster; GIF/SVG always use the original so animation/vectors survive).
+Full-resolution originals load on demand in the shared viewer only — the grid
+never preloads every original of a large gallery. No autoplay, no mandatory
+swipe navigation.
+
 ## Upload pipeline
 
 Current rules:

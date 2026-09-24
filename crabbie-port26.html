@@ -1480,6 +1480,49 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
     max-height:calc(100dvh - 270px);}
 }
 
+/* ---- Asset preview galleries + shared viewer collections ---- */
+/* Public asset gallery: cover stays first in .ad-preview; additional contained
+   previews render below in a responsive grid with stable boxes. Every cell can
+   shrink (min-width:0) so long CMS tokens never widen the document. */
+.ad-gallery-wrap{ margin-top:34px; min-width:0; }
+.ad-gallery-title{font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--berry); margin-bottom:16px;}
+.ad-gallery{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:16px; min-width:0;}
+.ad-thumb{position:relative; display:grid; place-items:center; width:100%; min-width:0; aspect-ratio:1/1; padding:0; border:3px solid #fff; border-radius:20px; overflow:hidden; cursor:zoom-in; background:linear-gradient(160deg,#ffd1e3 0%,#e6dcff 100%); box-shadow:0 0 0 3px var(--pink-light),0 14px 28px -18px rgba(217,74,128,.5);}
+.ad-thumb img{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover;}
+.ad-thumb-fallback{font-size:30px; color:var(--berry-soft); line-height:1;}
+.ad-thumb:hover{transform:translateY(-3px);}
+.ad-thumb:focus-visible{outline:3px solid var(--purple-hot); outline-offset:3px;}
+.ad-thumb-broken{display:grid; place-items:center; width:100%; height:100%; min-height:120px; font-size:34px; color:var(--berry-soft); background:linear-gradient(160deg,#ffe3ef 0%,#f0e0ff 100%);}
+.ad-gallery-more{margin-top:18px; text-align:center;}
+@media (max-width:640px){ .ad-gallery{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px;} }
+/* Cover inspection triggers: an invisible overlay button keeps the artwork
+   itself as the direct layout child (cover geometry/overflow fixes untouched)
+   while exposing a keyboard-accessible viewer entry point. */
+.pd-cover-trigger, .ad-preview-trigger{position:absolute; inset:0; z-index:2; display:block; width:100%; height:100%; padding:0; border:0; border-radius:inherit; background:transparent; cursor:zoom-in;}
+.pd-cover-trigger:focus-visible, .ad-preview-trigger:focus-visible{outline:3px solid var(--purple-hot); outline-offset:4px;}
+/* Shared viewer collection chrome: fixed nav/status/loading/error layers never
+   join the phone-portrait content stack, so hidden rows still consume zero. */
+.public-lightbox-nav{position:fixed; top:50%; transform:translateY(-50%); z-index:3; width:46px; height:46px; border-radius:50%; border:2px solid #fff; background:rgba(255,255,255,.94); color:var(--pink-hot); font-size:22px; font-weight:800; line-height:1; cursor:pointer; display:grid; place-items:center; box-shadow:0 8px 24px rgba(0,0,0,.25);}
+.public-lightbox-nav:hover{border-color:var(--pink-hot);}
+.public-lightbox-nav:focus-visible{outline:3px solid #fff; outline-offset:3px;}
+.public-lightbox-prev{left:max(14px, env(safe-area-inset-left, 0px));}
+.public-lightbox-next{right:max(14px, env(safe-area-inset-right, 0px));}
+.public-lightbox-nav[hidden]{display:none !important;}
+.public-lightbox-status{display:flex; gap:10px; align-items:center; padding:0 14px; font-family:var(--font-body); font-weight:800; font-size:12.5px; color:var(--berry-soft); white-space:nowrap;}
+.public-lightbox-loading{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:3; padding:12px 22px; border-radius:999px; background:rgba(255,255,255,.94); border:2px solid var(--pink-light); font-family:var(--font-body); font-weight:800; font-size:13px; color:var(--berry-soft);}
+.public-lightbox-loading[hidden]{display:none !important;}
+.public-lightbox-error{position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:3; max-width:min(92%,420px); padding:20px 24px; border-radius:20px; background:#fff; border:2px solid var(--pink-light); text-align:center; font-family:var(--font-body); font-size:13.5px; font-weight:700; color:var(--berry); box-shadow:0 24px 60px rgba(0,0,0,.3);}
+.public-lightbox-error[hidden]{display:none !important;}
+.public-lightbox-error .row{display:flex; gap:10px; justify-content:center; margin-top:14px;}
+/* Editor asset-gallery rows reuse the admin media-item look with own hooks. */
+.adm-gallery-item{border:2px solid var(--pink-light); border-radius:18px; padding:12px; margin-bottom:12px; background:#fff;}
+.adm-gallery-item .mi-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+.adm-gallery-item .mi-actions button{padding:6px 12px; border-radius:10px; border:2px solid var(--pink-light); background:#fff; cursor:pointer; font-weight:700; font-size:12px;}
+.adm-gallery-item .mi-actions button:hover{border-color:var(--pink-hot);}
+.adm-gallery-item .ag-error{margin-top:8px; font-size:12.5px; font-weight:700; color:#b03060;}
+.adm-gallery-item .ag-thumb{width:72px; height:72px; flex:0 0 72px; border-radius:14px; overflow:hidden; background:var(--pink-soft); display:grid; place-items:center;}
+.adm-gallery-item .ag-thumb img{width:100%; height:100%; object-fit:cover;}
+
 /* ---- TOS nav buttons ---- */
 .tos-nav button{display:block; width:100%; text-align:left;padding:9px 12px; border-radius:14px; border:none; background:none;font-family:var(--font-body); font-size:12.5px; font-weight:800; color:var(--berry-soft);transition:.25s; cursor:pointer;}
 .tos-nav button:hover{ background:var(--pink-soft); color:var(--berry); transform:translateX(3px); }
@@ -3423,6 +3466,11 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           </div>
         </div>
       </div>
+      <div class="ad-gallery-wrap" id="adGalleryWrap" hidden>
+        <h3 class="ad-gallery-title">Preview gallery</h3>
+        <div class="ad-gallery" id="adGallery"></div>
+        <div class="ad-gallery-more" id="adGalleryMoreWrap" hidden><button class="btn btn-ghost" type="button" id="adGalleryMore">Show more previews</button></div>
+      </div>
       <div class="ad-cta">
         <h3>Something made just for you?</h3>
         <div class="row">
@@ -4053,8 +4101,20 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
   <img id="publicLightboxImg" alt="">
   <p class="public-lightbox-caption" id="publicLightboxCaption" hidden></p>
   <div class="public-lightbox-credits" id="publicLightboxCredits" hidden></div>
+  <button class="public-lightbox-nav public-lightbox-prev" id="publicLightboxPrev" type="button" aria-label="Previous image" hidden>‹</button>
+  <button class="public-lightbox-nav public-lightbox-next" id="publicLightboxNext" type="button" aria-label="Next image" hidden>›</button>
+  <div class="public-lightbox-loading" id="publicLightboxLoading" hidden>Loading image…</div>
+  <div class="public-lightbox-error" id="publicLightboxError" hidden>
+    <p>This image could not be loaded.</p>
+    <div class="row">
+      <button type="button" class="adm-btn-sm primary" id="publicLightboxRetry">Retry</button>
+      <button type="button" class="adm-btn-sm" id="publicLightboxErrorClose">Close</button>
+    </div>
+  </div>
+  <p class="sr-only" id="publicLightboxStatus" role="status" aria-live="polite"></p>
   <div class="public-lightbox-bar" id="publicLightboxBar" role="group" aria-label="Image zoom controls">
     <button type="button" id="publicLightboxZoomOut" aria-label="Zoom out">−</button>
+    <span class="public-lightbox-status"><span id="publicLightboxPosition" hidden></span><span id="publicLightboxZoomLabel">100%</span></span>
     <button type="button" id="publicLightboxReset" aria-label="Reset zoom">Reset</button>
     <button type="button" id="publicLightboxZoomIn" aria-label="Zoom in">+</button>
   </div>
@@ -4788,7 +4848,21 @@ function renderProject(id){
     var value = visibleCmsValue(facts[key]); el.textContent = value; el.parentElement.style.display = value ? '' : 'none';
   });
   var cover = document.getElementById('pdCover');
-  if(cover) cover.innerHTML = publicImage(p.cover, p.title) || '';
+  if(cover){
+    /* The artwork stays the direct layout child (cover geometry and overflow
+       fixes untouched); an overlay button exposes viewer inspection to mouse,
+       touch and keyboard without turning blocks into a slideshow. */
+    var coverSrc = safePublicUrl(p.cover, true);
+    cover.innerHTML = publicImage(p.cover, p.title) || '';
+    if(coverSrc){
+      var coverBtn = document.createElement('button');
+      coverBtn.type = 'button';
+      coverBtn.className = 'pd-cover-trigger';
+      coverBtn.setAttribute('data-cover-viewer', '1');
+      coverBtn.setAttribute('aria-label', 'Open cover image viewer' + (p.title ? ': ' + visibleCmsValue(p.title) : ''));
+      cover.appendChild(coverBtn);
+    }
+  }
   var blocks = Array.isArray(p.blocks) && p.blocks.length ? p.blocks : [
     {type:'text',text:p.intro},{type:'text',text:p.sketch},{type:'text',text:p.process},
     {type:'text',text:p.body},{type:'quote',text:p.quote}
@@ -4816,12 +4890,90 @@ function renderProject(id){
   if(linkHtml) html += '<article class="blk"><div class="blk-head"><h3>External links</h3></div><div class="blk-body">' + linkHtml + '</div></article>';
   var root = document.getElementById('pdBlocks'); if(root) root.innerHTML = html;
 }
+/* Asset preview thumbnails: still raster artwork uses a small transformed
+   variant with the canonical original as fallback; animated/vector sources
+   (GIF/SVG) always render the original so nothing freezes or rasterizes. */
+function assetThumbUrl(url){
+  var original = safePublicUrl(url, true);
+  if(!original) return { thumb: '', original: '' };
+  var raw = String(url == null ? '' : url).trim();
+  var lower = raw.split('?')[0].split('#')[0].toLowerCase();
+  if(!/\.(png|jpe?g|webp|avif|bmp)$/.test(lower)) return { thumb: original, original: original };
+  if(/^[a-zA-Z0-9][a-zA-Z0-9/_ .-]*$/.test(raw) && raw.indexOf('..') === -1 && window.CrabbieSupabase && window.CrabbieSupabase.supabase){
+    try{
+      var rendered = window.CrabbieSupabase.supabase.storage.from('media').getPublicUrl(raw.replace(/^media\//, ''), { transform: { width: 480, quality: 70, resize: 'cover' } });
+      var thumb = rendered && rendered.data && rendered.data.publicUrl;
+      if(thumb) return { thumb: thumb, original: original };
+    }catch(e){}
+  }
+  return { thumb: original, original: original };
+}
+/* Progressive gallery batches: 12 contained thumbnails at a time, lazy, so a
+   large gallery never preloads every full-resolution original. No autoplay,
+   no mandatory swipe. */
+var ASSET_GALLERY_BATCH = 12;
+var currentAssetThumbs = [];
+var assetGalleryShown = 0;
+function renderAssetGalleryBatch(){
+  var grid = document.getElementById('adGallery');
+  var moreWrap = document.getElementById('adGalleryMoreWrap');
+  if(!grid) return;
+  var next = currentAssetThumbs.slice(assetGalleryShown, assetGalleryShown + ASSET_GALLERY_BATCH);
+  next.forEach(function(t){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ad-thumb';
+    btn.setAttribute('data-ad-index', String(t.viewPos));
+    btn.setAttribute('aria-label', 'Open preview ' + (t.viewPos + 1) + (t.alt ? ': ' + t.alt : ''));
+    btn.innerHTML = '<span class="ad-thumb-fallback" aria-hidden="true">★</span><img src="' + esc(t.thumb) + '"' +
+      (t.thumb !== t.original ? ' data-original="' + esc(t.original) + '"' : '') +
+      ' alt="' + esc(t.alt || '') + '" loading="lazy" onerror="if(this.dataset.original&&!this.dataset.fbk){this.dataset.fbk=\'1\';this.src=this.dataset.original;}else{this.remove();}">';
+    grid.appendChild(btn);
+  });
+  assetGalleryShown += next.length;
+  if(moreWrap) moreWrap.hidden = assetGalleryShown >= currentAssetThumbs.length;
+}
 function renderAsset(id){
   var a = ASSETS[id]; if(!a) return;
   setText('adTitle', visibleCmsValue(a.title));
   setText('adCat', visibleCmsValue(a.cat));
+  /* Cover alt falls back to the title; the cover opens the shared viewer as
+     the first collection item (no prev/next UI when it stands alone). */
+  var coverAlt = (a.coverAlt && String(a.coverAlt).trim()) || a.title || '';
+  var coverSrc = safePublicUrl(a.thumbnail, true);
   var preview = document.querySelector('[data-view="free-asset-detail"] .ad-preview');
-  if(preview) preview.innerHTML = publicImage(a.thumbnail, a.title) || '<span class="big-icon" id="adIcon">' + esc(a.icon || '★') + '</span>';
+  if(preview){
+    if(coverSrc) preview.innerHTML = publicImage(a.thumbnail, coverAlt) + '<button type="button" class="ad-preview-trigger" data-ad-index="0" aria-label="Open cover image viewer"></button>';
+    else preview.innerHTML = '<span class="big-icon" id="adIcon">' + esc(a.icon || '★') + '</span>';
+  }
+  /* Combined viewer collection: cover first, then ordered gallery previews.
+     Invalid rows resolve to no URL and are skipped at render (the draft keeps
+     them for editor correction). No cover never hides valid previews.
+     Thumbnails derive from the raw authored reference so raster transforms
+     stay eligible; the viewer always opens the canonical original. */
+  var items = [];
+  if(coverSrc){
+    var coverPair = assetThumbUrl(a.thumbnail);
+    items.push({ src: coverSrc, alt: coverAlt || '', caption: '', thumb: coverPair.thumb, original: coverPair.original });
+  }
+  var gallery = Array.isArray(a.gallery) ? a.gallery : [];
+  gallery.forEach(function(g){
+    var rawUrl = g ? g.url : '';
+    var src = safePublicUrl(rawUrl, true);
+    if(!src) return;
+    var pair = assetThumbUrl(rawUrl);
+    items.push({ src: src, alt: (g && g.alt) || '', caption: visibleCmsValue(g && g.caption), thumb: pair.thumb, original: pair.original });
+  });
+  currentAssetViewerItems = items.map(function(item){ return { src: item.src, alt: item.alt, caption: item.caption }; });
+  currentAssetThumbs = items.slice(coverSrc ? 1 : 0).map(function(item, i){
+    return { viewPos: (coverSrc ? 1 : 0) + i, alt: item.alt, thumb: item.thumb || item.src, original: item.original || item.src };
+  });
+  assetGalleryShown = 0;
+  var grid = document.getElementById('adGallery');
+  if(grid) grid.innerHTML = '';
+  renderAssetGalleryBatch();
+  var wrap = document.getElementById('adGalleryWrap');
+  if(wrap) wrap.hidden = !currentAssetThumbs.length;
   var fields = {adFormat:a.format,adDesc:a.description,adVersion:a.version,adDate:a.date,adCredit:a.credit,adLicense:a.license,adUpdate:a.update};
   Object.keys(fields).forEach(function(key){
     var el = document.getElementById(key); if(!el) return;
@@ -4944,6 +5096,9 @@ function handleHash(){
    a different hash or a different route, so it still applies. */
 var nextRoute = routeFromLocation();
 if(location.hash === lastAppliedHash && sameRoute(nextRoute, currentRoute)) return;
+/* A skipped stale viewer entry already re-armed forward motion; the sync
+   popstate scheduled will reconcile if the hash is still stale. */
+if(viewerStaleSkip){ viewerStaleSkip = false; return; }
 if(adminExitBlocked(nextRoute)){
 /* The browser already moved: restore the admin route, ask once through the
    existing discard dialog, then replay the pending route exactly once. */
@@ -4952,10 +5107,12 @@ var restoreHash = lastAppliedHash == null ? '' : lastAppliedHash;
 try{ history.replaceState(null, '', location.pathname + location.search + restoreHash); }catch(e){}
 confirmDiscard(function(){
 try{ history.replaceState(null, '', location.pathname + location.search + restoreHash); }catch(e){}
+teardownViewerForRoute();
 if(!pendingHash || location.hash === pendingHash) applyRoute(nextRoute); else location.hash = pendingHash;
 });
 return;
 }
+teardownViewerForRoute();
 applyRoute(nextRoute, { restored: true });
 }
 window.addEventListener('beforeunload', function(event){
@@ -5604,11 +5761,24 @@ var publicLightboxCaption = document.getElementById('publicLightboxCaption');
 var publicLightboxZoomIn = document.getElementById('publicLightboxZoomIn');
 var publicLightboxZoomOut = document.getElementById('publicLightboxZoomOut');
 var publicLightboxReset = document.getElementById('publicLightboxReset');
+var publicLightboxPrev = document.getElementById('publicLightboxPrev');
+var publicLightboxNext = document.getElementById('publicLightboxNext');
+var publicLightboxPosition = document.getElementById('publicLightboxPosition');
+var publicLightboxZoomLabel = document.getElementById('publicLightboxZoomLabel');
+var publicLightboxLoading = document.getElementById('publicLightboxLoading');
+var publicLightboxError = document.getElementById('publicLightboxError');
+var publicLightboxRetry = document.getElementById('publicLightboxRetry');
+var publicLightboxErrorClose = document.getElementById('publicLightboxErrorClose');
+var publicLightboxStatus = document.getElementById('publicLightboxStatus');
 var lightboxScale = 1;
 var LIGHTBOX_MIN_SCALE = 1;
 var LIGHTBOX_MAX_SCALE = 4;
 var lightboxPan = { x: 0, y: 0 };
 var lightboxDragging = false;
+/* True while a touch/pointer manipulation is in flight: the zoomed gesture
+   policy class only flips on discrete changes or gesture end, because the
+   browser does not transfer touch-action ownership mid-gesture. */
+var lightboxGestureActive = false;
 function lightboxBounds(){
   /* Valid pan range for the current zoom: the image may move until its edge
      meets the dialog edge, never beyond. Measured live so orientation and
@@ -5633,14 +5803,23 @@ function paintLightboxTransform(animated){
   clampLightboxPan();
   publicLightboxImg.classList.toggle('anim-zoom', !!animated && !lightboxDragging);
   if(lightboxScale === 1 && lightboxPan.x === 0 && lightboxPan.y === 0) publicLightboxImg.style.transform = '';
+  else if(lightboxPan.x === 0 && lightboxPan.y === 0) publicLightboxImg.style.transform = 'scale(' + lightboxScale + ')';
   else publicLightboxImg.style.transform = 'translate(' + lightboxPan.x + 'px,' + lightboxPan.y + 'px) scale(' + lightboxScale + ')';
+  if(!lightboxGestureActive && publicLightbox) publicLightbox.classList.toggle('is-zoomed', lightboxScale > 1);
+}
+function syncZoomGestureClass(){
   if(publicLightbox) publicLightbox.classList.toggle('is-zoomed', lightboxScale > 1);
+}
+function syncZoomLabel(){
+  var text = Math.round(lightboxScale * 100) + '%';
+  if(publicLightboxZoomLabel && publicLightboxZoomLabel.textContent !== text) publicLightboxZoomLabel.textContent = text;
 }
 function setLightboxScale(next, animated){
   lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
   paintLightboxTransform(animated !== false);
+  syncZoomLabel();
 }
-function resetLightboxView(animated){ lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0; paintLightboxTransform(animated); }
+function resetLightboxView(animated){ lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0; paintLightboxTransform(animated); syncZoomLabel(); }
 var lightboxOpener = null;
 function lightboxFocusable(){
 if(!publicLightbox) return [];
@@ -5654,36 +5833,193 @@ return Array.prototype.filter.call(publicLightbox.querySelectorAll('button, [hre
   return true;
 });
 }
-function openPublicLightbox(src, alt, caption, slug){
-if(!publicLightbox || !publicLightboxImg || !src) return;
-lightboxOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
-publicLightboxImg.src = src; publicLightboxImg.alt = alt || '';
-resetLightboxView(false);
-if(publicLightboxCaption){
-  var text = caption == null ? '' : String(caption).trim();
-  publicLightboxCaption.textContent = text;
-  publicLightboxCaption.hidden = !text;
+/* Shared viewer collection state. Portfolio and asset adapters stay separate
+   (openProjectCoverViewer / openAssetViewerItem below); the controller never
+   fetches records and knows nothing about download availability. */
+var viewerItems = [];
+var viewerIndex = 0;
+var viewerSlug = null;
+var viewerGen = 0;
+var viewerOwnedEntry = false;
+var viewerStaleSkip = false;
+var viewerScrollY = 0;
+var viewerPrevOverflow = '';
+function viewerAnnounce(message){
+  if(publicLightboxStatus) publicLightboxStatus.textContent = message || '';
 }
-/* Portfolio image cards show collaborator credits; gallery lightboxes
-   without a project slug render no credit UI and clear stale People. */
-renderLightboxCredits(slug || null);
-publicLightbox.hidden = false; document.body.style.overflow = 'hidden';
-if(publicLightboxClose) publicLightboxClose.focus();
+function syncViewerChrome(){
+  var count = viewerItems.length;
+  var multi = count > 1;
+  if(publicLightboxPrev) publicLightboxPrev.hidden = !multi;
+  if(publicLightboxNext) publicLightboxNext.hidden = !multi;
+  if(publicLightboxPosition){
+    publicLightboxPosition.hidden = !multi;
+    if(multi) publicLightboxPosition.textContent = (viewerIndex + 1) + ' / ' + count;
+  }
+  syncZoomLabel();
+}
+function setViewerLoading(on){
+  if(publicLightboxLoading) publicLightboxLoading.hidden = !on;
+  if(on && publicLightboxError) publicLightboxError.hidden = true;
+}
+function setViewerError(on){
+  if(publicLightboxError) publicLightboxError.hidden = !on;
+  if(on && publicLightboxLoading) publicLightboxLoading.hidden = true;
+}
+function paintViewerItem(){
+  var item = viewerItems[viewerIndex] || {};
+  if(publicLightboxCaption){
+    var text = item.caption == null ? '' : String(item.caption).trim();
+    publicLightboxCaption.textContent = text;
+    publicLightboxCaption.hidden = !text;
+  }
+  /* Portfolio image contexts show collaborator credits; asset/gallery
+     contexts clear stale People UI. */
+  renderLightboxCredits(viewerSlug || null);
+  syncViewerChrome();
+  var count = viewerItems.length;
+  if(count > 1) viewerAnnounce('Image ' + (viewerIndex + 1) + ' of ' + count + (item.caption ? '. ' + item.caption : ''));
+  else if(item.caption) viewerAnnounce(item.caption);
+  else viewerAnnounce('');
+}
+/* Image change resets zoom/pan, never adds history, and guards stale loads:
+   a slow earlier request can never overwrite a newer image/caption. */
+function loadViewerIndex(index){
+  var count = viewerItems.length;
+  if(!count) return;
+  viewerIndex = ((Math.floor(Number(index) || 0) % count) + count) % count;
+  viewerGen += 1;
+  var gen = viewerGen;
+  resetLightboxView(false);
+  setViewerError(false);
+  setViewerLoading(true);
+  paintViewerItem();
+  var item = viewerItems[viewerIndex] || {};
+  publicLightboxImg.dataset.viewGen = String(gen);
+  publicLightboxImg.alt = item.alt || '';
+  publicLightboxImg.src = item.src;
+}
+function stepViewer(dir){
+  if(viewerItems.length <= 1 || !publicLightbox || publicLightbox.hidden) return;
+  loadViewerIndex(viewerIndex + (dir === 'prev' ? -1 : 1));
+}
+function openViewerCollection(items, index, opts){
+  opts = opts || {};
+  var list = (Array.isArray(items) ? items : []).filter(function(it){ return it && it.src; });
+  if(!publicLightbox || !publicLightboxImg || !list.length) return false;
+  viewerItems = list;
+  viewerSlug = opts.slug || null;
+  if(opts.opener && opts.opener.isConnected) lightboxOpener = opts.opener;
+  else if(publicLightbox.hidden){
+    lightboxOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+  }
+  if(publicLightbox.hidden){
+    /* Tested scroll lock: remember position + previous lock, restore both on
+       close with the instant primitive (never a smooth jump). */
+    viewerScrollY = window.scrollY || 0;
+    viewerPrevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    publicLightbox.hidden = false;
+    /* At most one namespaced same-URL history entry per opening; image steps
+       never push. Back dismisses the viewer before any route change. */
+    if(!viewerOwnedEntry){
+      viewerOwnedEntry = true;
+      try{ history.pushState({ crabbieViewer: true }, '', location.href); }
+      catch(e){ viewerOwnedEntry = false; }
+    }
+  }
+  loadViewerIndex(index || 0);
+  if(publicLightboxClose) publicLightboxClose.focus();
+  return true;
+}
+/* Legacy single-image entry point: every existing gallery/image-card trigger
+   keeps working and renders exactly one image with no prev/next UI. */
+function openPublicLightbox(src, alt, caption, slug, opener){
+if(!src) return;
+openViewerCollection([{ src: src, alt: alt || '', caption: caption || '' }], 0, { slug: slug || null, opener: opener || null });
+}
+/* Portfolio cover adapter: the original cover source, explicit opener and
+   the project credit context. Content blocks are never auto-collected. */
+function openProjectCoverViewer(opener){
+var p = PROJECTS[currentRoute.id];
+var src = p ? safePublicUrl(p.cover, true) : '';
+if(!src) return false;
+var title = p && p.title ? p.title : 'Project cover';
+return openViewerCollection([{ src: src, alt: title, caption: '' }], 0, { slug: currentRoute.id, opener: opener || null });
+}
+/* Asset adapter: cover first (when present), then ordered gallery previews. */
+var currentAssetViewerItems = [];
+function openAssetViewerItem(position, opener){
+if(!currentAssetViewerItems.length) return false;
+return openViewerCollection(currentAssetViewerItems, position || 0, { slug: null, opener: opener || null });
+}
+function teardownViewerUI(opts){
+opts = opts || {};
+if(!publicLightbox || publicLightbox.hidden) return;
+viewerGen += 1;
+pinchStart = null; dragStart = null;
+lightboxGestureActive = false; lightboxDragging = false;
+publicLightbox.hidden = true;
+/* Restore the previous lock style instead of clearing blindly. */
+document.body.style.overflow = viewerPrevOverflow;
+if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; try{ delete publicLightboxImg.dataset.viewGen; }catch(e){} }
+if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
+setViewerLoading(false); setViewerError(false); viewerAnnounce('');
+renderLightboxCredits(null);
+lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0;
+if(publicLightbox) publicLightbox.classList.remove('is-zoomed');
+syncZoomLabel();
+viewerItems = []; viewerIndex = 0; viewerSlug = null;
+if(opts.restoreScroll !== false){
+  var y = Number(viewerScrollY) || 0;
+  if(Math.abs((window.scrollY || 0) - y) > 1) instantScrollTo(y);
+}
+var opener = lightboxOpener;
+lightboxOpener = null;
+if(opts.restoreFocus !== false){
+  if(opener && opener.isConnected && typeof opener.focus === 'function'){
+    try{ opener.focus({ preventScroll: true }); }catch(e){ try{ opener.focus(); }catch(e2){} }
+  } else {
+    /* Sensible route fallback when the opener is gone (re-rendered away). */
+    try{ focusView(currentRoute.view); }catch(e){}
+  }
+}
+}
+/* Route departure tears the viewer down without restoring obsolete scroll or
+   stealing focus; a buried same-URL entry is settled by the popstate path. */
+function teardownViewerForRoute(){
+if(!publicLightbox || publicLightbox.hidden) return;
+viewerOwnedEntry = false;
+teardownViewerUI({ restoreScroll: false, restoreFocus: false });
 }
 function closePublicLightbox(){
 if(!publicLightbox || publicLightbox.hidden) return;
-publicLightbox.hidden = true; document.body.style.overflow = '';
-if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
-if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
-renderLightboxCredits(null);
-lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0; lightboxDragging = false;
-if(publicLightbox) publicLightbox.classList.remove('is-zoomed');
-/* Return focus to the element that opened the lightbox. */
-if(lightboxOpener && lightboxOpener.isConnected && typeof lightboxOpener.focus === 'function'){
-  try{ lightboxOpener.focus({ preventScroll: true }); }catch(e){ try{ lightboxOpener.focus(); }catch(e2){} }
+/* Close/Escape consume only the owned entry: the resulting popstate finds a
+   closed viewer and stays a no-op. */
+if(viewerOwnedEntry){ viewerOwnedEntry = false; try{ history.back(); }catch(e){} }
+teardownViewerUI({ restoreScroll: true, restoreFocus: true });
 }
-lightboxOpener = null;
+window.addEventListener('popstate', function(event){
+var state = (event && event.state) || {};
+if(!publicLightbox || publicLightbox.hidden){
+  /* Forward (or reload-adjacent Back) into a dead same-URL viewer entry:
+     skip over it toward real content; when there is nothing ahead, sync the
+     visible route instead of stranding the page. Never double-applies: the
+     guarded sync below only runs when the hash is actually stale. */
+  if(state && state.crabbieViewer){
+    viewerStaleSkip = true;
+    try{ history.go(1); }catch(e){}
+    setTimeout(function(){
+      viewerStaleSkip = false;
+      if(location.hash !== lastAppliedHash) handleHash();
+    }, 80);
+  }
+  return;
 }
+if(state && state.crabbieViewer) return;
+viewerOwnedEntry = false;
+teardownViewerUI({ restoreScroll: true, restoreFocus: true });
+});
 if(publicLightbox){
   publicLightbox.addEventListener('keydown', function(e){
     if(publicLightbox.hidden || e.key !== 'Tab') return;
@@ -5693,11 +6029,36 @@ if(publicLightbox){
     if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   });
+  /* Collection navigation stays inside the dialog: arrows step, never scroll. */
+  publicLightbox.addEventListener('keydown', function(e){
+    if(publicLightbox.hidden || viewerItems.length <= 1) return;
+    if(e.key === 'ArrowLeft'){ e.preventDefault(); stepViewer('prev'); }
+    else if(e.key === 'ArrowRight'){ e.preventDefault(); stepViewer('next'); }
+  });
 }
 if(publicLightboxClose) publicLightboxClose.addEventListener('click', closePublicLightbox);
 if(publicLightboxZoomIn) publicLightboxZoomIn.addEventListener('click', function(){ setLightboxScale(lightboxScale + 0.4, true); });
 if(publicLightboxZoomOut) publicLightboxZoomOut.addEventListener('click', function(){ setLightboxScale(lightboxScale - 0.4, true); });
 if(publicLightboxReset) publicLightboxReset.addEventListener('click', function(){ resetLightboxView(true); });
+if(publicLightboxPrev) publicLightboxPrev.addEventListener('click', function(){ stepViewer('prev'); });
+if(publicLightboxNext) publicLightboxNext.addEventListener('click', function(){ stepViewer('next'); });
+if(publicLightboxRetry) publicLightboxRetry.addEventListener('click', function(){ loadViewerIndex(viewerIndex); });
+if(publicLightboxErrorClose) publicLightboxErrorClose.addEventListener('click', closePublicLightbox);
+if(publicLightboxImg){
+  /* Recalculate bounds on the actual rendered image; stale loads never paint. */
+  publicLightboxImg.addEventListener('load', function(){
+    if(!publicLightbox || publicLightbox.hidden) return;
+    paintLightboxTransform(false);
+    if(String(publicLightboxImg.dataset.viewGen || '') !== String(viewerGen)) return;
+    setViewerLoading(false);
+  });
+  publicLightboxImg.addEventListener('error', function(){
+    if(!publicLightbox || publicLightbox.hidden) return;
+    if(String(publicLightboxImg.dataset.viewGen || '') !== String(viewerGen)) return;
+    setViewerLoading(false); setViewerError(true);
+    viewerAnnounce('This image could not be loaded. Retry is available.');
+  });
+}
 if(publicLightbox){
   publicLightbox.addEventListener('click', function(e){ if(e.target === publicLightbox) closePublicLightbox(); });
   publicLightbox.addEventListener('wheel', function(e){
@@ -5713,13 +6074,14 @@ if(publicLightbox){
     return Math.hypot(dx, dy);
   };
   publicLightbox.addEventListener('touchstart', function(e){
-    if(e.touches.length === 2){ pinchStart = { distance: touchDistance(e.touches), scale: lightboxScale, pan: { x: lightboxPan.x, y: lightboxPan.y } }; dragStart = null; }
-    else if(e.touches.length === 1 && lightboxScale > 1){ dragStart = { x: e.touches[0].clientX - lightboxPan.x, y: e.touches[0].clientY - lightboxPan.y }; }
+    if(e.touches.length === 2){ pinchStart = { distance: touchDistance(e.touches), scale: lightboxScale, pan: { x: lightboxPan.x, y: lightboxPan.y } }; dragStart = null; lightboxGestureActive = true; }
+    else if(e.touches.length === 1 && lightboxScale > 1){ dragStart = { x: e.touches[0].clientX - lightboxPan.x, y: e.touches[0].clientY - lightboxPan.y }; lightboxGestureActive = true; }
   }, { passive: true });
   publicLightbox.addEventListener('touchmove', function(e){
     if(e.touches.length === 2 && pinchStart && pinchStart.distance > 0){
       /* Direct update, no interpolation: the zoom tracks the fingers. */
       e.preventDefault();
+      lightboxGestureActive = true;
       lightboxDragging = true;
       setLightboxScale(pinchStart.scale * (touchDistance(e.touches) / pinchStart.distance), false);
       lightboxDragging = false;
@@ -5727,6 +6089,7 @@ if(publicLightbox){
       /* Zoomed 1-finger drag pans the artwork; at 1x the touch is left alone
          so the dialog scrolls natively. */
       e.preventDefault();
+      lightboxGestureActive = true;
       lightboxDragging = true;
       lightboxPan.x = e.touches[0].clientX - dragStart.x;
       lightboxPan.y = e.touches[0].clientY - dragStart.y;
@@ -5734,7 +6097,21 @@ if(publicLightbox){
       lightboxDragging = false;
     }
   }, { passive: false });
-  var endTouchGesture = function(e){ if(!e || e.touches.length < 2) pinchStart = null; if(!e || e.touches.length === 0) dragStart = null; };
+  /* Explicit gesture state machine: lifting a pinch finger re-bases the
+     one-finger pan from the current position (no stale pan); full release,
+     cancellation and image changes clear everything. The zoomed gesture
+     class only flips here, never mid-gesture. */
+  var endTouchGesture = function(e){
+    if(!e || e.touches.length === 0){ pinchStart = null; dragStart = null; }
+    else if(e.touches.length === 1){
+      pinchStart = null;
+      if(lightboxScale > 1) dragStart = { x: e.touches[0].clientX - lightboxPan.x, y: e.touches[0].clientY - lightboxPan.y };
+      else dragStart = null;
+    }
+    else if(e.touches.length < 2){ pinchStart = null; }
+    lightboxGestureActive = false;
+    syncZoomGestureClass();
+  };
   publicLightbox.addEventListener('touchend', endTouchGesture);
   publicLightbox.addEventListener('touchcancel', endTouchGesture);
   if(publicLightboxImg){
@@ -5744,6 +6121,7 @@ if(publicLightbox){
       if(e.pointerType === 'touch') return;
       dragStart = { x: e.clientX - lightboxPan.x, y: e.clientY - lightboxPan.y };
       lightboxDragging = true;
+      lightboxGestureActive = true;
       try{ publicLightboxImg.setPointerCapture(e.pointerId); }catch(err){}
     });
     publicLightboxImg.addEventListener('pointermove', function(e){
@@ -5752,7 +6130,7 @@ if(publicLightbox){
       lightboxPan.y = e.clientY - dragStart.y;
       paintLightboxTransform(false);
     });
-    var endPointerDrag = function(){ lightboxDragging = false; dragStart = null; };
+    var endPointerDrag = function(){ lightboxDragging = false; dragStart = null; lightboxGestureActive = false; syncZoomGestureClass(); };
     publicLightboxImg.addEventListener('pointerup', endPointerDrag);
     publicLightboxImg.addEventListener('pointercancel', endPointerDrag);
   }
@@ -5763,8 +6141,12 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePu
 
 document.addEventListener('click', function(e){
 var t;
+t = e.target.closest('[data-cover-viewer]');
+if(t){ e.preventDefault(); openProjectCoverViewer(t); return; }
+t = e.target.closest('[data-ad-index]');
+if(t){ e.preventDefault(); openAssetViewerItem(parseInt(t.getAttribute('data-ad-index'), 10) || 0, t); return; }
 t = e.target.closest('[data-lightbox-src]');
-if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption'), t.getAttribute('data-project')); return; }
+if(t){ e.preventDefault(); openPublicLightbox(t.getAttribute('data-lightbox-src'), t.getAttribute('data-lightbox-alt'), t.getAttribute('data-lightbox-caption'), t.getAttribute('data-project'), t); return; }
 t = e.target.closest('[data-other-service]');
 if(t){ e.preventDefault(); openOtherServiceDetail(t.getAttribute('data-other-service')); return; }
 t = e.target.closest('[data-service]');
@@ -5810,6 +6192,8 @@ if(driveBtn) driveBtn.addEventListener('click', function(){
   if(!url){ toast('Google Drive link is not available yet.'); return; }
   window.open(url, '_blank', 'noopener,noreferrer');
 });
+var adGalleryMore = document.getElementById('adGalleryMore');
+if(adGalleryMore) adGalleryMore.addEventListener('click', renderAssetGalleryBatch);
 
 /* ==========================================================
    ADMIN I18N
@@ -5951,6 +6335,7 @@ downloadUrl: a.downloadUrl || '', externalUrl: '',
 fileFormat: a.format || '', license: a.license || '[LICENSE CONTENT FROM CMS]',
 credit: a.credit || '[CREDIT REQUIREMENT]', version: a.version || '[VERSION]',
 updateNote: a.update || '[UPDATE NOTE]', dateAdded: a.date || '[DATE]',
+gallery: Array.isArray(a.gallery) ? a.gallery : [], coverAlt: a.coverAlt || '',
 featured: false, published: true, placeholder: true, viState: 'pending',
 titleCopy: { en: a.title || '', vi: '', viOverride: false },
 descriptionCopy: { en: a.description || '[ASSET DESCRIPTION FROM CMS]', vi: '', viOverride: false },
@@ -7313,13 +7698,58 @@ var editor = rec ? renderAssetEditor(rec) : '<div class="adm-editor"><h2>Select 
 return tabs + '<div class="adm-split"><div class="adm-list"><div class="adm-list-toolbar"><input type="search" data-adm-search="assets"><button type="button" class="adm-btn-sm primary" data-adm-new="assets">+ ' + esc(tAdmin('btn.new')) + '</button></div><div>' + rows + '</div></div>' + editor + '</div>';
 }
 
+/* Asset preview gallery editor: dedicated hooks (data-adm-ag-*) so portfolio
+   block handlers stay portfolio-scoped. Unlinking/replacing rows only edits
+   the draft array and never deletes Storage objects. */
+function assetGalleryRecord(ownerId){
+  return ((ADMIN_DRAFT.assets || []).filter(function(r){ return r.id === ownerId; }))[0] || null;
+}
+/* Inline mirror of validateGalleryItem (src/asset-gallery-core.js): invalid
+   authored rows stay visible with feedback and are skipped at public render
+   instead of silently persisting as good data. Keep both copies in sync. */
+function assetGalleryRowError(url){
+  var raw = String(url == null ? '' : url).trim();
+  if(!raw) return 'This preview has no image yet. Pick one from the library or upload it.';
+  if(/^https:\/\//i.test(raw)){
+    try{ var u = new URL(raw); if(u.protocol === 'https:' && !u.username && !u.password) return ''; }catch(e){}
+    return 'Use an https:// link or a media library image for this preview.';
+  }
+  if(/^[a-zA-Z0-9][a-zA-Z0-9/_ .-]*$/.test(raw) && raw.indexOf('..') === -1) return '';
+  return 'Use an https:// link or a media library image for this preview.';
+}
+function assetGalleryThumb(url, alt){
+  var src = String(url || '');
+  if(src && (/\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)(\?|#|$)/i.test(src) || src.indexOf('/storage/v1/object/public/media/') !== -1)) {
+    return '<img src="' + esc(src) + '" alt="' + esc(alt || '') + '" loading="lazy" onerror="this.remove()">';
+  }
+  return src ? '<span class="adm-file-chip">🖼 ' + esc(String(src).split('/').pop()) + '</span>' : '🖼';
+}
+function renderAssetGalleryEditor(rec){
+  var gallery = Array.isArray(rec.gallery) ? rec.gallery : [];
+  var rows = gallery.map(function(item, i){
+    var id = (item && item.id) || ('row-' + i);
+    var url = (item && item.url) || '';
+    var err = assetGalleryRowError(url);
+    return '<div class="adm-gallery-item" data-adm-ag-row="' + esc(String(id)) + '"><div class="adm-row" style="align-items:center;"><div class="ag-thumb">' + assetGalleryThumb(url, item && item.alt) + '</div>' +
+      '<div style="flex:1;min-width:0;"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-ag-id="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-key="alt" value="' + esc((item && item.alt) || '') + '"></label>' +
+      '<label class="adm-field"><span class="af-label">Caption</span><input type="text" data-adm-ag-id="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-key="caption" value="' + esc((item && item.caption) || '') + '"></label></div></div>' +
+      (err ? '<p class="ag-error">' + esc(err) + '</p>' : '') +
+      '<div class="mi-actions"><button type="button" data-adm-ag-move="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-dir="up"' + (i === 0 ? ' disabled' : '') + '>↑ Move up</button>' +
+      '<button type="button" data-adm-ag-move="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-dir="down"' + (i === gallery.length - 1 ? ' disabled' : '') + '>↓ Move down</button>' +
+      '<button type="button" data-adm-ag-replace="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '">Replace</button>' +
+      '<button type="button" data-adm-ag-del="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" aria-label="Remove preview ' + (i + 1) + '">✕ Remove</button></div></div>';
+  }).join('');
+  return '<div data-adm-ag-list="' + esc(rec.id) + '">' + (rows || '<p class="af-hint">No additional previews yet.</p>') + '</div>';
+}
+
 function renderAssetEditor(rec){
 var base = 'assets.' + rec.id;
 var aAudit = auditFor('assets', rec);
 return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><p class="ae-sub">Slug: <b data-adm-slug-preview="assets.' + esc(rec.id) + '">' + esc(rec.slug || '—') + '</b></p>' +
 checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
-'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div></div>' +
+'<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div><div class="adm-row one" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Chú thích ảnh bìa (alt)' : 'Cover alt text', base + '.coverAlt', { hint: currentAdminLang === 'vi' ? 'Để trống sẽ dùng tiêu đề' : 'Blank falls back to the title' }) + '</div></div>' +
+'<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Ảnh xem trước bổ sung' : 'Additional preview images') + '</h4><p class="af-hint">' + (currentAdminLang === 'vi' ? 'Các ảnh xem trước theo thứ tự hiển thị dưới ảnh bìa. Ảnh bìa và file tải về không bao giờ tự thêm vào đây.' : 'Ordered previews shown below the cover on the asset page. The cover and download file are never added here automatically.') + '</p>' + renderAssetGalleryEditor(rec) + '<div class="adm-media-actions"><button type="button" class="adm-btn-sm" data-adm-ag-lib="' + esc(rec.id) + '">' + (currentAdminLang === 'vi' ? 'Chọn từ thư viện' : 'Add from library') + '</button><button type="button" class="adm-btn-sm" data-adm-ag-upload="' + esc(rec.id) + '">' + esc(tAdmin('btn.upload')) + '</button></div></div>' +
 '<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
@@ -9002,7 +9432,7 @@ btn.addEventListener('click', function(){
 var path = btn.getAttribute('data-adm-mi-dup');
 var i = parseInt(btn.getAttribute('data-adm-mi-i'), 10);
 var arr = getByPath(ADMIN_DRAFT, path + '.items'); if(!Array.isArray(arr)) return;
-arr.splice(i + 1, 0, clone(arr[i])); markDirty(); renderAdmin('portfolio');
+arr.splice(i + 1, 0, clone(arr[i])); markDirty(); renderAdmin(module);
 });
 });
 $$('[data-adm-mi-del]', adminContent).forEach(function(btn){
@@ -9010,14 +9440,14 @@ btn.addEventListener('click', function(){
 var path = btn.getAttribute('data-adm-mi-del');
 var i = parseInt(btn.getAttribute('data-adm-mi-i'), 10);
 var arr = getByPath(ADMIN_DRAFT, path + '.items'); if(!Array.isArray(arr)) return;
-arr.splice(i, 1); markDirty(); renderAdmin('portfolio');
+arr.splice(i, 1); markDirty(); renderAdmin(module);
 });
 });
 $$('[data-adm-mi-add]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var path = btn.getAttribute('data-adm-mi-add');
 var block = getByPath(ADMIN_DRAFT, path); if(!block) return;
-block.items = block.items || []; block.items.push({ url:'', alt:'', caption:'' }); markDirty(); renderAdmin('portfolio');
+block.items = block.items || []; block.items.push({ url:'', alt:'', caption:'' }); markDirty(); renderAdmin(module);
 });
 });
 /* Replace opens the normal library picker for one gallery row; the write still
@@ -9029,6 +9459,75 @@ var i = parseInt(btn.getAttribute('data-adm-mi-i'), 10);
 var arr = getByPath(ADMIN_DRAFT, path + '.items'); if(!Array.isArray(arr) || !arr[i]) return;
 adminMediaReplaceTarget = { path: path + '.items', index: i };
 openMediaPicker(path + '.items');
+});
+});
+/* Asset preview galleries: stable owner/item identity for every structural
+   edit; alt/caption typing only touches the draft (no rerender per keystroke).
+   All edits flow through the existing dirty + save-flight protections. */
+$$('[data-adm-ag-id]', adminContent).forEach(function(input){
+input.addEventListener('input', function(){
+var ownerId = input.getAttribute('data-adm-ag-id');
+var itemId = input.getAttribute('data-adm-ag-item');
+var key = input.getAttribute('data-adm-ag-key');
+if(key !== 'alt' && key !== 'caption') return;
+var rec = assetGalleryRecord(ownerId); if(!rec || !Array.isArray(rec.gallery)) return;
+var item = rec.gallery.filter(function(g){ return g && String(g.id) === String(itemId); })[0];
+if(!item) return;
+item[key] = input.value;
+markDirty('assets.' + ownerId);
+});
+});
+$$('[data-adm-ag-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var rec = assetGalleryRecord(btn.getAttribute('data-adm-ag-del')); if(!rec) return;
+var itemId = btn.getAttribute('data-adm-ag-item');
+var at = -1;
+(rec.gallery || []).forEach(function(g, i){ if(g && String(g.id) === String(itemId)) at = i; });
+if(at === -1) return;
+rec.gallery.splice(at, 1); markDirty('assets.' + rec.id); renderAdmin(module);
+});
+});
+$$('[data-adm-ag-move]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var rec = assetGalleryRecord(btn.getAttribute('data-adm-ag-move')); if(!rec || !Array.isArray(rec.gallery)) return;
+var itemId = btn.getAttribute('data-adm-ag-item');
+var dir = btn.getAttribute('data-adm-ag-dir') === 'up' ? -1 : 1;
+var at = -1;
+rec.gallery.forEach(function(g, i){ if(g && String(g.id) === String(itemId)) at = i; });
+var to = at + dir;
+if(at === -1 || to < 0 || to >= rec.gallery.length) return;
+var tmp = rec.gallery[at]; rec.gallery[at] = rec.gallery[to]; rec.gallery[to] = tmp;
+markDirty('assets.' + rec.id); renderAdmin(module);
+/* Keyboard authors keep their place: refocus the moved row's control. */
+var moved = adminContent && adminContent.querySelector('[data-adm-ag-move="' + rec.id + '"][data-adm-ag-item="' + itemId + '"][data-adm-ag-dir="' + (dir === -1 ? 'up' : 'down') + '"]');
+if(moved && moved.focus) { try{ moved.focus({ preventScroll: true }); }catch(e){ try{ moved.focus(); }catch(e2){} } }
+});
+});
+$$('[data-adm-ag-replace]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var ownerId = btn.getAttribute('data-adm-ag-replace');
+var itemId = btn.getAttribute('data-adm-ag-item');
+var rec = assetGalleryRecord(ownerId); if(!rec || !Array.isArray(rec.gallery)) return;
+var exists = rec.gallery.some(function(g){ return g && String(g.id) === String(itemId); });
+if(!exists) return;
+assetGalleryReplaceTarget = { ownerId: ownerId, itemId: itemId };
+adminMediaReplaceTarget = { path: 'assets.' + ownerId + '.gallery', index: -1, assetItemId: itemId };
+openMediaPicker('assets.' + ownerId + '.gallery');
+});
+});
+$$('[data-adm-ag-lib]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var ownerId = btn.getAttribute('data-adm-ag-lib');
+if(!assetGalleryRecord(ownerId)) return;
+assetGalleryReplaceTarget = null;
+openMediaPicker('assets.' + ownerId + '.gallery');
+});
+});
+$$('[data-adm-ag-upload]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var ownerId = btn.getAttribute('data-adm-ag-upload');
+if(!assetGalleryRecord(ownerId)) return;
+triggerMediaUpload({ type: 'assetGallery', path: 'assets.' + ownerId + '.gallery', ownerId: ownerId });
 });
 });
 $$('[data-adm-link-add]', adminContent).forEach(function(btn){
@@ -9644,6 +10143,9 @@ async function runMediaUpload(file, context){
 
     if(context.type === 'field' && context.path){
       if(!media.mediaItemMatchesTarget || !media.mediaItemMatchesTarget(newMedia, accept)) throw new Error('Uploaded file is incompatible with this field.');
+      /* Direct field uploads write URL strings and must never point at an
+         array target: gallery uploads use the assetGallery context below. */
+      if(/^assets\.[^.]+\.gallery$/.test(context.path)) throw new Error('Uploaded file is incompatible with this field.');
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
       markDirty(context.path);
       /* Choosing audio implies intent to use it: turn Music on so the author
@@ -9657,6 +10159,42 @@ async function runMediaUpload(file, context){
         : (tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
       toast(fieldToast);
       renderAdmin(currentRoute.adminModule || 'dashboard');
+    } else if(context.type === 'assetGallery' && context.ownerId){
+      /* Gallery uploads append (or single-replace) ordered rows through the
+         existing pipeline. Stable owner/item identity: when the asset or the
+         row is gone (navigation, reorder, deletion mid-flight) the bytes stay
+         in the library and nothing else is mutated. */
+      if(!media.mediaItemMatchesTarget || !media.mediaItemMatchesTarget(newMedia, accept)) throw new Error('Uploaded file is incompatible with this field.');
+      var galleryOwner = assetGalleryRecord(context.ownerId);
+      if(!galleryOwner){
+        toast(tAdmin('toast.uploaded') + ': ' + (newMedia.title || file.name));
+      } else {
+        galleryOwner.gallery = Array.isArray(galleryOwner.gallery) ? galleryOwner.gallery : [];
+        var uploadDims = (newMedia.width && newMedia.height) ? { width: Math.round(newMedia.width), height: Math.round(newMedia.height) } : null;
+        if(context.itemId){
+          var replaceAt = -1;
+          galleryOwner.gallery.forEach(function(g, i){ if(g && String(g.id) === String(context.itemId)) replaceAt = i; });
+          if(replaceAt === -1){
+            toast(tAdmin('toast.uploaded') + ': ' + (newMedia.title || file.name));
+          } else {
+            var replaceBase = galleryOwner.gallery[replaceAt] && typeof galleryOwner.gallery[replaceAt] === 'object' ? Object.assign({}, galleryOwner.gallery[replaceAt]) : { id: context.itemId, alt: '', caption: '' };
+            replaceBase.url = newMedia.url;
+            delete replaceBase.width; delete replaceBase.height;
+            if(uploadDims){ replaceBase.width = uploadDims.width; replaceBase.height = uploadDims.height; }
+            galleryOwner.gallery[replaceAt] = replaceBase;
+            markDirty('assets.' + galleryOwner.id);
+            toast(tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
+          }
+        } else {
+          galleryOwner.gallery.push(Object.assign(
+            { id: newId('preview'), url: newMedia.url, alt: String(newMedia.alt || newMedia.title || '').slice(0, 240), caption: '' },
+            uploadDims || {}
+          ));
+          markDirty('assets.' + galleryOwner.id);
+          toast(tAdmin('toast.uploadedFile') + (newMedia.title || file.name));
+        }
+        renderAdmin(currentRoute.adminModule || 'dashboard');
+      }
     } else if(context.type === 'picker'){
       pickerMediaPage.page = 1;
       await loadPickerMediaPage({ page: 1 });
@@ -9913,6 +10451,11 @@ return typeof media.mediaTargetAccept === 'function' ? media.mediaTargetAccept(t
 /** Only gallery-style targets accept many items; every other target is single. */
 function activeMediaTargetIsMultiple(){
 var media = window.CrabbieAdminMedia || {};
+/* Explicit core contract covers portfolio items-arrays and asset preview
+   galleries; block-shape detection below stays as the legacy fallback. */
+if(activeMediaTarget && typeof media.mediaTargetIsMultiple === 'function'){
+  try{ if(media.mediaTargetIsMultiple(activeMediaTarget)) return true; }catch(e){}
+}
 var block = activeMediaBlock();
 if(block && typeof media.blockAcceptsMultiple === 'function') return Boolean(media.blockAcceptsMultiple(block.type));
 if(!activeMediaTarget) return false;
@@ -9927,11 +10470,15 @@ if(pickerTriggerEl && pickerTriggerEl.isConnected && pickerTriggerEl.focus) pick
 pickerTriggerEl = null;
 activeMediaTarget = null;
 adminMediaReplaceTarget = null;
+assetGalleryReplaceTarget = null;
 pickerMediaPage.selected = [];
 }
 
 /** Multi targets append correctly shaped gallery rows; single targets take one URL. */
 var adminMediaReplaceTarget = null;
+/* Asset-gallery replace intent: stable owner/item identity so an async picker
+   or upload completion never mutates another record after navigation. */
+var assetGalleryReplaceTarget = null;
 function applyMediaPickerItems(items){
 var media = window.CrabbieAdminMedia || {};
 var picked = Array.isArray(items) ? items : [];
@@ -9943,16 +10490,46 @@ var urls = picked.map(function(entry){ return entry.url; });
 if(multiple){
   var existing = getByPath(ADMIN_DRAFT, activeMediaTarget);
   var rows = Array.isArray(existing) ? existing.slice() : [];
+  var isAssetGallery = /^assets\.[^.]+\.gallery$/.test(activeMediaTarget || '');
+  /* An asset-gallery Replace swaps exactly one row by stable item id (never
+     by position, which may have moved) and refreshes source dimensions. */
+  var assetSwap = null;
+  if(isAssetGallery && assetGalleryReplaceTarget && assetGalleryReplaceTarget.ownerId &&
+     activeMediaTarget === 'assets.' + assetGalleryReplaceTarget.ownerId + '.gallery'){
+    var owner = assetGalleryRecord(assetGalleryReplaceTarget.ownerId);
+    if(owner && Array.isArray(owner.gallery)){
+      for(var gi = 0; gi < owner.gallery.length; gi += 1){
+        if(owner.gallery[gi] && String(owner.gallery[gi].id) === String(assetGalleryReplaceTarget.itemId)){ assetSwap = gi; break; }
+      }
+    }
+  }
   /* A Replace action swaps exactly one row instead of appending. */
-  if(adminMediaReplaceTarget && adminMediaReplaceTarget.path === activeMediaTarget && rows[adminMediaReplaceTarget.index]){
+  if(assetSwap != null){
+    var swapDims = (picked[0].width && picked[0].height) ? { width: Math.round(picked[0].width), height: Math.round(picked[0].height) } : null;
+    var swapCurrent = rows[assetSwap] || {};
+    var swapNext = (swapCurrent && typeof swapCurrent === 'object') ? Object.assign({}, swapCurrent, { url: urls[0] }) : { url: urls[0], alt: '', caption: '' };
+    delete swapNext.width; delete swapNext.height;
+    if(swapDims){ swapNext.width = swapDims.width; swapNext.height = swapDims.height; }
+    rows[assetSwap] = swapNext;
+  } else if(adminMediaReplaceTarget && adminMediaReplaceTarget.path === activeMediaTarget && rows[adminMediaReplaceTarget.index]){
     var current = rows[adminMediaReplaceTarget.index];
     rows[adminMediaReplaceTarget.index] = (current && typeof current === 'object')
       ? Object.assign({}, current, { url: urls[0] })
       : { url: urls[0], alt: '', caption: '' };
   } else {
     var gallery = typeof media.galleryItemsFor === 'function' ? media.galleryItemsFor(urls) : urls.map(function(url){ return { url: url, alt: '', caption: '' }; });
-    gallery.forEach(function(row){
-      if(!rows.some(function(candidate){ return candidate && candidate.url === row.url; })) rows.push(row);
+    gallery.forEach(function(row, ri){
+      if(!rows.some(function(candidate){ return candidate && candidate.url === row.url; })){
+        /* Asset previews need stable ids + source dimensions for reorder,
+           replace and save round trips; block rows keep their legacy shape. */
+        if(isAssetGallery){
+          if(!row.id) row.id = newId('preview');
+          var pickedDims = picked[ri] || picked[0];
+          if(pickedDims && pickedDims.width && pickedDims.height){ row.width = Math.round(pickedDims.width); row.height = Math.round(pickedDims.height); }
+          if(picked[ri] && (picked[ri].alt || picked[ri].title) && !row.alt) row.alt = String(picked[ri].alt || picked[ri].title).slice(0, 240);
+        }
+        rows.push(row);
+      }
     });
   }
   setByPath(ADMIN_DRAFT, activeMediaTarget, rows);
@@ -9971,6 +10548,7 @@ if(multiple){
   }
 }
 adminMediaReplaceTarget = null;
+assetGalleryReplaceTarget = null;
 markDirty(activeMediaTarget);
 /* Picking audio implies intent to use it: turn Music on so Save is enough. */
 if(activeMediaTarget === 'settings.music.url' && !getByPath(ADMIN_DRAFT, 'settings.music.enabled')){

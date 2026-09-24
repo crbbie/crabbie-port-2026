@@ -43,6 +43,7 @@ import {
   blockMediaFields,
   blockAcceptsMultiple,
   galleryItemsFor,
+  mediaTargetIsMultiple,
   acceptedDropFiles,
   dropMessage,
   bulkSummaryMessage,
@@ -57,6 +58,7 @@ import {
   isMissingStorageObject,
   findMediaUsage,
   findAuthoritativeMediaReferences,
+  collectPagedRows,
   mediaUsageMessage,
   buildMediaAuditEntry,
   auditMediaIntegrity
@@ -120,32 +122,51 @@ async function fetchMediaRow(id) {
 /**
  * P0-02 cross-session guard: re-read reference state from the server as close
  * to delete time as possible instead of trusting the session snapshot alone.
- * CMS reference tables are small config datasets (the same ones hydration
- * loads whole), so one bounded fetch per table is the authoritative check.
- * Fail-closed: when the fresh read fails, deletion is blocked.
+ * Every reference table pages deterministically to completion (explicit order
+ * + range loop): an unbounded select would silently stop at the API row cap
+ * and mistake a truncated page for "unreferenced". Fail-closed: any page
+ * error throws and deletion is blocked.
  *
  * Residual race (documented, not atomic): Storage + Postgres have no joint
  * transaction, so a reference saved after this check but before the tombstone
  * can still slip through. The tombstone narrows the window to check->claim.
  */
+const AUTHORITATIVE_PAGE_SIZE = 500;
+async function fetchTableComplete(table, columns, orders) {
+  const orderList = Array.isArray(orders) && orders.length ? orders : [{ column: 'id', ascending: true }];
+  const collected = await collectPagedRows(
+    async ({ from, to }) => {
+      let query = supabase.from(table).select(columns);
+      orderList.forEach(({ column, ascending }) => {
+        query = query.order(column, { ascending: ascending !== false });
+      });
+      const { data, error } = await query.range(from, to);
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return Array.isArray(data) ? data : [];
+    },
+    { pageSize: AUTHORITATIVE_PAGE_SIZE }
+  );
+  if (!collected.complete) {
+    throw new Error(`Media reference re-check failed: ${table} ${collected.error || 'incomplete'}`);
+  }
+  return collected.rows;
+}
 async function fetchAuthoritativeReferenceBundle() {
   const [portfolio, assets, commissions, pages, settings, people] = await Promise.all([
-    supabase.from('portfolio_projects').select('thumbnail_path, cover_path, content'),
-    supabase.from('free_assets').select('thumbnail_path, file_path, metadata'),
-    supabase.from('commission_services').select('thumbnail_path, details'),
-    supabase.from('cms_pages').select('slug, data'),
-    supabase.from('site_settings').select('key, value'),
-    supabase.from('people').select('id, display_name, avatar_path, published').order('sort_order', { ascending: true }).order('id', { ascending: true })
+    fetchTableComplete('portfolio_projects', 'thumbnail_path, cover_path, content', [{ column: 'id', ascending: true }]),
+    fetchTableComplete('free_assets', 'thumbnail_path, file_path, metadata', [{ column: 'id', ascending: true }]),
+    fetchTableComplete('commission_services', 'thumbnail_path, details', [{ column: 'id', ascending: true }]),
+    fetchTableComplete('cms_pages', 'slug, data', [{ column: 'slug', ascending: true }]),
+    fetchTableComplete('site_settings', 'key, value', [{ column: 'key', ascending: true }]),
+    fetchTableComplete('people', 'id, display_name, avatar_path, published', [{ column: 'sort_order', ascending: true }, { column: 'id', ascending: true }])
   ]);
-  const failed = [portfolio, assets, commissions, pages, settings, people].find((res) => res && res.error);
-  if (failed) throw new Error(`Media reference re-check failed: ${failed.error.message}`);
   return {
-    portfolio_projects: (portfolio && portfolio.data) || [],
-    free_assets: (assets && assets.data) || [],
-    commission_services: (commissions && commissions.data) || [],
-    cms_pages: (pages && pages.data) || [],
-    site_settings: (settings && settings.data) || [],
-    people: (people && people.data) || []
+    portfolio_projects: portfolio,
+    free_assets: assets,
+    commission_services: commissions,
+    cms_pages: pages,
+    site_settings: settings,
+    people
   };
 }
 
@@ -486,6 +507,7 @@ if (typeof window !== 'undefined') {
     blockMediaFields,
     blockAcceptsMultiple,
     galleryItemsFor,
+    mediaTargetIsMultiple,
     acceptedDropFiles,
     dropMessage,
     bulkMediaSummary,

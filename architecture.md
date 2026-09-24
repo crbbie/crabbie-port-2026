@@ -140,6 +140,28 @@ Supabase public table
   → route/detail UI
 ```
 
+## Asset preview gallery data flow
+
+Ordered additional Free Asset previews travel the same pipeline without a
+second viewer or a competing state model:
+
+```text
+free_assets.metadata.gallery (+ coverAlt)
+  → src/asset-gallery-core.js (normalize/validate/reorder/replace)
+  → mapFreeAsset / mapAssetRow / createAssetDraft / formatAssetRow
+  → ASSETS runtime records + admin draft
+  → asset detail gallery (cover first, 12-per-batch thumbs) + admin editor
+  → shared public viewer collection (cover at index 0)
+```
+
+The shared viewer (`#publicLightbox`) exposes one narrow collection/index API
+(`openViewerCollection`); Portfolio cover and asset adapters stay separate,
+content blocks are never auto-collected into slideshows, and the admin media
+preview stays independent. Viewer history owns at most one namespaced
+same-URL entry per opening: Back dismisses first, Close/Escape consume only
+the owned entry, image steps push nothing, and route departure tears down
+without restoring obsolete scroll.
+
 ## People / Clients data flow
 
 Reusable identities live in `people`; project credits are ordered rows in

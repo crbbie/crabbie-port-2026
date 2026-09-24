@@ -1,10 +1,16 @@
 // Only the contact roles this repository actually authors (seed + defaults).
 export const CONTACT_ROLES = Object.freeze(['none', 'name', 'email']);
 
+import { normalizeAssetGallery, normalizeCoverAlt } from './asset-gallery-core.js';
+
 export function createAssetDraft(values = {}) {
   return {
     ...values,
-    availability: values.availability || 'available'
+    availability: values.availability || 'available',
+    /* New drafts start with an explicit (possibly empty) preview list so
+       later serializers never have to guess between missing and empty. */
+    gallery: normalizeAssetGallery(values.gallery),
+    coverAlt: normalizeCoverAlt(values.coverAlt, values.title)
   };
 }
 
