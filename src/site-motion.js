@@ -70,7 +70,9 @@ function injectStyles() {
 .crabbie-pet-bubble a{display:inline-block;margin-top:5px;font-weight:700;color:var(--text-accent,#ff5c9a);text-decoration:underline;}
 .crabbie-pet-bubble::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
   border:7px solid transparent;border-top-color:#fff;}
-#crabbieMusicControl{position:fixed;right:18px;bottom:18px;z-index:70;display:none;gap:6px;align-items:center;
+/* Below the nav (60) and mobile menu (59) so a short-screen menu can never be
+   covered by the small music control; still above page content and the pet (30). */
+#crabbieMusicControl{position:fixed;right:18px;bottom:18px;z-index:55;display:none;gap:6px;align-items:center;
   padding:6px;border-radius:999px;background:rgba(255,255,255,.94);border:2px solid var(--pink-light,#ffd9e8);
   box-shadow:0 8px 18px -10px rgba(217,74,128,.55);font-family:var(--font-body,system-ui),sans-serif;}
 #crabbieMusicControl.show{display:inline-flex;}
@@ -592,10 +594,39 @@ function applyMotion(settings) {
   applyPet(cfg.pet);
 }
 
+/* Idempotent reduced-motion lifecycle: toggling the OS preference mid-session
+   (no navigation/reload) stops movement and clears candy when reduced, and
+   reconciles/restarts only the enabled systems when restored. Pinned pet
+   positions, desired counts and the single music instance are untouched. */
+function handleReduceChange() {
+  if (isReduced()) {
+    stopCandy();
+    stopPetLoop();
+  } else {
+    if (candy.enabled && !isAdminView()) scheduleCandy();
+    if (petState.enabled) reconcilePets();
+  }
+}
+if (typeof reduceMotion !== 'undefined' && reduceMotion) {
+  if (typeof reduceMotion.addEventListener === 'function') reduceMotion.addEventListener('change', handleReduceChange);
+  else if (typeof reduceMotion.addListener === 'function') reduceMotion.addListener(handleReduceChange);
+}
+
 /* ------------------------------- INIT ----------------------------------- */
 injectStyles();
 if (window.__CRABBIE_MOTION__) applyMotion(window.__CRABBIE_MOTION__);
 if (window.__CRABBIE_MUSIC__) applyMusic(window.__CRABBIE_MUSIC__);
+
+/* Keep the small control out of the way of a focused field on phones, where the
+   on-screen keyboard already owns the bottom band. */
+function syncMusicFieldGuard() {
+  if (!music.control) return;
+  const el = document.activeElement;
+  const editing = Boolean(el && el.matches && el.matches('input, textarea, select')) && window.innerWidth < 720;
+  music.control.style.visibility = editing ? 'hidden' : '';
+}
+document.addEventListener('focusin', syncMusicFieldGuard);
+document.addEventListener('focusout', () => setTimeout(syncMusicFieldGuard, 0));
 
 let resizeTimer = null;
 window.addEventListener('resize', () => {
@@ -603,6 +634,7 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => {
     if (petState.enabled) reconcilePets();
     if (candy.enabled) scheduleCandy();
+    syncMusicFieldGuard();
   }, 220);
 });
 
@@ -613,4 +645,4 @@ window.addEventListener('hashchange', () => {
   if (candy.enabled && !isAdminView()) scheduleCandy(); else stopCandy();
 });
 
-window.CrabbieSiteMotion = { applyMotion, applyMusic };
+window.CrabbieSiteMotion = { applyMotion, applyMusic, handleReduceChange };

@@ -51,6 +51,11 @@ Unknown public routes render the 404 view. Unknown admin modules fall back to th
 
 When adding a public route, update all relevant route parsing, title handling, navigation state, rendering, and tests together.
 
+Route scroll and focus ownership: `navigate()` applies a route once (the hash
+listener ignores its echo), `instantScrollTo` is the only route-scroll
+primitive, same-route detail refresh re-renders in place without routing,
+and admin dirty-navigation guards plus URL/deep-link behavior are unchanged.
+
 ## Module boundaries
 
 ### Public CMS adapters

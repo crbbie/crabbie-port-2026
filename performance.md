@@ -76,3 +76,8 @@ These are engineering targets, not claims that current production metrics were m
 - new queries should have a clear index story when they introduce new filter/order patterns.
 
 If a feature appears slow, measure the query/network/render bottleneck before rewriting architecture.
+
+Route-scroll and entrance work uses no arbitrary timeouts, scroll loops, or
+overlays; restoration geometry is asserted from rAF-sampled scroll/rect
+fixtures. No root blur/scale or decor/pet performance claim is made without a
+profiled reproduction.

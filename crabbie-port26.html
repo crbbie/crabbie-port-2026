@@ -1414,7 +1414,12 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
 .public-lightbox img{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
   border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;
-  transform-origin:center center;transition:transform .16s ease;touch-action:none;}
+  transform-origin:center center;transition:none;touch-action:pan-x pan-y pinch-zoom;}
+/* Discrete zoom steps (buttons/wheel/keyboard) animate; direct drag/pinch
+   manipulation paints every frame with no interpolation. While zoomed the
+   image owns the gesture so a 1-finger drag pans instead of scrolling. */
+.public-lightbox img.anim-zoom{transition:transform .16s ease;}
+.public-lightbox.is-zoomed img{touch-action:none;}
 .public-lightbox-close{position:fixed;top:22px;right:24px;z-index:2;width:46px;height:46px;border-radius:50%;
   border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;
   box-shadow:0 8px 24px rgba(0,0,0,.2);}
@@ -2391,9 +2396,28 @@ html.home-reveal-sequence.home-reveal-active footer{
 .view.is-active .mini-grid > *:nth-child(4){ animation-delay: .24s; }
 
 /* The one-shot entrance fill keeps `transform` pinned to its final keyframe,
-   which outranks the shared `.work:hover` lift on portfolio cards. Let the
-   fill drop after the entrance so the existing hover lift applies again. */
-.view.is-active .pf-grid > *{ animation-fill-mode: backwards; }
+   which outranks the shared hover lift on portfolio, asset and mini cards.
+   Let the fill drop after the entrance so the existing hover lift applies
+   again. `backwards` still plays the `from` state during the stagger delay. */
+.view.is-active .pf-grid > *,
+.view.is-active .comm-grid > *,
+.view.is-active .assets-grid > *,
+.view.is-active .mini-grid > *,
+.view.is-active .exp-grid > *,
+.view.is-active .values-grid > *{ animation-fill-mode: backwards; }
+/* Restored list navigation must be visually stationary: no view or grid
+   entrance replay while the remembered scroll position is applied. Fresh
+   navigation (no .is-restoring on body) keeps the playful entrance. */
+body.is-restoring .view.is-active{ animation: none !important; }
+body.is-restoring .view.is-active .page-head,
+body.is-restoring .view.is-active .page-title,
+body.is-restoring .view.is-active .back-link,
+body.is-restoring .view.is-active .pf-grid > *,
+body.is-restoring .view.is-active .comm-grid > *,
+body.is-restoring .view.is-active .assets-grid > *,
+body.is-restoring .view.is-active .mini-grid > *,
+body.is-restoring .view.is-active .exp-grid > *,
+body.is-restoring .view.is-active .values-grid > *{ animation: none !important; }
 
 /* ============================================================
    VIEW TRANSITION — mượt khi chuyển view
@@ -3155,7 +3179,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
     <div class="wrap">
       <div class="hero-grid">
         <div>
-          <div class="hero-badge"><span class="dot" aria-hidden="true">♥</span> CHIBI &amp; ANIME STYLE ILLUSTRATOR</div>
+          <div class="hero-badge">CHIBI &amp; ANIME STYLE ILLUSTRATOR</div>
           <span class="hero-intro">Welcome to my sweet little world</span>
           <h1><span class="accent">CRABBIE</span></h1>
           <p class="hero-tagline">Art made with candy, petals, and the sparkliest of hearts</p>
@@ -4090,20 +4114,33 @@ var burger = document.getElementById('navBurger');
 var toastEl = document.getElementById('toast');
 var toastTimer = null;
 function toast(msg){ if(!toastEl) return; toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2400); }
-function scrollToTop(){
-  /* Route changes must reset immediately. The global html smooth-scroll rule
-     otherwise animates from the previous page's Y position on mobile, making
-     detail views appear to open at the bottom and then crawl to the top. */
-  try{ window.scrollTo({ top:0, left:0, behavior:'instant' }); }
+function instantScrollTo(y){
+  /* One route-scroll primitive: always instant, never inherits the global
+     html smooth-scroll rule, and clamps to valid document bounds. */
+  var top = Math.max(0, Math.min(Number(y) || 0, Math.max(0, (document.documentElement.scrollHeight || 0) - window.innerHeight)));
+  try{ window.scrollTo({ top: top, left: 0, behavior: 'instant' }); }
   catch(e){
     var root = document.documentElement;
     var prev = root.style.scrollBehavior;
     root.style.scrollBehavior = 'auto';
-    window.scrollTo(0, 0);
+    window.scrollTo(0, top);
     root.style.scrollBehavior = prev;
   }
 }
-function smoothScrollTo(el){ if(!el) return; el.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' }); }
+function scrollToTop(){
+  /* Route changes must reset immediately. The global html smooth-scroll rule
+     otherwise animates from the previous page's Y position on mobile, making
+     detail views appear to open at the bottom and then crawl to the top. */
+  instantScrollTo(0);
+}
+function smoothScrollTo(el){ if(!el || !el.isConnected) return; el.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' }); }
+function sameRoute(a, b){
+  if(!a || !b) return false;
+  return a.view === b.view && (a.id || null) === (b.id || null) && (a.adminModule || null) === (b.adminModule || null);
+}
+/* Single navigation owner: new hashes apply once via the hashchange listener
+   (guarded by lastAppliedHash + sameRoute); same-hash and replace paths apply
+   directly since no hashchange fires. */
 
 var PROJECTS = {
 'color-fiesta': { title: 'Color Fiesta Booth', desc: 'Fanmade merch I illustrated and sold at the Color Fiesta festival', cat: 'Merch / Illustration', tags: ['MERCH','ILLUSTRATION'], credits: '[PROJECT CREDITS]', year: 'YEAR', cover: '[PROJECT COVER]', intro: '[PROJECT INTRODUCTION FROM CMS]', sketch: '[SKETCH CAPTION FROM CMS]', process: '[PROCESS TEXT FROM CMS]', body: '[PROJECT TEXT FROM CMS]', quote: '[PROJECT QUOTE FROM CMS]', link: '', linkLabel: '[PROJECT LINK]' },
@@ -4862,16 +4899,31 @@ else a.removeAttribute('aria-current');
 document.title = titleFor(view, route.id, route.adminModule);
 if(view === 'commissions'){ try{ renderClientThanks(); }catch(e){ /* commissions stays intact */ } }
 closeMenu(false);
-if(!opts.noScroll){
+/* Same-route public refresh keeps position and focus: only a genuine view/id
+   change scrolls or moves focus. */
+var isSame = sameRoute(route, currentRoute);
 var restore = scrollMemory[view];
 var comingBackFromDetail = (prevView === 'project-detail' && view === 'portfolio') || (prevView === 'free-asset-detail' && view === 'free-assets');
-if(comingBackFromDetail && typeof restore === 'number') window.scrollTo(0, restore); else scrollToTop();
+/* Explicit detail returns restore; browser Back/Forward (hash-driven, flagged
+   restored) restores any visited view with memory; direct loads with no memory
+   fall through to top deterministically. */
+var isRestored = !opts.forceScroll && !isSame && typeof restore === 'number' && (comingBackFromDetail || !!opts.restored);
+if(!opts.noScroll && !isSame){
+if(isRestored) document.body.classList.add('is-restoring');
+if(comingBackFromDetail && typeof restore === 'number') instantScrollTo(restore); else scrollToTop();
 }
-if(!opts.noFocus) focusView(view);
+if(!opts.noFocus && !isSame) focusView(view);
 prevView = view;
 currentRoute = route;
 lastAppliedHash = location.hash;
 upgradeTikTokThumbs(document);
+if(isRestored){
+/* Drop the stationary flag after the restored frame settles so the next
+   fresh navigation replays its entrance. No timers or scroll loops. */
+if(typeof requestAnimationFrame === 'function'){
+requestAnimationFrame(function(){ requestAnimationFrame(function(){ document.body.classList.remove('is-restoring'); }); });
+} else document.body.classList.remove('is-restoring');
+}
 }
 function routeFromLocation(){
 var raw = location.hash.replace(/^#/, '');
@@ -4887,7 +4939,11 @@ if(G && G.shouldBlockAdminExit) return G.shouldBlockAdminExit({ dirty: ADMIN_UI.
 return ADMIN_UI.dirty && fromAdmin && !toAdmin;
 }
 function handleHash(){
+/* Idempotent echo guard: applying the already-current hash+route twice (e.g.
+   a repeated event for the same hash) is a no-op. Back/Forward always carries
+   a different hash or a different route, so it still applies. */
 var nextRoute = routeFromLocation();
+if(location.hash === lastAppliedHash && sameRoute(nextRoute, currentRoute)) return;
 if(adminExitBlocked(nextRoute)){
 /* The browser already moved: restore the admin route, ask once through the
    existing discard dialog, then replay the pending route exactly once. */
@@ -4900,7 +4956,7 @@ if(!pendingHash || location.hash === pendingHash) applyRoute(nextRoute); else lo
 });
 return;
 }
-applyRoute(nextRoute);
+applyRoute(nextRoute, { restored: true });
 }
 window.addEventListener('beforeunload', function(event){
 var G = window.CrabbieAdminDraftGuard;
@@ -4913,8 +4969,9 @@ event.returnValue = '';
 function navigate(path, opts){
 opts = opts || {};
 var hash = '#' + path;
-if(location.hash === hash){ applyRoute(parseRoute(path)); return; }
-if(opts.replace){ try{ history.replaceState(null, '', hash); }catch(e){ location.hash = hash; } applyRoute(parseRoute(path)); return; }
+if(location.hash === hash){ applyRoute(parseRoute(path), opts); return; }
+if(opts.replace){ try{ history.replaceState(null, '', hash); }catch(e){ location.hash = hash; return; } applyRoute(parseRoute(path), opts); return; }
+/* New hash: the hashchange listener owns the single application. */
 location.hash = hash;
 }
 window.addEventListener('hashchange', handleHash);
@@ -5069,7 +5126,15 @@ $$('#miniServicesGrid .mini-card').forEach(function(b){
 b.setAttribute('aria-pressed', b.getAttribute('data-other-service') === serviceId ? 'true' : 'false');
 });
 renderOtherServiceDetail(serviceId);
-setTimeout(function(){ smoothScrollTo(otherServiceDetail); }, prefersReduced() ? 0 : 60);
+var osdRoute = (currentRoute && currentRoute.view) || null;
+var osdTarget = otherServiceDetail;
+setTimeout(function(){
+  /* Cancel stale effects: only scroll when the visitor is still on the route
+     that opened the detail and the panel is still rendered. */
+  if((currentRoute && currentRoute.view) !== osdRoute) return;
+  if(!osdTarget || !osdTarget.isConnected || !osdTarget.classList.contains('show')) return;
+  smoothScrollTo(osdTarget);
+}, prefersReduced() ? 0 : 60);
 }
 
 var selectedService = '';
@@ -5084,7 +5149,7 @@ serviceIndicator.innerHTML = 'Selected service: <b></b>';
 var b = $('b', serviceIndicator); if(b) b.textContent = name + suffix;
 serviceIndicator.classList.add('show');
 }
-function scrollToForm(){ var shell = document.getElementById('requestForm'); if(shell) smoothScrollTo(shell); }
+function scrollToForm(){ var shell = document.getElementById('requestForm'); if(shell && shell.isConnected) smoothScrollTo(shell); }
 function selectService(el){
 var name = el.getAttribute('data-service') || '';
 var slug = el.getAttribute('data-service-slug') || '';
@@ -5093,8 +5158,14 @@ var avail = el.getAttribute('data-avail') || 'open';
 if(avail === 'closed' || el.disabled) return;
 selectedService = name; selectedServiceSlug = slug; selectedServiceAvail = avail;
 setTab(form, false); updateServiceIndicator(name, avail); hideBrief();
-if(currentRoute.view !== 'commissions'){ navigate('commissions'); setTimeout(scrollToForm, 60); }
-else setTimeout(scrollToForm, 30);
+var formRoute = 'commissions';
+var formDelay = currentRoute.view !== 'commissions' ? 60 : 30;
+if(currentRoute.view !== 'commissions') navigate('commissions');
+setTimeout(function(){
+  /* Guard the delayed scroll against a route change in between. */
+  if(!currentRoute || currentRoute.view !== formRoute) return;
+  scrollToForm();
+}, formDelay);
 }
 $$('[data-service]').forEach(function(el){
 var avail = el.getAttribute('data-avail') || 'open';
@@ -5536,10 +5607,40 @@ var publicLightboxReset = document.getElementById('publicLightboxReset');
 var lightboxScale = 1;
 var LIGHTBOX_MIN_SCALE = 1;
 var LIGHTBOX_MAX_SCALE = 4;
-function setLightboxScale(next){
-lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
-if(publicLightboxImg) publicLightboxImg.style.transform = lightboxScale === 1 ? '' : 'scale(' + lightboxScale + ')';
+var lightboxPan = { x: 0, y: 0 };
+var lightboxDragging = false;
+function lightboxBounds(){
+  /* Valid pan range for the current zoom: the image may move until its edge
+     meets the dialog edge, never beyond. Measured live so orientation and
+     dialog size changes are always correct. */
+  if(!publicLightbox || !publicLightboxImg) return { x: 0, y: 0 };
+  var box = publicLightbox.getBoundingClientRect();
+  var img = publicLightboxImg.getBoundingClientRect();
+  var w = img.width / Math.max(lightboxScale, 0.001);
+  var h = img.height / Math.max(lightboxScale, 0.001);
+  var overX = Math.max(0, (w * lightboxScale - box.width) / 2);
+  var overY = Math.max(0, (h * lightboxScale - box.height) / 2);
+  return { x: overX, y: overY };
 }
+function clampLightboxPan(){
+  var b = lightboxBounds();
+  lightboxPan.x = Math.max(-b.x, Math.min(b.x, lightboxPan.x));
+  lightboxPan.y = Math.max(-b.y, Math.min(b.y, lightboxPan.y));
+  if(lightboxScale <= 1){ lightboxPan.x = 0; lightboxPan.y = 0; }
+}
+function paintLightboxTransform(animated){
+  if(!publicLightboxImg) return;
+  clampLightboxPan();
+  publicLightboxImg.classList.toggle('anim-zoom', !!animated && !lightboxDragging);
+  if(lightboxScale === 1 && lightboxPan.x === 0 && lightboxPan.y === 0) publicLightboxImg.style.transform = '';
+  else publicLightboxImg.style.transform = 'translate(' + lightboxPan.x + 'px,' + lightboxPan.y + 'px) scale(' + lightboxScale + ')';
+  if(publicLightbox) publicLightbox.classList.toggle('is-zoomed', lightboxScale > 1);
+}
+function setLightboxScale(next, animated){
+  lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
+  paintLightboxTransform(animated !== false);
+}
+function resetLightboxView(animated){ lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0; paintLightboxTransform(animated); }
 var lightboxOpener = null;
 function lightboxFocusable(){
 if(!publicLightbox) return [];
@@ -5557,7 +5658,7 @@ function openPublicLightbox(src, alt, caption, slug){
 if(!publicLightbox || !publicLightboxImg || !src) return;
 lightboxOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
 publicLightboxImg.src = src; publicLightboxImg.alt = alt || '';
-setLightboxScale(1);
+resetLightboxView(false);
 if(publicLightboxCaption){
   var text = caption == null ? '' : String(caption).trim();
   publicLightboxCaption.textContent = text;
@@ -5575,7 +5676,8 @@ publicLightbox.hidden = true; document.body.style.overflow = '';
 if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
 if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
 renderLightboxCredits(null);
-lightboxScale = 1;
+lightboxScale = 1; lightboxPan.x = 0; lightboxPan.y = 0; lightboxDragging = false;
+if(publicLightbox) publicLightbox.classList.remove('is-zoomed');
 /* Return focus to the element that opened the lightbox. */
 if(lightboxOpener && lightboxOpener.isConnected && typeof lightboxOpener.focus === 'function'){
   try{ lightboxOpener.focus({ preventScroll: true }); }catch(e){ try{ lightboxOpener.focus(); }catch(e2){} }
@@ -5593,32 +5695,69 @@ if(publicLightbox){
   });
 }
 if(publicLightboxClose) publicLightboxClose.addEventListener('click', closePublicLightbox);
-if(publicLightboxZoomIn) publicLightboxZoomIn.addEventListener('click', function(){ setLightboxScale(lightboxScale + 0.4); });
-if(publicLightboxZoomOut) publicLightboxZoomOut.addEventListener('click', function(){ setLightboxScale(lightboxScale - 0.4); });
-if(publicLightboxReset) publicLightboxReset.addEventListener('click', function(){ setLightboxScale(1); });
+if(publicLightboxZoomIn) publicLightboxZoomIn.addEventListener('click', function(){ setLightboxScale(lightboxScale + 0.4, true); });
+if(publicLightboxZoomOut) publicLightboxZoomOut.addEventListener('click', function(){ setLightboxScale(lightboxScale - 0.4, true); });
+if(publicLightboxReset) publicLightboxReset.addEventListener('click', function(){ resetLightboxView(true); });
 if(publicLightbox){
   publicLightbox.addEventListener('click', function(e){ if(e.target === publicLightbox) closePublicLightbox(); });
   publicLightbox.addEventListener('wheel', function(e){
     if(publicLightbox.hidden) return;
     e.preventDefault();
-    setLightboxScale(lightboxScale + (e.deltaY < 0 ? 0.2 : -0.2));
+    setLightboxScale(lightboxScale + (e.deltaY < 0 ? 0.2 : -0.2), true);
   }, { passive: false });
   var pinchStart = null;
+  var dragStart = null;
   var touchDistance = function(touches){
     var dx = touches[0].clientX - touches[1].clientX;
     var dy = touches[0].clientY - touches[1].clientY;
     return Math.hypot(dx, dy);
   };
   publicLightbox.addEventListener('touchstart', function(e){
-    if(e.touches.length === 2) pinchStart = { distance: touchDistance(e.touches), scale: lightboxScale };
+    if(e.touches.length === 2){ pinchStart = { distance: touchDistance(e.touches), scale: lightboxScale, pan: { x: lightboxPan.x, y: lightboxPan.y } }; dragStart = null; }
+    else if(e.touches.length === 1 && lightboxScale > 1){ dragStart = { x: e.touches[0].clientX - lightboxPan.x, y: e.touches[0].clientY - lightboxPan.y }; }
   }, { passive: true });
   publicLightbox.addEventListener('touchmove', function(e){
     if(e.touches.length === 2 && pinchStart && pinchStart.distance > 0){
+      /* Direct update, no interpolation: the zoom tracks the fingers. */
       e.preventDefault();
-      setLightboxScale(pinchStart.scale * (touchDistance(e.touches) / pinchStart.distance));
+      lightboxDragging = true;
+      setLightboxScale(pinchStart.scale * (touchDistance(e.touches) / pinchStart.distance), false);
+      lightboxDragging = false;
+    } else if(e.touches.length === 1 && dragStart && lightboxScale > 1){
+      /* Zoomed 1-finger drag pans the artwork; at 1x the touch is left alone
+         so the dialog scrolls natively. */
+      e.preventDefault();
+      lightboxDragging = true;
+      lightboxPan.x = e.touches[0].clientX - dragStart.x;
+      lightboxPan.y = e.touches[0].clientY - dragStart.y;
+      paintLightboxTransform(false);
+      lightboxDragging = false;
     }
   }, { passive: false });
-  publicLightbox.addEventListener('touchend', function(e){ if(e.touches.length < 2) pinchStart = null; });
+  var endTouchGesture = function(e){ if(!e || e.touches.length < 2) pinchStart = null; if(!e || e.touches.length === 0) dragStart = null; };
+  publicLightbox.addEventListener('touchend', endTouchGesture);
+  publicLightbox.addEventListener('touchcancel', endTouchGesture);
+  if(publicLightboxImg){
+    /* Pointer drag pans zoomed artwork directly; at 1x the dialog scrolls. */
+    publicLightboxImg.addEventListener('pointerdown', function(e){
+      if(publicLightbox.hidden || lightboxScale <= 1) return;
+      if(e.pointerType === 'touch') return;
+      dragStart = { x: e.clientX - lightboxPan.x, y: e.clientY - lightboxPan.y };
+      lightboxDragging = true;
+      try{ publicLightboxImg.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    publicLightboxImg.addEventListener('pointermove', function(e){
+      if(!lightboxDragging || !dragStart || lightboxScale <= 1) return;
+      lightboxPan.x = e.clientX - dragStart.x;
+      lightboxPan.y = e.clientY - dragStart.y;
+      paintLightboxTransform(false);
+    });
+    var endPointerDrag = function(){ lightboxDragging = false; dragStart = null; };
+    publicLightboxImg.addEventListener('pointerup', endPointerDrag);
+    publicLightboxImg.addEventListener('pointercancel', endPointerDrag);
+  }
+  window.addEventListener('resize', function(){ if(publicLightbox && !publicLightbox.hidden) paintLightboxTransform(false); });
+  window.addEventListener('orientationchange', function(){ if(publicLightbox && !publicLightbox.hidden) paintLightboxTransform(false); });
 }
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
 
@@ -10285,6 +10424,15 @@ if(typeof filterState !== 'undefined' && filterState.pf){
       /* After the authoritative snapshot, a removed/renamed slug is a real 404. */
       applyRoute({ view:'404', id:null, adminModule:null });
     }
+    else if(prevView === 'project-detail'){
+      /* Same-record refresh while the detail is displayed: re-render in
+         place. Never route, scroll or move focus on a detail the visitor is
+         already reading. Any other state (notably loading) still transitions
+         through applyRoute so a pending route genuinely activates. */
+      renderProject(currentRoute.id);
+      try{ document.title = titleFor('project-detail', currentRoute.id, null); }catch(e){}
+      try{ renderProjectCredits(PROJECTS[currentRoute.id]); }catch(e){}
+    }
     else applyRoute(parseRoute('project/' + currentRoute.id));
   } else if(currentRoute.view === 'loading' && lastDetailRequest && lastDetailRequest.view === 'project-detail'){
     /* Revive a detail route that was parsed before this record existed. */
@@ -10391,6 +10539,12 @@ if(typeof filterState !== 'undefined' && filterState.fa){
 
   if(currentRoute.view === 'free-asset-detail'){
     if(!live[currentRoute.id]) applyRoute({ view:'404', id:null, adminModule:null });
+    else if(prevView === 'free-asset-detail'){
+      /* Same-record refresh while displayed: re-render in place with no
+         scroll/focus reset. Other states still transition via applyRoute. */
+      renderAsset(currentRoute.id);
+      try{ document.title = titleFor('free-asset-detail', currentRoute.id, null); }catch(e){}
+    }
     else applyRoute(parseRoute('asset/' + currentRoute.id));
   } else if(currentRoute.view === 'loading' && lastDetailRequest && lastDetailRequest.view === 'free-asset-detail'){
     applyRoute(parseRoute('asset/' + lastDetailRequest.id));
