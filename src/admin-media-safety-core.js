@@ -139,6 +139,23 @@ function collectListUsage(list, entityType, fields, media, usages) {
     const name = recordName(record, index);
     collectFieldUsage(entityType, recordKey(record, index), record, name, fields, media, usages);
     if (!record || typeof record !== 'object') return;
+    /* Asset preview galleries: every ordered row is a live reference, in the
+       exact array order the editor authored. Walked generically so both URL
+       and storage-path forms match. */
+    if (entityType === 'assets' && Array.isArray(record.gallery)) {
+      record.gallery.forEach((item, galleryIndex) => {
+        if (!item || typeof item !== 'object') return;
+        walkStrings(item, (value, path) => {
+          if (!mediaReferenceMatches(value, media)) return;
+          usages.push({
+            entityType,
+            entityId: recordKey(record, index),
+            field: 'gallery[' + galleryIndex + '].' + path,
+            label: name + ' · Preview ' + (galleryIndex + 1) + ' ' + path
+          });
+        });
+      });
+    }
     // Authoritative public URL references beyond fixed thumbnail/download
     // fields: portfolio externalLinks, portfolio link, asset driveUrl is
     // covered by fields above, page/about links arrays.
@@ -233,6 +250,42 @@ export function findAuthoritativeMediaReferences(media, bundle) {
   const sources = bundle && typeof bundle === 'object' ? bundle : {};
   Object.keys(sources).forEach((key) => scan(sources[key], key));
   return hits;
+}
+
+/* -------------------------------------------------------------------------
+ * Paged authoritative reads
+ *   fetchPage({ from, to, page, pageSize }) -> array of rows (or { rows }).
+ * Any throw, short page logic handled by the caller loop below; an error or
+ * a hit maxPages cap resolves incomplete (fail closed) while keeping the
+ * rows already collected. Callers must refuse deletion unless complete.
+ * ---------------------------------------------------------------------- */
+
+export async function collectPagedRows(fetchPage, { pageSize = 500, maxPages = 1000 } = {}) {
+  const size = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Math.floor(Number(pageSize)) : 500;
+  const cap = Number.isFinite(Number(maxPages)) && Number(maxPages) > 0 ? Math.floor(Number(maxPages)) : 1000;
+  const rows = [];
+  let page = 0;
+  let complete = true;
+  let error = null;
+  while (page < cap) {
+    let batch = null;
+    try {
+      const result = await fetchPage({ from: page * size, to: page * size + size - 1, page, pageSize: size });
+      batch = Array.isArray(result) ? result : (result && Array.isArray(result.rows) ? result.rows : []);
+    } catch (err) {
+      complete = false;
+      error = (err && err.message) || String(err);
+      break;
+    }
+    rows.push(...batch);
+    page += 1;
+    if (batch.length < size) break;
+  }
+  if (page >= cap) {
+    complete = false;
+    error = error || 'page cap reached before a short page';
+  }
+  return { rows, complete, error, pagesFetched: page };
 }
 
 /* -------------------------------------------------------------------------

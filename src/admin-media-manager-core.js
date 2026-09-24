@@ -183,6 +183,9 @@ export function acceptMatches(item, accept) {
 export function mediaTargetAccept(path, blockType = '') {
   const target = String(path || '');
   if (/^assets\.[^.]+\.downloadUrl$/.test(target)) return '*';
+  /* Ordered asset preview galleries accept images only; the direct download
+     field above stays the single path for non-image deliverables. */
+  if (/^assets\.[^.]+\.gallery$/.test(target)) return 'image/*';
   if (target === 'settings.music.url') return 'audio/*';
   const block = target.match(/^portfolio\.[^.]+\.blocks\.\d+\.(url|items|before|after)$/);
   if (block) {
@@ -270,6 +273,16 @@ export function pickerResultFor(urls, { multiple = false } = {}) {
   return { urls: list, value: multiple ? list : list[0], multiple: Boolean(multiple) };
 }
 
+/**
+ * Pure multiplicity for any editor media target (no draft access): portfolio
+ * gallery/grid `items` arrays and asset preview galleries accept many.
+ */
+export function mediaTargetIsMultiple(targetPath) {
+  const target = String(targetPath || '');
+  if (/^assets\.[^.]+\.gallery$/.test(target)) return true;
+  return target.split('.').pop() === 'items';
+}
+
 /* ------------------------------- block targets ----------------------------- */
 
 // Only the block fields the current portfolio schema really exposes.
@@ -293,8 +306,15 @@ export function blockAcceptsMultiple(blockType) {
   return fields.length === 1 && fields[0] === 'items';
 }
 
-export function galleryItemsFor(urls, { alt = '' } = {}) {
-  return (Array.isArray(urls) ? urls : []).filter(Boolean).map((url) => ({ url, alt, caption: '' }));
+export function galleryItemsFor(urls, { alt = '', idFactory } = {}) {
+  const makeId = typeof idFactory === 'function' ? idFactory : null;
+  return (Array.isArray(urls) ? urls : []).filter(Boolean).map((url) => {
+    const row = { url, alt, caption: '' };
+    /* Asset galleries need stable ids; portfolio block rows keep their
+       legacy id-less shape unless a factory is supplied. */
+    if (makeId) row.id = makeId();
+    return row;
+  });
 }
 
 /* --------------------------- bulk delete summary --------------------------- */

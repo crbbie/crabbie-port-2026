@@ -616,6 +616,23 @@ function syncMusicFieldFocus() {
 }
 document.addEventListener('focusin', () => { syncMusicFieldFocus(); });
 document.addEventListener('focusout', () => { setTimeout(syncMusicFieldFocus, 0); });
+/* Idempotent reduced-motion lifecycle: toggling the OS preference mid-session
+   (no navigation/reload) stops movement and clears candy when reduced, and
+   reconciles/restarts only the enabled systems when restored. Pinned pet
+   positions, desired counts and the single music instance are untouched. */
+function handleReduceChange() {
+  if (isReduced()) {
+    stopCandy();
+    stopPetLoop();
+  } else {
+    if (candy.enabled && !isAdminView()) scheduleCandy();
+    if (petState.enabled) reconcilePets();
+  }
+}
+if (typeof reduceMotion !== 'undefined' && reduceMotion) {
+  if (typeof reduceMotion.addEventListener === 'function') reduceMotion.addEventListener('change', handleReduceChange);
+  else if (typeof reduceMotion.addListener === 'function') reduceMotion.addListener(handleReduceChange);
+}
 
 /* ------------------------------- INIT ----------------------------------- */
 injectStyles();
@@ -640,4 +657,4 @@ window.addEventListener('hashchange', () => {
   if (candy.enabled && !isAdminView()) scheduleCandy(); else stopCandy();
 });
 
-window.CrabbieSiteMotion = { applyMotion, applyMusic };
+window.CrabbieSiteMotion = { applyMotion, applyMusic, handleReduceChange };

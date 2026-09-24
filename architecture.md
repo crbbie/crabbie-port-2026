@@ -51,6 +51,11 @@ Unknown public routes render the 404 view. Unknown admin modules fall back to th
 
 When adding a public route, update all relevant route parsing, title handling, navigation state, rendering, and tests together.
 
+Route scroll and focus ownership: `navigate()` applies a route once (the hash
+listener ignores its echo), `instantScrollTo` is the only route-scroll
+primitive, same-route detail refresh re-renders in place without routing,
+and admin dirty-navigation guards plus URL/deep-link behavior are unchanged.
+
 ## Module boundaries
 
 ### Public CMS adapters
@@ -134,6 +139,28 @@ Supabase public table
   → view render
   → route/detail UI
 ```
+
+## Asset preview gallery data flow
+
+Ordered additional Free Asset previews travel the same pipeline without a
+second viewer or a competing state model:
+
+```text
+free_assets.metadata.gallery (+ coverAlt)
+  → src/asset-gallery-core.js (normalize/validate/reorder/replace)
+  → mapFreeAsset / mapAssetRow / createAssetDraft / formatAssetRow
+  → ASSETS runtime records + admin draft
+  → asset detail gallery (cover first, 12-per-batch thumbs) + admin editor
+  → shared public viewer collection (cover at index 0)
+```
+
+The shared viewer (`#publicLightbox`) exposes one narrow collection/index API
+(`openViewerCollection`); Portfolio cover and asset adapters stay separate,
+content blocks are never auto-collected into slideshows, and the admin media
+preview stays independent. Viewer history owns at most one namespaced
+same-URL entry per opening: Back dismisses first, Close/Escape consume only
+the owned entry, image steps push nothing, and route departure tears down
+without restoring obsolete scroll.
 
 ## People / Clients data flow
 

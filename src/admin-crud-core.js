@@ -1,4 +1,5 @@
 import { formattedCommissionPrice, parseCommissionPrice, formatPriceWithCurrency } from './admin-roundtrip-core.js';
+import { serializeAssetGallery, normalizeCoverAlt } from './asset-gallery-core.js';
 export function formatPortfolioRow(rec, sort_order = 0) {
   /* One canonical project image: cover is the source of truth and the card
      thumbnail auto-syncs from it. Legacy thumbnail-only rows fall back so
@@ -52,7 +53,11 @@ export function formatAssetRow(rec, sort_order = 0) {
     placeholder: !!rec.placeholder,
     tags: Array.isArray(rec.tags) ? rec.tags : [],
     flowerTag: rec.flowerTag || null,
-    filterCat: rec.filterCat || ''
+    filterCat: rec.filterCat || '',
+    /* Ordered additional previews persist verbatim (array order, stable ids);
+       the cover is never auto-duplicated into this list. */
+    gallery: serializeAssetGallery(rec.gallery),
+    coverAlt: normalizeCoverAlt(rec.coverAlt, rec.title)
   };
   return {
     slug: rec.slug || rec.id,

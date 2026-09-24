@@ -257,8 +257,9 @@ Important current behavior:
 - the public footer keeps Brand on its own row and shows Explore/Contact in two columns on phones, falling back to one column at very narrow widths;
 - the public page must have zero unintended horizontal overflow: `document.documentElement.scrollWidth <= clientWidth + 1` at 320/360/375/390/430px portrait and phone landscape. Long CMS-authored tokens (project titles with no spaces, URL descriptions, long tags, long collaborator names) must wrap (`overflow-wrap:anywhere`, grid/flex `min-width:0`) instead of widening the page. Portfolio `.work` cards share the same shrink/wrap defense. Decorative badges are bounded too: portfolio `.cloud-tag` labels are capped to the card (`max-width: calc(100% - 28px)`), grow in height instead of clipping (`min-height`, wrapping span with `overflow-wrap:anywhere` — never ellipsis/truncation), and the About `.profile-frame` keeps right-side headroom on narrow screens (`max-width: min(380px, 100% - 20px)` plus a tucked `.flower-tag` under ≤720px) so the rotated frame plus flower never pass the layout edge, even with a CMS profile image filling the frame. Root defense stays `body{overflow-x:hidden}` plus `overscroll-behavior-x:none`; never put `overflow-x:clip` on `html` — Chromium stops pinning the sticky nav when the root clips either axis. Local horizontal scrollers (client thanks, media preview) own their own overflow; the page itself never pans;
 - portfolio project detail: `.pd-hero` tracks are `minmax(0,…)` with `min-width:0` children so hero content can always shrink; divider/spacer render without a numbered card, and untitled text/caption blocks drop the extra white card (one dashed frame); on phones Previous/Next share a row with Back to Portfolio on its own row; phone vertical rhythm is deliberate (compact hero gap, title→description, description→facts, facts→cover, cover→first block, final content→footnav) instead of inheriting the desktop cadence;
+- portfolio project detail cover containment: `.pd-cover` owns a stable 4:3 frame with `overflow:hidden` and its direct `img` child is absolutely positioned (`inset:0`, `min-width:0`, `min-height:0`, `object-fit:cover`) so square/portrait artwork can never resize the frame, escape the rounded corners, or cover Section 01 (`#pdBlocks` always starts below the frame). Keep this scoped to `.pd-cover`; do not change the shared `publicImage()` renderer. An overlay trigger button exposes viewer inspection without touching that geometry;
 - the public lightbox keeps the centered grid (close band / caption / credits / flexible image slot) on desktop, tablet and phone landscape. Phone portrait uses a compact natural vertical stack instead: caption (only when present) → collaborator credits (only when present) → image at the top of the screen with a small deliberate gap, in one scroll container; hidden rows consume zero space, tall images simply scroll, and the image is capped by `100dvh` so it never sits underneath the fixed zoom toolbar. Close/toolbar padding and position grow with `env(safe-area-inset-*)` on notch phones; close and zoom buttons keep ~44px touch targets on every viewport (base sizing, not just narrow portrait); short landscape viewports (height ≤500px) tighten the reserved close/toolbar bands so the image stage stays usable;
-- the public lightbox zooms with a bounded pan, never a bare centered scale: one-finger touch drag, mouse drag and arrow keys pan the artwork while zoomed (at 1x the dialog keeps its normal scroll), the pan clamps so an image edge lands exactly on the stage edge, zoom stays within 1–4x, and Reset/reopen always re-center deterministically; resize/orientation re-clamps without changing the zoom level, and panning is transform-only so the root document never moves;
+- the public lightbox zooms with a bounded pan, never a bare centered scale: one-finger touch drag and mouse drag pan the artwork while zoomed (at 1x the dialog keeps its normal scroll), the pan clamps so an image edge lands exactly on the stage edge, zoom stays within 1–4x, and Reset/reopen always re-center deterministically; resize/orientation re-clamps without changing the zoom level, and panning is transform-only so the root document never moves. In multi-image collections Left/Right step prev/next (with a position indicator); with a single zoomed image the arrow keys pan instead;
 - lightbox captions wrap unbroken tokens (`overflow-wrap:anywhere`, `min-width:0`) so long URLs stay inside the caption pill and the dialog; collaborator names already wrap, and credit avatars keep their own 30px sizing outside the artwork zoom/pan rules;
 - public motion is restrained: one short hover spring on `.work-more` (no perpetual loop), a single gentle hero float, a slow drift on Home cloud-tag labels only, and sparkle only on primary CTAs; `.is-jelly` is a short press/release squash. `[data-goto]` navigation is never delayed by animation. The decorative artwork (`src/site-decor.js`) crossfades on desktop and phones, but scroll parallax and the continuous float drift are desktop/fine-pointer only — on coarse pointers the art stays visible and viewport-fixed with no transform, so the background never feels like it slides sideways while scrolling; `prefers-reduced-motion` still stops everything;
 - portfolio `.work` cards keep the shared hover lift: the `.pf-grid` entrance animation must not forward-fill `transform` after it settles, and the featured resting ring (`is-cms-featured`) is scoped to `:not(:hover)` so featured and normal cards share the same lift/shadow hover feedback;
@@ -267,6 +268,8 @@ Important current behavior:
 - the public music control sits below the nav/mobile menu in the stack (z-index 55) and hides while a field is focused on touch devices (display only — audio, source, mute and playback survive; blur and route changes restore it without restarting); its buttons are 44px on coarse pointers (34px stays for fine-pointer desktops);
 - public editable text stays at 16px or more on touch devices at every width (search boxes and commission fields gain a coarse-pointer rule so phones, landscape and tablets never trigger iOS focus zoom); footer links grow to real 44px targets on coarse pointers via padding, with desktop sizing untouched;
 - asset detail: short metadata keeps label/value side by side; long-form fields (description, usage/license, update note) stack the label over a left-aligned, full-width paragraph (authored line breaks preserved); empty optional rows stay hidden;
+- asset preview galleries: the cover stays first in `.ad-preview`; additional previews render below in a responsive grid (`repeat(auto-fill, minmax(150px, 1fr))`, 3 columns on phones) with stable 1/1 boxes, `min-width:0` and no root overflow; broken thumbs keep a stable fallback box; single-image assets show no gallery section and no viewer prev/next chrome; no cover never hides valid previews;
+- shared public viewer: one overlay serves Portfolio cover, asset collections and existing gallery/image-card triggers; viewport-filling modal (no Fullscreen API), fit/reset, zoom ± with status, bounded pan/pinch, prev/next with position indicator for collections, captions and optional project credits; loading/error/retry states with stale-request guards; focus trap, polite position/loading announcements, return to the actual opener (route fallback otherwise), preserved background lock, instant (never smooth) scroll restoration; Back dismisses before route change; controls keep ~44px targets and safe-area padding; `prefers-reduced-motion` stills the discrete zoom easing via the global rule;
 - portfolio project detail: divider/spacer render without a numbered card, and untitled text/caption blocks drop the extra white card (one dashed frame); on phones Previous/Next share a row with Back to Portfolio on its own row;
 - contact: the stamp takes its own row above the letter body on phones (never over the eyebrow); the email wraps naturally; the email CTA is primary with the secondary actions sharing a row;
 - terms: the section badge reuses the number already in the CMS heading (never doubles); the number aligns with the first line of a multi-line heading; the mobile TOC is a collapsed disclosure with every section reachable;
@@ -276,6 +279,32 @@ Important current behavior:
 - the commission direct-email card wraps the address naturally and lays its actions out in a tidy grid on phones.
 
 After responsive changes, verify at least desktop, tablet, and mobile widths with `npm run test:router` or equivalent browser checks.
+
+## Navigation and motion contracts
+
+- Route scroll uses one instant primitive (`instantScrollTo`, clamped to valid
+  document bounds) so detail-to-list restores never inherit global smooth
+  scrolling. Forward navigation goes to top; explicit project/asset returns
+  restore the remembered list position and filters; Back/Forward restores a
+  visited view with memory; direct detail loads with no memory go top.
+- `navigate()` is the single navigation owner: it applies the route once and
+  the hash listener ignores the echo of that same hash. Same-route public
+  refresh (`sameRoute`) keeps scroll and focus; only genuine view/id changes
+  scroll or move focus.
+- Restored list content is stationary (`body.is-restoring` suppresses the view
+  and grid entrances for that activation); fresh navigation keeps the playful
+  entrance. Grid entrances use `backwards` fill so completed entrances release
+  hover lift. The shared jelly press animates `translate`/`scale` (never
+  `transform`) so it composes with hover lift and never replays entrances.
+- The public lightbox gesture policy is scale-aware: at 1x the dialog scrolls
+  natively (`touch-action: pan-x pan-y pinch-zoom`); zoomed artwork owns the
+  gesture (`is-zoomed` → `touch-action:none`). Drag/pinch paint transforms
+  directly with no transition; only discrete zoom steps animate. Pinch,
+  `touchcancel`, reset/reopen, resize/orientation bounds, keyboard, focus
+  restoration and background locking are preserved.
+- Reduced motion is a runtime lifecycle (`handleReduceChange`): reduced on
+  stops candy/pet loops; reduced off reconciles/restarts enabled systems only.
+  Pinned positions, counts and the single music instance are preserved.
 
 ## Accessibility basics
 
