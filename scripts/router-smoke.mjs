@@ -4720,6 +4720,292 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS portfolio presentation: bounded meta and full-bleed image cards across 11 viewports, filters, touch and desktop hover (SDK fixture)');
 
+    // ---- Public lightbox: bounded pan/zoom, wrapping captions, 44px controls
+    // BUG-05: zoom pairs with a clamped pan (one-finger touch, mouse drag,
+    // arrows) so every artwork edge stays reachable; Reset/reopen are
+    // deterministic and the root document never moves.
+    // BUG-06: unbroken caption tokens wrap inside the dialog (anywhere).
+    // BUG-08: zoom controls keep >=44px targets on touch landscape/tablet.
+    await context.route('https://example.test/lb-art-*.svg', (route) => {
+      const dims = route.request().url().match(/lb-art-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#8a5cff"/><text x="50%" y="50%" font-size="72" text-anchor="middle" fill="#ffffff">${w}x${h}</text></svg>`});
+    });
+    await context.route('https://example.test/lb-avatar.png', (route) => route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="48" fill="#ff5c9a"/></svg>'}));
+    const longCaptionUrl = 'https://example.test/a/very/long/unbroken/url/that/must/not/widen/the/lightbox/dialog/' + 'X'.repeat(200) + '/or-escape-its-caption-row/ever';
+    const longCreditName = 'Alexandrina-Theodora-Montenegro-Wossisname-Longest-Collaborator-Name-Ever';
+    // The grid must be visible before seeding: lazy card artwork in a hidden
+    // view never fetches.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(({longUrl, longName}) => {
+      window.CrabbiePortfolio.apply([
+        {slug:'lb-square', title:'Square Art', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1000x1000.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'lb-wide', title:'Wide Art', description:longUrl, cat:'Chibi', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1600x200.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true, people:[{id:'p-long', display_name:longName, avatar_path:'https://example.test/lb-avatar.png', profile_url:'', kind:'collaborator', published:true}]},
+        {slug:'lb-tall', title:'Tall Art', description:'A short caption', cat:'Vtuber', tags:[], thumbnail:'', cover:'https://example.test/lb-art-400x1600.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true}
+      ]);
+    }, {longUrl: longCaptionUrl, longName: longCreditName});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const lbOpen = async (slug) => {
+      await page.locator(`#pfGrid [data-project="${slug}"]`).focus();
+      await page.locator(`#pfGrid [data-project="${slug}"]`).click();
+      await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    };
+    const lbEscape = async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    };
+    const lbGeom = () => page.evaluate(() => {
+      const dlg = document.getElementById('publicLightbox');
+      const img = document.getElementById('publicLightboxImg');
+      const dr = dlg.getBoundingClientRect();
+      const vr = img.getBoundingClientRect();
+      const t = img.style.transform || '';
+      const m = t.match(/translate\(\s*([-\d.]+)px(?:\s*,\s*([-\d.]+)px)?\s*\)/);
+      const s = t.match(/scale\(\s*([\d.]+)\s*\)/);
+      return {
+        stage: {l: dr.left + img.offsetLeft, t: dr.top + img.offsetTop, w: img.clientWidth, h: img.clientHeight},
+        visual: {l: vr.left, t: vr.top, r: vr.right, b: vr.bottom, w: vr.width, h: vr.height},
+        scale: s ? Number(s[1]) : 1,
+        panX: m ? Number(m[1]) : 0,
+        panY: m && m[2] !== undefined ? Number(m[2]) : 0
+      };
+    });
+    const lbChrome = () => page.evaluate(() => {
+      const cap = document.getElementById('publicLightboxCaption');
+      const cred = document.getElementById('publicLightboxCredits');
+      const close = document.getElementById('publicLightboxClose');
+      const size = (el) => { const b = el.getBoundingClientRect(); return {w: b.width, h: b.height}; };
+      const avatar = cred.querySelector('img.pcs-avatar');
+      return {
+        root: {docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth, scrollX: window.scrollX},
+        caption: {hidden: cap.hidden, clientW: cap.clientWidth, scrollW: cap.scrollWidth},
+        credits: {hidden: cred.hidden, clientW: cred.clientWidth, scrollW: cred.scrollWidth},
+        close: size(close),
+        buttons: Array.from(document.querySelectorAll('#publicLightboxBar button')).map((b) => Object.assign({id: b.id}, size(b))),
+        avatar: avatar ? size(avatar) : null,
+        bodyLocked: document.body.style.overflow === 'hidden'
+      };
+    });
+    // Worst-case chrome (long URL caption + long collaborator name) at every
+    // required viewport: tap-open, stationary root, wrapping rows, 44px
+    // controls, Escape with opener focus restoration.
+    const lightboxMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    for (const [width, height] of lightboxMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const at = `${width}x${height}`;
+      await lbOpen('lb-wide');
+      const chrome = await lbChrome();
+      assert.ok(chrome.root.docSW <= chrome.root.docCW + 1 && chrome.root.bodySW <= chrome.root.bodyCW + 1, `lightbox keeps the page width at ${at}`);
+      assert.equal(chrome.root.scrollX, 0, `lightbox never pans the root at ${at}`);
+      assert.ok(chrome.bodyLocked, `background stays locked while open at ${at}`);
+      assert.equal(chrome.caption.hidden, false, `long caption renders at ${at}`);
+      assert.ok(chrome.caption.scrollW <= chrome.caption.clientW + 1, `long caption wraps inside the dialog at ${at}`);
+      assert.equal(chrome.credits.hidden, false, `long collaborator credit renders at ${at}`);
+      assert.ok(chrome.credits.scrollW <= chrome.credits.clientW + 1, `long collaborator name wraps at ${at}`);
+      assert.ok(chrome.avatar && Math.abs(chrome.avatar.w - 30) <= 1 && Math.abs(chrome.avatar.h - 30) <= 1, `credit avatar keeps its own 30px sizing at ${at}`);
+      assert.ok(chrome.close.w >= 44 && chrome.close.h >= 44, `close control keeps 44px at ${at}`);
+      chrome.buttons.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `zoom control ${b.id} keeps 44px at ${at}`));
+      await lbEscape();
+      assert.equal(await page.evaluate(() => (document.activeElement || {}).getAttribute && document.activeElement.getAttribute('data-project')), 'lb-wide', `focus returns to the opener at ${at}`);
+    }
+    // Caption variants: absent stays hidden, short stays clean.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await lbOpen('lb-square');
+    assert.equal((await lbChrome()).caption.hidden, true, 'an absent caption stays hidden');
+    await lbEscape();
+    await lbOpen('lb-tall');
+    const shortChrome = await lbChrome();
+    assert.equal(shortChrome.caption.hidden, false, 'a short caption renders');
+    assert.ok(shortChrome.caption.scrollW <= shortChrome.caption.clientW + 1, 'a short caption never overflows');
+    await lbEscape();
+    // Zoom/pan geometry on portrait: buttons, wheel, drag, arrows, pinch.
+    await lbOpen('lb-square');
+    let g = await lbGeom();
+    assert.ok(g.stage.w > 0 && g.stage.h > 0, 'the pan stage measures a real box');
+    assert.equal(g.scale, 1, 'the lightbox opens unzoomed');
+    await page.locator('#publicLightboxZoomIn').click();
+    g = await lbGeom();
+    assert.equal(g.scale, 1.4, 'the + control zooms to 1.4x');
+    assert.ok(g.visual.w > g.stage.w, 'zooming enlarges past the stage');
+    // Mouse drag to each extreme: the reached edge lands exactly on stage.
+    const dragPan = async (dx, dy) => {
+      const c = await page.evaluate(() => {
+        const b = document.getElementById('publicLightboxImg').getBoundingClientRect();
+        return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+      });
+      await page.mouse.move(c.x, c.y);
+      await page.mouse.down();
+      await page.mouse.move(c.x + dx, c.y + dy, {steps: 5});
+      await page.mouse.up();
+      await page.waitForTimeout(120);
+    };
+    await dragPan(2000, 0);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.l - g.stage.l) <= 1.5, `panning right reaches the left artwork edge (off by ${(g.visual.l - g.stage.l).toFixed(2)})`);
+    await dragPan(-2000, 0);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.r - (g.stage.l + g.stage.w)) <= 1.5, `panning left reaches the right artwork edge (off by ${(g.visual.r - g.stage.l - g.stage.w).toFixed(2)})`);
+    await dragPan(0, 2000);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.t - g.stage.t) <= 1.5, 'panning down reaches the top artwork edge');
+    await dragPan(0, -2000);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.b - (g.stage.t + g.stage.h)) <= 1.5, 'panning up reaches the bottom artwork edge');
+    // A small drag pans proportionally inside the clamped bounds.
+    await page.locator('#publicLightboxReset').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(60, 30);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.panX - 60) <= 2 && Math.abs(g.panY - 30) <= 2, `a small drag pans proportionally (got ${g.panX}, ${g.panY})`);
+    // Wheel zooms in fine steps around the current level.
+    const imgCenter = await page.evaluate(() => {
+      const b = document.getElementById('publicLightboxImg').getBoundingClientRect();
+      return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+    });
+    await page.mouse.move(imgCenter.x, imgCenter.y);
+    await page.mouse.wheel(0, -240);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.scale - 1.6) <= 0.01, `wheel zooms in a fine step (got ${g.scale})`);
+    await page.mouse.wheel(0, 240);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.scale - 1.4) <= 0.01, `wheel zooms back out (got ${g.scale})`);
+    // Arrow keys pan only while zoomed, never at 1x.
+    await page.locator('#publicLightboxReset').click();
+    await page.keyboard.press('ArrowRight');
+    g = await lbGeom();
+    assert.ok(g.panX === 0 && g.panY === 0, 'arrows do nothing at 1x');
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    g = await lbGeom();
+    assert.ok(g.panX < 0, `ArrowRight pans toward the right edge (panX=${g.panX})`);
+    // Zoom clamps at 4x; zooming out all the way re-centers deterministically.
+    for (let i = 0; i < 10; i += 1) await page.locator('#publicLightboxZoomIn').click();
+    g = await lbGeom();
+    assert.equal(g.scale, 4, 'zoom clamps at the 4x maximum');
+    for (let i = 0; i < 12; i += 1) await page.locator('#publicLightboxZoomOut').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'zooming out fully clears the transform');
+    // Reset and reopen are deterministic after arbitrary zoom/pan.
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(300, 200);
+    await page.locator('#publicLightboxReset').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'Reset clears zoom and pan');
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(-400, -300);
+    await lbEscape();
+    await lbOpen('lb-square');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'reopening starts unzoomed and centered');
+    // Two-finger pinch and one-finger touch pan through real touch input.
+    const lbCdp = await context.newCDPSession(page);
+    const pinch = async (x1, y1, x2, y2, x3, y3, x4, y4) => {
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: x1, y: y1, id: 1}, {x: x2, y: y2, id: 2}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x3, y: y3, id: 1}, {x: x4, y: y4, id: 2}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+      await page.waitForTimeout(150);
+    };
+    const touchDrag = async (x1, y1, x2, y2) => {
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: x1, y: y1, id: 1}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x2, y: y2, id: 1}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+      await page.waitForTimeout(150);
+    };
+    await pinch(150, 400, 250, 400, 100, 400, 300, 400);
+    g = await lbGeom();
+    assert.ok(g.scale >= 1.8 && g.scale <= 2.2, `pinch-out zooms toward 2x (got ${g.scale})`);
+    await pinch(100, 400, 300, 400, 150, 400, 250, 400);
+    g = await lbGeom();
+    assert.ok(g.scale < 2.2, `pinch-in zooms back (got ${g.scale})`);
+    await page.locator('#publicLightboxReset').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await touchDrag(195, 400, 495, 400);
+    g = await lbGeom();
+    assert.ok(g.panX > 0, `one-finger touch pans the artwork (panX=${g.panX})`);
+    // Long in-viewport drag (CDP drops off-screen coordinates).
+    await touchDrag(350, 400, 30, 400);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.r - (g.stage.l + g.stage.w)) <= 2, 'one-finger touch reaches the clamped right edge');
+    await lbCdp.detach();
+    // The root never moves through any of it; background scroll is preserved.
+    const rootCalm = await page.evaluate(() => ({scrollX: window.scrollX, scrollY: window.scrollY, docSW: document.documentElement.scrollWidth, docCW: document.documentElement.clientWidth, bodySW: document.body.scrollWidth, bodyCW: document.body.clientWidth}));
+    assert.equal(rootCalm.scrollX, 0, 'pan/zoom never pans the root');
+    assert.ok(rootCalm.docSW <= rootCalm.docCW + 1 && rootCalm.bodySW <= rootCalm.bodyCW + 1, 'pan/zoom never widens the page');
+    await lbEscape();
+    // Orientation change while zoomed keeps the level and re-clamps the pan.
+    await lbOpen('lb-tall');
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(500, 0);
+    await page.setViewportSize({width: 844, height: 390});
+    await page.waitForTimeout(300);
+    g = await lbGeom();
+    assert.equal(g.scale, 1.4, 'orientation change keeps the zoom level');
+    assert.ok(g.visual.l <= g.stage.l + 1.5 && g.visual.r >= g.stage.l + g.stage.w - 1.5, 'orientation change keeps the artwork covering its stage');
+    const landChrome = await lbChrome();
+    assert.ok(landChrome.buttons.every((b) => b.w >= 44 && b.h >= 44), 'controls stay 44px after orientation change');
+    assert.ok(landChrome.caption.scrollW <= landChrome.caption.clientW + 1, 'captions stay wrapped after orientation change');
+    await lbEscape();
+    // Focus trap cycles inside the dialog in both directions.
+    await lbOpen('lb-square');
+    await page.locator('#publicLightboxZoomIn').focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'publicLightboxClose', 'Tab wraps from last control to close');
+    await page.locator('#publicLightboxClose').focus();
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('Tab');
+    await page.keyboard.up('Shift');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'publicLightboxZoomIn', 'Shift+Tab wraps from close to last control');
+    await page.locator('#publicLightboxClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Touch context: tap opens with the full source and taps zoom.
+    const lbTouch = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await lbTouch.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      await lbTouch.route('https://example.test/lb-art-*.svg', (route) => {
+        const dims = route.request().url().match(/lb-art-(\d+)x(\d+)\.svg/);
+        return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${dims[1]}" height="${dims[2]}"><rect width="${dims[1]}" height="${dims[2]}" fill="#8a5cff"/></svg>`});
+      });
+      const touchPage = await lbTouch.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#portfolio', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate(() => {
+        window.CrabbiePortfolio.apply([
+          {slug:'lb-square', title:'Square Art', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1000x1000.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+      });
+      await touchPage.waitForFunction(() => {
+        const img = document.querySelector('#pfGrid [data-project="lb-square"] .thumb img');
+        return img && img.complete && img.naturalWidth > 0;
+      }, null, {timeout: 25000});
+      await touchPage.locator('#pfGrid [data-project="lb-square"]').tap();
+      await touchPage.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      assert.equal(await touchPage.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/lb-art-1000x1000.svg', 'tap opens the full artwork source');
+      await touchPage.locator('#publicLightboxZoomIn').tap();
+      const touchScale = await touchPage.evaluate(() => {
+        const t = document.getElementById('publicLightboxImg').style.transform || '';
+        const m = t.match(/scale\(\s*([\d.]+)\s*\)/);
+        return m ? Number(m[1]) : 1;
+      });
+      assert.equal(touchScale, 1.4, 'tap zooms on touch');
+      await touchPage.locator('#publicLightboxClose').tap();
+      await touchPage.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    } finally {
+      await lbTouch.close();
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS public lightbox: bounded pan/zoom, wrapping captions and 44px controls across 13 viewports plus touch (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));

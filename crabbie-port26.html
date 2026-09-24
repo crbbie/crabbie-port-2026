@@ -1436,8 +1436,10 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
   align-items:center;justify-items:center;padding:76px 48px 96px;
   background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
-.public-lightbox img{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
-  border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;
+/* Artwork-specific rules target the artwork element by id so collaborator
+   avatars (.pcs-avatar) are never affected by zoom/pan styling. */
+#publicLightboxImg{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;cursor:zoom-in;
   transform-origin:center center;transition:transform .16s ease;touch-action:none;}
 .public-lightbox-close{position:fixed;top:22px;right:24px;z-index:2;width:46px;height:46px;border-radius:50%;
   border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;
@@ -1446,13 +1448,13 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 .public-lightbox-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2;display:flex;gap:8px;
   align-items:center;padding:7px;border-radius:999px;background:rgba(255,255,255,.94);
   border:2px solid var(--pink-light);box-shadow:0 10px 24px -12px rgba(0,0,0,.45);}
-.public-lightbox-bar button{min-width:40px;height:40px;padding:0 14px;border-radius:999px;cursor:pointer;
+.public-lightbox-bar button{min-width:44px;height:44px;padding:0 14px;border-radius:999px;cursor:pointer;
   border:2px solid var(--pink-light);background:#fff;color:var(--pink-hot);font-weight:800;font-size:15px;line-height:1;
   display:grid;place-items:center;}
 .public-lightbox-bar button:hover{border-color:var(--pink-hot);}
 .public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
 .public-lightbox-caption{grid-column:1;grid-row:1;position:static;transform:none;z-index:2;margin:0 0 12px;
-  max-width:min(90%,720px);padding:8px 18px;border-radius:14px;text-align:center;
+  max-width:min(90%,720px);min-width:0;overflow-wrap:anywhere;padding:8px 18px;border-radius:14px;text-align:center;
   background:rgba(255,255,255,.92);font-family:var(--font-body);font-size:13px;line-height:1.5;
   box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
 .public-lightbox-caption[hidden]{display:none !important;}
@@ -1476,11 +1478,16 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
      the reserved bands grow with the insets so the image never sits
      underneath the toolbar. */
   .public-lightbox{padding:calc(70px + env(safe-area-inset-top,0px)) max(14px, env(safe-area-inset-right,0px)) calc(104px + env(safe-area-inset-bottom,0px)) max(14px, env(safe-area-inset-left,0px));}
-  .public-lightbox img{border-radius:12px;}
+  #publicLightboxImg{border-radius:12px;}
   .public-lightbox-close{top:calc(14px + env(safe-area-inset-top,0px));right:max(14px, env(safe-area-inset-right,0px));width:44px;height:44px;font-size:26px;}
   .public-lightbox-bar{bottom:calc(20px + env(safe-area-inset-bottom,0px));}
   .public-lightbox-bar button{min-width:44px;height:44px;}
   .public-lightbox-caption{font-size:12.5px;max-width:min(92%,560px);}
+}
+/* Short landscape viewports: tighten the reserved close/toolbar bands so the
+   image stage stays usable; safe-area insets (landscape notch) still apply. */
+@media (max-height:500px){
+  .public-lightbox{padding:calc(68px + env(safe-area-inset-top,0px)) max(20px, env(safe-area-inset-right,0px)) calc(88px + env(safe-area-inset-bottom,0px)) max(20px, env(safe-area-inset-left,0px));}
 }
 /* Phone portrait: the tall centered flexible image slot becomes a natural
    compact vertical stack. Caption (when present) → collaborator credits
@@ -1494,7 +1501,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   /* DOM order is image-first; the stack reads caption → credits → image. */
   .public-lightbox-caption{order:1;margin:0 0 10px;}
   .public-lightbox-credits{order:2;margin:0 0 10px;}
-  .public-lightbox img{order:3;grid-column:auto;grid-row:auto;margin-top:6px;
+  #publicLightboxImg{order:3;grid-column:auto;grid-row:auto;margin-top:6px;
     max-height:calc(100vh - 270px);
     max-height:calc(100dvh - 270px);}
 }
@@ -5560,9 +5567,41 @@ var publicLightboxReset = document.getElementById('publicLightboxReset');
 var lightboxScale = 1;
 var LIGHTBOX_MIN_SCALE = 1;
 var LIGHTBOX_MAX_SCALE = 4;
+/* Bounded pan (CSS px of the image center away from its unzoomed box). The
+   pan is clamped so the artwork can never leave its stage: at full
+   deflection an image edge sits exactly on the stage edge, so every edge of
+   a zoomed image stays reachable with one finger or the mouse. Scale 1
+   always means pan 0, which keeps Reset and reopening deterministic. */
+var lightboxPanX = 0;
+var lightboxPanY = 0;
+function lightboxStageSize(){
+if(!publicLightboxImg) return {w:0, h:0};
+return {w:publicLightboxImg.clientWidth, h:publicLightboxImg.clientHeight};
+}
+function lightboxPanBounds(){
+var stage = lightboxStageSize();
+return {
+  x: Math.max(0, (stage.w * lightboxScale - stage.w) / 2),
+  y: Math.max(0, (stage.h * lightboxScale - stage.h) / 2)
+};
+}
+function applyLightboxTransform(){
+if(!publicLightboxImg) return;
+if(lightboxScale === 1){ publicLightboxImg.style.transform = ''; }
+else{ publicLightboxImg.style.transform = 'translate(' + lightboxPanX + 'px,' + lightboxPanY + 'px) scale(' + lightboxScale + ')'; }
+publicLightboxImg.style.cursor = lightboxScale === 1 ? 'zoom-in' : 'grab';
+}
+function setLightboxPan(x, y){
+var bounds = lightboxPanBounds();
+lightboxPanX = Math.max(-bounds.x, Math.min(bounds.x, x || 0));
+lightboxPanY = Math.max(-bounds.y, Math.min(bounds.y, y || 0));
+applyLightboxTransform();
+}
 function setLightboxScale(next){
 lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
-if(publicLightboxImg) publicLightboxImg.style.transform = lightboxScale === 1 ? '' : 'scale(' + lightboxScale + ')';
+/* Re-clamp through the pan setter so zooming out can never strand the image
+   off-stage; coming back to 1x always re-centers. */
+setLightboxPan(lightboxScale === 1 ? 0 : lightboxPanX, lightboxScale === 1 ? 0 : lightboxPanY);
 }
 var lightboxOpener = null;
 function lightboxFocusable(){
@@ -5596,10 +5635,10 @@ if(publicLightboxClose) publicLightboxClose.focus();
 function closePublicLightbox(){
 if(!publicLightbox || publicLightbox.hidden) return;
 publicLightbox.hidden = true; document.body.style.overflow = '';
-if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
+if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; publicLightboxImg.style.cursor = ''; }
 if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
 renderLightboxCredits(null);
-lightboxScale = 1;
+lightboxScale = 1; lightboxPanX = 0; lightboxPanY = 0;
 /* Return focus to the element that opened the lightbox. */
 if(lightboxOpener && lightboxOpener.isConnected && typeof lightboxOpener.focus === 'function'){
   try{ lightboxOpener.focus({ preventScroll: true }); }catch(e){ try{ lightboxOpener.focus(); }catch(e2){} }
@@ -5643,6 +5682,62 @@ if(publicLightbox){
     }
   }, { passive: false });
   publicLightbox.addEventListener('touchend', function(e){ if(e.touches.length < 2) pinchStart = null; });
+  window.addEventListener('resize', function(){
+    if(!publicLightbox || publicLightbox.hidden || lightboxScale === 1) return;
+    /* Orientation/window changes re-clamp the pan to the new stage so the
+       artwork can never strand off-screen; the zoom level itself is kept. */
+    setLightboxPan(lightboxPanX, lightboxPanY);
+  });
+}
+/* One-finger pan on the artwork (touch) plus mouse drag and arrow keys.
+   The gesture is only stolen while zoomed: at 1x the dialog keeps its
+   normal scroll, so tall portrait artwork still scrolls. The root document
+   never moves — panning is transform-only. */
+var lightboxPanTouch = null;
+var lightboxPanMouse = null;
+if(publicLightboxImg){
+  publicLightboxImg.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  publicLightboxImg.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1 || lightboxScale <= 1){ lightboxPanTouch = null; return; }
+    var t = e.touches[0];
+    lightboxPanTouch = {x: t.clientX - lightboxPanX, y: t.clientY - lightboxPanY};
+  }, { passive: true });
+  publicLightboxImg.addEventListener('touchmove', function(e){
+    if(!lightboxPanTouch || e.touches.length !== 1) return;
+    e.preventDefault();
+    var t = e.touches[0];
+    setLightboxPan(t.clientX - lightboxPanTouch.x, t.clientY - lightboxPanTouch.y);
+  }, { passive: false });
+  publicLightboxImg.addEventListener('touchend', function(e){ if(e.touches.length === 0) lightboxPanTouch = null; });
+  publicLightboxImg.addEventListener('touchcancel', function(){ lightboxPanTouch = null; });
+  publicLightboxImg.addEventListener('mousedown', function(e){
+    if(e.button !== 0 || lightboxScale <= 1) return;
+    lightboxPanMouse = {x: e.clientX - lightboxPanX, y: e.clientY - lightboxPanY};
+    publicLightboxImg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+}
+document.addEventListener('mousemove', function(e){
+  if(!lightboxPanMouse) return;
+  setLightboxPan(e.clientX - lightboxPanMouse.x, e.clientY - lightboxPanMouse.y);
+});
+document.addEventListener('mouseup', function(){
+  if(!lightboxPanMouse) return;
+  lightboxPanMouse = null;
+  applyLightboxTransform();
+});
+if(publicLightbox){
+  publicLightbox.addEventListener('keydown', function(e){
+    if(publicLightbox.hidden || lightboxScale <= 1) return;
+    var step = null;
+    if(e.key === 'ArrowLeft') step = [24, 0];
+    else if(e.key === 'ArrowRight') step = [-24, 0];
+    else if(e.key === 'ArrowUp') step = [0, 24];
+    else if(e.key === 'ArrowDown') step = [0, -24];
+    else return;
+    e.preventDefault();
+    setLightboxPan(lightboxPanX + step[0], lightboxPanY + step[1]);
+  });
 }
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
 
