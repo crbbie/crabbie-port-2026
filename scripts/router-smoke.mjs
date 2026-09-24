@@ -4370,6 +4370,1145 @@ try {
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
     console.log('PASS mobile stabilization: no phone overflow, wrapping, phone lightbox stack, safe-area controls, thanks scroller (SDK fixture)');
 
+    // ---- Public overflow matrix: About frame + unbounded cloud badges -----
+    // BUG-01: a CMS profile image makes the About frame fill its column; the
+    // -2deg rotation plus the outward flower tag must keep the layout width
+    // inside the viewport (document AND body scrollWidth, since the body
+    // carries the overflow-x:hidden defense).
+    // BUG-02: long CMS categories on .cloud-tag must wrap inside their card
+    // instead of widening home/portfolio; the full label stays in the DOM.
+    const badgeLongCategory = 'Category'.repeat(15);
+    await page.evaluate((cat) => {
+      window.CrabbiePortfolio.apply([
+        {slug:'badge-normal', title:'Badge Normal', description:'', cat, tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'badge-image', title:'Badge Image', description:'', cat, tags:[], thumbnail:'', cover:'https://example.test/badge-cover.png', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'badge-short', title:'Badge Short', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+      ]);
+      // Production About has a CMS profile image; a loaded image makes the
+      // rotated frame fill its column (the BUG-01 state).
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+      const inner = document.querySelector('.profile-inner');
+      inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    }, badgeLongCategory);
+    const overflowMatrix = [
+      [320, 568], [360, 640], [375, 812], [390, 844], [414, 896], [430, 932],
+      [667, 375], [844, 390], [768, 1024], [1024, 1366], [1280, 800], [1440, 900]
+    ];
+    const probeRoute = async (route, width, height) => {
+      await page.setViewportSize({width, height});
+      await page.evaluate((hash) => { location.hash = hash; }, '#' + route);
+      await page.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      return page.evaluate(() => {
+        const doc = document.documentElement;
+        const body = document.body;
+        const bodyRight = body.getBoundingClientRect().right;
+        const view = document.querySelector('.view.is-active');
+        const frame = view.querySelector('.profile-frame');
+        const flower = frame && frame.querySelector('.flower-tag');
+        const badges = Array.from(view.querySelectorAll('.cloud-tag')).map((tagEl) => {
+          const tr = tagEl.getBoundingClientRect();
+          const card = tagEl.closest('.work');
+          const cr = card && card.getBoundingClientRect();
+          const span = tagEl.querySelector('span');
+          return {
+            right: tr.right,
+            cardRight: cr ? cr.right : null,
+            text: span ? (span.textContent || '').trim() : '',
+            whiteSpace: span ? getComputedStyle(span).whiteSpace : '',
+            fits: span ? span.scrollWidth <= span.clientWidth + 1 : true,
+            insideCard: cr ? tr.right <= cr.right + 1 && tr.left >= cr.left - 1 : true
+          };
+        });
+        return {
+          docCW: doc.clientWidth, docSW: doc.scrollWidth,
+          bodyCW: body.clientWidth, bodySW: body.scrollWidth,
+          bodyRight,
+          frameRight: frame ? frame.getBoundingClientRect().right : null,
+          flowerRight: flower ? flower.getBoundingClientRect().right : null,
+          badges
+        };
+      });
+    };
+    for (const [width, height] of overflowMatrix) {
+      for (const route of ['home', 'about', 'portfolio']) {
+        const probe = await probeRoute(route, width, height);
+        const at = `${width}x${height} ${route}`;
+        assert.ok(probe.docSW <= probe.docCW + 1, `no document overflow at ${at}: ${probe.docSW} > ${probe.docCW}`);
+        assert.ok(probe.bodySW <= probe.bodyCW + 1, `no body overflow at ${at}: ${probe.bodySW} > ${probe.bodyCW}`);
+        if (route === 'about') {
+          assert.ok(probe.frameRight <= probe.bodyRight + 1, `About profile frame stays inside the page at ${at}: ${probe.frameRight} > ${probe.bodyRight}`);
+          assert.ok(probe.flowerRight <= probe.bodyRight + 1, `About flower tag stays inside the page at ${at}: ${probe.flowerRight} > ${probe.bodyRight}`);
+        } else {
+          const longBadge = probe.badges.find((b) => b.text.length === badgeLongCategory.length);
+          assert.ok(longBadge, `a long-category badge renders at ${at}`);
+          assert.equal(longBadge.whiteSpace, 'normal', `long badge wraps instead of nowrap at ${at}`);
+          assert.ok(longBadge.fits, `long badge span fits its box at ${at}`);
+          assert.ok(longBadge.insideCard, `long badge stays inside its card at ${at}`);
+          assert.ok(longBadge.right <= probe.bodyRight + 1, `long badge stays inside the page at ${at}: ${longBadge.right} > ${probe.bodyRight}`);
+        }
+      }
+    }
+    // The short label keeps its full text on a single visual line when it fits.
+    const shortProbe = await probeRoute('portfolio', 390, 844);
+    const shortBadge = shortProbe.badges.find((b) => b.text === 'ILLUSTRATION');
+    assert.ok(shortBadge, 'the short category badge still renders');
+    assert.ok(shortBadge.insideCard && shortBadge.right <= shortProbe.bodyRight + 1, 'the short badge stays inside its card');
+    // Home's gentle cloud drift (translateX up to 15px, motion allowed) must
+    // never push the wrapped badge past its card or the page.
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    await probeRoute('home', 390, 844);
+    for (let sample = 0; sample < 4; sample += 1) {
+      await page.waitForTimeout(350);
+      const drift = await page.evaluate(() => {
+        const tagEl = document.querySelector('.view.is-active .works-grid .cloud-tag');
+        if (!tagEl) return null;
+        const tr = tagEl.getBoundingClientRect();
+        const card = tagEl.closest('.work');
+        const cr = card && card.getBoundingClientRect();
+        return {right: tr.right, cardRight: cr ? cr.right : null, bodyRight: document.body.getBoundingClientRect().right};
+      });
+      if (drift && drift.cardRight !== null) {
+        assert.ok(drift.right <= drift.cardRight + 1, `home drifting badge stays inside its card (sample ${sample}): ${drift.right} > ${drift.cardRight}`);
+        assert.ok(drift.right <= drift.bodyRight + 1, `home drifting badge stays inside the page (sample ${sample}): ${drift.right} > ${drift.bodyRight}`);
+      }
+    }
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    // Touch/no-hover context: the same About and badge state holds.
+    const touchContext = await browser.newContext({viewport:{width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await touchContext.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const touchPage = await touchContext.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#about', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about', null, {timeout: 20000});
+      await touchPage.evaluate((cat) => {
+        window.CrabbiePortfolio.apply([
+          {slug:'badge-normal', title:'Badge Normal', description:'', cat, tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+        const inner = document.querySelector('.profile-inner');
+        inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+      }, badgeLongCategory);
+      for (const route of ['about', 'portfolio', 'home']) {
+        await touchPage.evaluate((r) => { location.hash = '#' + r; }, route);
+        await touchPage.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
+        await touchPage.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+        const touchProbe = await touchPage.evaluate(() => ({
+          docCW: document.documentElement.clientWidth,
+          docSW: document.documentElement.scrollWidth,
+          bodyCW: document.body.clientWidth,
+          bodySW: document.body.scrollWidth
+        }));
+        assert.ok(touchProbe.docSW <= touchProbe.docCW + 1, `no document overflow in touch context at ${route}: ${touchProbe.docSW} > ${touchProbe.docCW}`);
+        assert.ok(touchProbe.bodySW <= touchProbe.bodyCW + 1, `no body overflow in touch context at ${route}: ${touchProbe.bodySW} > ${touchProbe.bodyCW}`);
+      }
+      // A horizontal swipe attempt never pans the page (root defense intact).
+      await touchPage.evaluate(() => { window.scrollTo(200, 0); });
+      assert.equal(await touchPage.evaluate(() => window.scrollX), 0, 'horizontal gestures never pan the public page');
+    } finally {
+      await touchContext.close();
+    }
+    // The sticky nav still pins while scrolled (no root clipping regression).
+    await page.setViewportSize({width: 375, height: 812});
+    await page.evaluate(() => { location.hash = '#about'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+    await page.evaluate(() => window.scrollTo({top: 900, left: 0, behavior: 'instant'}));
+    await page.waitForTimeout(150);
+    const stickyNav = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      return {top: nav.getBoundingClientRect().top, position: getComputedStyle(nav).position};
+    });
+    assert.equal(stickyNav.position, 'sticky', 'the public nav stays position:sticky');
+    assert.ok(Math.abs(stickyNav.top) <= 2, `sticky nav stays pinned at the top while scrolled: top=${stickyNav.top}`);
+    await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
+    // Restore the default desktop motion/viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS public overflow matrix: About frame + cloud badges bounded at 12 viewports, touch context, gesture and sticky nav (SDK fixture)');
+
+    // ---- Portfolio presentation: bounded meta + full-bleed image cards ----
+    // BUG-03: the absolute .meta can never grow its card, so a pathological
+    // title clamps to a 3-line bounded preview (full text stays in the DOM);
+    // the meta must never escape its card or overlap a neighboring card.
+    // BUG-04: at or below the desktop masonry breakpoint (1180px) image-only
+    // cards show the whole artwork (own row, natural ratio, meta below the
+    // art); above it desktop keeps spans, cover fill and overlay meta.
+    await context.route('https://example.test/art-*.svg', (route) => {
+      const dims = route.request().url().match(/art-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/><rect x="8" y="8" width="${w - 16}" height="${h - 16}" fill="none" stroke="#ffffff" stroke-width="6"/></svg>`});
+    });
+    await context.route('https://example.test/broken.png', (route) => route.abort());
+    const artRatios = [['img-11', 2048, 2048, 'Illustration'], ['img-43', 800, 600, 'Chibi'], ['img-34', 600, 800, 'Vtuber'], ['img-169', 1280, 720, 'Other'], ['img-916', 720, 1280, 'Illustration'], ['img-81', 1600, 200, 'Chibi'], ['img-18', 200, 1600, 'Vtuber']];
+    const longCardTitle = 'Title'.repeat(50);
+    // The grid must be visible before seeding: lazy artwork in a hidden view
+    // never fetches, so the load gate below would time out on #about.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(({ratios, longTitle}) => {
+      const recs = [
+        {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ];
+      ratios.forEach(([slug, w, h, cat]) => {
+        recs.push({slug, title:'Art ' + slug, description:'', cat, tags:[], thumbnail:'', cover:`https://example.test/art-${w}x${h}.svg`, cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true});
+      });
+      recs.push({slug:'img-missing', title:'Missing Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      recs.push({slug:'img-broken', title:'Broken Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      window.CrabbiePortfolio.apply(recs);
+    }, {ratios: artRatios, longTitle: longCardTitle});
+    await page.waitForFunction(() => {
+      const imgs = Array.from(document.querySelectorAll('#pfGrid .thumb img')).filter((img) => !img.src.includes('broken'));
+      return imgs.length >= 9 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+    }, null, {timeout: 25000});
+    await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="img-broken"] .thumb img'), null, {timeout: 15000});
+    const probePfCard = (slug) => page.evaluate((s) => {
+      const card = document.querySelector(`#pfGrid [data-project="${s}"]`);
+      if (!card) return null;
+      const box = (el) => { const b = el.getBoundingClientRect(); return {l:b.left, t:b.top, r:b.right, b:b.bottom, w:b.width, h:b.height}; };
+      const thumb = card.querySelector('.thumb');
+      const img = thumb && thumb.querySelector('img');
+      const meta = card.querySelector('.meta');
+      const title = card.querySelector('.work-title');
+      return {
+        card: box(card), thumb: box(thumb), thumbPos: getComputedStyle(thumb).position,
+        img: img ? Object.assign(box(img), {natW: img.naturalWidth, natH: img.naturalHeight, fit: getComputedStyle(img).objectFit}) : null,
+        hasLabel: Boolean(thumb.querySelector('.ph-label')),
+        meta: box(meta), metaPos: getComputedStyle(meta).position,
+        titleChars: (title.textContent || '').length,
+        titleLines: title.clientHeight / (parseFloat(getComputedStyle(title).lineHeight) || 20),
+        titleOverflows: title.scrollHeight > title.clientHeight + 1,
+        isImage: card.classList.contains('is-image-card'),
+        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+      };
+    }, slug);
+    const pfMetaOverlap = () => page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('#pfGrid .work')).filter((el) => el.offsetParent !== null);
+      let hits = 0;
+      cards.forEach((card) => {
+        const meta = card.querySelector('.meta').getBoundingClientRect();
+        cards.forEach((other) => {
+          if (other === card) return;
+          const o = other.getBoundingClientRect();
+          if (meta.left < o.right - 1 && meta.right > o.left + 1 && meta.top < o.bottom - 1 && meta.bottom > o.top + 1) hits += 1;
+        });
+      });
+      return {cards: cards.length, hits};
+    });
+    const presentationMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [844, 390], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    const imageSlugs = artRatios.map(([slug]) => slug);
+    for (const [width, height] of presentationMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const sw = await page.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth, bodyRight: document.body.getBoundingClientRect().right}));
+      const at = `${width}x${height}`;
+      assert.ok(sw.docSW <= sw.docCW + 1 && sw.bodySW <= sw.bodyCW + 1, `portfolio keeps the page width at ${at}`);
+      const overlap = await pfMetaOverlap();
+      assert.equal(overlap.hits, 0, `no card meta overlaps a neighbor at ${at} (${overlap.cards} cards)`);
+      const long = await probePfCard('long-normal');
+      assert.ok(long.meta.t >= long.card.t - 1 && long.meta.b <= long.card.b + 1, `long meta stays inside its card at ${at}`);
+      assert.equal(long.titleChars, longCardTitle.length, `the full long title stays in the DOM at ${at}`);
+      assert.ok(long.titleOverflows && long.titleLines >= 2.5 && long.titleLines <= 3.5, `the pathological title clamps to a 3-line bounded preview at ${at}`);
+      const short = await probePfCard('short-normal');
+      assert.ok(short.titleLines <= 2.5, `a normal title never reaches clamp capacity at ${at}`);
+      assert.ok(short.meta.b <= short.card.b + 1 && short.meta.t >= short.card.t - 1, `normal meta stays inside its card at ${at}`);
+      for (const slug of imageSlugs) {
+        const c = await probePfCard(slug);
+        assert.ok(c.img && c.img.natW > 0, `${slug} artwork loads at ${at}`);
+        if (width <= 1180) {
+          assert.ok(Math.abs(c.img.h - c.img.w * c.img.natH / c.img.natW) <= 1.5, `${slug} shows its full source ratio at ${at}`);
+          assert.ok(c.meta.t >= c.img.b - 1 && c.meta.b <= c.card.b + 1, `${slug} meta sits below the artwork inside its card at ${at}`);
+          assert.equal(c.thumbPos, 'relative', `${slug} thumb participates in sizing at ${at}`);
+          assert.equal(c.metaPos, 'static', `${slug} meta participates in sizing at ${at}`);
+        } else {
+          assert.equal(c.img.fit, 'cover', `${slug} keeps the desktop cover fill at ${at}`);
+          assert.equal(c.thumbPos, 'absolute', `${slug} keeps the desktop overlay layout at ${at}`);
+        }
+        assert.ok(c.card.r <= sw.bodyRight + 1, `${slug} stays inside the page at ${at}`);
+      }
+    }
+    // Card-mode semantics and missing/broken sources survive the new markup.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const normalSem = await probePfCard('short-normal');
+    assert.equal(normalSem.href, '#project/short-normal', 'normal cards keep navigating to project detail');
+    assert.equal(normalSem.lightbox, null, 'normal cards never carry lightbox state');
+    const imageSem = await probePfCard('img-11');
+    assert.equal(imageSem.lightbox, 'https://example.test/art-2048x2048.svg', 'image cards keep opening the existing lightbox');
+    assert.equal(imageSem.href, 'https://example.test/art-2048x2048.svg', 'image card links stay on the artwork source');
+    const missing = await probePfCard('img-missing');
+    assert.equal(missing.img, null, 'a missing source renders no broken image');
+    assert.ok(missing.hasLabel && missing.card.h >= 200, 'a missing source keeps a sized labeled box and working nav');
+    assert.equal(missing.href, '#portfolio', 'a missing source never points the lightbox anywhere');
+    assert.equal(missing.lightbox, null, 'a missing source carries no lightbox state');
+    const broken = await probePfCard('img-broken');
+    assert.equal(broken.img, null, 'a broken source removes itself instead of showing a broken icon');
+    assert.ok(broken.hasLabel && broken.card.h >= 200, 'a broken source keeps a sized labeled box and working nav');
+    // Filters still scope image and project cards by category.
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="img-43"]:visible').count(), 1, 'the chip keeps the matching image card');
+    assert.equal(await page.locator('#pfGrid [data-project="long-normal"]:visible').count(), 0, 'the chip filters out other cards');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="long-normal"]:visible').count(), 1, 'reset restores every card');
+    // Desktop hover feedback on image artwork is preserved.
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.locator('#pfGrid [data-project="img-11"]').hover();
+    assert.notEqual(await page.evaluate(() => getComputedStyle(document.querySelector('#pfGrid [data-project="img-11"] .thumb img')).transform), 'none', 'desktop image hover feedback is preserved');
+    await page.mouse.move(10, 10);
+    // Home shows the same bounded cards and full-bleed featured artwork.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    const homeSw = await page.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}));
+    assert.ok(homeSw.docSW <= homeSw.docCW + 1 && homeSw.bodySW <= homeSw.bodyCW + 1, 'home keeps the page width with image cards');
+    const homeImg = await page.evaluate(() => {
+      const card = document.querySelector('#worksGrid [data-project="img-11"]');
+      if (!card) return null;
+      const img = card.querySelector('.thumb img');
+      const meta = card.querySelector('.meta');
+      const ib = img.getBoundingClientRect();
+      const mb = meta.getBoundingClientRect();
+      return {w: ib.width, h: ib.height, natW: img.naturalWidth, natH: img.naturalHeight, metaAbove: mb.top >= ib.bottom - 1};
+    });
+    assert.ok(homeImg && Math.abs(homeImg.h - homeImg.w * homeImg.natH / homeImg.natW) <= 1.5 && homeImg.metaAbove, 'home image cards show full artwork with meta below');
+    // Touch: tap opens the lightbox with the full source, no latched zoom.
+    const artContext = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await artContext.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      await artContext.route('https://example.test/art-*.svg', (route) => {
+        const dims = route.request().url().match(/art-(\d+)x(\d+)\.svg/);
+        const w = dims ? Number(dims[1]) : 800;
+        const h = dims ? Number(dims[2]) : 600;
+        return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/></svg>`});
+      });
+      const touchPage = await artContext.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#portfolio', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate(({longTitle}) => {
+        window.CrabbiePortfolio.apply([
+          {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+          {slug:'img-11', title:'Art img-11', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true}
+        ]);
+      }, {longTitle: longCardTitle});
+      await touchPage.waitForFunction(() => {
+        const img = document.querySelector('#pfGrid [data-project="img-11"] .thumb img');
+        return img && img.complete && img.naturalWidth > 0;
+      }, null, {timeout: 25000});
+      const touchSw = await touchPage.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}));
+      assert.ok(touchSw.docSW <= touchSw.docCW + 1 && touchSw.bodySW <= touchSw.bodyCW + 1, 'touch portfolio keeps the page width');
+      await touchPage.locator('#pfGrid [data-project="img-11"]').tap();
+      await touchPage.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      assert.equal(await touchPage.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/art-2048x2048.svg', 'tapping the image card opens the full-size artwork');
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.querySelector('#pfGrid [data-project="img-11"] .thumb img')).transform), 'none', 'touch never latches the hover zoom');
+      await touchPage.keyboard.press('Escape');
+      await touchPage.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+      await touchPage.locator('#pfGrid [data-project="long-normal"]').tap();
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+      assert.ok((await touchPage.evaluate(() => location.hash)).startsWith('#project/long-normal'), 'tapping the long card still navigates to detail');
+    } finally {
+      await artContext.close();
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS portfolio presentation: bounded meta and full-bleed image cards across 11 viewports, filters, touch and desktop hover (SDK fixture)');
+
+    // ---- Public lightbox: bounded pan/zoom, wrapping captions, 44px controls
+    // BUG-05: zoom pairs with a clamped pan (one-finger touch, mouse drag,
+    // arrows) so every artwork edge stays reachable; Reset/reopen are
+    // deterministic and the root document never moves.
+    // BUG-06: unbroken caption tokens wrap inside the dialog (anywhere).
+    // BUG-08: zoom controls keep >=44px targets on touch landscape/tablet.
+    await context.route('https://example.test/lb-art-*.svg', (route) => {
+      const dims = route.request().url().match(/lb-art-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#8a5cff"/><text x="50%" y="50%" font-size="72" text-anchor="middle" fill="#ffffff">${w}x${h}</text></svg>`});
+    });
+    await context.route('https://example.test/lb-avatar.png', (route) => route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="48" fill="#ff5c9a"/></svg>'}));
+    const longCaptionUrl = 'https://example.test/a/very/long/unbroken/url/that/must/not/widen/the/lightbox/dialog/' + 'X'.repeat(200) + '/or-escape-its-caption-row/ever';
+    const longCreditName = 'Alexandrina-Theodora-Montenegro-Wossisname-Longest-Collaborator-Name-Ever';
+    // The grid must be visible before seeding: lazy card artwork in a hidden
+    // view never fetches.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(({longUrl, longName}) => {
+      window.CrabbiePortfolio.apply([
+        {slug:'lb-square', title:'Square Art', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1000x1000.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'lb-wide', title:'Wide Art', description:longUrl, cat:'Chibi', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1600x200.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true, people:[{id:'p-long', display_name:longName, avatar_path:'https://example.test/lb-avatar.png', profile_url:'', kind:'collaborator', published:true}]},
+        {slug:'lb-tall', title:'Tall Art', description:'A short caption', cat:'Vtuber', tags:[], thumbnail:'', cover:'https://example.test/lb-art-400x1600.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true}
+      ]);
+    }, {longUrl: longCaptionUrl, longName: longCreditName});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const lbOpen = async (slug) => {
+      await page.locator(`#pfGrid [data-project="${slug}"]`).focus();
+      await page.locator(`#pfGrid [data-project="${slug}"]`).click();
+      await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    };
+    const lbEscape = async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    };
+    const lbGeom = () => page.evaluate(() => {
+      const dlg = document.getElementById('publicLightbox');
+      const img = document.getElementById('publicLightboxImg');
+      const dr = dlg.getBoundingClientRect();
+      const vr = img.getBoundingClientRect();
+      const t = img.style.transform || '';
+      const m = t.match(/translate\(\s*([-\d.]+)px(?:\s*,\s*([-\d.]+)px)?\s*\)/);
+      const s = t.match(/scale\(\s*([\d.]+)\s*\)/);
+      return {
+        stage: {l: dr.left + img.offsetLeft, t: dr.top + img.offsetTop, w: img.clientWidth, h: img.clientHeight},
+        visual: {l: vr.left, t: vr.top, r: vr.right, b: vr.bottom, w: vr.width, h: vr.height},
+        scale: s ? Number(s[1]) : 1,
+        panX: m ? Number(m[1]) : 0,
+        panY: m && m[2] !== undefined ? Number(m[2]) : 0
+      };
+    });
+    const lbChrome = () => page.evaluate(() => {
+      const cap = document.getElementById('publicLightboxCaption');
+      const cred = document.getElementById('publicLightboxCredits');
+      const close = document.getElementById('publicLightboxClose');
+      const size = (el) => { const b = el.getBoundingClientRect(); return {w: b.width, h: b.height}; };
+      const avatar = cred.querySelector('img.pcs-avatar');
+      return {
+        root: {docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth, scrollX: window.scrollX},
+        caption: {hidden: cap.hidden, clientW: cap.clientWidth, scrollW: cap.scrollWidth},
+        credits: {hidden: cred.hidden, clientW: cred.clientWidth, scrollW: cred.scrollWidth},
+        close: size(close),
+        buttons: Array.from(document.querySelectorAll('#publicLightboxBar button')).map((b) => Object.assign({id: b.id}, size(b))),
+        avatar: avatar ? size(avatar) : null,
+        bodyLocked: document.body.style.overflow === 'hidden'
+      };
+    });
+    // Worst-case chrome (long URL caption + long collaborator name) at every
+    // required viewport: tap-open, stationary root, wrapping rows, 44px
+    // controls, Escape with opener focus restoration.
+    const lightboxMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    for (const [width, height] of lightboxMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const at = `${width}x${height}`;
+      await lbOpen('lb-wide');
+      const chrome = await lbChrome();
+      assert.ok(chrome.root.docSW <= chrome.root.docCW + 1 && chrome.root.bodySW <= chrome.root.bodyCW + 1, `lightbox keeps the page width at ${at}`);
+      assert.equal(chrome.root.scrollX, 0, `lightbox never pans the root at ${at}`);
+      assert.ok(chrome.bodyLocked, `background stays locked while open at ${at}`);
+      assert.equal(chrome.caption.hidden, false, `long caption renders at ${at}`);
+      assert.ok(chrome.caption.scrollW <= chrome.caption.clientW + 1, `long caption wraps inside the dialog at ${at}`);
+      assert.equal(chrome.credits.hidden, false, `long collaborator credit renders at ${at}`);
+      assert.ok(chrome.credits.scrollW <= chrome.credits.clientW + 1, `long collaborator name wraps at ${at}`);
+      assert.ok(chrome.avatar && Math.abs(chrome.avatar.w - 30) <= 1 && Math.abs(chrome.avatar.h - 30) <= 1, `credit avatar keeps its own 30px sizing at ${at}`);
+      assert.ok(chrome.close.w >= 44 && chrome.close.h >= 44, `close control keeps 44px at ${at}`);
+      chrome.buttons.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `zoom control ${b.id} keeps 44px at ${at}`));
+      await lbEscape();
+      assert.equal(await page.evaluate(() => (document.activeElement || {}).getAttribute && document.activeElement.getAttribute('data-project')), 'lb-wide', `focus returns to the opener at ${at}`);
+    }
+    // Caption variants: absent stays hidden, short stays clean.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await lbOpen('lb-square');
+    assert.equal((await lbChrome()).caption.hidden, true, 'an absent caption stays hidden');
+    await lbEscape();
+    await lbOpen('lb-tall');
+    const shortChrome = await lbChrome();
+    assert.equal(shortChrome.caption.hidden, false, 'a short caption renders');
+    assert.ok(shortChrome.caption.scrollW <= shortChrome.caption.clientW + 1, 'a short caption never overflows');
+    await lbEscape();
+    // Zoom/pan geometry on portrait: buttons, wheel, drag, arrows, pinch.
+    await lbOpen('lb-square');
+    let g = await lbGeom();
+    assert.ok(g.stage.w > 0 && g.stage.h > 0, 'the pan stage measures a real box');
+    assert.equal(g.scale, 1, 'the lightbox opens unzoomed');
+    await page.locator('#publicLightboxZoomIn').click();
+    g = await lbGeom();
+    assert.equal(g.scale, 1.4, 'the + control zooms to 1.4x');
+    assert.ok(g.visual.w > g.stage.w, 'zooming enlarges past the stage');
+    // Mouse drag to each extreme: the reached edge lands exactly on stage.
+    const dragPan = async (dx, dy) => {
+      const c = await page.evaluate(() => {
+        const b = document.getElementById('publicLightboxImg').getBoundingClientRect();
+        return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+      });
+      await page.mouse.move(c.x, c.y);
+      await page.mouse.down();
+      await page.mouse.move(c.x + dx, c.y + dy, {steps: 5});
+      await page.mouse.up();
+      await page.waitForTimeout(120);
+    };
+    await dragPan(2000, 0);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.l - g.stage.l) <= 1.5, `panning right reaches the left artwork edge (off by ${(g.visual.l - g.stage.l).toFixed(2)})`);
+    await dragPan(-2000, 0);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.r - (g.stage.l + g.stage.w)) <= 1.5, `panning left reaches the right artwork edge (off by ${(g.visual.r - g.stage.l - g.stage.w).toFixed(2)})`);
+    await dragPan(0, 2000);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.t - g.stage.t) <= 1.5, 'panning down reaches the top artwork edge');
+    await dragPan(0, -2000);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.b - (g.stage.t + g.stage.h)) <= 1.5, 'panning up reaches the bottom artwork edge');
+    // A small drag pans proportionally inside the clamped bounds.
+    await page.locator('#publicLightboxReset').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(60, 30);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.panX - 60) <= 2 && Math.abs(g.panY - 30) <= 2, `a small drag pans proportionally (got ${g.panX}, ${g.panY})`);
+    // Wheel zooms in fine steps around the current level.
+    const imgCenter = await page.evaluate(() => {
+      const b = document.getElementById('publicLightboxImg').getBoundingClientRect();
+      return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+    });
+    await page.mouse.move(imgCenter.x, imgCenter.y);
+    await page.mouse.wheel(0, -240);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.scale - 1.6) <= 0.01, `wheel zooms in a fine step (got ${g.scale})`);
+    await page.mouse.wheel(0, 240);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.scale - 1.4) <= 0.01, `wheel zooms back out (got ${g.scale})`);
+    // Arrow keys pan only while zoomed, never at 1x.
+    await page.locator('#publicLightboxReset').click();
+    await page.keyboard.press('ArrowRight');
+    g = await lbGeom();
+    assert.ok(g.panX === 0 && g.panY === 0, 'arrows do nothing at 1x');
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    g = await lbGeom();
+    assert.ok(g.panX < 0, `ArrowRight pans toward the right edge (panX=${g.panX})`);
+    // Zoom clamps at 4x; zooming out all the way re-centers deterministically.
+    for (let i = 0; i < 10; i += 1) await page.locator('#publicLightboxZoomIn').click();
+    g = await lbGeom();
+    assert.equal(g.scale, 4, 'zoom clamps at the 4x maximum');
+    for (let i = 0; i < 12; i += 1) await page.locator('#publicLightboxZoomOut').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'zooming out fully clears the transform');
+    // Reset and reopen are deterministic after arbitrary zoom/pan.
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(300, 200);
+    await page.locator('#publicLightboxReset').click();
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'Reset clears zoom and pan');
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(-400, -300);
+    await lbEscape();
+    await lbOpen('lb-square');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform), '', 'reopening starts unzoomed and centered');
+    // Two-finger pinch and one-finger touch pan through real touch input.
+    const lbCdp = await context.newCDPSession(page);
+    const pinch = async (x1, y1, x2, y2, x3, y3, x4, y4) => {
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: x1, y: y1, id: 1}, {x: x2, y: y2, id: 2}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x3, y: y3, id: 1}, {x: x4, y: y4, id: 2}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+      await page.waitForTimeout(150);
+    };
+    const touchDrag = async (x1, y1, x2, y2) => {
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: x1, y: y1, id: 1}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x2, y: y2, id: 1}]});
+      await lbCdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+      await page.waitForTimeout(150);
+    };
+    await pinch(150, 400, 250, 400, 100, 400, 300, 400);
+    g = await lbGeom();
+    assert.ok(g.scale >= 1.8 && g.scale <= 2.2, `pinch-out zooms toward 2x (got ${g.scale})`);
+    await pinch(100, 400, 300, 400, 150, 400, 250, 400);
+    g = await lbGeom();
+    assert.ok(g.scale < 2.2, `pinch-in zooms back (got ${g.scale})`);
+    await page.locator('#publicLightboxReset').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await page.locator('#publicLightboxZoomIn').click();
+    await touchDrag(195, 400, 495, 400);
+    g = await lbGeom();
+    assert.ok(g.panX > 0, `one-finger touch pans the artwork (panX=${g.panX})`);
+    // Long in-viewport drag (CDP drops off-screen coordinates).
+    await touchDrag(350, 400, 30, 400);
+    g = await lbGeom();
+    assert.ok(Math.abs(g.visual.r - (g.stage.l + g.stage.w)) <= 2, 'one-finger touch reaches the clamped right edge');
+    await lbCdp.detach();
+    // The root never moves through any of it; background scroll is preserved.
+    const rootCalm = await page.evaluate(() => ({scrollX: window.scrollX, scrollY: window.scrollY, docSW: document.documentElement.scrollWidth, docCW: document.documentElement.clientWidth, bodySW: document.body.scrollWidth, bodyCW: document.body.clientWidth}));
+    assert.equal(rootCalm.scrollX, 0, 'pan/zoom never pans the root');
+    assert.ok(rootCalm.docSW <= rootCalm.docCW + 1 && rootCalm.bodySW <= rootCalm.bodyCW + 1, 'pan/zoom never widens the page');
+    await lbEscape();
+    // Orientation change while zoomed keeps the level and re-clamps the pan.
+    await lbOpen('lb-tall');
+    await page.locator('#publicLightboxZoomIn').click();
+    await dragPan(500, 0);
+    await page.setViewportSize({width: 844, height: 390});
+    await page.waitForTimeout(300);
+    g = await lbGeom();
+    assert.equal(g.scale, 1.4, 'orientation change keeps the zoom level');
+    assert.ok(g.visual.l <= g.stage.l + 1.5 && g.visual.r >= g.stage.l + g.stage.w - 1.5, 'orientation change keeps the artwork covering its stage');
+    const landChrome = await lbChrome();
+    assert.ok(landChrome.buttons.every((b) => b.w >= 44 && b.h >= 44), 'controls stay 44px after orientation change');
+    assert.ok(landChrome.caption.scrollW <= landChrome.caption.clientW + 1, 'captions stay wrapped after orientation change');
+    await lbEscape();
+    // Focus trap cycles inside the dialog in both directions.
+    await lbOpen('lb-square');
+    await page.locator('#publicLightboxZoomIn').focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'publicLightboxClose', 'Tab wraps from last control to close');
+    await page.locator('#publicLightboxClose').focus();
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('Tab');
+    await page.keyboard.up('Shift');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'publicLightboxZoomIn', 'Shift+Tab wraps from close to last control');
+    await page.locator('#publicLightboxClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Touch context: tap opens with the full source and taps zoom.
+    const lbTouch = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await lbTouch.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      await lbTouch.route('https://example.test/lb-art-*.svg', (route) => {
+        const dims = route.request().url().match(/lb-art-(\d+)x(\d+)\.svg/);
+        return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${dims[1]}" height="${dims[2]}"><rect width="${dims[1]}" height="${dims[2]}" fill="#8a5cff"/></svg>`});
+      });
+      const touchPage = await lbTouch.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#portfolio', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate(() => {
+        window.CrabbiePortfolio.apply([
+          {slug:'lb-square', title:'Square Art', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/lb-art-1000x1000.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+      });
+      await touchPage.waitForFunction(() => {
+        const img = document.querySelector('#pfGrid [data-project="lb-square"] .thumb img');
+        return img && img.complete && img.naturalWidth > 0;
+      }, null, {timeout: 25000});
+      await touchPage.locator('#pfGrid [data-project="lb-square"]').tap();
+      await touchPage.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      assert.equal(await touchPage.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/lb-art-1000x1000.svg', 'tap opens the full artwork source');
+      await touchPage.locator('#publicLightboxZoomIn').tap();
+      const touchScale = await touchPage.evaluate(() => {
+        const t = document.getElementById('publicLightboxImg').style.transform || '';
+        const m = t.match(/scale\(\s*([\d.]+)\s*\)/);
+        return m ? Number(m[1]) : 1;
+      });
+      assert.equal(touchScale, 1.4, 'tap zooms on touch');
+      await touchPage.locator('#publicLightboxClose').tap();
+      await touchPage.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    } finally {
+      await lbTouch.close();
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS public lightbox: bounded pan/zoom, wrapping captions and 44px controls across 13 viewports plus touch (SDK fixture)');
+
+    // ---- Shared touch controls: music/menu stack, 44px targets, 16px fields
+    // BUG-07: the floating music control sits below the nav/menu stack and
+    // hides while an editable field is focused on touch (display only —
+    // audio, source and mute survive; blur/routes restore without restart).
+    // BUG-08 (non-lightbox): 44px music buttons and footer links plus 16px
+    // editable text on coarse pointers at every width; desktop preserved.
+    const NAV_SEED = [
+      {title: 'Home', url: '#home'}, {title: 'Portfolio', url: '#portfolio'},
+      {title: 'Free Assets', url: '#free-assets'}, {title: 'Commissions', url: '#commissions'},
+      {title: 'About', url: '#about'}, {title: 'Terms', url: '#terms'},
+      {title: 'Contact', url: '#contact'}
+    ];
+    const MUSIC_URL = 'data:audio/mpeg;base64,//uQx';
+    await page.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+    await page.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+    await page.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+    const touchProbe = (pg) => pg.evaluate(() => {
+      const r = (el) => { const b = el.getBoundingClientRect(); return {w: b.width, h: b.height}; };
+      const music = document.getElementById('crabbieMusicControl');
+      const menu = document.getElementById('mobileMenu');
+      const fontOf = (s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).fontSize : null; };
+      const foot = Array.from(document.querySelectorAll('.foot ul a')).filter((a) => a.offsetParent !== null);
+      return {
+        musicZ: music ? getComputedStyle(music).zIndex : null,
+        musicBtns: music ? Array.from(music.querySelectorAll('button')).map((b) => r(b)) : [],
+        menuZ: menu ? getComputedStyle(menu).zIndex : null,
+        fonts: {pfSearch: fontOf('#pfSearch'), iName: fontOf('#i-name'), iEmail: fontOf('#i-email'), iIdea: fontOf('#i-idea')},
+        footMinH: foot.length ? Math.min(...foot.map((a) => a.getBoundingClientRect().height)) : null,
+        footCount: foot.length,
+        root: {docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}
+      };
+    });
+    const menuAudit = (pg) => pg.evaluate(() => {
+      const menu = document.getElementById('mobileMenu');
+      const mr = menu.getBoundingClientRect();
+      const links = Array.from(menu.querySelectorAll('a'));
+      const items = links.map((a) => {
+        menu.scrollTop = Math.max(0, a.offsetTop - 60);
+        const b = a.getBoundingClientRect();
+        const y = Math.min(Math.max(b.top + b.height / 2, mr.top + 2), mr.bottom - 2);
+        const hit = document.elementFromPoint(b.left + b.width / 2, y);
+        return {text: (a.textContent || '').trim().slice(0, 20), owned: hit === a || a.contains(hit)};
+      });
+      const music = document.getElementById('crabbieMusicControl');
+      let overlap = null;
+      if (music && getComputedStyle(music).display !== 'none') {
+        const b = music.getBoundingClientRect();
+        const ix0 = Math.max(b.left, mr.left), ix1 = Math.min(b.right, mr.right);
+        const iy0 = Math.max(b.top, mr.top), iy1 = Math.min(b.bottom, mr.bottom);
+        if (ix1 > ix0 && iy1 > iy0) {
+          const hit = document.elementFromPoint((ix0 + ix1) / 2, (iy0 + iy1) / 2);
+          overlap = {owned: Boolean(hit && hit.closest && hit.closest('#mobileMenu'))};
+        }
+      }
+      menu.scrollTop = menu.scrollHeight;
+      const last = links[links.length - 1];
+      const lb = last.getBoundingClientRect();
+      const lastHit = document.elementFromPoint(lb.left + lb.width / 2, Math.min(Math.max(lb.top + lb.height / 2, mr.top + 2), mr.bottom - 2));
+      return {count: links.length, items, overlap, lastReachable: lastHit === last || last.contains(lastHit)};
+    });
+    // Desktop (fine pointer): stack order holds while sizes stay classic.
+    const touchMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    for (const [width, height] of touchMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const m = await touchProbe(page);
+      const at = `${width}x${height} desktop`;
+      assert.equal(m.musicZ, '55', `music sits below nav/menu at ${at}`);
+      assert.equal(m.menuZ, '59', `menu keeps its stack level at ${at}`);
+      m.musicBtns.forEach((b) => assert.ok(Math.abs(b.w - 34) <= 1 && Math.abs(b.h - 34) <= 1, `desktop music buttons stay classic at ${at}`));
+      assert.equal(m.fonts.pfSearch, '15px', `desktop search type stays classic at ${at}`);
+      assert.equal(m.fonts.iName, width <= 600 ? '16px' : '15px', `desktop commission type keeps its existing rule at ${at}`);
+      assert.ok(m.footMinH !== null && m.footMinH < 44, `desktop footer links stay classic at ${at}`);
+      assert.ok(m.root.docSW <= m.root.docCW + 1 && m.root.bodySW <= m.root.bodyCW + 1, `no page overflow at ${at}`);
+    }
+    // Desktop menu owns hit-testing where the burger shows.
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.locator('#navBurger').click();
+      await page.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+      const audit = await menuAudit(page);
+      assert.ok(audit.count >= 8, `the full menu renders at ${width}x${height} (${audit.count} items)`);
+      audit.items.forEach((it) => assert.ok(it.owned, `menu item '${it.text}' owns hit-testing at ${width}x${height}`));
+      // The tall portrait menu ends above the music zone (no overlap to own);
+      // the capped landscape menu must yield the overlap to the menu.
+      if (width === 844) assert.ok(audit.overlap, `the landscape menu reaches the music zone at ${width}x${height}`);
+      if (audit.overlap) assert.ok(audit.overlap.owned, `the menu owns the music overlap region at ${width}x${height}`);
+      assert.ok(audit.lastReachable, `the last menu item stays reachable at ${width}x${height}`);
+      await page.locator('#navBurger').click();
+      await page.waitForFunction(() => !document.getElementById('mobileMenu').classList.contains('open'));
+    }
+    // Desktop never hides music for focused fields (coarse-gated behavior).
+    await page.setViewportSize({width: 1280, height: 800});
+    await page.evaluate(() => {
+      window.CrabbieCommissions.apply([], [{slug: 'illustration', title: 'Illustration', description: '', published: true, fields: [
+        {id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', help: '', required: true, contactRole: 'name'}
+      ]}]);
+    });
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    await page.waitForFunction(() => {
+      const el = document.querySelector('.tab-panel.on input, .tab-panel.on textarea');
+      return el && el.offsetParent !== null;
+    }, null, {timeout: 15000});
+    await page.locator('.tab-panel.on input, .tab-panel.on textarea').first().focus();
+    await page.waitForTimeout(200);
+    assert.notEqual(await page.evaluate(() => {
+      const m = document.getElementById('crabbieMusicControl');
+      return m.classList.contains('is-field-focused') ? 'hidden' : getComputedStyle(m).display;
+    }), 'none', 'desktop keeps music visible while typing');
+    // Touch context: 44px targets and 16px fields at every width.
+    const touchCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await touchCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const touchPage = await touchCtx.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#home', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+      await touchPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+      for (const [width, height] of touchMatrix) {
+        await touchPage.setViewportSize({width, height});
+        await touchPage.evaluate(() => { location.hash = '#home'; });
+        await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+        await touchPage.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+        const m = await touchProbe(touchPage);
+        const at = `${width}x${height} touch`;
+        assert.equal(m.musicZ, '55', `music stack holds at ${at}`);
+        m.musicBtns.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `music buttons reach 44px at ${at}`));
+        for (const [name, size] of Object.entries(m.fonts)) assert.ok(parseFloat(size) >= 16, `${name} reaches 16px at ${at} (got ${size})`);
+        assert.ok(m.footMinH !== null && m.footMinH >= 44, `footer links reach 44px at ${at} (got ${m.footMinH})`);
+        assert.ok(m.footCount >= 5, `footer links stay visible at ${at}`);
+        assert.ok(m.root.docSW <= m.root.docCW + 1 && m.root.bodySW <= m.root.bodyCW + 1, `no page overflow at ${at}`);
+      }
+      // Touch menu audit at landscape + portrait.
+      for (const [width, height] of [[844, 390], [390, 844]]) {
+        await touchPage.setViewportSize({width, height});
+        await touchPage.evaluate(() => { location.hash = '#home'; });
+        await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+        await touchPage.locator('#navBurger').tap();
+        await touchPage.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+        const audit = await menuAudit(touchPage);
+        audit.items.forEach((it) => assert.ok(it.owned, `touch menu item '${it.text}' owns hit-testing at ${width}x${height}`));
+        if (width === 844) assert.ok(audit.overlap, `the touch landscape menu reaches the music zone at ${width}x${height}`);
+        if (audit.overlap) assert.ok(audit.overlap.owned, `touch menu owns the music overlap at ${width}x${height}`);
+        assert.ok(audit.lastReachable, `touch last menu item reachable at ${width}x${height}`);
+        await touchPage.locator('#navBurger').tap();
+        await touchPage.waitForFunction(() => !document.getElementById('mobileMenu').classList.contains('open'));
+      }
+      // Touch focus suppression: commission field, search field, blur, route.
+      await touchPage.setViewportSize({width: 390, height: 844});
+      await touchPage.evaluate(() => {
+        window.CrabbieCommissions.apply([], [{slug: 'illustration', title: 'Illustration', description: '', published: true, fields: [
+          {id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', help: '', required: true, contactRole: 'name'},
+          {id: 'idea', type: 'textarea', label: 'Idea', placeholder: 'Describe', help: '', required: false, contactRole: 'none'}
+        ]}]);
+      });
+      await touchPage.evaluate(() => { location.hash = '#commissions'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+      await touchPage.waitForFunction(() => {
+        const el = document.querySelector('.tab-panel.on input, .tab-panel.on textarea');
+        return el && el.offsetParent !== null;
+      }, null, {timeout: 15000});
+      const cmsField = '#commissionForm .tab-panel.on input, #commissionForm .tab-panel.on textarea';
+      assert.equal(await touchPage.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tab-panel.on input')).fontSize)), 16, 'the CMS commission field computes 16px on touch');
+      const audioProbe = await touchPage.evaluate(() => {
+        const audio = document.querySelector('audio');
+        audio.dataset.probe = '1';
+        return audio.src;
+      });
+      await touchPage.locator(cmsField).first().tap();
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music hides while a commission field is focused');
+      await touchPage.evaluate(() => { document.activeElement.blur(); });
+      await touchPage.waitForFunction(() => !document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.notEqual(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music returns on blur');
+      assert.ok(await touchPage.evaluate((src) => {
+        const audio = document.querySelector('audio');
+        return audio && audio.dataset.probe === '1' && audio.src === src && audio.paused;
+      }, audioProbe), 'blur restores music without restarting audio');
+      await touchPage.evaluate(() => { location.hash = '#portfolio'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await touchPage.locator('#pfSearch').tap();
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music hides while search is focused');
+      await touchPage.evaluate(() => { document.activeElement.blur(); });
+      await touchPage.evaluate(() => { location.hash = '#home'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      assert.notEqual(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music returns after a route change');
+      // Touch music state machine stays intact at 44px.
+      assert.equal(await touchPage.evaluate(() => document.getElementById('crabbieMusicControl').getAttribute('data-state')), 'paused', 'touch control exposes playback state');
+      await touchPage.locator('#crabbieMusicControl button[aria-label="Mute music"]').click();
+      assert.equal(await touchPage.evaluate(() => document.querySelector('audio').muted), true, 'touch mute toggles and persists');
+      await touchPage.locator('#crabbieMusicControl button[aria-label="Unmute music"]').click();
+      assert.equal(await touchPage.evaluate(() => document.querySelector('audio').muted), false, 'touch unmute restores');
+      await touchPage.evaluate(() => { window.CrabbieSiteMotion.applyMusic({enabled: false}); });
+      assert.equal(await touchPage.locator('#crabbieMusicControl.show').count(), 0, 'touch music hides when disabled');
+      await touchPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      assert.equal(await touchPage.locator('#crabbieMusicControl.show').count(), 1, 'touch music returns when re-enabled');
+      // DPR legs: CSS px measurements must be identical.
+      for (const dpr of [2, 3]) {
+        const dprCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce', deviceScaleFactor: dpr});
+        try {
+          await dprCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+          const dprPage = await dprCtx.newPage();
+          dprPage.setDefaultTimeout(20000);
+          await dprPage.goto(origin + '/#home', {waitUntil: 'load'});
+          await dprPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+          await dprPage.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+          await dprPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+          await dprPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+          const dm = await touchProbe(dprPage);
+          dm.musicBtns.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `music buttons reach 44px at DPR${dpr}`));
+          assert.ok(dm.footMinH !== null && dm.footMinH >= 44, `footer links reach 44px at DPR${dpr}`);
+          assert.ok(parseFloat(dm.fonts.pfSearch) >= 16, `search reaches 16px at DPR${dpr}`);
+        } finally {
+          await dprCtx.close();
+        }
+      }
+    } finally {
+      await touchCtx.close();
+    }
+    // Restore the desktop viewport and the boot commission baseline for later sections.
+    await page.evaluate(() => { window.CrabbieCommissions.apply([], []); });
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS shared touch controls: music/menu stack, 44px targets and 16px fields across 13 viewports, DPR and touch states (SDK fixture)');
+
+    // ---- Cross-device integration sweep: every view at the exact matrix ----
+    // Final regression net over BUG-01..BUG-08: document/body widths on every
+    // public view at all 18 audit viewports, with escaping-descendant traces
+    // so a failure names its culprit instead of just a number. No application
+    // behavior changes here; a genuinely new defect must be reported, not
+    // compensated for.
+    const SWEEP_MATRIX = [[320, 568], [360, 640], [375, 667], [375, 812], [390, 844], [393, 852], [414, 896], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [810, 1080], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    const SWEEP_VIEWS = [['home', 'home'], ['portfolio', 'portfolio'], ['project/long-title-stress', 'project-detail'], ['commissions', 'commissions'], ['free-assets', 'free-assets'], ['asset/sun-petal-pack', 'free-asset-detail'], ['about', 'about'], ['terms', 'terms'], ['contact', 'contact'], ['nope-missing-route', '404']];
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'long-title-stress', title:'Title'.repeat(50), description:'https://example.test/caption/' + 'X'.repeat(120) + '/end', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'long-badge-stress', title:'Badge Stress', description:'', cat:'Category'.repeat(15), tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'img-r11', title:'Art 1:1', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'img-r916', title:'Art 9:16', description:'', cat:'Vtuber', tags:[], thumbnail:'', cover:'https://example.test/art-720x1280.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'img-missing', title:'Missing', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true}
+      ]);
+      window.CrabbieAssets.apply([
+        {slug:'sun-petal-pack', title:'Sun Petal Pack', cat:'Brushes', format:'ZIP', availability:'available', downloadUrl:'https://example.test/sun.zip', showDirectDownload:true, showDriveDownload:false, flowerTag:'', featured:false, filterCat:'brushes', tags:[], thumbnail:'', icon:'❀'}
+      ]);
+      window.CrabbieCommissions.apply([{slug:'illus-service', name:'Illus Service', title:'Illus Service', description:'An illustration service.', price:'$50', priceNumeric:50, currency:'USD', availability:'open', formType:'illustration', formLabel:'Illustration form', thumbnail:'', featured:false, published:true, includedFiles:'PNG', canvas:'', deliveryEstimate:'2 weeks'}], [{slug:'illustration', title:'Illustration', description:'', published:true, fields:[
+        {id:'name', type:'text', label:'Name', placeholder:'Your name', help:'', required:true, contactRole:'name'},
+        {id:'idea', type:'textarea', label:'Idea', placeholder:'Describe', help:'', required:false, contactRole:'none'}
+      ]}]);
+      const inner = document.querySelector('.profile-inner');
+      if (inner && !inner.querySelector('img')) {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+        inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+      }
+    });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const sweepView = async (pg, hash, view) => {
+      await pg.evaluate((h) => { location.hash = '#' + h; }, hash);
+      await pg.waitForFunction((v) => document.querySelector('.view.is-active')?.dataset.view === v, view);
+      await pg.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      return pg.evaluate(() => {
+        const doc = document.documentElement, body = document.body;
+        const right = body.getBoundingClientRect().right;
+        const culprits = [];
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+        let el;
+        while ((el = walker.nextNode())) {
+          if (culprits.length >= 3) break;
+          const b = el.getBoundingClientRect();
+          if (b.width > 0 && b.height > 0 && b.right > right + 1) {
+            const cls = el.className && el.className.baseVal !== undefined ? '[svg]' : String(el.className || '').slice(0, 40);
+            culprits.push(`<${el.tagName}${el.id ? '#' + el.id : ''}.${cls}>@${Math.round(b.right)}`);
+          }
+        }
+        return {
+          docCW: doc.clientWidth, docSW: doc.scrollWidth,
+          bodyCW: body.clientWidth, bodySW: body.scrollWidth,
+          scrollX: window.scrollX, culprits
+        };
+      });
+    };
+    for (const [width, height] of SWEEP_MATRIX) {
+      await page.setViewportSize({width, height});
+      for (const [hash, view] of SWEEP_VIEWS) {
+        const m = await sweepView(page, hash, view);
+        const at = `${width}x${height} ${view}`;
+        assert.ok(m.docSW <= m.docCW + 1, `no document overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        assert.ok(m.bodySW <= m.bodyCW + 1, `no body overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        assert.equal(m.scrollX, 0, `root never drifts at ${at}`);
+      }
+    }
+    // Stress interactions on the integrated fixtures (no real submissions).
+    await page.setViewportSize({width: 390, height: 844});
+    await sweepView(page, 'portfolio', 'portfolio');
+    const longMeta = await page.evaluate(() => {
+      const card = document.querySelector('#pfGrid [data-project="long-title-stress"]');
+      const meta = card.querySelector('.meta');
+      const cb = card.getBoundingClientRect(), mb = meta.getBoundingClientRect();
+      return {inside: mb.top >= cb.top - 1 && mb.bottom <= cb.bottom + 1, titleChars: card.querySelector('.work-title').textContent.length};
+    });
+    assert.ok(longMeta.inside && longMeta.titleChars === 250, 'integrated long title stays bounded with full text');
+    const r916 = await page.evaluate(() => {
+      const card = document.querySelector('#pfGrid [data-project="img-r916"]');
+      const img = card.querySelector('.thumb img');
+      const ib = img.getBoundingClientRect();
+      return {ratioOk: Math.abs(ib.height - ib.width * img.naturalHeight / img.naturalWidth) <= 1.5, metaBelow: card.querySelector('.meta').getBoundingClientRect().top >= ib.bottom - 1};
+    });
+    assert.ok(r916.ratioOk && r916.metaBelow, 'integrated tall artwork stays complete with meta below');
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="short-normal"]:visible').count(), 1, 'filter keeps the match');
+    assert.equal(await page.locator('#pfGrid [data-project="long-title-stress"]:visible').count(), 0, 'filter hides the rest');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    await page.locator('#pfSearch').fill('zzz-no-such-project');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('#pfGrid [data-project]:visible').count(), 0, 'empty search matches nothing');
+    assert.ok(await page.locator('#pfEmpty').isVisible(), 'empty search shows the empty state');
+    await page.locator('#pfSearch').fill('');
+    await sweepView(page, 'commissions', 'commissions');
+    await page.locator('[data-cms-service="illus-service"] .acc-btn').click();
+    assert.ok(await page.locator('[data-cms-service="illus-service"] .acc.open').isVisible(), 'commission accordion expands');
+    await page.locator('#commissionSubmit').click();
+    await page.waitForTimeout(300);
+    assert.ok((await page.locator('#commissionForm .field-error').count()) >= 1, 'empty submit shows validation errors');
+    assert.equal(await page.locator('#briefResult:not([hidden])').count(), 0, 'invalid submit never reports success');
+    await sweepView(page, 'project/long-title-stress', 'project-detail');
+    assert.ok((await page.locator('#pdTitle').innerText()).length >= 200, 'long project detail renders its full title');
+    await sweepView(page, 'asset/sun-petal-pack', 'free-asset-detail');
+    assert.ok(await page.locator('[data-view="free-asset-detail"]').isVisible(), 'asset detail renders');
+    // Motion-allowed leg: layout must hold while animations run.
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
+      await page.setViewportSize({width, height});
+      for (const [hash, view] of [['home', 'home'], ['portfolio', 'portfolio'], ['about', 'about']]) {
+        const m = await sweepView(page, hash, view);
+        assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, `motion-allowed layout holds at ${width}x${height} ${view}`);
+      }
+    }
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    // Touch context: matrix widths on the touch-heavy views plus menu/focus.
+    const sweepTouch = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await sweepTouch.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const sp = await sweepTouch.newPage();
+      sp.setDefaultTimeout(20000);
+      await sp.goto(origin + '/#home', {waitUntil: 'load'});
+      await sp.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await sp.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+      await sp.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      await sp.evaluate(() => {
+        window.CrabbiePortfolio.apply([
+          {slug:'long-title-stress', title:'Title'.repeat(50), description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+      window.CrabbieCommissions.apply([{slug:'illus-service', name:'Illus Service', title:'Illus Service', description:'An illustration service.', price:'$50', priceNumeric:50, currency:'USD', availability:'open', formType:'illustration', formLabel:'Illustration form', thumbnail:'', featured:false, published:true, includedFiles:'PNG', canvas:'', deliveryEstimate:'2 weeks'}], [{slug:'illustration', title:'Illustration', description:'', published:true, fields:[
+          {id:'name', type:'text', label:'Name', placeholder:'Your name', help:'', required:true, contactRole:'name'}
+        ]}]);
+      });
+      for (const [width, height] of SWEEP_MATRIX) {
+        await sp.setViewportSize({width, height});
+        for (const [hash, view] of [['home', 'home'], ['portfolio', 'portfolio'], ['commissions', 'commissions'], ['about', 'about']]) {
+          const m = await sweepView(sp, hash, view);
+          const at = `${width}x${height} touch ${view}`;
+          assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, `no touch overflow at ${at} (by ${m.culprits.join(', ') || 'nothing found'})`);
+        }
+      }
+      await sp.setViewportSize({width: 844, height: 390});
+      await sweepView(sp, 'home', 'home');
+      await sp.locator('#navBurger').tap();
+      await sp.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+      const touchMenu = await menuAudit(sp);
+      assert.ok(touchMenu.items.every((it) => it.owned), 'touch sweep menu items own hit-testing');
+      await sp.locator('#navBurger').tap();
+      await sweepView(sp, 'commissions', 'commissions');
+      await sp.locator('#commissionForm .tab-panel.on input').first().tap();
+      await sp.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await sp.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'touch sweep music hides on focus');
+      // DPR2 sanity in CSS px.
+      const dprCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce', deviceScaleFactor: 2});
+      try {
+        await dprCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+        const dp = await dprCtx.newPage();
+        dp.setDefaultTimeout(20000);
+        await dp.goto(origin + '/#home', {waitUntil: 'load'});
+        await dp.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+        await dp.setViewportSize({width: 390, height: 844});
+        const m = await sweepView(dp, 'home', 'home');
+        assert.ok(m.docSW <= m.docCW + 1 && m.bodySW <= m.bodyCW + 1, 'no overflow at DPR2');
+      } finally {
+        await dprCtx.close();
+      }
+    } finally {
+      await sweepTouch.close();
+    }
+    // Restore boot baselines for the admin sections.
+    await page.evaluate(() => { window.CrabbieCommissions.apply([], []); });
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS cross-device integration sweep: 18 viewports x every public view plus touch, motion and DPR legs (SDK fixture)');
+
+    // ---- Image placeholder stacking: artwork covers .ph-label ----
+    // The positioned .ph-label placeholder painted above static artwork, most
+    // visible on saturated images. Loaded card art now owns a positioned
+    // layer inside the thumb stacking context; missing/broken sources keep
+    // the visible labeled fallback with stable card geometry.
+    await context.route('https://example.test/stack-*.svg', (route) => {
+      const dims = route.request().url().match(/stack-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#8a5cff"/></svg>`});
+    });
+    // https://example.test/broken.png stays aborted by the earlier portfolio
+    // section on this context, exercising the broken-image fallback again.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'stack-loaded', title:'Loaded', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/stack-800x800.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'stack-normal', title:'Normal', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/stack-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'stack-missing', title:'Missing', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'stack-broken', title:'Broken', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true}
+      ]);
+    });
+    await page.waitForFunction(() => {
+      const img = document.querySelector('#pfGrid [data-project="stack-loaded"] .thumb img');
+      return img && img.complete && img.naturalWidth > 0;
+    }, null, {timeout: 25000});
+    await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="stack-broken"] .thumb img'), null, {timeout: 15000});
+    // Instant scrolling: smooth scroll would still be settling when the
+    // hit-test runs and flake the paint-order assertions.
+    const stackProbe = (grid, slug) => page.evaluate(([g, s]) => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      try {
+        const card = document.querySelector(`${g} [data-project="${s}"]`);
+        if (!card) return null;
+        card.scrollIntoView({block: 'center'});
+        const thumb = card.querySelector('.thumb');
+        const img = thumb.querySelector('img');
+        const label = thumb.querySelector('.ph-label');
+        if (!img) {
+          const lb = label.getBoundingClientRect();
+          const cb = card.getBoundingClientRect();
+          return {img: false, labelVisible: lb.width > 0 && lb.height > 0, cardH: cb.height};
+        }
+        const ib = img.getBoundingClientRect();
+        const hit = document.elementFromPoint(ib.left + ib.width / 2, ib.top + ib.height / 2);
+        const mb = card.querySelector('.meta').getBoundingClientRect();
+        return {
+          img: true, loaded: img.complete && img.naturalWidth > 0,
+          natW: img.naturalWidth, natH: img.naturalHeight,
+          imgW: ib.width, imgH: ib.height, fit: getComputedStyle(img).objectFit,
+          imgPos: getComputedStyle(img).position, imgZ: getComputedStyle(img).zIndex,
+          hitIsImg: hit === img, hitIsLabel: hit === label,
+          metaBelow: mb.top >= ib.bottom - 1, cardH: card.getBoundingClientRect().height
+        };
+      } finally {
+        document.documentElement.style.scrollBehavior = '';
+      }
+    }, [grid, slug]);
+    for (const [width, height] of [[390, 844], [1440, 900]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.waitForTimeout(250);
+      const at = `${width}x${height}`;
+      const loaded = await stackProbe('#pfGrid', 'stack-loaded');
+      assert.ok(loaded.img && loaded.loaded, `image-card artwork loads at ${at}`);
+      assert.equal(loaded.imgPos, 'relative', `loaded artwork owns a positioned layer at ${at}`);
+      assert.equal(loaded.imgZ, '1', `loaded artwork stacks above the placeholder at ${at}`);
+      assert.ok(loaded.hitIsImg && !loaded.hitIsLabel, `loaded image-card art covers the placeholder at ${at}`);
+      const normal = await stackProbe('#pfGrid', 'stack-normal');
+      assert.ok(normal.img && normal.hitIsImg && !normal.hitIsLabel, `loaded normal thumbnail covers the placeholder at ${at}`);
+      for (const slug of ['stack-missing', 'stack-broken']) {
+        const fb = await stackProbe('#pfGrid', slug);
+        assert.equal(fb.img, false, `${slug} renders no broken image at ${at}`);
+        assert.ok(fb.labelVisible, `${slug} keeps the visible fallback label at ${at}`);
+        assert.ok(fb.cardH >= 200, `${slug} never collapses its card at ${at}`);
+      }
+      if (width <= 1180) {
+        assert.ok(Math.abs(loaded.imgH - loaded.imgW * loaded.natH / loaded.natW) <= 1.5, `mobile full-art ratio intact at ${at}`);
+        assert.ok(loaded.metaBelow, `mobile meta stays below the artwork at ${at}`);
+      } else {
+        assert.equal(loaded.fit, 'cover', `desktop cover presentation intact at ${at}`);
+      }
+    }
+    // Home grid renders the same thumb structure for featured cards.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.waitForTimeout(250);
+    for (const slug of ['stack-loaded', 'stack-normal']) {
+      const h = await stackProbe('#worksGrid', slug);
+      assert.ok(h && h.img && h.hitIsImg && !h.hitIsLabel, `home card ${slug} covers the placeholder`);
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS image placeholder stacking: loaded artwork covers .ph-label, missing/broken keep the fallback (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));

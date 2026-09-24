@@ -319,8 +319,13 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .thumb.t6{ background: linear-gradient(160deg, #b8e6ff 0%, #8a5cff 100%);}
 .thumb.t7{ background: linear-gradient(160deg, #ffd1e3 0%, #b48aff 100%);}
 .ph-label{position:absolute; inset:0;display:grid; place-items:center;font-family:var(--font-decorative);font-size:17px;color: rgba(255,255,255,.9);letter-spacing:.05em;text-align:center;padding:24px;transform: rotate(-3deg);text-shadow: 0 2px 6px rgba(120,40,90,.25);pointer-events:none;}
-.work .meta{position:absolute; left:0; right:0; bottom:0; z-index:2;padding: 22px 22px 22px;background: linear-gradient(0deg, #fff 0%, rgba(255,255,255,.95) 55%, rgba(255,255,255,0) 100%);border-radius: 0 0 25px 25px;display:flex; align-items:flex-end; justify-content:space-between; gap:12px;}
-.work-title{font-family:var(--font-display); font-weight:600; font-size:17px;color: var(--berry); line-height:1.2; overflow-wrap:anywhere;}
+.work .meta{position:absolute; left:0; right:0; bottom:0; z-index:2;padding: 22px 22px 22px;background: linear-gradient(0deg, #fff 0%, rgba(255,255,255,.95) 55%, rgba(255,255,255,0) 100%);border-radius: 0 0 25px 25px;display:flex; align-items:flex-end; justify-content:space-between; gap:12px;max-height: 100%;overflow: hidden;}
+/* BUG-03: the absolute meta can never grow its card, so a pathological
+   title must be a bounded preview instead of escaping into the card above.
+   Three clamped lines leave normal one/two-line titles pixel-identical while
+   the full text stays in the DOM (screen readers, selection) and on the
+   detail page behind See more. */
+.work-title{font-family:var(--font-display); font-weight:600; font-size:17px;color: var(--berry); line-height:1.2; overflow-wrap:anywhere;display: -webkit-box;-webkit-box-orient: vertical;-webkit-line-clamp: 3;line-clamp: 3;overflow: hidden;}
 .work-hero .work-title{ font-size: 22px;}
 .work-cat{ font-size:11px; color: var(--berry-soft); font-weight:700; overflow-wrap:anywhere;}
 .work-more{position: relative;display:inline-flex; align-items:center; gap:5px;padding: 8px 16px;border-radius: 999px;color:#4a1f43;font-family:var(--font-body); font-weight:600; font-size:11px;letter-spacing:.02em;white-space:nowrap;overflow: hidden;isolation: isolate;background:radial-gradient(ellipse 42% 32% at 24% 84%, rgba(255,255,255,.55), transparent 65%),linear-gradient(180deg, #ffc3dc 0%, #ff9cc6 48%, var(--pink-hot) 100%);text-shadow: 0 1px 2px rgba(255,255,255,.5);box-shadow:0 8px 16px -8px rgba(255,92,154,.6),0 3px 8px -3px rgba(255,92,154,.25),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 12px -10px rgba(190,50,110,.5);transition: transform .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease);}
@@ -331,9 +336,9 @@ body:not(.admin-mode) .assets .banner .banner-title{
 @keyframes see-more-bob{ 0%{ transform: translateY(0); } 60%{ transform: translateY(-4px); } 100%{ transform: translateY(-3px); } }
 .work:hover .work-more{ animation: see-more-bob .28s var(--ease) 1 forwards; box-shadow:0 10px 20px -8px rgba(255,92,154,.75),0 3px 8px -3px rgba(255,92,154,.3),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 12px -10px rgba(190,50,110,.5); }
 
-.cloud-tag{position: absolute;top: -17px; left: 14px;z-index: 4;height: 34px;min-width: 96px;display: grid;place-items: center;padding: 0 18px;pointer-events: none;}
+.cloud-tag{position: absolute;top: -17px; left: 14px;z-index: 4;min-height: 34px;min-width: 96px;max-width: calc(100% - 28px);display: grid;place-items: center;padding: 6px 18px;pointer-events: none;}
 .cloud-tag::before{content:"";position:absolute; inset:0;--g: radial-gradient(50% 50%, #000 98%, #0000) no-repeat;-webkit-mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;background: linear-gradient(180deg, #ffd1e3 0%, var(--pink-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow( 0 3px 4px rgba(217,74,128,.35));}
-.cloud-tag span{position: relative;z-index: 1;font-family:var(--font-decorative); font-weight:600;font-size: 10px;color: #fff;letter-spacing: .1em;text-shadow: 0 1px 2px rgba(217,74,128,.55);white-space: nowrap;transform: translateY(1px);}
+.cloud-tag span{position: relative;z-index: 1;font-family:var(--font-decorative); font-weight:600;font-size: 10px;color: #fff;letter-spacing: .1em;text-shadow: 0 1px 2px rgba(217,74,128,.55);white-space: normal;overflow-wrap: anywhere;transform: translateY(1px);}
 .cloud-tag.purple::before{background: linear-gradient(180deg, #dccaff 0%, var(--purple-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow(0 3px 4px rgba(92,61,153,.35));}
 .cloud-tag.purple span{ text-shadow: 0 1px 2px rgba(92,61,153,.6); }
 .cloud-tag.blue::before{background: linear-gradient(180deg, #c6e5ff 0%, var(--blue-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow(0 3px 4px rgba(40,110,190,.35));}
@@ -462,6 +467,16 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 #pfGrid .work.is-image-card{cursor:zoom-in;}
 #pfGrid .work.is-image-card .thumb img{transition:transform .35s var(--ease);}
 #pfGrid .work.is-image-card:hover .thumb img{transform:scale(1.025);}
+/* Image-only artwork owns its sizing hook (separate from the shared
+   publicImage() inline cover styles) so responsive layouts can show the
+   whole source. Desktop keeps the cover fill exactly as before. */
+#pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{display:block;width:100%;height:100%;object-fit:cover;}
+/* Fallback label stacking: the positioned .ph-label placeholder paints above
+   a static image, so loaded artwork must own a positioned layer to cover it.
+   Scoped to the two card grids (the only .thumb owners); missing/broken
+   sources keep the visible label, and siblings (.cloud-tag, .meta) still
+   paint above inside the thumb's isolated stacking context. */
+#pfGrid .thumb img,#worksGrid .thumb img{position:relative;z-index:1;}
 @media (hover:none), (pointer:coarse){
   /* Touch browsers can keep :hover latched after a tap. Do not leave the
      portfolio image scaled on phones; the thumb remains the paint boundary. */
@@ -865,11 +880,20 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .cta-grid{ grid-template-columns: 1fr; gap:40px;}
   .cta-inner{ padding: 48px 40px;}
   .foot-inner{ grid-template-columns: 1.3fr 1fr 1fr; gap:28px;}
-  .pf-grid{ grid-template-columns: repeat(4, 1fr); grid-auto-rows: 118px; }
+  .pf-grid{ grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(118px, auto); }
   .pf-l{ grid-column: span 4; grid-row: span 3; }
   .pf-t{ grid-column: span 2; grid-row: span 3; }
   .pf-s{ grid-column: span 2; grid-row: span 2; }
   .pf-w{ grid-column: span 2; grid-row: span 2; }
+  /* BUG-04: below the desktop masonry breakpoint, image-only cards show the
+     whole artwork instead of a forced crop: own row, natural ratio, and the
+     meta sits below the art so it never covers it. Desktop spans, cover
+     fill and overlay meta stay exactly as they were. */
+  #pfGrid .work.is-image-card{ grid-column: 1 / -1; grid-row: auto; aspect-ratio: auto; }
+  #worksGrid .work.is-image-card{ grid-column: 1 / -1; aspect-ratio: auto; }
+  #pfGrid .work.is-image-card .thumb,#worksGrid .work.is-image-card .thumb{ position: relative; inset: auto; min-height: 180px; }
+  #pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{ height: auto; object-fit: contain; }
+  #pfGrid .work.is-image-card .meta,#worksGrid .work.is-image-card .meta{ position: static; }
   .comm-grid{ grid-template-columns: repeat(2, 1fr); }
   .mini-grid{ grid-template-columns: repeat(2, 1fr); }
   .pd-hero{ grid-template-columns: 1fr; gap: 34px; }
@@ -975,6 +999,12 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .pf-grid .work{ height:auto; width:100%; max-width:100%; min-width:0; }
   .pf-l, .pf-t, .pf-s, .pf-w{ grid-column: auto; grid-row: auto; aspect-ratio: 4/3; }
   .pf-l{ aspect-ratio: 4/5; }
+  /* About BUG-01: with a CMS profile image the frame fills its column, and the
+     -2deg rotation plus the outward flower tag pushed ~3px past the layout
+     width. Keep right-side headroom instead of letting the decorations run
+     off the page. Scoped to About so no other views change. */
+  .about-hero .profile-frame{ max-width: min(380px, calc(100% - 20px)); }
+  .about-hero .profile-frame .flower-tag{ right: -10px; }
   .page-title{ font-size: clamp(28px, 9vw, 38px); }
   .chips{ margin-bottom: 34px; gap: 8px; }
   .chip{ padding: 10px 16px; font-size: 11.5px; }
@@ -1412,8 +1442,10 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
   align-items:center;justify-items:center;padding:76px 48px 96px;
   background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
-.public-lightbox img{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
-  border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;
+/* Artwork-specific rules target the artwork element by id so collaborator
+   avatars (.pcs-avatar) are never affected by zoom/pan styling. */
+#publicLightboxImg{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;cursor:zoom-in;
   transform-origin:center center;transition:transform .16s ease;touch-action:none;}
 .public-lightbox-close{position:fixed;top:22px;right:24px;z-index:2;width:46px;height:46px;border-radius:50%;
   border:2px solid #fff;background:var(--pink-hot);color:#fff;font-size:30px;line-height:1;cursor:pointer;
@@ -1422,13 +1454,13 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 .public-lightbox-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2;display:flex;gap:8px;
   align-items:center;padding:7px;border-radius:999px;background:rgba(255,255,255,.94);
   border:2px solid var(--pink-light);box-shadow:0 10px 24px -12px rgba(0,0,0,.45);}
-.public-lightbox-bar button{min-width:40px;height:40px;padding:0 14px;border-radius:999px;cursor:pointer;
+.public-lightbox-bar button{min-width:44px;height:44px;padding:0 14px;border-radius:999px;cursor:pointer;
   border:2px solid var(--pink-light);background:#fff;color:var(--pink-hot);font-weight:800;font-size:15px;line-height:1;
   display:grid;place-items:center;}
 .public-lightbox-bar button:hover{border-color:var(--pink-hot);}
 .public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
 .public-lightbox-caption{grid-column:1;grid-row:1;position:static;transform:none;z-index:2;margin:0 0 12px;
-  max-width:min(90%,720px);padding:8px 18px;border-radius:14px;text-align:center;
+  max-width:min(90%,720px);min-width:0;overflow-wrap:anywhere;padding:8px 18px;border-radius:14px;text-align:center;
   background:rgba(255,255,255,.92);font-family:var(--font-body);font-size:13px;line-height:1.5;
   box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
 .public-lightbox-caption[hidden]{display:none !important;}
@@ -1452,11 +1484,16 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
      the reserved bands grow with the insets so the image never sits
      underneath the toolbar. */
   .public-lightbox{padding:calc(70px + env(safe-area-inset-top,0px)) max(14px, env(safe-area-inset-right,0px)) calc(104px + env(safe-area-inset-bottom,0px)) max(14px, env(safe-area-inset-left,0px));}
-  .public-lightbox img{border-radius:12px;}
+  #publicLightboxImg{border-radius:12px;}
   .public-lightbox-close{top:calc(14px + env(safe-area-inset-top,0px));right:max(14px, env(safe-area-inset-right,0px));width:44px;height:44px;font-size:26px;}
   .public-lightbox-bar{bottom:calc(20px + env(safe-area-inset-bottom,0px));}
   .public-lightbox-bar button{min-width:44px;height:44px;}
   .public-lightbox-caption{font-size:12.5px;max-width:min(92%,560px);}
+}
+/* Short landscape viewports: tighten the reserved close/toolbar bands so the
+   image stage stays usable; safe-area insets (landscape notch) still apply. */
+@media (max-height:500px){
+  .public-lightbox{padding:calc(68px + env(safe-area-inset-top,0px)) max(20px, env(safe-area-inset-right,0px)) calc(88px + env(safe-area-inset-bottom,0px)) max(20px, env(safe-area-inset-left,0px));}
 }
 /* Phone portrait: the tall centered flexible image slot becomes a natural
    compact vertical stack. Caption (when present) → collaborator credits
@@ -1470,7 +1507,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   /* DOM order is image-first; the stack reads caption → credits → image. */
   .public-lightbox-caption{order:1;margin:0 0 10px;}
   .public-lightbox-credits{order:2;margin:0 0 10px;}
-  .public-lightbox img{order:3;grid-column:auto;grid-row:auto;margin-top:6px;
+  #publicLightboxImg{order:3;grid-column:auto;grid-row:auto;margin-top:6px;
     max-height:calc(100vh - 270px);
     max-height:calc(100dvh - 270px);}
 }
@@ -2780,6 +2817,15 @@ button,input,textarea,select{letter-spacing:.012em;}
 .form-head .label-fixed{font-size:13px;}
 .exp-card .tag-year{font-size:10.5px;}
 .tos-nav h6,.refund-table th,.contact-row .ck{font-size:11.5px;}
+
+/* Touch devices at any width (phones, landscape, tablets): 16px editable
+   text blocks iOS focus zoom where the 600px rule alone misses it, and
+   footer links grow to real 44px targets. Desktop typography is untouched. */
+@media (pointer:coarse){
+  .search-box input{font-size:16px;}
+  .form-shell .field input[type="text"],.form-shell .field input[type="email"],.form-shell .field input[type="number"],.form-shell .field input[type="url"],.form-shell .field textarea,.form-shell .field select{font-size:16px;}
+  .foot ul a{padding-top:12px;padding-bottom:12px;}
+}
 
 /* Body/admin copy uses DFVN Hogfish via --font-body; keep controls legible. */
 body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
@@ -5536,9 +5582,41 @@ var publicLightboxReset = document.getElementById('publicLightboxReset');
 var lightboxScale = 1;
 var LIGHTBOX_MIN_SCALE = 1;
 var LIGHTBOX_MAX_SCALE = 4;
+/* Bounded pan (CSS px of the image center away from its unzoomed box). The
+   pan is clamped so the artwork can never leave its stage: at full
+   deflection an image edge sits exactly on the stage edge, so every edge of
+   a zoomed image stays reachable with one finger or the mouse. Scale 1
+   always means pan 0, which keeps Reset and reopening deterministic. */
+var lightboxPanX = 0;
+var lightboxPanY = 0;
+function lightboxStageSize(){
+if(!publicLightboxImg) return {w:0, h:0};
+return {w:publicLightboxImg.clientWidth, h:publicLightboxImg.clientHeight};
+}
+function lightboxPanBounds(){
+var stage = lightboxStageSize();
+return {
+  x: Math.max(0, (stage.w * lightboxScale - stage.w) / 2),
+  y: Math.max(0, (stage.h * lightboxScale - stage.h) / 2)
+};
+}
+function applyLightboxTransform(){
+if(!publicLightboxImg) return;
+if(lightboxScale === 1){ publicLightboxImg.style.transform = ''; }
+else{ publicLightboxImg.style.transform = 'translate(' + lightboxPanX + 'px,' + lightboxPanY + 'px) scale(' + lightboxScale + ')'; }
+publicLightboxImg.style.cursor = lightboxScale === 1 ? 'zoom-in' : 'grab';
+}
+function setLightboxPan(x, y){
+var bounds = lightboxPanBounds();
+lightboxPanX = Math.max(-bounds.x, Math.min(bounds.x, x || 0));
+lightboxPanY = Math.max(-bounds.y, Math.min(bounds.y, y || 0));
+applyLightboxTransform();
+}
 function setLightboxScale(next){
 lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
-if(publicLightboxImg) publicLightboxImg.style.transform = lightboxScale === 1 ? '' : 'scale(' + lightboxScale + ')';
+/* Re-clamp through the pan setter so zooming out can never strand the image
+   off-stage; coming back to 1x always re-centers. */
+setLightboxPan(lightboxScale === 1 ? 0 : lightboxPanX, lightboxScale === 1 ? 0 : lightboxPanY);
 }
 var lightboxOpener = null;
 function lightboxFocusable(){
@@ -5572,10 +5650,10 @@ if(publicLightboxClose) publicLightboxClose.focus();
 function closePublicLightbox(){
 if(!publicLightbox || publicLightbox.hidden) return;
 publicLightbox.hidden = true; document.body.style.overflow = '';
-if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; }
+if(publicLightboxImg){ publicLightboxImg.removeAttribute('src'); publicLightboxImg.alt = ''; publicLightboxImg.style.transform = ''; publicLightboxImg.style.cursor = ''; }
 if(publicLightboxCaption){ publicLightboxCaption.textContent = ''; publicLightboxCaption.hidden = true; }
 renderLightboxCredits(null);
-lightboxScale = 1;
+lightboxScale = 1; lightboxPanX = 0; lightboxPanY = 0;
 /* Return focus to the element that opened the lightbox. */
 if(lightboxOpener && lightboxOpener.isConnected && typeof lightboxOpener.focus === 'function'){
   try{ lightboxOpener.focus({ preventScroll: true }); }catch(e){ try{ lightboxOpener.focus(); }catch(e2){} }
@@ -5619,6 +5697,62 @@ if(publicLightbox){
     }
   }, { passive: false });
   publicLightbox.addEventListener('touchend', function(e){ if(e.touches.length < 2) pinchStart = null; });
+  window.addEventListener('resize', function(){
+    if(!publicLightbox || publicLightbox.hidden || lightboxScale === 1) return;
+    /* Orientation/window changes re-clamp the pan to the new stage so the
+       artwork can never strand off-screen; the zoom level itself is kept. */
+    setLightboxPan(lightboxPanX, lightboxPanY);
+  });
+}
+/* One-finger pan on the artwork (touch) plus mouse drag and arrow keys.
+   The gesture is only stolen while zoomed: at 1x the dialog keeps its
+   normal scroll, so tall portrait artwork still scrolls. The root document
+   never moves — panning is transform-only. */
+var lightboxPanTouch = null;
+var lightboxPanMouse = null;
+if(publicLightboxImg){
+  publicLightboxImg.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  publicLightboxImg.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1 || lightboxScale <= 1){ lightboxPanTouch = null; return; }
+    var t = e.touches[0];
+    lightboxPanTouch = {x: t.clientX - lightboxPanX, y: t.clientY - lightboxPanY};
+  }, { passive: true });
+  publicLightboxImg.addEventListener('touchmove', function(e){
+    if(!lightboxPanTouch || e.touches.length !== 1) return;
+    e.preventDefault();
+    var t = e.touches[0];
+    setLightboxPan(t.clientX - lightboxPanTouch.x, t.clientY - lightboxPanTouch.y);
+  }, { passive: false });
+  publicLightboxImg.addEventListener('touchend', function(e){ if(e.touches.length === 0) lightboxPanTouch = null; });
+  publicLightboxImg.addEventListener('touchcancel', function(){ lightboxPanTouch = null; });
+  publicLightboxImg.addEventListener('mousedown', function(e){
+    if(e.button !== 0 || lightboxScale <= 1) return;
+    lightboxPanMouse = {x: e.clientX - lightboxPanX, y: e.clientY - lightboxPanY};
+    publicLightboxImg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+}
+document.addEventListener('mousemove', function(e){
+  if(!lightboxPanMouse) return;
+  setLightboxPan(e.clientX - lightboxPanMouse.x, e.clientY - lightboxPanMouse.y);
+});
+document.addEventListener('mouseup', function(){
+  if(!lightboxPanMouse) return;
+  lightboxPanMouse = null;
+  applyLightboxTransform();
+});
+if(publicLightbox){
+  publicLightbox.addEventListener('keydown', function(e){
+    if(publicLightbox.hidden || lightboxScale <= 1) return;
+    var step = null;
+    if(e.key === 'ArrowLeft') step = [24, 0];
+    else if(e.key === 'ArrowRight') step = [-24, 0];
+    else if(e.key === 'ArrowUp') step = [0, 24];
+    else if(e.key === 'ArrowDown') step = [0, -24];
+    else return;
+    e.preventDefault();
+    setLightboxPan(lightboxPanX + step[0], lightboxPanY + step[1]);
+  });
 }
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
 
@@ -10110,10 +10244,19 @@ if(!text) return '';
 return text.replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
 }
 function portfolioIsImageCard(record){ return !!(record && record.cardMode === 'image'); }
+/* Image-only cards render the artwork through their own markup (no shared
+   publicImage() inline cover sizing) so responsive rules can show the whole
+   source on phones/tablets while desktop keeps cover. A broken source
+   removes itself, leaving the labeled placeholder box and working nav. */
+function portfolioCardArtwork(record){
+var src = safePublicUrl(record && (record.cover || record.thumbnail), true);
+if(!src) return '';
+return '<img class="pf-full-art" src="' + esc(src) + '" alt="' + esc((record && record.title) || 'Illustration') + '" loading="lazy" onerror="this.remove()">';
+}
 function portfolioCardImage(record){
 /* Image cards use the cover as their single visual; project cards use thumbnail. */
-var src = portfolioIsImageCard(record) ? (record.cover || record.thumbnail) : record.thumbnail;
-return publicImage(src, record && record.title);
+if(portfolioIsImageCard(record)) return portfolioCardArtwork(record);
+return publicImage(record.thumbnail, record && record.title);
 }
 function syncPortfolioCardMode(card, record){
 if(!card || !record) return;
@@ -10231,9 +10374,11 @@ apply: function(records){
       card.setAttribute('data-cat', portfolioFilterGroup(record));
       card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
       var img = portfolioCardImage(record);
-      var thumb = img
+      /* Image-only cards keep the labeled gradient behind the artwork so a
+         missing/broken source still shows a sized box instead of collapsing. */
+      var thumb = (img && !portfolioIsImageCard(record))
         ? '<div class="thumb">' + img + '</div>'
-        : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span></div>';
+        : '<div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span>' + (img || '') + '</div>';
       card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioCloudLabel(record)) + '</span></div>' +
         thumb +
         '<div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
@@ -10257,7 +10402,7 @@ apply: function(records){
     if(!visible) return;
     var titleEl = card.querySelector('.work-title'); if(titleEl) titleEl.textContent = record.title || slug;
     var catEl = card.querySelector('.work-cat'); if(catEl) catEl.textContent = (record.cat || 'Project') + (record.year ? ' · ' + record.year : '');
-    var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = portfolioCardImage(record) || '';
+    var cardThumb = card.querySelector('.thumb'); if(cardThumb) cardThumb.innerHTML = (portfolioIsImageCard(record) ? '<span class="ph-label">PROJECT IMAGE</span>' : '') + (portfolioCardImage(record) || '');
     syncPortfolioBadge(card, record);
     syncPortfolioCardMode(card, record);
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
@@ -10271,7 +10416,7 @@ apply: function(records){
       card.className = 'work ' + ['work-hero','work-a','work-b','work-c','work-d'][index];
       card.setAttribute('href', '#project/' + encodeURIComponent(record.slug));
       card.setAttribute('data-project', record.slug);
-      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioCloudLabel(record)) + '</span></div><div class="thumb">' + (portfolioCardImage(record) || '') + '</div><div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
+      card.innerHTML = '<div class="cloud-tag"><span>' + esc(portfolioCloudLabel(record)) + '</span></div><div class="thumb t' + ((index % 6) + 1) + '"><span class="ph-label">PROJECT IMAGE</span>' + (portfolioCardImage(record) || '') + '</div><div class="meta"><div><div class="work-title">' + esc(record.title || record.slug) + '</div><div class="work-cat">' + esc((record.cat || 'Project') + (record.year ? ' · ' + record.year : '')) + '</div></div><span class="work-more">See more →</span></div>';
       homeWorks.appendChild(card); syncPortfolioCardMode(card, record);
     });
   }
