@@ -471,6 +471,12 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
    publicImage() inline cover styles) so responsive layouts can show the
    whole source. Desktop keeps the cover fill exactly as before. */
 #pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{display:block;width:100%;height:100%;object-fit:cover;}
+/* Fallback label stacking: the positioned .ph-label placeholder paints above
+   a static image, so loaded artwork must own a positioned layer to cover it.
+   Scoped to the two card grids (the only .thumb owners); missing/broken
+   sources keep the visible label, and siblings (.cloud-tag, .meta) still
+   paint above inside the thumb's isolated stacking context. */
+#pfGrid .thumb img,#worksGrid .thumb img{position:relative;z-index:1;}
 @media (hover:none), (pointer:coarse){
   /* Touch browsers can keep :hover latched after a tap. Do not leave the
      portfolio image scaled on phones; the thumb remains the paint boundary. */

@@ -5411,6 +5411,104 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS cross-device integration sweep: 18 viewports x every public view plus touch, motion and DPR legs (SDK fixture)');
 
+    // ---- Image placeholder stacking: artwork covers .ph-label ----
+    // The positioned .ph-label placeholder painted above static artwork, most
+    // visible on saturated images. Loaded card art now owns a positioned
+    // layer inside the thumb stacking context; missing/broken sources keep
+    // the visible labeled fallback with stable card geometry.
+    await context.route('https://example.test/stack-*.svg', (route) => {
+      const dims = route.request().url().match(/stack-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#8a5cff"/></svg>`});
+    });
+    // https://example.test/broken.png stays aborted by the earlier portfolio
+    // section on this context, exercising the broken-image fallback again.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'stack-loaded', title:'Loaded', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/stack-800x800.svg', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'stack-normal', title:'Normal', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/stack-800x600.svg', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'stack-missing', title:'Missing', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true},
+        {slug:'stack-broken', title:'Broken', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'', featured:false, published:true}
+      ]);
+    });
+    await page.waitForFunction(() => {
+      const img = document.querySelector('#pfGrid [data-project="stack-loaded"] .thumb img');
+      return img && img.complete && img.naturalWidth > 0;
+    }, null, {timeout: 25000});
+    await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="stack-broken"] .thumb img'), null, {timeout: 15000});
+    // Instant scrolling: smooth scroll would still be settling when the
+    // hit-test runs and flake the paint-order assertions.
+    const stackProbe = (grid, slug) => page.evaluate(([g, s]) => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      try {
+        const card = document.querySelector(`${g} [data-project="${s}"]`);
+        if (!card) return null;
+        card.scrollIntoView({block: 'center'});
+        const thumb = card.querySelector('.thumb');
+        const img = thumb.querySelector('img');
+        const label = thumb.querySelector('.ph-label');
+        if (!img) {
+          const lb = label.getBoundingClientRect();
+          const cb = card.getBoundingClientRect();
+          return {img: false, labelVisible: lb.width > 0 && lb.height > 0, cardH: cb.height};
+        }
+        const ib = img.getBoundingClientRect();
+        const hit = document.elementFromPoint(ib.left + ib.width / 2, ib.top + ib.height / 2);
+        const mb = card.querySelector('.meta').getBoundingClientRect();
+        return {
+          img: true, loaded: img.complete && img.naturalWidth > 0,
+          natW: img.naturalWidth, natH: img.naturalHeight,
+          imgW: ib.width, imgH: ib.height, fit: getComputedStyle(img).objectFit,
+          imgPos: getComputedStyle(img).position, imgZ: getComputedStyle(img).zIndex,
+          hitIsImg: hit === img, hitIsLabel: hit === label,
+          metaBelow: mb.top >= ib.bottom - 1, cardH: card.getBoundingClientRect().height
+        };
+      } finally {
+        document.documentElement.style.scrollBehavior = '';
+      }
+    }, [grid, slug]);
+    for (const [width, height] of [[390, 844], [1440, 900]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.waitForTimeout(250);
+      const at = `${width}x${height}`;
+      const loaded = await stackProbe('#pfGrid', 'stack-loaded');
+      assert.ok(loaded.img && loaded.loaded, `image-card artwork loads at ${at}`);
+      assert.equal(loaded.imgPos, 'relative', `loaded artwork owns a positioned layer at ${at}`);
+      assert.equal(loaded.imgZ, '1', `loaded artwork stacks above the placeholder at ${at}`);
+      assert.ok(loaded.hitIsImg && !loaded.hitIsLabel, `loaded image-card art covers the placeholder at ${at}`);
+      const normal = await stackProbe('#pfGrid', 'stack-normal');
+      assert.ok(normal.img && normal.hitIsImg && !normal.hitIsLabel, `loaded normal thumbnail covers the placeholder at ${at}`);
+      for (const slug of ['stack-missing', 'stack-broken']) {
+        const fb = await stackProbe('#pfGrid', slug);
+        assert.equal(fb.img, false, `${slug} renders no broken image at ${at}`);
+        assert.ok(fb.labelVisible, `${slug} keeps the visible fallback label at ${at}`);
+        assert.ok(fb.cardH >= 200, `${slug} never collapses its card at ${at}`);
+      }
+      if (width <= 1180) {
+        assert.ok(Math.abs(loaded.imgH - loaded.imgW * loaded.natH / loaded.natW) <= 1.5, `mobile full-art ratio intact at ${at}`);
+        assert.ok(loaded.metaBelow, `mobile meta stays below the artwork at ${at}`);
+      } else {
+        assert.equal(loaded.fit, 'cover', `desktop cover presentation intact at ${at}`);
+      }
+    }
+    // Home grid renders the same thumb structure for featured cards.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.waitForTimeout(250);
+    for (const slug of ['stack-loaded', 'stack-normal']) {
+      const h = await stackProbe('#worksGrid', slug);
+      assert.ok(h && h.img && h.hitIsImg && !h.hitIsLabel, `home card ${slug} covers the placeholder`);
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS image placeholder stacking: loaded artwork covers .ph-label, missing/broken keep the fallback (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
