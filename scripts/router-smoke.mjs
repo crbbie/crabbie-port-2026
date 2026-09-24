@@ -4370,6 +4370,163 @@ try {
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
     console.log('PASS mobile stabilization: no phone overflow, wrapping, phone lightbox stack, safe-area controls, thanks scroller (SDK fixture)');
 
+    // ---- Public overflow matrix: About frame + unbounded cloud badges -----
+    // BUG-01: a CMS profile image makes the About frame fill its column; the
+    // -2deg rotation plus the outward flower tag must keep the layout width
+    // inside the viewport (document AND body scrollWidth, since the body
+    // carries the overflow-x:hidden defense).
+    // BUG-02: long CMS categories on .cloud-tag must wrap inside their card
+    // instead of widening home/portfolio; the full label stays in the DOM.
+    const badgeLongCategory = 'Category'.repeat(15);
+    await page.evaluate((cat) => {
+      window.CrabbiePortfolio.apply([
+        {slug:'badge-normal', title:'Badge Normal', description:'', cat, tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'badge-image', title:'Badge Image', description:'', cat, tags:[], thumbnail:'', cover:'https://example.test/badge-cover.png', cardMode:'image', blocks:[], credits:'', year:'', featured:true, published:true},
+        {slug:'badge-short', title:'Badge Short', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+      ]);
+      // Production About has a CMS profile image; a loaded image makes the
+      // rotated frame fill its column (the BUG-01 state).
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+      const inner = document.querySelector('.profile-inner');
+      inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    }, badgeLongCategory);
+    const overflowMatrix = [
+      [320, 568], [360, 640], [375, 812], [390, 844], [414, 896], [430, 932],
+      [667, 375], [844, 390], [768, 1024], [1024, 1366], [1280, 800], [1440, 900]
+    ];
+    const probeRoute = async (route, width, height) => {
+      await page.setViewportSize({width, height});
+      await page.evaluate((hash) => { location.hash = hash; }, '#' + route);
+      await page.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      return page.evaluate(() => {
+        const doc = document.documentElement;
+        const body = document.body;
+        const bodyRight = body.getBoundingClientRect().right;
+        const view = document.querySelector('.view.is-active');
+        const frame = view.querySelector('.profile-frame');
+        const flower = frame && frame.querySelector('.flower-tag');
+        const badges = Array.from(view.querySelectorAll('.cloud-tag')).map((tagEl) => {
+          const tr = tagEl.getBoundingClientRect();
+          const card = tagEl.closest('.work');
+          const cr = card && card.getBoundingClientRect();
+          const span = tagEl.querySelector('span');
+          return {
+            right: tr.right,
+            cardRight: cr ? cr.right : null,
+            text: span ? (span.textContent || '').trim() : '',
+            whiteSpace: span ? getComputedStyle(span).whiteSpace : '',
+            fits: span ? span.scrollWidth <= span.clientWidth + 1 : true,
+            insideCard: cr ? tr.right <= cr.right + 1 && tr.left >= cr.left - 1 : true
+          };
+        });
+        return {
+          docCW: doc.clientWidth, docSW: doc.scrollWidth,
+          bodyCW: body.clientWidth, bodySW: body.scrollWidth,
+          bodyRight,
+          frameRight: frame ? frame.getBoundingClientRect().right : null,
+          flowerRight: flower ? flower.getBoundingClientRect().right : null,
+          badges
+        };
+      });
+    };
+    for (const [width, height] of overflowMatrix) {
+      for (const route of ['home', 'about', 'portfolio']) {
+        const probe = await probeRoute(route, width, height);
+        const at = `${width}x${height} ${route}`;
+        assert.ok(probe.docSW <= probe.docCW + 1, `no document overflow at ${at}: ${probe.docSW} > ${probe.docCW}`);
+        assert.ok(probe.bodySW <= probe.bodyCW + 1, `no body overflow at ${at}: ${probe.bodySW} > ${probe.bodyCW}`);
+        if (route === 'about') {
+          assert.ok(probe.frameRight <= probe.bodyRight + 1, `About profile frame stays inside the page at ${at}: ${probe.frameRight} > ${probe.bodyRight}`);
+          assert.ok(probe.flowerRight <= probe.bodyRight + 1, `About flower tag stays inside the page at ${at}: ${probe.flowerRight} > ${probe.bodyRight}`);
+        } else {
+          const longBadge = probe.badges.find((b) => b.text.length === badgeLongCategory.length);
+          assert.ok(longBadge, `a long-category badge renders at ${at}`);
+          assert.equal(longBadge.whiteSpace, 'normal', `long badge wraps instead of nowrap at ${at}`);
+          assert.ok(longBadge.fits, `long badge span fits its box at ${at}`);
+          assert.ok(longBadge.insideCard, `long badge stays inside its card at ${at}`);
+          assert.ok(longBadge.right <= probe.bodyRight + 1, `long badge stays inside the page at ${at}: ${longBadge.right} > ${probe.bodyRight}`);
+        }
+      }
+    }
+    // The short label keeps its full text on a single visual line when it fits.
+    const shortProbe = await probeRoute('portfolio', 390, 844);
+    const shortBadge = shortProbe.badges.find((b) => b.text === 'ILLUSTRATION');
+    assert.ok(shortBadge, 'the short category badge still renders');
+    assert.ok(shortBadge.insideCard && shortBadge.right <= shortProbe.bodyRight + 1, 'the short badge stays inside its card');
+    // Home's gentle cloud drift (translateX up to 15px, motion allowed) must
+    // never push the wrapped badge past its card or the page.
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    await probeRoute('home', 390, 844);
+    for (let sample = 0; sample < 4; sample += 1) {
+      await page.waitForTimeout(350);
+      const drift = await page.evaluate(() => {
+        const tagEl = document.querySelector('.view.is-active .works-grid .cloud-tag');
+        if (!tagEl) return null;
+        const tr = tagEl.getBoundingClientRect();
+        const card = tagEl.closest('.work');
+        const cr = card && card.getBoundingClientRect();
+        return {right: tr.right, cardRight: cr ? cr.right : null, bodyRight: document.body.getBoundingClientRect().right};
+      });
+      if (drift && drift.cardRight !== null) {
+        assert.ok(drift.right <= drift.cardRight + 1, `home drifting badge stays inside its card (sample ${sample}): ${drift.right} > ${drift.cardRight}`);
+        assert.ok(drift.right <= drift.bodyRight + 1, `home drifting badge stays inside the page (sample ${sample}): ${drift.right} > ${drift.bodyRight}`);
+      }
+    }
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    // Touch/no-hover context: the same About and badge state holds.
+    const touchContext = await browser.newContext({viewport:{width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await touchContext.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const touchPage = await touchContext.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#about', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about', null, {timeout: 20000});
+      await touchPage.evaluate((cat) => {
+        window.CrabbiePortfolio.apply([
+          {slug:'badge-normal', title:'Badge Normal', description:'', cat, tags:[], thumbnail:'', cover:'', blocks:[], credits:'', year:'', featured:true, published:true}
+        ]);
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#ffcce1"/></svg>';
+        const inner = document.querySelector('.profile-inner');
+        inner.innerHTML = '<img src="data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '" alt="Profile" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+      }, badgeLongCategory);
+      for (const route of ['about', 'portfolio', 'home']) {
+        await touchPage.evaluate((r) => { location.hash = '#' + r; }, route);
+        await touchPage.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
+        await touchPage.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+        const touchProbe = await touchPage.evaluate(() => ({
+          docCW: document.documentElement.clientWidth,
+          docSW: document.documentElement.scrollWidth,
+          bodyCW: document.body.clientWidth,
+          bodySW: document.body.scrollWidth
+        }));
+        assert.ok(touchProbe.docSW <= touchProbe.docCW + 1, `no document overflow in touch context at ${route}: ${touchProbe.docSW} > ${touchProbe.docCW}`);
+        assert.ok(touchProbe.bodySW <= touchProbe.bodyCW + 1, `no body overflow in touch context at ${route}: ${touchProbe.bodySW} > ${touchProbe.bodyCW}`);
+      }
+      // A horizontal swipe attempt never pans the page (root defense intact).
+      await touchPage.evaluate(() => { window.scrollTo(200, 0); });
+      assert.equal(await touchPage.evaluate(() => window.scrollX), 0, 'horizontal gestures never pan the public page');
+    } finally {
+      await touchContext.close();
+    }
+    // The sticky nav still pins while scrolled (no root clipping regression).
+    await page.setViewportSize({width: 375, height: 812});
+    await page.evaluate(() => { location.hash = '#about'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+    await page.evaluate(() => window.scrollTo({top: 900, left: 0, behavior: 'instant'}));
+    await page.waitForTimeout(150);
+    const stickyNav = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      return {top: nav.getBoundingClientRect().top, position: getComputedStyle(nav).position};
+    });
+    assert.equal(stickyNav.position, 'sticky', 'the public nav stays position:sticky');
+    assert.ok(Math.abs(stickyNav.top) <= 2, `sticky nav stays pinned at the top while scrolled: top=${stickyNav.top}`);
+    await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
+    // Restore the default desktop motion/viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS public overflow matrix: About frame + cloud badges bounded at 12 viewports, touch context, gesture and sticky nav (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));

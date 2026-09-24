@@ -331,9 +331,9 @@ body:not(.admin-mode) .assets .banner .banner-title{
 @keyframes see-more-bob{ 0%{ transform: translateY(0); } 60%{ transform: translateY(-4px); } 100%{ transform: translateY(-3px); } }
 .work:hover .work-more{ animation: see-more-bob .28s var(--ease) 1 forwards; box-shadow:0 10px 20px -8px rgba(255,92,154,.75),0 3px 8px -3px rgba(255,92,154,.3),inset 0 2px 1px rgba(255,255,255,.65),inset 0 -6px 12px -10px rgba(190,50,110,.5); }
 
-.cloud-tag{position: absolute;top: -17px; left: 14px;z-index: 4;height: 34px;min-width: 96px;display: grid;place-items: center;padding: 0 18px;pointer-events: none;}
+.cloud-tag{position: absolute;top: -17px; left: 14px;z-index: 4;min-height: 34px;min-width: 96px;max-width: calc(100% - 28px);display: grid;place-items: center;padding: 6px 18px;pointer-events: none;}
 .cloud-tag::before{content:"";position:absolute; inset:0;--g: radial-gradient(50% 50%, #000 98%, #0000) no-repeat;-webkit-mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;mask:var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;background: linear-gradient(180deg, #ffd1e3 0%, var(--pink-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow( 0 3px 4px rgba(217,74,128,.35));}
-.cloud-tag span{position: relative;z-index: 1;font-family:var(--font-decorative); font-weight:600;font-size: 10px;color: #fff;letter-spacing: .1em;text-shadow: 0 1px 2px rgba(217,74,128,.55);white-space: nowrap;transform: translateY(1px);}
+.cloud-tag span{position: relative;z-index: 1;font-family:var(--font-decorative); font-weight:600;font-size: 10px;color: #fff;letter-spacing: .1em;text-shadow: 0 1px 2px rgba(217,74,128,.55);white-space: normal;overflow-wrap: anywhere;transform: translateY(1px);}
 .cloud-tag.purple::before{background: linear-gradient(180deg, #dccaff 0%, var(--purple-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow(0 3px 4px rgba(92,61,153,.35));}
 .cloud-tag.purple span{ text-shadow: 0 1px 2px rgba(92,61,153,.6); }
 .cloud-tag.blue::before{background: linear-gradient(180deg, #c6e5ff 0%, var(--blue-hot) 100%);filter:drop-shadow( 1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow( 0 1px 0 #fff) drop-shadow( 0 -1px 0 #fff) drop-shadow( 1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow( 1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff) drop-shadow(0 3px 4px rgba(40,110,190,.35));}
@@ -975,6 +975,12 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .pf-grid .work{ height:auto; width:100%; max-width:100%; min-width:0; }
   .pf-l, .pf-t, .pf-s, .pf-w{ grid-column: auto; grid-row: auto; aspect-ratio: 4/3; }
   .pf-l{ aspect-ratio: 4/5; }
+  /* About BUG-01: with a CMS profile image the frame fills its column, and the
+     -2deg rotation plus the outward flower tag pushed ~3px past the layout
+     width. Keep right-side headroom instead of letting the decorations run
+     off the page. Scoped to About so no other views change. */
+  .about-hero .profile-frame{ max-width: min(380px, calc(100% - 20px)); }
+  .about-hero .profile-frame .flower-tag{ right: -10px; }
   .page-title{ font-size: clamp(28px, 9vw, 38px); }
   .chips{ margin-bottom: 34px; gap: 8px; }
   .chip{ padding: 10px 16px; font-size: 11.5px; }
