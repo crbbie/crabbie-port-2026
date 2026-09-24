@@ -66,6 +66,10 @@ Free Assets list → choose asset → asset detail renders metadata, availabilit
 
 An unavailable/missing file must not pretend to be downloadable.
 
+Assets may carry ordered additional previews (`metadata.gallery`): the detail
+shows the cover first with extra previews below, all inspectable in the shared
+viewer. Legacy cover-only assets and download semantics behave as before.
+
 ### 3. Review commission pricing
 
 Commissions page → service details/pricing/availability render consistently from CMS data.

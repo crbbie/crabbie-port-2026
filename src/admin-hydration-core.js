@@ -1,6 +1,7 @@
 import { formatMediaItem } from './admin-media-core.js';
 import { formatRequestRowForAdmin } from './commission-requests-core.js';
 import { formattedCommissionPrice } from './admin-roundtrip-core.js';
+import { normalizeAssetGallery, normalizeCoverAlt } from './asset-gallery-core.js';
 
 const LOAD_LABELS = {
   portfolio: 'Portfolio load failed', assets: 'Free Assets load failed', categories: 'Categories load failed',
@@ -90,6 +91,10 @@ function mapAssetRow(row) {
     driveUrl: m.driveUrl || '',
     showDirectDownload: m.showDirectDownload !== false,
     showDriveDownload: !!m.showDriveDownload,
+    /* Ordered additional previews (metadata.gallery); absent legacy metadata
+       resolves to [] and the cover is never injected here. */
+    gallery: normalizeAssetGallery(m.gallery),
+    coverAlt: normalizeCoverAlt(m.coverAlt, row.title),
     fileFormat: row.file_type || m.format || 'PNG',
     license: m.license || '[LICENSE CONTENT FROM CMS]',
     credit: m.credit || '[CREDIT REQUIREMENT]',

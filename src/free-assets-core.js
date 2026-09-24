@@ -1,5 +1,7 @@
+import { normalizeAssetGallery, normalizeCoverAlt } from './asset-gallery-core.js';
+
 export function mapFreeAsset(row, fallback = {}) {
-  if (!row) return { ...fallback };
+  if (!row) return { ...fallback, gallery: [], coverAlt: '' };
   const meta = row.metadata || {};
   return {
     slug: row.slug ?? '',
@@ -25,7 +27,11 @@ export function mapFreeAsset(row, fallback = {}) {
     flowerTag: meta.flowerTag ?? null,
     filterCat: meta.filterCat ?? '',
     category: meta.categorySlug || meta.cat || '',
-    tags: Array.isArray(meta.tags) ? meta.tags : []
+    tags: Array.isArray(meta.tags) ? meta.tags : [],
+    /* Ordered additional previews live in metadata.gallery; the cover
+       (thumbnail_path) is never auto-duplicated into this list. */
+    gallery: normalizeAssetGallery(meta.gallery),
+    coverAlt: normalizeCoverAlt(meta.coverAlt, row.title)
   };
 }
 

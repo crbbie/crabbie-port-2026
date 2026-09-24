@@ -200,6 +200,24 @@ manual batches and explicit confirmation, not by pretending atomicity.
 - Width/height metadata is optional and currently recorded for new image uploads where available.
 - Historical width/height values may remain null.
 
+### Free Asset preview galleries (`free_assets.metadata`)
+
+- `thumbnail_path` stays the cover; `file_path` stays the download.
+- `metadata.gallery` is an ordered array of
+  `{ id, url, alt, caption, width?, height? }` using canonical original
+  references; `metadata.coverAlt` is optional (rendering falls back to title).
+- Missing/null gallery means `[]`; an explicit `[]` stays empty. The cover is
+  never auto-duplicated into persisted gallery data.
+- No SQL migration or backfill: `metadata` is already JSONB and is selected
+  both publicly (`free-assets-cms.js`) and admin-side (`selectList`), and is
+  written through the normal record-save path. Historical migrations are untouched.
+- Mixed-version admin risk: an older serializer that does not know these keys
+  drops them on save. Normalization lives in `src/asset-gallery-core.js` and
+  is shared by public mapping, admin hydration, draft creation and
+  serialization; gallery references (saved AND draft, URL and storage-path
+  forms) block media deletion, and the authoritative reference bundle pages
+  every reference table to completion (fail closed).
+
 ## Generated DB types
 
 The current codebase does not use generated TypeScript database types. Mapping is handwritten JavaScript. If generated types are introduced later, document the generation command here.
