@@ -4527,6 +4527,199 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS public overflow matrix: About frame + cloud badges bounded at 12 viewports, touch context, gesture and sticky nav (SDK fixture)');
 
+    // ---- Portfolio presentation: bounded meta + full-bleed image cards ----
+    // BUG-03: the absolute .meta can never grow its card, so a pathological
+    // title clamps to a 3-line bounded preview (full text stays in the DOM);
+    // the meta must never escape its card or overlap a neighboring card.
+    // BUG-04: at or below the desktop masonry breakpoint (1180px) image-only
+    // cards show the whole artwork (own row, natural ratio, meta below the
+    // art); above it desktop keeps spans, cover fill and overlay meta.
+    await context.route('https://example.test/art-*.svg', (route) => {
+      const dims = route.request().url().match(/art-(\d+)x(\d+)\.svg/);
+      const w = dims ? Number(dims[1]) : 800;
+      const h = dims ? Number(dims[2]) : 600;
+      return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/><rect x="8" y="8" width="${w - 16}" height="${h - 16}" fill="none" stroke="#ffffff" stroke-width="6"/></svg>`});
+    });
+    await context.route('https://example.test/broken.png', (route) => route.abort());
+    const artRatios = [['img-11', 2048, 2048, 'Illustration'], ['img-43', 800, 600, 'Chibi'], ['img-34', 600, 800, 'Vtuber'], ['img-169', 1280, 720, 'Other'], ['img-916', 720, 1280, 'Illustration'], ['img-81', 1600, 200, 'Chibi'], ['img-18', 200, 1600, 'Vtuber']];
+    const longCardTitle = 'Title'.repeat(50);
+    // The grid must be visible before seeding: lazy artwork in a hidden view
+    // never fetches, so the load gate below would time out on #about.
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(({ratios, longTitle}) => {
+      const recs = [
+        {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ];
+      ratios.forEach(([slug, w, h, cat]) => {
+        recs.push({slug, title:'Art ' + slug, description:'', cat, tags:[], thumbnail:'', cover:`https://example.test/art-${w}x${h}.svg`, cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true});
+      });
+      recs.push({slug:'img-missing', title:'Missing Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      recs.push({slug:'img-broken', title:'Broken Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      window.CrabbiePortfolio.apply(recs);
+    }, {ratios: artRatios, longTitle: longCardTitle});
+    await page.waitForFunction(() => {
+      const imgs = Array.from(document.querySelectorAll('#pfGrid .thumb img')).filter((img) => !img.src.includes('broken'));
+      return imgs.length >= 9 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+    }, null, {timeout: 25000});
+    await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="img-broken"] .thumb img'), null, {timeout: 15000});
+    const probePfCard = (slug) => page.evaluate((s) => {
+      const card = document.querySelector(`#pfGrid [data-project="${s}"]`);
+      if (!card) return null;
+      const box = (el) => { const b = el.getBoundingClientRect(); return {l:b.left, t:b.top, r:b.right, b:b.bottom, w:b.width, h:b.height}; };
+      const thumb = card.querySelector('.thumb');
+      const img = thumb && thumb.querySelector('img');
+      const meta = card.querySelector('.meta');
+      const title = card.querySelector('.work-title');
+      return {
+        card: box(card), thumb: box(thumb), thumbPos: getComputedStyle(thumb).position,
+        img: img ? Object.assign(box(img), {natW: img.naturalWidth, natH: img.naturalHeight, fit: getComputedStyle(img).objectFit}) : null,
+        hasLabel: Boolean(thumb.querySelector('.ph-label')),
+        meta: box(meta), metaPos: getComputedStyle(meta).position,
+        titleChars: (title.textContent || '').length,
+        titleLines: title.clientHeight / (parseFloat(getComputedStyle(title).lineHeight) || 20),
+        titleOverflows: title.scrollHeight > title.clientHeight + 1,
+        isImage: card.classList.contains('is-image-card'),
+        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+      };
+    }, slug);
+    const pfMetaOverlap = () => page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('#pfGrid .work')).filter((el) => el.offsetParent !== null);
+      let hits = 0;
+      cards.forEach((card) => {
+        const meta = card.querySelector('.meta').getBoundingClientRect();
+        cards.forEach((other) => {
+          if (other === card) return;
+          const o = other.getBoundingClientRect();
+          if (meta.left < o.right - 1 && meta.right > o.left + 1 && meta.top < o.bottom - 1 && meta.bottom > o.top + 1) hits += 1;
+        });
+      });
+      return {cards: cards.length, hits};
+    });
+    const presentationMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [844, 390], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    const imageSlugs = artRatios.map(([slug]) => slug);
+    for (const [width, height] of presentationMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const sw = await page.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth, bodyRight: document.body.getBoundingClientRect().right}));
+      const at = `${width}x${height}`;
+      assert.ok(sw.docSW <= sw.docCW + 1 && sw.bodySW <= sw.bodyCW + 1, `portfolio keeps the page width at ${at}`);
+      const overlap = await pfMetaOverlap();
+      assert.equal(overlap.hits, 0, `no card meta overlaps a neighbor at ${at} (${overlap.cards} cards)`);
+      const long = await probePfCard('long-normal');
+      assert.ok(long.meta.t >= long.card.t - 1 && long.meta.b <= long.card.b + 1, `long meta stays inside its card at ${at}`);
+      assert.equal(long.titleChars, longCardTitle.length, `the full long title stays in the DOM at ${at}`);
+      assert.ok(long.titleOverflows && long.titleLines >= 2.5 && long.titleLines <= 3.5, `the pathological title clamps to a 3-line bounded preview at ${at}`);
+      const short = await probePfCard('short-normal');
+      assert.ok(short.titleLines <= 2.5, `a normal title never reaches clamp capacity at ${at}`);
+      assert.ok(short.meta.b <= short.card.b + 1 && short.meta.t >= short.card.t - 1, `normal meta stays inside its card at ${at}`);
+      for (const slug of imageSlugs) {
+        const c = await probePfCard(slug);
+        assert.ok(c.img && c.img.natW > 0, `${slug} artwork loads at ${at}`);
+        if (width <= 1180) {
+          assert.ok(Math.abs(c.img.h - c.img.w * c.img.natH / c.img.natW) <= 1.5, `${slug} shows its full source ratio at ${at}`);
+          assert.ok(c.meta.t >= c.img.b - 1 && c.meta.b <= c.card.b + 1, `${slug} meta sits below the artwork inside its card at ${at}`);
+          assert.equal(c.thumbPos, 'relative', `${slug} thumb participates in sizing at ${at}`);
+          assert.equal(c.metaPos, 'static', `${slug} meta participates in sizing at ${at}`);
+        } else {
+          assert.equal(c.img.fit, 'cover', `${slug} keeps the desktop cover fill at ${at}`);
+          assert.equal(c.thumbPos, 'absolute', `${slug} keeps the desktop overlay layout at ${at}`);
+        }
+        assert.ok(c.card.r <= sw.bodyRight + 1, `${slug} stays inside the page at ${at}`);
+      }
+    }
+    // Card-mode semantics and missing/broken sources survive the new markup.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const normalSem = await probePfCard('short-normal');
+    assert.equal(normalSem.href, '#project/short-normal', 'normal cards keep navigating to project detail');
+    assert.equal(normalSem.lightbox, null, 'normal cards never carry lightbox state');
+    const imageSem = await probePfCard('img-11');
+    assert.equal(imageSem.lightbox, 'https://example.test/art-2048x2048.svg', 'image cards keep opening the existing lightbox');
+    assert.equal(imageSem.href, 'https://example.test/art-2048x2048.svg', 'image card links stay on the artwork source');
+    const missing = await probePfCard('img-missing');
+    assert.equal(missing.img, null, 'a missing source renders no broken image');
+    assert.ok(missing.hasLabel && missing.card.h >= 200, 'a missing source keeps a sized labeled box and working nav');
+    assert.equal(missing.href, '#portfolio', 'a missing source never points the lightbox anywhere');
+    assert.equal(missing.lightbox, null, 'a missing source carries no lightbox state');
+    const broken = await probePfCard('img-broken');
+    assert.equal(broken.img, null, 'a broken source removes itself instead of showing a broken icon');
+    assert.ok(broken.hasLabel && broken.card.h >= 200, 'a broken source keeps a sized labeled box and working nav');
+    // Filters still scope image and project cards by category.
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="img-43"]:visible').count(), 1, 'the chip keeps the matching image card');
+    assert.equal(await page.locator('#pfGrid [data-project="long-normal"]:visible').count(), 0, 'the chip filters out other cards');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    assert.equal(await page.locator('#pfGrid [data-project="long-normal"]:visible').count(), 1, 'reset restores every card');
+    // Desktop hover feedback on image artwork is preserved.
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.locator('#pfGrid [data-project="img-11"]').hover();
+    assert.notEqual(await page.evaluate(() => getComputedStyle(document.querySelector('#pfGrid [data-project="img-11"] .thumb img')).transform), 'none', 'desktop image hover feedback is preserved');
+    await page.mouse.move(10, 10);
+    // Home shows the same bounded cards and full-bleed featured artwork.
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    const homeSw = await page.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}));
+    assert.ok(homeSw.docSW <= homeSw.docCW + 1 && homeSw.bodySW <= homeSw.bodyCW + 1, 'home keeps the page width with image cards');
+    const homeImg = await page.evaluate(() => {
+      const card = document.querySelector('#worksGrid [data-project="img-11"]');
+      if (!card) return null;
+      const img = card.querySelector('.thumb img');
+      const meta = card.querySelector('.meta');
+      const ib = img.getBoundingClientRect();
+      const mb = meta.getBoundingClientRect();
+      return {w: ib.width, h: ib.height, natW: img.naturalWidth, natH: img.naturalHeight, metaAbove: mb.top >= ib.bottom - 1};
+    });
+    assert.ok(homeImg && Math.abs(homeImg.h - homeImg.w * homeImg.natH / homeImg.natW) <= 1.5 && homeImg.metaAbove, 'home image cards show full artwork with meta below');
+    // Touch: tap opens the lightbox with the full source, no latched zoom.
+    const artContext = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await artContext.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      await artContext.route('https://example.test/art-*.svg', (route) => {
+        const dims = route.request().url().match(/art-(\d+)x(\d+)\.svg/);
+        const w = dims ? Number(dims[1]) : 800;
+        const h = dims ? Number(dims[2]) : 600;
+        return route.fulfill({contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/></svg>`});
+      });
+      const touchPage = await artContext.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#portfolio', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate(({longTitle}) => {
+        window.CrabbiePortfolio.apply([
+          {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+          {slug:'img-11', title:'Art img-11', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true}
+        ]);
+      }, {longTitle: longCardTitle});
+      await touchPage.waitForFunction(() => {
+        const img = document.querySelector('#pfGrid [data-project="img-11"] .thumb img');
+        return img && img.complete && img.naturalWidth > 0;
+      }, null, {timeout: 25000});
+      const touchSw = await touchPage.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}));
+      assert.ok(touchSw.docSW <= touchSw.docCW + 1 && touchSw.bodySW <= touchSw.bodyCW + 1, 'touch portfolio keeps the page width');
+      await touchPage.locator('#pfGrid [data-project="img-11"]').tap();
+      await touchPage.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
+      assert.equal(await touchPage.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/art-2048x2048.svg', 'tapping the image card opens the full-size artwork');
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.querySelector('#pfGrid [data-project="img-11"] .thumb img')).transform), 'none', 'touch never latches the hover zoom');
+      await touchPage.keyboard.press('Escape');
+      await touchPage.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+      await touchPage.locator('#pfGrid [data-project="long-normal"]').tap();
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+      assert.ok((await touchPage.evaluate(() => location.hash)).startsWith('#project/long-normal'), 'tapping the long card still navigates to detail');
+    } finally {
+      await artContext.close();
+    }
+    // Restore the desktop viewport for the admin sections.
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS portfolio presentation: bounded meta and full-bleed image cards across 11 viewports, filters, touch and desktop hover (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
