@@ -97,7 +97,8 @@ Examples include:
 - media safety/deletion logic;
 - form normalization;
 - request validation;
-- desktop pet/dialogue rules (`src/desktop-pet-core.js`).
+- desktop pet/dialogue rules (`src/desktop-pet-core.js`);
+- portfolio grid composition bands (`src/portfolio-grid-core.js`).
 
 ## Admin state model
 
@@ -161,6 +162,18 @@ preview stays independent. Viewer history owns at most one namespaced
 same-URL entry per opening: Back dismisses first, Close/Escape consume only
 the owned entry, image steps push nothing, and route departure tears down
 without restoring obsolete scroll.
+
+## Portfolio grid presentation
+
+`src/portfolio-grid-core.js` owns the pure, presentation-only desktop band
+pattern (`[large,tall]`, `[small,small,small]`, `[wide,wide]`) and the compact
+fallback (paired smalls). The SPA cannot import ES modules at parse time, so it
+mirrors the same pattern inline and recomputes variants for the visible ordered
+collection on hydration, reorder, filtering/search and breakpoint resize through
+one shared assignment path (`syncPortfolioComposition`). Composition is never
+dense auto-placement and never reorders cards. Image-only card geometry and the
+shared viewer's remaining-space media stage are CSS/DOM concerns owned by the SPA
+shell, not by a second state model.
 
 ## People / Clients data flow
 

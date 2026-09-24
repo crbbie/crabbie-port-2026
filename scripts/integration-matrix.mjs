@@ -93,6 +93,14 @@ for (const mobile of [false, true]) {
   const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
   await context.route('**/storage/v1/render/image/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
   await context.route('https://matrix-test.supabase.co/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
+  // Deterministic artwork with real intrinsic dimensions for ratio/strip checks.
+  await context.route('https://matrix-art.test/**', (route) => {
+    const dims = route.request().url().match(/art-(\d+)x(\d+)\.svg/);
+    const w = dims ? Number(dims[1]) : 800;
+    const h = dims ? Number(dims[2]) : 600;
+    return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/></svg>` });
+  });
+  await context.route('https://matrix-art.test/broken.png', (route) => route.abort());
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   const errors = [];
@@ -221,15 +229,135 @@ for (const mobile of [false, true]) {
   assert.equal(await page.locator('[data-view="free-asset-detail"] .ad-preview img').count(), 0, `${mode}: missing cover falls back to icon`);
   note(`${mode} gallery batches + no-cover`);
 
+  // 5b. Portfolio image-card geometry + deterministic composition.
+  //     The listing image-card model must stay coherent at every required
+  //     width: full uncropped ratio, metadata inside the card, no leftover
+  //     180px placeholder strip after load, visible protruding category cloud,
+  //     no root overflow. Deterministic bands must not depend on DOM history.
+  const matrixRatios = [['mx-sq', 800, 800], ['mx-land', 1200, 600], ['mx-port', 400, 1200], ['mx-wide', 1600, 200]];
+  const matrixArtRecs = () => {
+    const cats = ['Illustration', 'Chibi', 'Vtuber', 'Other'];
+    const recs = matrixRatios.map(([slug, w, h], i) => ({ slug, title: 'Art ' + slug, description: '', cat: cats[i % cats.length], tags: [], thumbnail: '', cover: `https://matrix-art.test/art-${w}x${h}.svg`, cardMode: 'image', blocks: [], credits: '', year: '2026', featured: false, published: true }));
+    recs.push({ slug: 'mx-missing', title: 'Missing Art', description: '', cat: 'Other', tags: [], thumbnail: '', cover: '', cardMode: 'image', blocks: [], credits: '', year: '2026', featured: false, published: true });
+    recs.push({ slug: 'mx-broken', title: 'Broken Art', description: '', cat: 'Other', tags: [], thumbnail: '', cover: 'https://matrix-art.test/broken.png', cardMode: 'image', blocks: [], credits: '', year: '2026', featured: false, published: true });
+    return recs;
+  };
+  const probeArtCard = (slug) => page.evaluate((s) => {
+    const card = document.querySelector(`#pfGrid [data-project="${s}"]`);
+    if (!card) return null;
+    const thumb = card.querySelector('.thumb');
+    const img = thumb.querySelector('img');
+    const meta = card.querySelector('.meta');
+    const badge = card.querySelector('.cloud-tag');
+    const b = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
+    return {
+      card: b(card), thumb: b(thumb), meta: b(meta),
+      img: img ? Object.assign(b(img), { natW: img.naturalWidth, natH: img.naturalHeight, fit: getComputedStyle(img).objectFit }) : null,
+      thumbPos: getComputedStyle(thumb).position, metaPos: getComputedStyle(meta).position,
+      artReady: card.classList.contains('is-art-ready'),
+      hasLabel: Boolean(thumb.querySelector('.ph-label')),
+      badge: badge ? b(badge) : null,
+      href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+    };
+  }, slug);
+  const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { location.hash = '#portfolio'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), matrixArtRecs());
+  await page.waitForFunction(() => {
+    const imgs = Array.from(document.querySelectorAll('#pfGrid .thumb img')).filter((img) => !/broken/.test(img.src));
+    return imgs.length >= 4 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+  }, null, { timeout: 25000 });
+  // Lazy artwork only fetches when near the viewport; bring the broken card in
+  // so its error path runs on every engine (WebKit loads far less eagerly).
+  await page.locator('#pfGrid [data-project="mx-broken"]').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="mx-broken"] .thumb img'), null, { timeout: 15000 });
+  for (const [width, height] of artWidths) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await page.waitForTimeout(160);
+    await page.mouse.move(2, 2);
+    const at = `${width}x${height}`;
+    const sw = await page.evaluate(() => ({ docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth }));
+    assert.ok(sw.docSW <= sw.docCW + 1 && sw.bodySW <= sw.bodyCW + 1, `${mode} image cards keep the page width at ${at}`);
+    for (const [slug] of matrixRatios) {
+      const c = await probeArtCard(slug);
+      assert.ok(c && c.img && c.img.natW > 0, `${mode} ${slug} artwork loads at ${at}`);
+      if (width <= 1180) {
+        assert.ok(Math.abs(c.img.h - c.img.w * c.img.natH / c.img.natW) <= 2, `${mode} ${slug} keeps its full ratio at ${at}`);
+        assert.equal(c.thumbPos, 'relative', `${mode} ${slug} thumb sizes in flow at ${at}`);
+        assert.equal(c.metaPos, 'static', `${mode} ${slug} meta is in flow at ${at}`);
+        assert.equal(c.artReady, true, `${mode} ${slug} releases the fallback minimum after load at ${at}`);
+        assert.ok(Math.abs(c.thumb.h - c.img.h) <= 2, `${mode} ${slug} has no leftover placeholder strip at ${at} (thumb ${c.thumb.h.toFixed(2)}, img ${c.img.h.toFixed(2)})`);
+        assert.ok(c.meta.t >= c.img.b - 1 && c.meta.b <= c.card.b + 1, `${mode} ${slug} meta sits inside the card at ${at}`);
+      } else {
+        assert.equal(c.img.fit, 'cover', `${mode} ${slug} keeps the desktop cover at ${at}`);
+        assert.equal(c.thumbPos, 'absolute', `${mode} ${slug} keeps the desktop overlay at ${at}`);
+      }
+      assert.ok(c.badge && c.badge.t < c.card.t + 1 && c.badge.b <= c.card.b, `${mode} ${slug} category cloud protrudes and is visible at ${at}`);
+      assert.ok(c.card.r <= sw.bodyCW + 1, `${mode} ${slug} stays inside the page at ${at}`);
+    }
+    for (const slug of ['mx-missing', 'mx-broken']) {
+      const c = await probeArtCard(slug);
+      assert.equal(c.img, null, `${mode} ${slug} renders no broken image at ${at}`);
+      assert.ok(c.hasLabel && c.card.h >= 180, `${mode} ${slug} keeps a sized labeled fallback at ${at}`);
+    }
+    const missingCard = await probeArtCard('mx-missing');
+    assert.equal(missingCard.lightbox, null, `${mode} mx-missing carries no lightbox state at ${at}`);
+    assert.equal(missingCard.href, '#portfolio', `${mode} mx-missing never points the lightbox anywhere at ${at}`);
+    const brokenCard = await probeArtCard('mx-broken');
+    assert.equal(brokenCard.lightbox, 'https://matrix-art.test/broken.png', `${mode} mx-broken keeps its real viewer source (opens retry) at ${at}`);
+  }
+  // Deterministic composition: desktop cycle, tablet pairing, no overlap.
+  const matrixVariants = () => page.evaluate(() => {
+    const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+    return Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+  });
+  const pfSeven = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ slug: 'pf-' + i, title: 'PF ' + i, description: '', cat: 'Illustration', tags: [], thumbnail: 'https://matrix-art.test/art-800x600.svg', cover: '', cardMode: 'project', blocks: [], credits: '', year: '2026', featured: false, published: true }));
+  const cycle = ['pf-l', 'pf-t', 'pf-s', 'pf-s', 'pf-s', 'pf-w', 'pf-w'];
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => { location.hash = '#portfolio'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
+  assert.deepEqual(await matrixVariants(), cycle, `${mode} a seven-card cycle tiles the desktop bands`);
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
+  assert.ok((await matrixVariants()).every((v) => v === 'pf-s'), `${mode} tablet drops legacy three-row spans`);
+  note(`${mode} portfolio image cards + deterministic composition`, '640–1440 + phone landscape, ratios, fallbacks, bands');
+
+
   // 6. Viewer: open/zoom/pan/prev-next/Back/focus/lock.
   await page.evaluate(() => { location.hash = '#asset/mx-asset'; });
   await page.waitForFunction(() => document.querySelector('#adTitle').textContent === 'Matrix Asset');
   const opener = page.locator('#adGallery .ad-thumb[data-ad-index="2"]');
-  if (mobile) await opener.tap(); else await opener.click();
+  // Open via a synthetic click so no auto-scroll happens; capture the exact
+  // resting page position the viewer must restore on close.
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+  const beforeOpenY = await page.evaluate(() => window.scrollY || 0);
+  await page.evaluate(() => document.querySelector('#adGallery .ad-thumb[data-ad-index="2"]').click());
   await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
   assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('g1.png'), `${mode}: viewer opens the selected original`);
   assert.equal(await page.locator('#publicLightboxPosition').innerText(), '3 / 14', `${mode}: position tracks cover-first collection`);
-  const lockY = await page.evaluate(() => window.scrollY);
+  const stageFit = await page.evaluate(() => {
+    const stage = document.getElementById('publicLightboxStage');
+    const img = document.getElementById('publicLightboxImg');
+    const sr = stage.getBoundingClientRect();
+    const ir = img.getBoundingClientRect();
+    const navs = [document.getElementById('publicLightboxPrev'), document.getElementById('publicLightboxNext')].filter((b) => !b.hidden).map((b) => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; });
+    const bar = document.getElementById('publicLightboxBar').getBoundingClientRect();
+    return {
+      dx: (ir.left + ir.width / 2) - (sr.left + sr.width / 2),
+      dy: (ir.top + ir.height / 2) - (sr.top + sr.height / 2),
+      navOffsets: navs.map((cy) => Math.abs(cy - (sr.top + sr.height / 2))),
+      barClears: bar.top >= sr.bottom - 1
+    };
+  });
+  assert.ok(Math.abs(stageFit.dx) <= 2 && Math.abs(stageFit.dy) <= 2, `${mode}: artwork centers on the media stage (dx=${stageFit.dx.toFixed(2)}, dy=${stageFit.dy.toFixed(2)})`);
+  assert.ok(stageFit.navOffsets.every((d) => d <= 2), `${mode}: viewer navigation centers on the media stage`);
+  assert.equal(stageFit.barClears, true, `${mode}: the toolbar clears the media stage`);
   assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', `${mode}: background locks while open`);
   await page.locator('#publicLightboxZoomIn').click();
   const zoomed = await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform);
@@ -239,7 +367,9 @@ for (const mobile of [false, true]) {
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
   assert.equal(await page.evaluate(() => document.body.style.overflow === '' || document.body.style.overflow === 'visible' || getComputedStyle(document.body).overflow === 'visible'), true, `${mode}: lock restores on close`);
-  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - lockY) <= 2, `${mode}: no scroll jump on close`);
+  // Escape owns a history entry, so the scroll restore lands on the async popstate path.
+  await page.waitForFunction((y) => Math.abs((window.scrollY || 0) - y) <= 2, beforeOpenY, { timeout: 3000 }).catch(() => {});
+  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - beforeOpenY) <= 2, `${mode}: no scroll jump on close (before=${beforeOpenY}, after=${await page.evaluate(() => window.scrollY)})`);
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '2', `${mode}: focus returns to the opener`);
   // Back dismisses before route change.
   if (mobile) await opener.tap(); else await opener.click();

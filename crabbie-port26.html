@@ -482,13 +482,10 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
      portfolio image scaled on phones; the thumb remains the paint boundary. */
   #pfGrid .work.is-image-card:hover .thumb img{transform:none;}
 }
-/* iPhone/Safari-safe image cards: the grid card is the fixed crop viewport.
-   Keep the full artwork available through the existing lightbox + zoom controls. */
-@media (max-width:720px){
-  #pfGrid .work.is-image-card{aspect-ratio:4/3;height:auto;contain:paint;}
-  #pfGrid .work.is-image-card .thumb{inset:0;width:100%;height:100%;max-width:none;}
-  #pfGrid .work.is-image-card .thumb img{display:block;width:100%;height:100%;max-width:100%;object-fit:cover;object-position:center;transform:none;}
-}
+/* Image-only card responsiveness lives in ONE place: the max-width:1180px
+   block below. The old <=720px "crop viewport" patch (contain:paint + 100%
+   thumb height) conflicted with the in-flow model and is intentionally gone;
+   desktop (>1180px) keeps the masonry spans, cover fill and overlay meta. */
 
 /* PROJECT DETAIL */
 /* Both tracks use minmax(0,…) and every direct child gets min-width:0, so a
@@ -897,14 +894,19 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .pf-t{ grid-column: span 2; grid-row: span 3; }
   .pf-s{ grid-column: span 2; grid-row: span 2; }
   .pf-w{ grid-column: span 2; grid-row: span 2; }
-  /* BUG-04: below the desktop masonry breakpoint, image-only cards show the
-     whole artwork instead of a forced crop: own row, natural ratio, and the
-     meta sits below the art so it never covers it. Desktop spans, cover
-     fill and overlay meta stay exactly as they were. */
-  #pfGrid .work.is-image-card{ grid-column: 1 / -1; grid-row: auto; aspect-ratio: auto; }
-  #worksGrid .work.is-image-card{ grid-column: 1 / -1; aspect-ratio: auto; }
-  #pfGrid .work.is-image-card .thumb,#worksGrid .work.is-image-card .thumb{ position: relative; inset: auto; min-height: 180px; }
-  #pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{ height: auto; object-fit: contain; }
+  /* Image-only cards below the desktop masonry breakpoint: one coherent
+     in-flow model. The card is a normal full-width row (never a crop
+     viewport), so no containment is needed and the protruding category cloud
+     stays visible; the outer card contains its content through normal
+     layout. The whole artwork keeps its natural ratio and the metadata sits
+     below it instead of over it. A 180px minimum keeps the labeled fallback
+     sized only until real artwork loads; `.is-art-ready` releases it so wide
+     artwork is not padded out. Only the artwork clips, at the thumb boundary.
+     Desktop spans, cover fill and overlay meta stay exactly as before. */
+  #pfGrid .work.is-image-card,#worksGrid .work.is-image-card{ grid-column: 1 / -1; grid-row: auto; height: auto; aspect-ratio: auto; contain: none; }
+  #pfGrid .work.is-image-card .thumb,#worksGrid .work.is-image-card .thumb{ position: relative; inset: auto; width: 100%; max-width: none; height: auto; min-height: 180px; }
+  #pfGrid .work.is-image-card.is-art-ready .thumb,#worksGrid .work.is-image-card.is-art-ready .thumb{ min-height: 0; }
+  #pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{ position: relative; width: 100%; height: auto; max-width: 100%; object-fit: contain; object-position: center; transform: none; }
   #pfGrid .work.is-image-card .meta,#worksGrid .work.is-image-card .meta{ position: static; }
   .comm-grid{ grid-template-columns: repeat(2, 1fr); }
   .mini-grid{ grid-template-columns: repeat(2, 1fr); }
@@ -1445,20 +1447,27 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 
 /* ---- Public image lightbox ---- */
 .public-lightbox[hidden]{display:none !important;}
-/* Desktop/tablet: one scroll region. The grid reserves the close band (top
-   padding) and the zoom toolbar (bottom padding); the caption takes its own
-   row and the image fills exactly what is left, so it can never exceed the
-   content box. Phone portrait switches this to a natural vertical stack —
-   see the mobile rules at the bottom of this block. */
-.public-lightbox{position:fixed;inset:0;z-index:1000;display:grid;
-  grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
-  align-items:center;justify-items:center;padding:76px 48px 96px;
+/* Unified media-stage model: one flex column whose flexible stage owns the
+   remaining space between the close band, the visible caption/credits and the
+   bottom toolbar. The contained artwork AND the prev/next controls are
+   centered inside that same stage (never the viewport), so ornamentation and
+   safe areas can never push the resting artwork under a control. Hidden
+   metadata collapses to zero space; when metadata cannot fit, the dialog
+   scrolls as one deliberate region. */
+.public-lightbox{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;padding:76px 48px 96px;
   background:rgba(69,38,73,.78);backdrop-filter:blur(8px);overflow:auto;overscroll-behavior:contain;}
+/* The stage is the single source of truth for "usable media region". It is
+   pointer-transparent so a backdrop click still closes the viewer, while the
+   artwork and controls opt back into pointer events. */
+.public-lightbox-stage{order:3;flex:1 1 auto;align-self:stretch;position:relative;width:100%;
+  min-height:180px;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 /* Artwork-specific rules target the artwork element by id so collaborator
    avatars (.pcs-avatar) are never affected by zoom/pan styling. The gesture
    policy is scale-aware: at 1x the dialog scrolls natively while zoomed
-   artwork owns the gesture (no mid-gesture ownership assumptions). */
-#publicLightboxImg{grid-column:1;grid-row:3;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+   artwork owns the gesture (no mid-gesture ownership assumptions). Image
+   positioning stays separate from the translate/scale gesture transform. */
+#publicLightboxImg{pointer-events:auto;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
   border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);background:#fff;cursor:zoom-in;
   transform-origin:center center;transition:none;touch-action:pan-x pan-y pinch-zoom;}
 /* Discrete zoom steps (buttons/wheel/keyboard) animate; direct drag/pinch
@@ -1478,7 +1487,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   display:grid;place-items:center;}
 .public-lightbox-bar button:hover{border-color:var(--pink-hot);}
 .public-lightbox-bar button:focus-visible{outline:3px solid var(--purple-hot);outline-offset:2px;}
-.public-lightbox-caption{grid-column:1;grid-row:1;position:static;transform:none;z-index:2;margin:0 0 12px;
+.public-lightbox-caption{order:1;position:static;transform:none;z-index:2;margin:0 0 12px;
   max-width:min(90%,720px);min-width:0;overflow-wrap:anywhere;padding:8px 18px;border-radius:14px;text-align:center;
   background:rgba(255,255,255,.92);font-family:var(--font-body);font-size:13px;line-height:1.5;
   box-shadow:0 8px 20px -12px rgba(0,0,0,.4);}
@@ -1486,7 +1495,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
 /* Image-lightbox collaborator credits: same pcs-* concept as the detail
    strip, on a pale pill so names stay readable over the dark backdrop.
    Hidden (zero grid space) for gallery lightboxes without project People. */
-.public-lightbox-credits{grid-column:1;grid-row:2;z-index:2;margin:0 0 12px;max-width:min(92%,640px);
+.public-lightbox-credits{order:2;z-index:2;margin:0 0 12px;max-width:min(92%,640px);
   display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 8px;
   padding:8px 16px;border-radius:14px;text-align:center;
   background:linear-gradient(160deg,#fff5fa 0%,#f6f0ff 100%);border:2px solid var(--pink-light,#ffd3e6);
@@ -1509,26 +1518,12 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
   .public-lightbox-bar button{min-width:44px;height:44px;}
   .public-lightbox-caption{font-size:12.5px;max-width:min(92%,560px);}
 }
-/* Short landscape viewports: tighten the reserved close/toolbar bands so the
-   image stage stays usable; safe-area insets (landscape notch) still apply. */
+/* Short landscape viewports: tighten the reserved close/toolbar bands and the
+   stage minimum so the media stage stays usable; safe-area insets (landscape
+   notch) still apply. */
 @media (max-height:500px){
   .public-lightbox{padding:calc(68px + env(safe-area-inset-top,0px)) max(20px, env(safe-area-inset-right,0px)) calc(88px + env(safe-area-inset-bottom,0px)) max(20px, env(safe-area-inset-left,0px));}
-}
-/* Phone portrait: the tall centered flexible image slot becomes a natural
-   compact vertical stack. Caption (when present) → collaborator credits
-   (when present) → image sit together at the top of the screen with a small
-   deliberate gap; a very tall image simply scrolls in the same single scroll
-   region. Landscape keeps the centered grid, where the remaining row is
-   short and centering is the right behavior. Hidden rows keep display:none
-   and consume zero space. */
-@media (max-width:640px) and (orientation:portrait){
-  .public-lightbox{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;}
-  /* DOM order is image-first; the stack reads caption → credits → image. */
-  .public-lightbox-caption{order:1;margin:0 0 10px;}
-  .public-lightbox-credits{order:2;margin:0 0 10px;}
-  #publicLightboxImg{order:3;grid-column:auto;grid-row:auto;margin-top:6px;
-    max-height:calc(100vh - 270px);
-    max-height:calc(100dvh - 270px);}
+  .public-lightbox-stage{min-height:100px;}
 }
 
 /* ---- Asset preview galleries + shared viewer collections ---- */
@@ -1551,9 +1546,11 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
    while exposing a keyboard-accessible viewer entry point. */
 .pd-cover-trigger, .ad-preview-trigger{position:absolute; inset:0; z-index:2; display:block; width:100%; height:100%; padding:0; border:0; border-radius:inherit; background:transparent; cursor:zoom-in;}
 .pd-cover-trigger:focus-visible, .ad-preview-trigger:focus-visible{outline:3px solid var(--purple-hot); outline-offset:4px;}
-/* Shared viewer collection chrome: fixed nav/status/loading/error layers never
-   join the phone-portrait content stack, so hidden rows still consume zero. */
-.public-lightbox-nav{position:fixed; top:50%; transform:translateY(-50%); z-index:3; width:46px; height:46px; border-radius:50%; border:2px solid #fff; background:rgba(255,255,255,.94); color:var(--pink-hot); font-size:22px; font-weight:800; line-height:1; cursor:pointer; display:grid; place-items:center; box-shadow:0 8px 24px rgba(0,0,0,.25);}
+/* Shared viewer collection chrome: the nav buttons live inside the media
+   stage and are centered against it (not the viewport), so they track the
+   usable artwork region on every viewport. Fixed loading/error layers never
+   join the content flow, so hidden rows still consume zero. */
+.public-lightbox-nav{position:absolute; top:50%; transform:translateY(-50%); z-index:3; pointer-events:auto; width:46px; height:46px; border-radius:50%; border:2px solid #fff; background:rgba(255,255,255,.94); color:var(--pink-hot); font-size:22px; font-weight:800; line-height:1; cursor:pointer; display:grid; place-items:center; box-shadow:0 8px 24px rgba(0,0,0,.25);}
 .public-lightbox-nav:hover{border-color:var(--pink-hot);}
 .public-lightbox-nav:focus-visible{outline:3px solid #fff; outline-offset:3px;}
 .public-lightbox-prev{left:max(14px, env(safe-area-inset-left, 0px));}
@@ -4158,11 +4155,18 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 
 <div class="public-lightbox" id="publicLightbox" role="dialog" aria-modal="true" aria-label="Image preview" hidden>
   <button class="public-lightbox-close" id="publicLightboxClose" type="button" aria-label="Close image preview">×</button>
-  <img id="publicLightboxImg" alt="">
   <p class="public-lightbox-caption" id="publicLightboxCaption" hidden></p>
   <div class="public-lightbox-credits" id="publicLightboxCredits" hidden></div>
-  <button class="public-lightbox-nav public-lightbox-prev" id="publicLightboxPrev" type="button" aria-label="Previous image" hidden>‹</button>
-  <button class="public-lightbox-nav public-lightbox-next" id="publicLightboxNext" type="button" aria-label="Next image" hidden>›</button>
+  <!-- One explicit remaining-space media stage. The artwork and the prev/next
+       controls are centered inside THIS region (never the viewport), so the
+       close band, visible caption/credits, bottom toolbar and safe areas are
+       all accounted for. pointer-events:none keeps backdrop clicks working;
+       artwork/controls opt back in so interaction never dismisses by accident. -->
+  <div class="public-lightbox-stage" id="publicLightboxStage">
+    <img id="publicLightboxImg" alt="">
+    <button class="public-lightbox-nav public-lightbox-prev" id="publicLightboxPrev" type="button" aria-label="Previous image" hidden>‹</button>
+    <button class="public-lightbox-nav public-lightbox-next" id="publicLightboxNext" type="button" aria-label="Next image" hidden>›</button>
+  </div>
   <div class="public-lightbox-loading" id="publicLightboxLoading" hidden>Loading image…</div>
   <div class="public-lightbox-error" id="publicLightboxError" hidden>
     <p>This image could not be loaded.</p>
@@ -5221,6 +5225,47 @@ setTimeout(function(){ el.classList.remove('is-hover-wobble'); }, 1000);
 });
 });
 
+/* Deterministic, presentation-only grid composition (inline mirror of
+   src/portfolio-grid-core.js). Desktop uses repeating complete bands
+   [large,tall],[small,small,small],[wide,wide]; an incomplete tail falls back
+   to compact smalls. Compact widths never use the legacy three-row spans. The
+   plan depends only on the visible ordered count, so reorder/filter/removal
+   can never leave a DOM-history-dependent composition. Defined before the
+   filter wiring runs (initFilter calls applyFilter immediately). */
+var PORTFOLIO_DESKTOP_BANDS = [['pf-l','pf-t'],['pf-s','pf-s','pf-s'],['pf-w','pf-w']];
+function planPortfolioVariants(count, mode){
+var total = Math.max(0, Math.floor(Number(count) || 0));
+var out = [];
+if(mode !== 'desktop'){ for(var k = 0; k < total; k++) out.push('pf-s'); return out; }
+var band = 0;
+while(out.length < total){
+  var next = PORTFOLIO_DESKTOP_BANDS[band % PORTFOLIO_DESKTOP_BANDS.length];
+  if(total - out.length < next.length) break;
+  for(var n = 0; n < next.length; n++) out.push(next[n]);
+  band++;
+}
+while(out.length < total) out.push('pf-s');
+return out;
+}
+function portfolioGridMode(){
+try{ return window.matchMedia('(min-width:1181px)').matches ? 'desktop' : 'compact'; }
+catch(e){ return 'compact'; }
+}
+function syncPortfolioComposition(){
+var grid = document.getElementById('pfGrid'); if(!grid) return;
+var cards = Array.prototype.slice.call(grid.querySelectorAll('[data-project]')).filter(function(card){ return card.style.display !== 'none'; });
+var variants = planPortfolioVariants(cards.length, portfolioGridMode());
+cards.forEach(function(card, i){
+  card.classList.remove('pf-l','pf-t','pf-s','pf-w');
+  card.classList.add(variants[i] || 'pf-s');
+});
+}
+var portfolioCompositionTimer = null;
+window.addEventListener('resize', function(){
+if(portfolioCompositionTimer) clearTimeout(portfolioCompositionTimer);
+portfolioCompositionTimer = setTimeout(syncPortfolioComposition, 120);
+});
+
 var filterState = {};
 function initFilter(key, cfg){
 var grid = $(cfg.grid); if(!grid) return;
@@ -5250,6 +5295,9 @@ if(show) shown++;
 });
 if(st.empty) st.empty.classList.toggle('show', shown === 0);
 if(st.status) st.status.textContent = shown === 0 ? 'No results' : shown + ' ' + st.noun + ' shown';
+/* Filtering/search changes the visible ordered collection: recompute the
+   deterministic grid composition through the one shared assignment path. */
+if(key === 'pf') syncPortfolioComposition();
 }
 function resetFilter(key){
 var st = filterState[key]; if(!st) return;
@@ -5816,6 +5864,7 @@ try{ main.focus({ preventScroll: false }); }catch(err){ main.focus(); }
 
 var publicLightbox = document.getElementById('publicLightbox');
 var publicLightboxImg = document.getElementById('publicLightboxImg');
+var publicLightboxStage = document.getElementById('publicLightboxStage');
 var publicLightboxClose = document.getElementById('publicLightboxClose');
 var publicLightboxCaption = document.getElementById('publicLightboxCaption');
 var publicLightboxZoomIn = document.getElementById('publicLightboxZoomIn');
@@ -6210,6 +6259,13 @@ if(publicLightbox){
   }
   window.addEventListener('resize', function(){ if(publicLightbox && !publicLightbox.hidden) paintLightboxTransform(false); });
   window.addEventListener('orientationchange', function(){ if(publicLightbox && !publicLightbox.hidden) paintLightboxTransform(false); });
+  /* The media stage itself can resize when metadata appears/disappears or the
+     dynamic viewport height changes (mobile browser chrome): re-clamp the pan
+     without ever resetting the zoom level. */
+  if(typeof ResizeObserver === 'function' && publicLightboxStage){
+    var lightboxStageObserver = new ResizeObserver(function(){ if(publicLightbox && !publicLightbox.hidden) paintLightboxTransform(false); });
+    lightboxStageObserver.observe(publicLightboxStage);
+  }
 }
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePublicLightbox(); });
 
@@ -10908,7 +10964,11 @@ function portfolioIsImageCard(record){ return !!(record && record.cardMode === '
 function portfolioCardArtwork(record){
 var src = safePublicUrl(record && (record.cover || record.thumbnail), true);
 if(!src) return '';
-return '<img class="pf-full-art" src="' + esc(src) + '" alt="' + esc((record && record.title) || 'Illustration') + '" loading="lazy" onerror="this.remove()">';
+/* `is-art-ready` is set the moment a real source paints (inline onload also
+   covers lazy/cached completions) so the responsive 180px fallback minimum
+   applies only while artwork is absent, loading or failed. A broken source
+   clears the flag and removes itself, leaving the labeled box sized. */
+return '<img class="pf-full-art" src="' + esc(src) + '" alt="' + esc((record && record.title) || 'Illustration') + '" loading="lazy" decoding="async" onload="var c=this.closest(\'.work\');if(c){c.classList.add(\'is-art-ready\');}" onerror="var c=this.closest(\'.work\');if(c){c.classList.remove(\'is-art-ready\');}this.remove()">';
 }
 function portfolioCardImage(record){
 /* Image cards use the cover as their single visual; project cards use thumbnail. */
@@ -10919,6 +10979,11 @@ function syncPortfolioCardMode(card, record){
 if(!card || !record) return;
 var imageOnly = portfolioIsImageCard(record);
 card.classList.toggle('is-image-card', imageOnly);
+/* Reconcile the artwork-readiness flag from the live image: an already-cached
+   or lazily-completed source releases the responsive fallback minimum, while a
+   missing/broken source (no img, or complete with zero natural size) keeps it. */
+var art = card.querySelector('.pf-full-art');
+card.classList.toggle('is-art-ready', !!(art && art.complete && art.naturalWidth > 0));
 var more = card.querySelector('.work-more');
 if(more) more.hidden = imageOnly;
 if(imageOnly){
