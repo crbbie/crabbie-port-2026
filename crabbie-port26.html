@@ -2812,6 +2812,15 @@ button,input,textarea,select{letter-spacing:.012em;}
 .exp-card .tag-year{font-size:10.5px;}
 .tos-nav h6,.refund-table th,.contact-row .ck{font-size:11.5px;}
 
+/* Touch devices at any width (phones, landscape, tablets): 16px editable
+   text blocks iOS focus zoom where the 600px rule alone misses it, and
+   footer links grow to real 44px targets. Desktop typography is untouched. */
+@media (pointer:coarse){
+  .search-box input{font-size:16px;}
+  .form-shell .field input[type="text"],.form-shell .field input[type="email"],.form-shell .field input[type="number"],.form-shell .field input[type="url"],.form-shell .field textarea,.form-shell .field select{font-size:16px;}
+  .foot ul a{padding-top:12px;padding-bottom:12px;}
+}
+
 /* Body/admin copy uses DFVN Hogfish via --font-body; keep controls legible. */
 body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
 .admin-nav button{font-size:14px;}

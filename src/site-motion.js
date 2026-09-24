@@ -70,15 +70,24 @@ function injectStyles() {
 .crabbie-pet-bubble a{display:inline-block;margin-top:5px;font-weight:700;color:var(--text-accent,#ff5c9a);text-decoration:underline;}
 .crabbie-pet-bubble::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
   border:7px solid transparent;border-top-color:#fff;}
-#crabbieMusicControl{position:fixed;right:18px;bottom:18px;z-index:70;display:none;gap:6px;align-items:center;
+#crabbieMusicControl{position:fixed;right:18px;bottom:18px;z-index:55;display:none;gap:6px;align-items:center;
   padding:6px;border-radius:999px;background:rgba(255,255,255,.94);border:2px solid var(--pink-light,#ffd9e8);
   box-shadow:0 8px 18px -10px rgba(217,74,128,.55);font-family:var(--font-body,system-ui),sans-serif;}
 #crabbieMusicControl.show{display:inline-flex;}
+/* The control sits below the nav/menu stack (z-index 55 vs 59/60), and while
+   an editable field is focused on touch devices it hides entirely (display
+   only — audio, source and mute state are untouched). Ordered after .show
+   so it wins at equal specificity. */
+#crabbieMusicControl.is-field-focused{display:none;}
 #crabbieMusicControl button{width:34px;height:34px;border-radius:50%;border:2px solid var(--pink-light,#ffd9e8);
   background:#fff;color:var(--pink-hot,#ff5c9a);cursor:pointer;display:grid;place-items:center;padding:0;line-height:0;}
 #crabbieMusicControl button:hover{border-color:var(--pink-hot,#ff5c9a);}
 #crabbieMusicControl button:focus-visible{outline:3px solid var(--purple-hot,#8a5cff);outline-offset:2px;}
 #crabbieMusicControl svg{width:16px;height:16px;fill:currentColor;}
+@media (pointer:coarse){
+  #crabbieMusicControl button{width:44px;height:44px;}
+  #crabbieMusicControl svg{width:20px;height:20px;}
+}
 @media (max-width:720px){
   .crabbie-pet{width:56px;height:56px;}
   #crabbieMusicControl{right:10px;bottom:12px;}
@@ -198,6 +207,7 @@ function applyMusic(settings) {
   music.audio.muted = storedMute === '1';
   music.control.classList.toggle('show', !isAdminView());
   music.control.setAttribute('data-state', music.audio.paused ? 'paused' : 'playing');
+  syncMusicFieldFocus();
   if (settings.autoplay !== false && !music.audio.muted) {
     attemptPlay(false);
   } else {
@@ -592,6 +602,21 @@ function applyMotion(settings) {
   applyPet(cfg.pet);
 }
 
+const coarsePointer = window.matchMedia('(pointer:coarse)');
+/* While an editable field is focused on touch devices the floating control
+   hides so it can never cover the field or the software keyboard. Display
+   only: the audio element, source, playback and mute preferences survive;
+   blur and route changes restore the control without restarting anything. */
+function syncMusicFieldFocus() {
+  if (!music.control) return;
+  let el = null;
+  try { el = document.activeElement; } catch (e) { el = null; }
+  const typing = Boolean(el && el.matches && el.matches('input, textarea, select'));
+  music.control.classList.toggle('is-field-focused', typing && coarsePointer.matches);
+}
+document.addEventListener('focusin', () => { syncMusicFieldFocus(); });
+document.addEventListener('focusout', () => { setTimeout(syncMusicFieldFocus, 0); });
+
 /* ------------------------------- INIT ----------------------------------- */
 injectStyles();
 if (window.__CRABBIE_MOTION__) applyMotion(window.__CRABBIE_MOTION__);
@@ -606,9 +631,11 @@ window.addEventListener('resize', () => {
   }, 220);
 });
 
-/* Route changes never restart music; they only re-evaluate public/admin gating. */
+/* Route changes never restart music; they only re-evaluate public/admin gating
+   (and re-check field focus, since navigation drops focus back to body). */
 window.addEventListener('hashchange', () => {
   if (music.control) music.control.classList.toggle('show', Boolean(music.settings && music.settings.enabled && music.settings.url) && !isAdminView());
+  syncMusicFieldFocus();
   if (petState.layer) reconcilePets();
   if (candy.enabled && !isAdminView()) scheduleCandy(); else stopCandy();
 });

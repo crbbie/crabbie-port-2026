@@ -5006,6 +5006,238 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS public lightbox: bounded pan/zoom, wrapping captions and 44px controls across 13 viewports plus touch (SDK fixture)');
 
+    // ---- Shared touch controls: music/menu stack, 44px targets, 16px fields
+    // BUG-07: the floating music control sits below the nav/menu stack and
+    // hides while an editable field is focused on touch (display only —
+    // audio, source and mute survive; blur/routes restore without restart).
+    // BUG-08 (non-lightbox): 44px music buttons and footer links plus 16px
+    // editable text on coarse pointers at every width; desktop preserved.
+    const NAV_SEED = [
+      {title: 'Home', url: '#home'}, {title: 'Portfolio', url: '#portfolio'},
+      {title: 'Free Assets', url: '#free-assets'}, {title: 'Commissions', url: '#commissions'},
+      {title: 'About', url: '#about'}, {title: 'Terms', url: '#terms'},
+      {title: 'Contact', url: '#contact'}
+    ];
+    const MUSIC_URL = 'data:audio/mpeg;base64,//uQx';
+    await page.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+    await page.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+    await page.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+    const touchProbe = (pg) => pg.evaluate(() => {
+      const r = (el) => { const b = el.getBoundingClientRect(); return {w: b.width, h: b.height}; };
+      const music = document.getElementById('crabbieMusicControl');
+      const menu = document.getElementById('mobileMenu');
+      const fontOf = (s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).fontSize : null; };
+      const foot = Array.from(document.querySelectorAll('.foot ul a')).filter((a) => a.offsetParent !== null);
+      return {
+        musicZ: music ? getComputedStyle(music).zIndex : null,
+        musicBtns: music ? Array.from(music.querySelectorAll('button')).map((b) => r(b)) : [],
+        menuZ: menu ? getComputedStyle(menu).zIndex : null,
+        fonts: {pfSearch: fontOf('#pfSearch'), iName: fontOf('#i-name'), iEmail: fontOf('#i-email'), iIdea: fontOf('#i-idea')},
+        footMinH: foot.length ? Math.min(...foot.map((a) => a.getBoundingClientRect().height)) : null,
+        footCount: foot.length,
+        root: {docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth}
+      };
+    });
+    const menuAudit = (pg) => pg.evaluate(() => {
+      const menu = document.getElementById('mobileMenu');
+      const mr = menu.getBoundingClientRect();
+      const links = Array.from(menu.querySelectorAll('a'));
+      const items = links.map((a) => {
+        menu.scrollTop = Math.max(0, a.offsetTop - 60);
+        const b = a.getBoundingClientRect();
+        const y = Math.min(Math.max(b.top + b.height / 2, mr.top + 2), mr.bottom - 2);
+        const hit = document.elementFromPoint(b.left + b.width / 2, y);
+        return {text: (a.textContent || '').trim().slice(0, 20), owned: hit === a || a.contains(hit)};
+      });
+      const music = document.getElementById('crabbieMusicControl');
+      let overlap = null;
+      if (music && getComputedStyle(music).display !== 'none') {
+        const b = music.getBoundingClientRect();
+        const ix0 = Math.max(b.left, mr.left), ix1 = Math.min(b.right, mr.right);
+        const iy0 = Math.max(b.top, mr.top), iy1 = Math.min(b.bottom, mr.bottom);
+        if (ix1 > ix0 && iy1 > iy0) {
+          const hit = document.elementFromPoint((ix0 + ix1) / 2, (iy0 + iy1) / 2);
+          overlap = {owned: Boolean(hit && hit.closest && hit.closest('#mobileMenu'))};
+        }
+      }
+      menu.scrollTop = menu.scrollHeight;
+      const last = links[links.length - 1];
+      const lb = last.getBoundingClientRect();
+      const lastHit = document.elementFromPoint(lb.left + lb.width / 2, Math.min(Math.max(lb.top + lb.height / 2, mr.top + 2), mr.bottom - 2));
+      return {count: links.length, items, overlap, lastReachable: lastHit === last || last.contains(lastHit)};
+    });
+    // Desktop (fine pointer): stack order holds while sizes stay classic.
+    const touchMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [812, 375], [844, 390], [932, 430], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    for (const [width, height] of touchMatrix) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const m = await touchProbe(page);
+      const at = `${width}x${height} desktop`;
+      assert.equal(m.musicZ, '55', `music sits below nav/menu at ${at}`);
+      assert.equal(m.menuZ, '59', `menu keeps its stack level at ${at}`);
+      m.musicBtns.forEach((b) => assert.ok(Math.abs(b.w - 34) <= 1 && Math.abs(b.h - 34) <= 1, `desktop music buttons stay classic at ${at}`));
+      assert.equal(m.fonts.pfSearch, '15px', `desktop search type stays classic at ${at}`);
+      assert.equal(m.fonts.iName, width <= 600 ? '16px' : '15px', `desktop commission type keeps its existing rule at ${at}`);
+      assert.ok(m.footMinH !== null && m.footMinH < 44, `desktop footer links stay classic at ${at}`);
+      assert.ok(m.root.docSW <= m.root.docCW + 1 && m.root.bodySW <= m.root.bodyCW + 1, `no page overflow at ${at}`);
+    }
+    // Desktop menu owns hit-testing where the burger shows.
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#home'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.locator('#navBurger').click();
+      await page.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+      const audit = await menuAudit(page);
+      assert.ok(audit.count >= 8, `the full menu renders at ${width}x${height} (${audit.count} items)`);
+      audit.items.forEach((it) => assert.ok(it.owned, `menu item '${it.text}' owns hit-testing at ${width}x${height}`));
+      // The tall portrait menu ends above the music zone (no overlap to own);
+      // the capped landscape menu must yield the overlap to the menu.
+      if (width === 844) assert.ok(audit.overlap, `the landscape menu reaches the music zone at ${width}x${height}`);
+      if (audit.overlap) assert.ok(audit.overlap.owned, `the menu owns the music overlap region at ${width}x${height}`);
+      assert.ok(audit.lastReachable, `the last menu item stays reachable at ${width}x${height}`);
+      await page.locator('#navBurger').click();
+      await page.waitForFunction(() => !document.getElementById('mobileMenu').classList.contains('open'));
+    }
+    // Desktop never hides music for focused fields (coarse-gated behavior).
+    await page.setViewportSize({width: 1280, height: 800});
+    await page.evaluate(() => {
+      window.CrabbieCommissions.apply([], [{slug: 'illustration', title: 'Illustration', description: '', published: true, fields: [
+        {id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', help: '', required: true, contactRole: 'name'}
+      ]}]);
+    });
+    await page.evaluate(() => { location.hash = '#commissions'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    await page.waitForFunction(() => {
+      const el = document.querySelector('.tab-panel.on input, .tab-panel.on textarea');
+      return el && el.offsetParent !== null;
+    }, null, {timeout: 15000});
+    await page.locator('.tab-panel.on input, .tab-panel.on textarea').first().focus();
+    await page.waitForTimeout(200);
+    assert.notEqual(await page.evaluate(() => {
+      const m = document.getElementById('crabbieMusicControl');
+      return m.classList.contains('is-field-focused') ? 'hidden' : getComputedStyle(m).display;
+    }), 'none', 'desktop keeps music visible while typing');
+    // Touch context: 44px targets and 16px fields at every width.
+    const touchCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce'});
+    try {
+      await touchCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+      const touchPage = await touchCtx.newPage();
+      touchPage.setDefaultTimeout(20000);
+      await touchPage.goto(origin + '/#home', {waitUntil: 'load'});
+      await touchPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+      await touchPage.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+      await touchPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+      for (const [width, height] of touchMatrix) {
+        await touchPage.setViewportSize({width, height});
+        await touchPage.evaluate(() => { location.hash = '#home'; });
+        await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+        await touchPage.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+        const m = await touchProbe(touchPage);
+        const at = `${width}x${height} touch`;
+        assert.equal(m.musicZ, '55', `music stack holds at ${at}`);
+        m.musicBtns.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `music buttons reach 44px at ${at}`));
+        for (const [name, size] of Object.entries(m.fonts)) assert.ok(parseFloat(size) >= 16, `${name} reaches 16px at ${at} (got ${size})`);
+        assert.ok(m.footMinH !== null && m.footMinH >= 44, `footer links reach 44px at ${at} (got ${m.footMinH})`);
+        assert.ok(m.footCount >= 5, `footer links stay visible at ${at}`);
+        assert.ok(m.root.docSW <= m.root.docCW + 1 && m.root.bodySW <= m.root.bodyCW + 1, `no page overflow at ${at}`);
+      }
+      // Touch menu audit at landscape + portrait.
+      for (const [width, height] of [[844, 390], [390, 844]]) {
+        await touchPage.setViewportSize({width, height});
+        await touchPage.evaluate(() => { location.hash = '#home'; });
+        await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+        await touchPage.locator('#navBurger').tap();
+        await touchPage.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+        const audit = await menuAudit(touchPage);
+        audit.items.forEach((it) => assert.ok(it.owned, `touch menu item '${it.text}' owns hit-testing at ${width}x${height}`));
+        if (width === 844) assert.ok(audit.overlap, `the touch landscape menu reaches the music zone at ${width}x${height}`);
+        if (audit.overlap) assert.ok(audit.overlap.owned, `touch menu owns the music overlap at ${width}x${height}`);
+        assert.ok(audit.lastReachable, `touch last menu item reachable at ${width}x${height}`);
+        await touchPage.locator('#navBurger').tap();
+        await touchPage.waitForFunction(() => !document.getElementById('mobileMenu').classList.contains('open'));
+      }
+      // Touch focus suppression: commission field, search field, blur, route.
+      await touchPage.setViewportSize({width: 390, height: 844});
+      await touchPage.evaluate(() => {
+        window.CrabbieCommissions.apply([], [{slug: 'illustration', title: 'Illustration', description: '', published: true, fields: [
+          {id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', help: '', required: true, contactRole: 'name'},
+          {id: 'idea', type: 'textarea', label: 'Idea', placeholder: 'Describe', help: '', required: false, contactRole: 'none'}
+        ]}]);
+      });
+      await touchPage.evaluate(() => { location.hash = '#commissions'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+      await touchPage.waitForFunction(() => {
+        const el = document.querySelector('.tab-panel.on input, .tab-panel.on textarea');
+        return el && el.offsetParent !== null;
+      }, null, {timeout: 15000});
+      const cmsField = '#commissionForm .tab-panel.on input, #commissionForm .tab-panel.on textarea';
+      assert.equal(await touchPage.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tab-panel.on input')).fontSize)), 16, 'the CMS commission field computes 16px on touch');
+      const audioProbe = await touchPage.evaluate(() => {
+        const audio = document.querySelector('audio');
+        audio.dataset.probe = '1';
+        return audio.src;
+      });
+      await touchPage.locator(cmsField).first().tap();
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music hides while a commission field is focused');
+      await touchPage.evaluate(() => { document.activeElement.blur(); });
+      await touchPage.waitForFunction(() => !document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.notEqual(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music returns on blur');
+      assert.ok(await touchPage.evaluate((src) => {
+        const audio = document.querySelector('audio');
+        return audio && audio.dataset.probe === '1' && audio.src === src && audio.paused;
+      }, audioProbe), 'blur restores music without restarting audio');
+      await touchPage.evaluate(() => { location.hash = '#portfolio'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await touchPage.locator('#pfSearch').tap();
+      await touchPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('is-field-focused'));
+      assert.equal(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music hides while search is focused');
+      await touchPage.evaluate(() => { document.activeElement.blur(); });
+      await touchPage.evaluate(() => { location.hash = '#home'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      assert.notEqual(await touchPage.evaluate(() => getComputedStyle(document.getElementById('crabbieMusicControl')).display), 'none', 'music returns after a route change');
+      // Touch music state machine stays intact at 44px.
+      assert.equal(await touchPage.evaluate(() => document.getElementById('crabbieMusicControl').getAttribute('data-state')), 'paused', 'touch control exposes playback state');
+      await touchPage.locator('#crabbieMusicControl button[aria-label="Mute music"]').click();
+      assert.equal(await touchPage.evaluate(() => document.querySelector('audio').muted), true, 'touch mute toggles and persists');
+      await touchPage.locator('#crabbieMusicControl button[aria-label="Unmute music"]').click();
+      assert.equal(await touchPage.evaluate(() => document.querySelector('audio').muted), false, 'touch unmute restores');
+      await touchPage.evaluate(() => { window.CrabbieSiteMotion.applyMusic({enabled: false}); });
+      assert.equal(await touchPage.locator('#crabbieMusicControl.show').count(), 0, 'touch music hides when disabled');
+      await touchPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+      assert.equal(await touchPage.locator('#crabbieMusicControl.show').count(), 1, 'touch music returns when re-enabled');
+      // DPR legs: CSS px measurements must be identical.
+      for (const dpr of [2, 3]) {
+        const dprCtx = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'reduce', deviceScaleFactor: dpr});
+        try {
+          await dprCtx.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({contentType: 'text/javascript', body: sdkFixture}));
+          const dprPage = await dprCtx.newPage();
+          dprPage.setDefaultTimeout(20000);
+          await dprPage.goto(origin + '/#home', {waitUntil: 'load'});
+          await dprPage.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true, null, {timeout: 20000});
+          await dprPage.evaluate((nav) => { window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {}); }, NAV_SEED);
+          await dprPage.evaluate((url) => { window.CrabbieSiteMotion.applyMusic({enabled: true, url, volume: 50, loop: true, autoplay: false}); }, MUSIC_URL);
+          await dprPage.waitForFunction(() => document.getElementById('crabbieMusicControl').classList.contains('show'));
+          const dm = await touchProbe(dprPage);
+          dm.musicBtns.forEach((b) => assert.ok(b.w >= 44 && b.h >= 44, `music buttons reach 44px at DPR${dpr}`));
+          assert.ok(dm.footMinH !== null && dm.footMinH >= 44, `footer links reach 44px at DPR${dpr}`);
+          assert.ok(parseFloat(dm.fonts.pfSearch) >= 16, `search reaches 16px at DPR${dpr}`);
+        } finally {
+          await dprCtx.close();
+        }
+      }
+    } finally {
+      await touchCtx.close();
+    }
+    // Restore the desktop viewport and the boot commission baseline for later sections.
+    await page.evaluate(() => { window.CrabbieCommissions.apply([], []); });
+    await page.setViewportSize({width: 1280, height: 800});
+    console.log('PASS shared touch controls: music/menu stack, 44px targets and 16px fields across 13 viewports, DPR and touch states (SDK fixture)');
+
     // ---- Admin People module renders, validates and saves -------------------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
