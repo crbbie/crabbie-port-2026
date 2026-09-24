@@ -679,6 +679,45 @@ try {
     assert.match(await page.locator('#pdBlocks').innerText(), /Process/);
     assert.equal(await page.locator('#pdBlocks script').count(), 0);
     assert.equal(await page.evaluate(() => window.__unsafe || 0), 0);
+    // Portfolio Detail cover containment: the .pd-cover frame owns a stable
+    // 4:3 box, clips descendants, and the artwork is out-of-flow so its
+    // intrinsic size can never resize the frame or cover Section 01.
+    const pdCoverGeometry = await page.evaluate(() => {
+      const cover = document.getElementById('pdCover');
+      const img = cover ? cover.querySelector(':scope > img') : null;
+      const blocks = document.getElementById('pdBlocks');
+      if (!cover || !img || !blocks) return null;
+      const coverRect = cover.getBoundingClientRect();
+      const imgRect = img.getBoundingClientRect();
+      const blocksRect = blocks.getBoundingClientRect();
+      const coverStyle = getComputedStyle(cover);
+      const imgStyle = getComputedStyle(img);
+      return {
+        coverOverflow: coverStyle.overflow,
+        coverOverflowX: coverStyle.overflowX,
+        coverOverflowY: coverStyle.overflowY,
+        coverPosition: coverStyle.position,
+        imgPosition: imgStyle.position,
+        imgInsetTop: imgStyle.top,
+        imgInsetLeft: imgStyle.left,
+        imgObjectFit: imgStyle.objectFit,
+        aspectRatio: coverRect.width / Math.max(1, coverRect.height),
+        imgFitsHorizontally: imgRect.left >= coverRect.left - 1 && imgRect.right <= coverRect.right + 1,
+        imgFitsVertically: imgRect.top >= coverRect.top - 1 && imgRect.bottom <= coverRect.bottom + 1,
+        blocksBelowCover: blocksRect.top >= coverRect.bottom - 1,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+      };
+    });
+    assert.ok(pdCoverGeometry, 'portfolio detail cover, artwork and blocks render for geometry checks');
+    assert.ok(['hidden', 'clip'].includes(pdCoverGeometry.coverOverflow) || (pdCoverGeometry.coverOverflowX === 'hidden' && pdCoverGeometry.coverOverflowY === 'hidden'), 'pd-cover clips overflowing artwork (overflow:hidden)');
+    assert.equal(pdCoverGeometry.coverPosition, 'relative', 'pd-cover stays the positioning context for its artwork');
+    assert.equal(pdCoverGeometry.imgPosition, 'absolute', 'cover artwork is out-of-flow so it cannot resize the 4:3 frame');
+    assert.equal(pdCoverGeometry.imgObjectFit, 'cover', 'cover artwork keeps object-fit:cover');
+    assert.ok(Math.abs(pdCoverGeometry.aspectRatio - (4 / 3)) < 0.08, 'pd-cover stays approximately 4:3');
+    assert.equal(pdCoverGeometry.imgFitsHorizontally, true, 'cover artwork stays inside the frame horizontally');
+    assert.equal(pdCoverGeometry.imgFitsVertically, true, 'cover artwork stays inside the frame vertically');
+    assert.equal(pdCoverGeometry.blocksBelowCover, true, 'Section 01 begins below the cover frame');
+    assert.ok(pdCoverGeometry.pageOverflow <= 1, 'portfolio detail adds no page-level horizontal overflow');
 
     await page.evaluate(() => {
       window.CrabbieAssets.apply([{slug:'petal-pack',title:'DB asset',cat:'Brushes',format:'ZIP',icon:'★',thumbnail:'',availability:'available',downloadUrl:''}]);
