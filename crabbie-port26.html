@@ -2791,8 +2791,6 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 <script type="module" src="/src/supabase-client.js"></script>
 <script type="module" src="/src/site-motion.js"></script>
 <script type="module" src="/src/site-decor.js"></script>
-<link rel="stylesheet" href="/src/landing-experience.css">
-<script src="/src/landing-experience.js" defer></script>
 
 <style id="brand-font-readability">
 /* Brand font readability tuning — keep the three local faces, but give their
@@ -3229,8 +3227,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
   var raw = location.hash.replace(/^#/, '');
   var path = location.pathname.replace(/^\/+|\/+$/g, '');
   var isHome = (raw === 'home') || (!raw && !path);
-  /* Home opening is now owned by the experimental Landing Experience prototype (src/landing-experience.js) */
-  if(false && isHome && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  if(isHome && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     document.documentElement.classList.add('home-transition-pending');
     document.documentElement.classList.add('home-reveal-sequence');
     document.body.classList.add('is-loading');
@@ -3281,191 +3278,6 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 
 <!-- VIEW 01 — HOME -->
 <section class="view" data-view="home">
-
-  <!-- EXPERIMENTAL LANDING EXPERIENCE PROTOTYPE (Preview only) -->
-  <div class="ld-shell" id="landingExperience">
-    <div class="ld-stage" id="landingStage">
-
-      <!-- SVG Drawing Line -->
-      <svg class="ld-line" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id="ldLineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stop-color="#f57fba"/>
-            <stop offset="52%"  stop-color="#f6a3cf"/>
-            <stop offset="100%" stop-color="#ca9cf5"/>
-          </linearGradient>
-        </defs>
-        <path id="ldLinePath" d=""></path>
-      </svg>
-
-      <!-- Decorative line moments -->
-      <span class="ld-line-deco ld-line-deco--1" aria-hidden="true">♡</span>
-      <span class="ld-line-deco ld-line-deco--2" aria-hidden="true">✦</span>
-      <span class="ld-line-deco ld-line-deco--3" aria-hidden="true">✿</span>
-
-      <!-- Desk scene (candy atelier) -->
-      <div class="ld-layer ld-layer--desk">
-        <div class="ld-cloud" aria-hidden="true"></div>
-
-        <svg class="ld-deco ld-deco--flower-1" viewBox="0 0 32 32" aria-hidden="true">
-          <g fill="#f6a3cf">
-            <circle cx="16" cy="7"  r="6"/>
-            <circle cx="25" cy="16" r="6"/>
-            <circle cx="16" cy="25" r="6"/>
-            <circle cx="7"  cy="16" r="6"/>
-          </g>
-          <circle cx="16" cy="16" r="4.6" fill="#ffe1b9"/>
-        </svg>
-        <svg class="ld-deco ld-deco--flower-2" viewBox="0 0 32 32" aria-hidden="true">
-          <g fill="#ca9cf5">
-            <circle cx="16" cy="7"  r="6"/>
-            <circle cx="25" cy="16" r="6"/>
-            <circle cx="16" cy="25" r="6"/>
-            <circle cx="7"  cy="16" r="6"/>
-          </g>
-          <circle cx="16" cy="16" r="4.6" fill="#fff"/>
-        </svg>
-        <svg class="ld-deco ld-deco--heart-1" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z" fill="#f57fba"/>
-        </svg>
-        <span class="ld-deco ld-deco--dot-1"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#ffe1b9"/></svg></span>
-        <span class="ld-deco ld-deco--dot-2"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#ca9cf5"/></svg></span>
-        <span class="ld-deco ld-deco--dot-3"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#f6a3cf"/></svg></span>
-
-        <!-- Chibi artist placeholder -->
-        <div class="ld-pin ld-pin--character">
-          <div class="ld-obj">
-            <div class="ld-ph">
-              <svg class="ld-chibi" viewBox="0 0 120 150" aria-hidden="true">
-                <circle cx="60" cy="64" r="41" fill="#f6a3cf"/>
-                <ellipse cx="60" cy="119" rx="34" ry="26" fill="#ffd8e9"/>
-                <circle cx="60" cy="64" r="38" fill="#ffe6f1"/>
-                <path d="M22 62a38 38 0 0 1 76 0c-8-11-21-15-38-15s-30 4-38 15z" fill="#f6a3cf"/>
-                <circle cx="23" cy="110" r="7.5" fill="#ffd8e9"/>
-                <circle cx="97" cy="110" r="7.5" fill="#ffd8e9"/>
-                <circle cx="47" cy="68" r="4.2" fill="#a95c88"/>
-                <circle cx="73" cy="68" r="4.2" fill="#a95c88"/>
-                <circle cx="48.6" cy="66.4" r="1.4" fill="#fff"/>
-                <circle cx="74.6" cy="66.4" r="1.4" fill="#fff"/>
-                <ellipse cx="38" cy="78" rx="6.5" ry="4" fill="#f57fba" opacity=".8"/>
-                <ellipse cx="82" cy="78" rx="6.5" ry="4" fill="#f57fba" opacity=".8"/>
-                <path d="M54 80q6 6.5 12 0" stroke="#a95c88" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-              </svg>
-              <span class="ld-ph__tag">chibi artist<br>placeholder</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sketchbook (Portfolio hint) -->
-        <div class="ld-pin ld-pin--sketchbook" tabindex="0" role="img" aria-label="Portfolio — sketchbook">
-          <div class="ld-obj">
-            <div class="ld-ph"><span class="ld-ph__t">sketchbook<br>placeholder</span></div>
-            <span class="ld-tag" aria-hidden="true">portfolio</span>
-          </div>
-        </div>
-
-        <!-- Pencil -->
-        <div class="ld-pin ld-pin--pencil" aria-hidden="true">
-          <div class="ld-obj"><div class="ld-ph"></div></div>
-        </div>
-
-        <!-- Supplies cup -->
-        <div class="ld-pin ld-pin--cup" aria-hidden="true">
-          <div class="ld-obj"><div class="ld-ph"><span class="ld-ph__t">supplies</span></div></div>
-        </div>
-
-        <!-- Sticker box (Assets hint) -->
-        <div class="ld-pin ld-pin--stickerbox" tabindex="0" role="img" aria-label="Assets — sticker box">
-          <div class="ld-obj">
-            <div class="ld-ph"><span class="ld-ph__t">sticker box</span></div>
-            <span class="ld-tag" aria-hidden="true">assets</span>
-          </div>
-        </div>
-
-        <!-- Envelope (Contact hint) -->
-        <div class="ld-pin ld-pin--envelope" tabindex="0" role="img" aria-label="Contact — envelope">
-          <div class="ld-obj">
-            <div class="ld-ph"><span class="ld-ph__t">envelope</span></div>
-            <span class="ld-tag" aria-hidden="true">contact</span>
-          </div>
-        </div>
-
-        <!-- Commission sheet (Commissions hint) -->
-        <div class="ld-pin ld-pin--commission" tabindex="0" role="img" aria-label="Commissions — commission sheet">
-          <div class="ld-obj">
-            <div class="ld-ph"><span class="ld-ph__t">commission<br>sheet</span></div>
-            <span class="ld-tag" aria-hidden="true">commissions</span>
-          </div>
-        </div>
-
-        <!-- Small artworks on desk -->
-        <div class="ld-pin ld-pin--art-a" aria-hidden="true">
-          <div class="ld-obj"><div class="ld-ph"><span class="ld-ph__t">art 01</span></div></div>
-        </div>
-        <div class="ld-pin ld-pin--art-b" aria-hidden="true">
-          <div class="ld-obj"><div class="ld-ph"><span class="ld-ph__t">art 02</span></div></div>
-        </div>
-
-        <!-- Candy dots / pearl -->
-        <div class="ld-pin ld-pin--s1" aria-hidden="true"><div class="ld-obj"><div class="ld-ph"></div></div></div>
-        <div class="ld-pin ld-pin--s2" aria-hidden="true"><div class="ld-obj"><div class="ld-ph"></div></div></div>
-        <div class="ld-pin ld-pin--pearl" aria-hidden="true"><div class="ld-obj"><div class="ld-ph"></div></div></div>
-      </div>
-
-      <!-- Story: sketch → wip → finished -->
-      <div class="ld-story" aria-hidden="true">
-        <div class="ld-story__item ld-story__item--1">
-          <div class="ld-story__reveal">
-            <div class="ld-ph"><span class="ld-ph__t">rough sketch<br>placeholder</span></div>
-          </div>
-        </div>
-        <div class="ld-story__item ld-story__item--2">
-          <div class="ld-story__reveal">
-            <div class="ld-ph"><span class="ld-ph__t">color wip<br>placeholder</span></div>
-          </div>
-        </div>
-        <div class="ld-story__item ld-story__item--3">
-          <div class="ld-story__reveal">
-            <div class="ld-ph"><span class="ld-ph__t">finished art<br>placeholder</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Welcome message -->
-      <p class="ld-msg" id="landingMessage">welcome to my tiny corner of the internet</p>
-
-      <!-- Hero type -->
-      <div class="ld-layer ld-layer--hero" id="landingHero">
-        <div class="ld-hero__top">
-          <span class="ld-hero__badge">
-            <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z" fill="#f57fba"/>
-            </svg>
-            tiny art world
-          </span>
-          <h1 class="ld-hero__title">CRABBIE</h1>
-          <p class="ld-hero__sub">little things i draw &amp; make ♡</p>
-        </div>
-
-        <div class="ld-cue" aria-hidden="true">
-          <span class="ld-cue__pill">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4v14M6 13l6 6 6-6" stroke="#a95c88" stroke-width="2.4"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          scroll
-        </div>
-      </div>
-
-      <!-- Portal bloom expander & sparkle flourish -->
-      <div class="ld-portal-bloom" id="landingPortalBloom" aria-hidden="true"></div>
-      <div class="ld-portal-spk" id="landingPortalSpk" aria-hidden="true">✦</div>
-    </div>
-  </div>
-
-  <!-- REAL CANONICAL HOME DOM (revealed seamlessly through the portal) -->
-  <div class="ld-home-content" id="ldHomeContent">
   <div class="hero">
     <div class="wrap">
       <div class="hero-grid">
@@ -3574,7 +3386,6 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
       </div>
     </div>
   </div>
-  </div><!-- /ldHomeContent -->
 </section>
 
 <!-- VIEW 02 — PORTFOLIO -->
@@ -5318,13 +5129,6 @@ prevView = view;
 currentRoute = route;
 lastAppliedHash = location.hash;
 upgradeTikTokThumbs(document);
-if(window.CrabbieLandingExperience){
-  if(view === 'home'){
-    window.CrabbieLandingExperience.refresh(true);
-  } else {
-    window.CrabbieLandingExperience.resetHomeState();
-  }
-}
 if(isRestored){
 /* Drop the stationary flag after the restored frame settles so the next
    fresh navigation replays its entrance. No timers or scroll loops. */
