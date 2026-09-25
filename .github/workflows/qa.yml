@@ -26,3 +26,5 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check rendered routes
         run: npm run test:router
+      - name: Check public CMS request ownership
+        run: node scripts/public-cms-race.mjs --browser=chromium

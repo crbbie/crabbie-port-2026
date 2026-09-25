@@ -72,6 +72,39 @@ Examples:
 
 These query published public data and bridge it into the SPA.
 
+### Latest-request ownership
+
+Every public adapter (`portfolio-cms.js`, `free-assets-cms.js`,
+`commissions-cms.js`, `site-content-cms.js`, `people-cms.js`) owns one
+module-level generation token, because a startup hydration and an explicit CMS
+refresh (`src/public-cms-refresh.js`, used by the admin save flow) can overlap.
+Only the newest request may:
+
+- apply its mapped snapshot through the existing public bridge;
+- settle the hydration flag and call the public `settled()` handler
+  (`__CRABBIE_PORTFOLIO_HYDRATED__`, `__CRABBIE_ASSETS_HYDRATED__`);
+- fire the one-shot site-content ready signal (`crabbie:site-content-ready`
+  plus the `cms-content-pending` / `cms-content-ready` gate).
+
+Rules that keep this sound:
+
+- A superseded response is dropped whether it succeeded or failed; it must never
+  mark a newer pending request as applied, settled or ready.
+- The portfolio adapter re-checks ownership after its second round trip
+  (`portfolio_project_people`), so a slow older association fetch can never
+  revive a superseded project snapshot.
+- The newest failure keeps the existing fallback contract: nothing is applied,
+  the hydration flag still settles, prototype/previous public content stays, and
+  detail deep links resolve to the real record or the 404 view.
+- A superseded request still reports its own fetch result to the caller (`true`
+  when its own query succeeded, `false` when it failed), so an overlapping
+  refresh is never reported as a failure the newest request did not have.
+- Adapters keep publishing through the same single bridges: no second public
+  state model, no polling and no Realtime.
+
+This is covered by `scripts/public-cms-race.mjs`, which drives the real adapters
+with controlled promises (resolution order, not timing sleeps).
+
 ### Admin browser services
 
 Examples:
@@ -203,8 +236,9 @@ people + portfolio_project_people (published only, paged to completion)
 - Public adapters filter `published` even when an admin is signed in.
 - A failed/partial People fetch hides People presentation; artwork and the
   Portfolio grid keep working.
-- Stale-response races are guarded with a generation token; public updates
-  happen on hydration/explicit CMS refresh (no Realtime, no polling).
+- Stale-response races are guarded with the same generation-token rule every
+  public adapter uses (see "Latest-request ownership"); public updates happen on
+  hydration/explicit CMS refresh (no Realtime, no polling).
 
 Project relation writes go through the narrow `save_project_with_people`
 RPC (project row + ordered junction replacement in one transaction, UUID
