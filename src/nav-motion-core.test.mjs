@@ -22,6 +22,10 @@ assert.equal(decideScroll({ restore: 400, prevView: 'home', view: 'portfolio', r
 assert.equal(decideScroll({ restore: undefined, prevView: 'home', view: 'portfolio', restoredFlag: true }), 'top', 'direct load with no memory goes top');
 assert.equal(decideScroll({ restore: 400, prevView: 'home', view: 'portfolio' }), 'top', 'forward nav goes top');
 assert.equal(decideScroll({ restore: 400, prevView: 'project-detail', view: 'project-detail', isSame: true }), 'keep', 'same-record refresh keeps position');
+assert.equal(decideScroll({ restore: 400, prevView: 'home', view: 'portfolio', noScroll: true }), 'keep', 'noScroll keeps scroll position');
+assert.equal(decideScroll({ restore: 400, prevView: 'home', view: 'portfolio', restoredFlag: true, noScroll: true }), 'keep', 'noScroll takes priority over restore');
+assert.equal(decideScroll({ restore: 400, prevView: 'home', view: 'portfolio', restoredFlag: true, forceScroll: true }), 'top', 'forceScroll forces top even on restored navigation');
+assert.equal(decideScroll({ restore: 400, prevView: 'project-detail', view: 'portfolio', forceScroll: true }), 'top', 'forceScroll forces top even on detail return');
 
 // --- lightbox gesture math (image-relative stage bounds) ---
 assert.equal(clampScale(9), 4, 'zoom clamps to max');
@@ -41,6 +45,9 @@ assert.ok(!html.includes('<span class="dot" aria-hidden="true">'), 'badge heart 
 assert.ok(html.includes('CHIBI &amp; ANIME STYLE ILLUSTRATOR'), 'badge text preserved');
 assert.ok(html.includes('function instantScrollTo'), 'single instant scroll primitive exists');
 assert.ok(html.includes('window.scrollTo(0, restore)') === false, 'smooth-inheriting restore call removed');
+assert.ok(html.includes('function decideScroll'), 'unified route scroll decision exists in SPA shell');
+assert.ok(html.includes('CrabbieRouteScroll'), 'CrabbieRouteScroll contract is exposed on window');
+assert.ok(html.includes("scrollOutcome === 'restore'"), 'applyRoute restores position when decideScroll decides restore');
 assert.ok(html.includes('lastAppliedHash') && html.includes('sameRoute(nextRoute, currentRoute)'), 'single navigation owner dedupes hash echoes');
 assert.ok(html.includes('body.is-restoring'), 'restoration lifecycle keeps restored content stationary');
 assert.ok(html.includes('.view.is-restored-activation'), 'activation-scoped restoration stationary state is declared');

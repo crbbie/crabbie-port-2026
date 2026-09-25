@@ -285,9 +285,16 @@ After responsive changes, verify at least desktop, tablet, and mobile widths wit
 
 - Route scroll uses one instant primitive (`instantScrollTo`, clamped to valid
   document bounds) so detail-to-list restores never inherit global smooth
-  scrolling. Forward navigation goes to top; explicit project/asset returns
-  restore the remembered list position and filters; Back/Forward restores a
-  visited view with memory; direct detail loads with no memory go top.
+  scrolling. Scroll outcome follows the unified pure contract (`CrabbieRouteScroll.decideScroll`):
+  - `keep`: if `opts.noScroll` is true or `isSame` is true, the current scroll position
+    is preserved without resetting.
+  - `restore`: if `!opts.forceScroll` and `typeof restore === 'number'`, scroll position
+    is restored for both explicit detail returns (`project-detail` → `portfolio`,
+    `free-asset-detail` → `free-assets`) and browser Back/Forward between ordinary views
+    (flagged `restoredFlag`). Outgoing view scroll memory is captured during `popstate`
+    before browser scroll mutations take place.
+  - `top`: fresh navigations, `opts.forceScroll === true`, or direct loads without memory
+    go to top deterministically.
 - `navigate()` is the single navigation owner: it applies the destination
   route synchronously during activation so the active view and URL switch in
   the exact same event tick without intermediate frames or layout mismatch;

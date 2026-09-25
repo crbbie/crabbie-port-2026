@@ -6150,6 +6150,117 @@ try {
     assert.equal(await page.locator('[data-adm-path="settings.portfolioThanks.heading"]').inputValue(), 'Lovely people', 'thank-you settings hydrate into real form controls');
     console.log('PASS Admin People module lists records and edits thank-you settings (SDK fixture)');
 
+    // ---- Route scroll decision contract and ordinary Back/Forward restoration ----
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+
+    // 1. Unified decideScroll contract exported and consistent with runtime behavior.
+    const contractChecks = await page.evaluate(() => {
+      const { decideScroll, clampScrollY, isDetailReturn } = window.CrabbieRouteScroll;
+      return {
+        keepNoScroll: decideScroll({ noScroll: true, restore: 100 }),
+        keepSame: decideScroll({ isSame: true, restore: 100 }),
+        restoreOrdinary: decideScroll({ restoredFlag: true, restore: 420, prevView: 'portfolio', view: 'home' }),
+        restoreDetail: decideScroll({ restoredFlag: false, restore: 600, prevView: 'project-detail', view: 'portfolio' }),
+        forceScrollOrdinary: decideScroll({ forceScroll: true, restoredFlag: true, restore: 420 }),
+        forceScrollDetail: decideScroll({ forceScroll: true, prevView: 'project-detail', view: 'portfolio', restore: 600 }),
+        freshNav: decideScroll({ restoredFlag: false, prevView: 'portfolio', view: 'about' }),
+        clampedNegative: clampScrollY(-50, 1000),
+        clampedAbove: clampScrollY(1500, 1000),
+        clampedValid: clampScrollY(420, 1000),
+        isDetail1: isDetailReturn('project-detail', 'portfolio'),
+        isDetail2: isDetailReturn('free-asset-detail', 'free-assets'),
+        isDetailFalse: isDetailReturn('portfolio', 'home')
+      };
+    });
+    assert.equal(contractChecks.keepNoScroll, 'keep', 'decideScroll keeps position when noScroll is true');
+    assert.equal(contractChecks.keepSame, 'keep', 'decideScroll keeps position when isSame is true');
+    assert.equal(contractChecks.restoreOrdinary, 'restore', 'decideScroll restores ordinary view when restoredFlag is true with restore memory');
+    assert.equal(contractChecks.restoreDetail, 'restore', 'decideScroll restores list when returning from detail');
+    assert.equal(contractChecks.forceScrollOrdinary, 'top', 'forceScroll overrides restoredFlag and scrolls to top');
+    assert.equal(contractChecks.forceScrollDetail, 'top', 'forceScroll overrides detail return and scrolls to top');
+    assert.equal(contractChecks.freshNav, 'top', 'fresh navigation scrolls to top');
+    assert.equal(contractChecks.clampedNegative, 0);
+    assert.equal(contractChecks.clampedAbove, 1000);
+    assert.equal(contractChecks.clampedValid, 420);
+    assert.equal(contractChecks.isDetail1, true);
+    assert.equal(contractChecks.isDetail2, true);
+    assert.equal(contractChecks.isDetailFalse, false);
+
+    // 2. Direct probe on runtime: navigating from portfolio back to home with memory.
+    // In 08d315c: scrollMemory.home = 420, applyRoute(home, {restored: true}) called scrollToTop(0)
+    // because comingBackFromDetail was false for ordinary views.
+    // Now decideScroll returns 'restore' and applyRoute restores 420.
+    await page.evaluate(() => window.navigate('portfolio'));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => {
+      window.scrollMemory.home = 420;
+      window.applyRoute({ view: 'home', id: null, adminModule: null }, { restored: true });
+    });
+    await page.waitForFunction(() => Math.abs(window.scrollY - 420) <= 2);
+    const probeScrollY = await page.evaluate(() => window.scrollY);
+    assert.ok(Math.abs(probeScrollY - 420) <= 2, `applyRoute with restored:true restores scrollMemory.home (actual: ${probeScrollY})`);
+
+    // 3. forceScroll: true overrides restoration and scrolls to top on the real runtime
+    await page.evaluate(() => window.navigate('portfolio'));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => {
+      window.scrollMemory.home = 420;
+      window.applyRoute({ view: 'home', id: null, adminModule: null }, { restored: true, forceScroll: true });
+    });
+    await page.waitForFunction(() => Math.abs(window.scrollY) <= 2);
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY)) <= 2, 'forceScroll: true forces scroll to top');
+
+    // 4. noScroll: true keeps current scroll without reset
+    await page.evaluate(() => {
+      window.scrollTo({ top: 300, left: 0, behavior: 'instant' });
+      window.applyRoute({ view: 'home', id: null, adminModule: null }, { noScroll: true });
+    });
+    await page.waitForFunction(() => Math.abs(window.scrollY - 300) <= 2);
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY - 300)) <= 2, 'noScroll: true preserves scroll position');
+
+    // 5. Full browser Back/Forward between ordinary views across viewports (390x844, 844x390, 1440x900)
+    for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => window.navigate('home'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      await page.evaluate(() => window.scrollTo({ top: 380, left: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => Math.abs(window.scrollY - 380) <= 2);
+
+      await page.evaluate(() => window.navigate('portfolio'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      assert.ok(Math.abs(await page.evaluate(() => window.scrollY)) <= 2, `${width}x${height}: forward navigation starts at top`);
+      await page.evaluate(() => window.scrollTo({ top: 450, left: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => Math.abs(window.scrollY - 450) <= 2);
+
+      await page.evaluate(() => window.navigate('about'));
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+      assert.ok(Math.abs(await page.evaluate(() => window.scrollY)) <= 2, `${width}x${height}: forward navigation to about starts at top`);
+      await page.evaluate(() => window.scrollTo({ top: 200, left: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => Math.abs(window.scrollY - 200) <= 2);
+
+      // Back to portfolio restores 450
+      await page.goBack();
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 450) <= 3, `${width}x${height}: back to portfolio restores 450`);
+
+      // Back to home restores 380
+      await page.goBack();
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+      assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 380) <= 3, `${width}x${height}: back to home restores 380`);
+
+      // Forward to portfolio restores 450
+      await page.goForward();
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 450) <= 3, `${width}x${height}: forward to portfolio restores 450`);
+
+      // Forward to about restores 200
+      await page.goForward();
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+      assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 200) <= 3, `${width}x${height}: forward to about restores 200`);
+    }
+    console.log('PASS router scroll decision contract and ordinary Back/Forward restoration (real runtime)');
+
   }
 } finally {
   if (browser) await browser.close();
