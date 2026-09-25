@@ -923,15 +923,27 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
   .pf-t{ grid-column: span 2; grid-row: span 3; }
   .pf-s{ grid-column: span 2; grid-row: span 2; }
   .pf-w{ grid-column: span 2; grid-row: span 2; }
-  /* BUG-04: below the desktop masonry breakpoint, image-only cards show the
-     whole artwork instead of a forced crop: own row, natural ratio, and the
-     meta sits below the art so it never covers it. Desktop spans, cover
-     fill and overlay meta stay exactly as they were. */
-  #pfGrid .work.is-image-card{ grid-column: 1 / -1; grid-row: auto; aspect-ratio: auto; }
-  #worksGrid .work.is-image-card{ grid-column: 1 / -1; aspect-ratio: auto; }
-  #pfGrid .work.is-image-card .thumb,#worksGrid .work.is-image-card .thumb{ position: relative; inset: auto; min-height: 180px; }
-  #pfGrid .work.is-image-card .thumb img,#worksGrid .work.is-image-card .thumb img{ height: auto; object-fit: contain; }
-  #pfGrid .work.is-image-card .meta,#worksGrid .work.is-image-card .meta{ position: static; }
+
+  /* Card ảnh full-bleed — CHỈ trong block này */
+  #pfGrid .work.is-image-card,
+  #worksGrid .work.is-image-card{
+    grid-column: 1 / -1; grid-row: auto; height: auto;
+    aspect-ratio: auto; contain: none;
+  }
+  #pfGrid .work.is-image-card .thumb,
+  #worksGrid .work.is-image-card .thumb{
+    position: relative; inset: auto; width: 100%;
+    max-width: none; height: auto; min-height: 180px;
+  }
+  #pfGrid .work.is-image-card.is-art-ready .thumb,
+  #worksGrid .work.is-image-card.is-art-ready .thumb{ min-height: 0; }
+  #pfGrid .work.is-image-card .thumb img,
+  #worksGrid .work.is-image-card .thumb img{
+    position: relative; width: 100%; height: auto; max-width: 100%;
+    object-fit: contain; object-position: center; transform: none;
+  }
+  #pfGrid .work.is-image-card .meta,
+  #worksGrid .work.is-image-card .meta{ position: static; }
   .comm-grid{ grid-template-columns: repeat(2, 1fr); }
   .mini-grid{ grid-template-columns: repeat(2, 1fr); }
   .pd-hero{ grid-template-columns: 1fr; gap: 34px; }
