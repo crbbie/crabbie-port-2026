@@ -230,6 +230,10 @@ for (const mobile of [false, true]) {
   note(`${mode} gallery batches + no-cover`);
 
   // 5b. Portfolio image-card geometry + deterministic composition.
+  //     The listing image-card model must stay coherent at every required
+  //     width: full uncropped ratio, metadata inside the card, no leftover
+  //     180px placeholder strip after load, visible protruding category cloud,
+  //     no root overflow. Deterministic bands must not depend on DOM history.
   const matrixRatios = [['mx-sq', 800, 800], ['mx-land', 1200, 600], ['mx-port', 400, 1200], ['mx-wide', 1600, 200]];
   const matrixArtRecs = () => {
     const cats = ['Illustration', 'Chibi', 'Vtuber', 'Other'];
@@ -265,10 +269,15 @@ for (const mobile of [false, true]) {
     const imgs = Array.from(document.querySelectorAll('#pfGrid .thumb img')).filter((img) => !/broken/.test(img.src));
     return imgs.length >= 4 && imgs.every((img) => img.complete && img.naturalWidth > 0);
   }, null, { timeout: 25000 });
+  // Lazy artwork only fetches when near the viewport; bring the broken card in
+  // so its error path runs on every engine (WebKit loads far less eagerly).
   await page.locator('#pfGrid [data-project="mx-broken"]').scrollIntoViewIfNeeded();
   await page.waitForFunction(() => !document.querySelector('#pfGrid [data-project="mx-broken"] .thumb img'), null, { timeout: 15000 });
   for (const [width, height] of artWidths) {
     await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     await page.waitForTimeout(160);
     await page.mouse.move(2, 2);
     const at = `${width}x${height}`;
@@ -319,15 +328,36 @@ for (const mobile of [false, true]) {
   assert.ok((await matrixVariants()).every((v) => v === 'pf-s'), `${mode} tablet drops legacy three-row spans`);
   note(`${mode} portfolio image cards + deterministic composition`, '640–1440 + phone landscape, ratios, fallbacks, bands');
 
+
   // 6. Viewer: open/zoom/pan/prev-next/Back/focus/lock.
   await page.evaluate(() => { location.hash = '#asset/mx-asset'; });
   await page.waitForFunction(() => document.querySelector('#adTitle').textContent === 'Matrix Asset');
   const opener = page.locator('#adGallery .ad-thumb[data-ad-index="2"]');
-  if (mobile) await opener.tap(); else await opener.click();
+  // Open via a synthetic click so no auto-scroll happens; capture the exact
+  // resting page position the viewer must restore on close.
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+  const beforeOpenY = await page.evaluate(() => window.scrollY || 0);
+  await page.evaluate(() => document.querySelector('#adGallery .ad-thumb[data-ad-index="2"]').click());
   await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
   assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).endsWith('g1.png'), `${mode}: viewer opens the selected original`);
   assert.equal(await page.locator('#publicLightboxPosition').innerText(), '3 / 14', `${mode}: position tracks cover-first collection`);
-  const lockY = await page.evaluate(() => window.scrollY);
+  const stageFit = await page.evaluate(() => {
+    const stage = document.getElementById('publicLightboxStage');
+    const img = document.getElementById('publicLightboxImg');
+    const sr = stage.getBoundingClientRect();
+    const ir = img.getBoundingClientRect();
+    const navs = [document.getElementById('publicLightboxPrev'), document.getElementById('publicLightboxNext')].filter((b) => !b.hidden).map((b) => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; });
+    const bar = document.getElementById('publicLightboxBar').getBoundingClientRect();
+    return {
+      dx: (ir.left + ir.width / 2) - (sr.left + sr.width / 2),
+      dy: (ir.top + ir.height / 2) - (sr.top + sr.height / 2),
+      navOffsets: navs.map((cy) => Math.abs(cy - (sr.top + sr.height / 2))),
+      barClears: bar.top >= sr.bottom - 1
+    };
+  });
+  assert.ok(Math.abs(stageFit.dx) <= 2 && Math.abs(stageFit.dy) <= 2, `${mode}: artwork centers on the media stage (dx=${stageFit.dx.toFixed(2)}, dy=${stageFit.dy.toFixed(2)})`);
+  assert.ok(stageFit.navOffsets.every((d) => d <= 2), `${mode}: viewer navigation centers on the media stage`);
+  assert.equal(stageFit.barClears, true, `${mode}: the toolbar clears the media stage`);
   assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', `${mode}: background locks while open`);
   await page.locator('#publicLightboxZoomIn').click();
   const zoomed = await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform);
@@ -337,7 +367,9 @@ for (const mobile of [false, true]) {
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
   assert.equal(await page.evaluate(() => document.body.style.overflow === '' || document.body.style.overflow === 'visible' || getComputedStyle(document.body).overflow === 'visible'), true, `${mode}: lock restores on close`);
-  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - lockY) <= 2, `${mode}: no scroll jump on close`);
+  // Escape owns a history entry, so the scroll restore lands on the async popstate path.
+  await page.waitForFunction((y) => Math.abs((window.scrollY || 0) - y) <= 2, beforeOpenY, { timeout: 3000 }).catch(() => {});
+  assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - beforeOpenY) <= 2, `${mode}: no scroll jump on close (before=${beforeOpenY}, after=${await page.evaluate(() => window.scrollY)})`);
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '2', `${mode}: focus returns to the opener`);
   // Back dismisses before route change.
   if (mobile) await opener.tap(); else await opener.click();

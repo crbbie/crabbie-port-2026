@@ -4524,8 +4524,9 @@ try {
     assert.ok(thanksScroll.pageOverflow <= 1, 'browsing thanks horizontally never pans the page');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-    // Phone-portrait lightbox: compact natural stack (caption → credits →
-    // image), no giant centered slot, safe-area-aware controls.
+    // Phone-portrait lightbox: one remaining-space media stage. Artwork and
+    // prev/next controls center inside the stage (never the viewport); the
+    // close band and toolbar never obscure the resting artwork.
     await page.evaluate(() => { location.hash = '#portfolio'; });
     await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="ink-splash"]') && document.querySelector('.view.is-active')?.dataset.view === 'portfolio', null, {timeout: 15000});
     await page.evaluate(() => document.querySelector('#pfGrid [data-project="ink-splash"]').click());
@@ -4533,31 +4534,42 @@ try {
     await page.waitForTimeout(200);
     const lightboxStack = await page.evaluate(() => {
       const box = document.getElementById('publicLightbox');
+      const stage = document.getElementById('publicLightboxStage');
       const cap = document.getElementById('publicLightboxCaption').getBoundingClientRect();
       const cred = document.getElementById('publicLightboxCredits').getBoundingClientRect();
+      const sr = stage.getBoundingClientRect();
       const img = document.getElementById('publicLightboxImg').getBoundingClientRect();
       const bar = document.getElementById('publicLightboxBar').getBoundingClientRect();
       const close = document.getElementById('publicLightboxClose').getBoundingClientRect();
       const zoom = document.getElementById('publicLightboxZoomIn').getBoundingClientRect();
       const creditsEl = document.getElementById('publicLightboxCredits');
+      const navs = [document.getElementById('publicLightboxPrev'), document.getElementById('publicLightboxNext')].filter((b) => !b.hidden).map((b) => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; });
       return {
         display: getComputedStyle(box).display,
         captionBeforeCredits: cap.top < cred.top,
-        creditsBeforeImage: cred.bottom <= img.top + 1,
-        gapCaptionCredits: cred.top - cap.bottom,
-        gapAboveImage: img.top - Math.max(cap.bottom, cred.bottom),
-        barClearsImage: bar.top >= img.bottom - 1,
+        creditsBeforeStage: cred.bottom <= sr.top + 1,
+        stageCenterX: sr.left + sr.width / 2, stageCenterY: sr.top + sr.height / 2,
+        imgCenterX: img.left + img.width / 2, imgCenterY: img.top + img.height / 2,
+        navCenterOffsets: navs.map((cy) => Math.abs(cy - (sr.top + sr.height / 2))),
+        closeClearsStage: close.bottom <= sr.top + 1,
+        barClearsStage: bar.top >= sr.bottom - 1,
+        imgClearsClose: img.top >= close.bottom - 1,
+        imgClearsBar: img.bottom <= bar.top + 1,
         creditsFit: creditsEl.scrollWidth <= creditsEl.clientWidth + 1,
         closeTarget: close.height,
         zoomTarget: Math.min(zoom.height, zoom.width)
       };
     });
-    assert.equal(lightboxStack.display, 'flex', 'phone portrait lightbox uses a natural vertical stack, not the centered grid slot');
+    assert.equal(lightboxStack.display, 'flex', 'lightbox uses the media-stage flex column, not a viewport-centered slot');
     assert.equal(lightboxStack.captionBeforeCredits, true, 'the caption renders above the collaborator credits');
-    assert.equal(lightboxStack.creditsBeforeImage, true, 'the image follows the caption/credits stack');
-    assert.ok(lightboxStack.gapAboveImage >= 0 && lightboxStack.gapAboveImage <= 48, 'no giant dead zone above the phone lightbox image');
-    assert.ok(lightboxStack.gapCaptionCredits <= 16, 'caption and credits read as one compact group');
-    assert.equal(lightboxStack.barClearsImage, true, 'the zoom toolbar never covers the image');
+    assert.equal(lightboxStack.creditsBeforeStage, true, 'the media stage follows the caption/credits');
+    assert.ok(Math.abs(lightboxStack.imgCenterX - lightboxStack.stageCenterX) <= 2, `artwork is horizontally centered in the media stage (off by ${(lightboxStack.imgCenterX - lightboxStack.stageCenterX).toFixed(2)})`);
+    assert.ok(Math.abs(lightboxStack.imgCenterY - lightboxStack.stageCenterY) <= 2, `artwork is vertically centered in the media stage (off by ${(lightboxStack.imgCenterY - lightboxStack.stageCenterY).toFixed(2)})`);
+    assert.ok(lightboxStack.navCenterOffsets.every((d) => d <= 2), `prev/next navigation centers on the media stage (offsets ${lightboxStack.navCenterOffsets.map((d) => d.toFixed(1)).join(', ')})`);
+    assert.equal(lightboxStack.closeClearsStage, true, 'the close band never overlaps the media stage');
+    assert.equal(lightboxStack.barClearsStage, true, 'the zoom toolbar never overlaps the media stage');
+    assert.equal(lightboxStack.imgClearsClose, true, 'resting artwork is never obscured by the close control');
+    assert.equal(lightboxStack.imgClearsBar, true, 'resting artwork is never obscured by the toolbar');
     assert.ok(lightboxStack.creditsFit, 'lightbox credits wrap a very long collaborator name safely');
     assert.ok(lightboxStack.closeTarget >= 43 && lightboxStack.zoomTarget >= 43, 'lightbox close and zoom controls keep ~44px touch targets');
     await page.keyboard.press('Escape');
@@ -4607,15 +4619,21 @@ try {
       return found;
     });
     assert.ok(safeAreaRules >= 3, 'phone lightbox close/toolbar/padding are safe-area aware');
-    // Desktop keeps the centered grid lightbox.
+    // Desktop uses the same media-stage model (centered artwork/nav in the stage).
     await page.setViewportSize({width: 1280, height: 800});
     await page.waitForTimeout(300);
     await page.evaluate(() => document.querySelector('#pfGrid [data-project="ink-splash"]').click());
     await page.locator('#publicLightbox:not([hidden])').waitFor({state: 'visible'});
-    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('publicLightbox')).display), 'grid', 'desktop keeps the centered grid lightbox');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('publicLightbox')).display), 'flex', 'desktop uses the media-stage flex column');
+    const desktopCentered = await page.evaluate(() => {
+      const sr = document.getElementById('publicLightboxStage').getBoundingClientRect();
+      const ir = document.getElementById('publicLightboxImg').getBoundingClientRect();
+      return { dx: (ir.left + ir.width / 2) - (sr.left + sr.width / 2), dy: (ir.top + ir.height / 2) - (sr.top + sr.height / 2) };
+    });
+    assert.ok(Math.abs(desktopCentered.dx) <= 2 && Math.abs(desktopCentered.dy) <= 2, `desktop artwork centers on the media stage (dx=${desktopCentered.dx.toFixed(2)}, dy=${desktopCentered.dy.toFixed(2)})`);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
-    console.log('PASS mobile stabilization: no phone overflow, wrapping, phone lightbox stack, safe-area controls, thanks scroller (SDK fixture)');
+    console.log('PASS mobile stabilization: no phone overflow, wrapping, centered media-stage lightbox, safe-area controls, thanks scroller (SDK fixture)');
 
     // ---- Public overflow matrix: About frame + unbounded cloud badges -----
     // BUG-01: a CMS profile image makes the About frame fill its column; the
@@ -4819,10 +4837,13 @@ try {
       const img = thumb && thumb.querySelector('img');
       const meta = card.querySelector('.meta');
       const title = card.querySelector('.work-title');
+      const badge = card.querySelector('.cloud-tag');
       return {
         card: box(card), thumb: box(thumb), thumbPos: getComputedStyle(thumb).position,
         img: img ? Object.assign(box(img), {natW: img.naturalWidth, natH: img.naturalHeight, fit: getComputedStyle(img).objectFit}) : null,
         hasLabel: Boolean(thumb.querySelector('.ph-label')),
+        artReady: card.classList.contains('is-art-ready'),
+        badge: badge ? box(badge) : null,
         meta: box(meta), metaPos: getComputedStyle(meta).position,
         titleChars: (title.textContent || '').length,
         titleLines: title.clientHeight / (parseFloat(getComputedStyle(title).lineHeight) || 20),
@@ -4844,13 +4865,14 @@ try {
       });
       return {cards: cards.length, hits};
     });
-    const presentationMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [667, 375], [844, 390], [768, 1024], [820, 1180], [1024, 1366], [1280, 800], [1440, 900]];
+    const presentationMatrix = [[320, 568], [375, 812], [390, 844], [430, 932], [640, 480], [641, 480], [667, 375], [720, 540], [721, 540], [768, 1024], [820, 1180], [844, 390], [1024, 1366], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
     const imageSlugs = artRatios.map(([slug]) => slug);
     for (const [width, height] of presentationMatrix) {
       await page.setViewportSize({width, height});
       await page.evaluate(() => { location.hash = '#portfolio'; });
       await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
       await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      await page.mouse.move(2, 2);
       const sw = await page.evaluate(() => ({docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth, bodyRight: document.body.getBoundingClientRect().right}));
       const at = `${width}x${height}`;
       assert.ok(sw.docSW <= sw.docCW + 1 && sw.bodySW <= sw.bodyCW + 1, `portfolio keeps the page width at ${at}`);
@@ -4871,10 +4893,14 @@ try {
           assert.ok(c.meta.t >= c.img.b - 1 && c.meta.b <= c.card.b + 1, `${slug} meta sits below the artwork inside its card at ${at}`);
           assert.equal(c.thumbPos, 'relative', `${slug} thumb participates in sizing at ${at}`);
           assert.equal(c.metaPos, 'static', `${slug} meta participates in sizing at ${at}`);
+          assert.equal(c.artReady, true, `${slug} releases the fallback minimum once artwork paints at ${at}`);
+          assert.ok(Math.abs(c.thumb.h - c.img.h) <= 2, `${slug} has no leftover placeholder strip after load at ${at}`);
         } else {
           assert.equal(c.img.fit, 'cover', `${slug} keeps the desktop cover fill at ${at}`);
           assert.equal(c.thumbPos, 'absolute', `${slug} keeps the desktop overlay layout at ${at}`);
         }
+        assert.ok(c.badge && c.badge.t < c.card.t + 1 && c.badge.b <= c.card.b, `${slug} keeps the protruding category cloud visible at ${at}`);
+        assert.ok(c.badge.r <= sw.bodyCW + 1 && c.badge.l >= -1, `${slug} category cloud stays inside the page at ${at}`);
         assert.ok(c.card.r <= sw.bodyRight + 1, `${slug} stays inside the page at ${at}`);
       }
     }
@@ -5239,19 +5265,31 @@ try {
       await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
     };
     const lbGeom = () => page.evaluate(() => {
-      const dlg = document.getElementById('publicLightbox');
       const img = document.getElementById('publicLightboxImg');
-      const dr = dlg.getBoundingClientRect();
+      const stage = document.getElementById('publicLightboxStage');
+      const sr = stage.getBoundingClientRect();
       const vr = img.getBoundingClientRect();
       const t = img.style.transform || '';
       const m = t.match(/translate\(\s*([-\d.]+)px(?:\s*,\s*([-\d.]+)px)?\s*\)/);
       const s = t.match(/scale\(\s*([\d.]+)\s*\)/);
+      const scale = s ? Number(s[1]) : 1;
+      const panX = m ? Number(m[1]) : 0;
+      const panY = m && m[2] !== undefined ? Number(m[2]) : 0;
+      const w = img.clientWidth || 0;
+      const h = img.clientHeight || 0;
+      const cx = vr.left + vr.width / 2;
+      const cy = vr.top + vr.height / 2;
       return {
-        stage: {l: dr.left + img.offsetLeft, t: dr.top + img.offsetTop, w: img.clientWidth, h: img.clientHeight},
-        visual: {l: vr.left, t: vr.top, r: vr.right, b: vr.bottom, w: vr.width, h: vr.height},
-        scale: s ? Number(s[1]) : 1,
-        panX: m ? Number(m[1]) : 0,
-        panY: m && m[2] !== undefined ? Number(m[2]) : 0
+        /* The pan "stage" is the artwork's own untransformed layout box
+           (pan bounds stay image-relative); recovered from the invariant that
+           scaling is about the center and the visual center is the untransformed
+           center shifted by the pan. `media` is the real media-stage region. */
+        stage: {l: cx - panX - w / 2, t: cy - panY - h / 2, w, h},
+        media: {l: sr.left, t: sr.top, r: sr.right, b: sr.bottom, w: sr.width, h: sr.height, cx: sr.left + sr.width / 2, cy: sr.top + sr.height / 2},
+        visual: {l: vr.left, t: vr.top, r: vr.right, b: vr.bottom, w: vr.width, h: vr.height, cx, cy},
+        scale,
+        panX,
+        panY
       };
     });
     const lbChrome = () => page.evaluate(() => {
@@ -5484,7 +5522,7 @@ try {
     }
     // Restore the desktop viewport for the admin sections.
     await page.setViewportSize({width: 1280, height: 800});
-    console.log('PASS public lightbox: bounded pan/zoom, wrapping captions and 44px controls across 13 viewports plus touch (SDK fixture)');
+    console.log('PASS public lightbox: media-stage centering, bounded pan/zoom, wrapping captions and 44px controls across 13 viewports plus touch (SDK fixture)');
 
     // ---- Shared touch controls: music/menu stack, 44px targets, 16px fields
     // BUG-07: the floating music control sits below the nav/menu stack and
