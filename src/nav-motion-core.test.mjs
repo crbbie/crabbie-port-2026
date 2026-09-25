@@ -43,6 +43,8 @@ assert.ok(html.includes('function instantScrollTo'), 'single instant scroll prim
 assert.ok(html.includes('window.scrollTo(0, restore)') === false, 'smooth-inheriting restore call removed');
 assert.ok(html.includes('lastAppliedHash') && html.includes('sameRoute(nextRoute, currentRoute)'), 'single navigation owner dedupes hash echoes');
 assert.ok(html.includes('body.is-restoring'), 'restoration lifecycle keeps restored content stationary');
+assert.ok(html.includes('.view.is-restored-activation'), 'activation-scoped restoration stationary state is declared');
+assert.ok(html.includes('isNavigatingControl'), 'semantic navigation control helper exists');
 assert.ok(html.includes('animation-fill-mode: backwards'), 'completed entrance transforms release hover lift');
 assert.ok(html.includes('.public-lightbox.is-zoomed #publicLightboxImg'), 'gesture policy is scale-aware and id-scoped (avatars untouched)');
 assert.ok(html.includes('#publicLightboxImg.anim-zoom'), 'discrete zoom animates while drag/pinch paint directly');

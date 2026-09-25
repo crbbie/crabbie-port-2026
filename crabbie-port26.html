@@ -2516,7 +2516,14 @@ html.home-reveal-sequence.home-reveal-active footer{
 /* Restored list navigation must be visually stationary: no view or grid
    entrance replay while the remembered scroll position is applied. Fresh
    navigation (no .is-restoring on body) keeps the playful entrance. */
-body.is-restoring .view.is-active{ animation: none !important; }
+body.is-restoring .view.is-active,
+.view.is-restored-activation,
+.view.is-restored-activation.is-active{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
 body.is-restoring .view.is-active .page-head,
 body.is-restoring .view.is-active .page-title,
 body.is-restoring .view.is-active .back-link,
@@ -2525,7 +2532,18 @@ body.is-restoring .view.is-active .comm-grid > *,
 body.is-restoring .view.is-active .assets-grid > *,
 body.is-restoring .view.is-active .mini-grid > *,
 body.is-restoring .view.is-active .exp-grid > *,
-body.is-restoring .view.is-active .values-grid > *{ animation: none !important; }
+body.is-restoring .view.is-active .values-grid > *,
+.view.is-restored-activation .page-head,
+.view.is-restored-activation .page-title,
+.view.is-restored-activation .back-link,
+.view.is-restored-activation .pf-grid > *,
+.view.is-restored-activation .comm-grid > *,
+.view.is-restored-activation .assets-grid > *,
+.view.is-restored-activation .mini-grid > *,
+.view.is-restored-activation .exp-grid > *,
+.view.is-restored-activation .values-grid > *{
+  animation: none !important;
+}
 
 /* ============================================================
    VIEW TRANSITION — mượt khi chuyển view
@@ -2571,7 +2589,13 @@ body.is-restoring .view.is-active .values-grid > *{ animation: none !important; 
 body:not(.admin-mode) .work[data-project].is-jelly,
 body:not(.admin-mode) .work[data-project] .is-jelly,
 body:not(.admin-mode) .item[data-asset].is-jelly,
-body:not(.admin-mode) .item[data-asset] .is-jelly{
+body:not(.admin-mode) .item[data-asset] .is-jelly,
+body:not(.admin-mode) [data-goto].is-jelly,
+body:not(.admin-mode) [data-goto] .is-jelly,
+body:not(.admin-mode) .back-link.is-jelly,
+body:not(.admin-mode) .back-link .is-jelly,
+body:not(.admin-mode) #pdPrev.is-jelly,
+body:not(.admin-mode) #pdNext.is-jelly{
   animation: none !important;
 }
 
@@ -5181,6 +5205,8 @@ else a.removeAttribute('aria-current');
 document.title = titleFor(view, route.id, route.adminModule);
 if(view === 'commissions'){ try{ renderClientThanks(); }catch(e){ /* commissions stays intact */ } }
 closeMenu(false);
+/* Clear any lingering sparkle particles from previous views immediately */
+document.querySelectorAll('.anim-sparkle').forEach(function(s){ if(s.parentNode) s.parentNode.removeChild(s); });
 /* Same-route public refresh keeps position and focus: only a genuine view/id
    change scrolls or moves focus. */
 var isSame = sameRoute(route, currentRoute);
@@ -5190,6 +5216,17 @@ var comingBackFromDetail = (prevView === 'project-detail' && view === 'portfolio
    restored) restores any visited view with memory; direct loads with no memory
    fall through to top deterministically. */
 var isRestored = !opts.forceScroll && !isSame && typeof restore === 'number' && (comingBackFromDetail || !!opts.restored);
+$$('.view').forEach(function(v){
+  var isTarget = v.getAttribute('data-view') === view;
+  v.classList.toggle('is-active', isTarget);
+  if(!isSame){
+    if(isTarget && isRestored){
+      v.classList.add('is-restored-activation');
+    } else {
+      v.classList.remove('is-restored-activation');
+    }
+  }
+});
 if(!opts.noScroll && !isSame){
 if(isRestored) document.body.classList.add('is-restoring');
 if(comingBackFromDetail && typeof restore === 'number') instantScrollTo(restore); else scrollToTop();
@@ -5201,12 +5238,20 @@ lastAppliedHash = location.hash;
 upgradeTikTokThumbs(document);
 if(isRestored){
 /* Drop the stationary flag after the restored frame settles so the next
-   fresh navigation replays its entrance. No timers or scroll loops. */
+   fresh navigation replays its entrance. The view retains .is-restored-activation
+   for its entire active lifetime so no delayed animation start can occur. */
 if(typeof requestAnimationFrame === 'function'){
 requestAnimationFrame(function(){ requestAnimationFrame(function(){ document.body.classList.remove('is-restoring'); }); });
 } else document.body.classList.remove('is-restoring');
 }
 }
+function isNavigatingControl(target){
+if(!target || target.nodeType !== 1) return false;
+return Boolean(target.closest(
+  '[data-goto], [data-project], [data-asset], .work, .item, #pdPrev, #pdNext, .back-link, [data-admin-jump], [data-admin-module]'
+));
+}
+window.isNavigatingControl = isNavigatingControl;
 function routeFromLocation(){
 var raw = location.hash.replace(/^#/, '');
 var path = location.pathname.replace(/^\/+|\/+$/g, '');
@@ -5256,10 +5301,21 @@ event.returnValue = '';
 function navigate(path, opts){
 opts = opts || {};
 var hash = '#' + path;
-if(location.hash === hash){ applyRoute(parseRoute(path), opts); return; }
-if(opts.replace){ try{ history.replaceState(null, '', hash); }catch(e){ location.hash = hash; return; } applyRoute(parseRoute(path), opts); return; }
-/* New hash: the hashchange listener owns the single application. */
-location.hash = hash;
+var nextRoute = parseRoute(path);
+if(adminExitBlocked(nextRoute)){
+  confirmDiscard(function(){
+    teardownViewerForRoute();
+    navigate(path, opts);
+  });
+  return;
+}
+teardownViewerForRoute();
+if(location.hash === hash){ applyRoute(nextRoute, opts); return; }
+if(opts.replace){ try{ history.replaceState(null, '', hash); }catch(e){ location.hash = hash; } }
+else { location.hash = hash; }
+/* Programmatic navigation applies destination route synchronously during activation.
+   The subsequent hashchange is treated as an echo by handleHash. */
+applyRoute(nextRoute, opts);
 }
 window.addEventListener('hashchange', handleHash);
 
@@ -12176,10 +12232,14 @@ function sparkleBurst(el){
     })(i);
   }
 }
-/* Sparkle only on the primary CTAs, not every button variant. */
+/* Sparkle only on the primary CTAs that stay on the page, never on route-changing controls. */
 document.addEventListener('click', function(e){
   var el = e.target.closest('.btn-primary, .nav-cta');
   if(!el) return;
+  var isNav = typeof window.isNavigatingControl === 'function'
+    ? window.isNavigatingControl(el)
+    : Boolean(el.closest('[data-goto], [data-project], [data-asset], .work, .item, #pdPrev, #pdNext, .back-link, [data-admin-jump], [data-admin-module]'));
+  if(isNav) return;
   sparkleBurst(el);
 });
 
@@ -12342,9 +12402,10 @@ function handleJellyEvent(e){
   if (reduceMotion.matches) return;
   if (document.body.classList.contains('admin-mode')) return;
   if (!e.target || e.target.nodeType !== 1) return;
-  // Exclude Portfolio and Free Asset navigation cards and all descendants:
-  // navigation must remain immediate and never jelly before routing.
-  if (e.target.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
+  var isNav = typeof window.isNavigatingControl === 'function'
+    ? window.isNavigatingControl(e.target)
+    : Boolean(e.target.closest('[data-goto], [data-project], [data-asset], .work, .item, #pdPrev, #pdNext, .back-link, [data-admin-jump], [data-admin-module]'));
+  if (isNav) return;
   var el = e.target.closest(JELLY_TARGETS);
   if(!el){
     var choice = e.target.closest('.choice');
@@ -12352,7 +12413,10 @@ function handleJellyEvent(e){
   }
   if(!el || el.disabled) return;
   if(el.closest('.view[data-view="admin"]')) return;
-  if(el.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
+  var isNavEl = typeof window.isNavigatingControl === 'function'
+    ? window.isNavigatingControl(el)
+    : Boolean(el.closest('[data-goto], [data-project], [data-asset], .work, .item, #pdPrev, #pdNext, .back-link, [data-admin-jump], [data-admin-module]'));
+  if (isNavEl) return;
   playJelly(el);
 }
 

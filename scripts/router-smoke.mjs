@@ -5161,6 +5161,95 @@ try {
       assert.equal(st.eyebrow.opacity, '1', `${detailView}: eyebrow opacity is 1`);
     };
 
+    // Synchronous navigation assertion: immediately after .click(), before yielding, hash and active view must agree
+    const assertSynchronousNav = async (selector, expectedHash, expectedView) => {
+      const res = await page.evaluate(({ sel, expHash, expView }) => {
+        const el = document.querySelector(sel);
+        if (!el) return { found: false };
+        el.click();
+        const active = Array.from(document.querySelectorAll('.view.is-active')).map(v => v.dataset.view);
+        return {
+          found: true,
+          hash: location.hash,
+          activeCount: active.length,
+          activeView: active[0] || null,
+          hasJelly: Boolean(el.classList.contains('is-jelly') || el.closest('.is-jelly'))
+        };
+      }, { sel: selector, expHash: expectedHash, expView: expectedView });
+      assert.ok(res.found, `Element ${selector} found for sync nav check`);
+      assert.equal(res.hash, expectedHash, `Hash updated synchronously on click of ${selector}`);
+      assert.equal(res.activeCount, 1, `Exactly one active view immediately after click of ${selector}`);
+      assert.equal(res.activeView, expectedView, `Active view agrees synchronously with hash immediately after click of ${selector}`);
+      assert.equal(res.hasJelly, false, `No is-jelly on navigating control ${selector}`);
+    };
+
+    // Restore regression assertion: sample over immediate, 1 rAF, 2 rAF, 3 rAF, ~50ms, ~100ms, ~200ms
+    const assertStationaryRestore = async (backLinkSelector, expectedListView, expectedListHash) => {
+      const samples = await page.evaluate(async ({ backSel, expListView, expListHash }) => {
+        const snapshots = [];
+        const snap = (stage) => {
+          const active = Array.from(document.querySelectorAll('.view.is-active'));
+          const activeEl = active[0] || null;
+          const rootCs = activeEl ? getComputedStyle(activeEl) : null;
+          const cards = activeEl ? Array.from(activeEl.querySelectorAll('.work, .item')).filter(c => c.style.display !== 'none') : [];
+          const cardAnims = cards.slice(0, 4).map(c => getComputedStyle(c).animationName);
+          snapshots.push({
+            stage,
+            hash: location.hash,
+            activeCount: active.length,
+            activeView: activeEl?.dataset.view || null,
+            isRestoredActivation: activeEl?.classList.contains('is-restored-activation') || false,
+            rootAnim: rootCs?.animationName || '',
+            cardAnims,
+            scrollY: Math.round(window.scrollY)
+          });
+        };
+
+        const backBtn = document.querySelector(backSel);
+        if (!backBtn) return { error: `Back button not found: ${backSel}` };
+        backBtn.click();
+        snap('immediate');
+
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            snap('rAF 1');
+            requestAnimationFrame(() => {
+              snap('rAF 2');
+              requestAnimationFrame(() => {
+                snap('rAF 3');
+                setTimeout(() => {
+                  snap('timer 50ms');
+                  setTimeout(() => {
+                    snap('timer 100ms');
+                    setTimeout(() => {
+                      snap('timer 200ms');
+                      resolve();
+                    }, 100);
+                  }, 50);
+                }, 50);
+              });
+            });
+          });
+        });
+
+        return { snapshots };
+      }, { backSel: backLinkSelector, expListView: expectedListView, expListHash: expectedListHash });
+
+      assert.ok(!samples.error, samples.error);
+      assert.ok(samples.snapshots.length >= 7, 'All restore samples collected');
+      for (const s of samples.snapshots) {
+        assert.equal(s.hash, expectedListHash, `Sample ${s.stage}: hash is ${expectedListHash}`);
+        assert.equal(s.activeCount, 1, `Sample ${s.stage}: exactly one active view`);
+        assert.equal(s.activeView, expectedListView, `Sample ${s.stage}: active view is ${expectedListView}`);
+        assert.equal(s.isRestoredActivation, true, `Sample ${s.stage}: view retains is-restored-activation throughout`);
+        assert.equal(s.rootAnim, 'none', `Sample ${s.stage}: root animation must be 'none' throughout (no animViewIn restart)`);
+        for (const cardAnim of s.cardAnims) {
+          assert.equal(cardAnim, 'none', `Sample ${s.stage}: card animation must be 'none' throughout (no animFadeScale restart)`);
+        }
+      }
+      return samples.snapshots;
+    };
+
     // Restore prototype portfolio records for navigation checks
     await page.evaluate(() => {
       location.hash = '#portfolio';
@@ -5173,26 +5262,24 @@ try {
     });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
 
-    // 1. Portfolio card click body
-    await page.locator('#pfGrid .work[data-project="color-fiesta"] .thumb').click();
+    // 1. Portfolio card synchronous navigation & stationary detail view
+    await assertSynchronousNav('#pfGrid .work[data-project="color-fiesta"] .thumb', '#project/color-fiesta', 'project-detail');
     await assertStationaryView('project-detail', '#project/color-fiesta');
-    await page.locator('.view[data-view="project-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    // 1b. Restore regression check: returning to portfolio stays stationary over 200ms with is-restored-activation
+    await assertStationaryRestore('.view[data-view="project-detail"] .back-link', 'portfolio', '#portfolio');
 
-    // 2. Portfolio click See more
-    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').click();
+    // 2. Portfolio click See more (synchronous nav + stationary restore)
+    await assertSynchronousNav('#pfGrid .work[data-project="amelodios-merch"] .work-more', '#project/amelodios-merch', 'project-detail');
     await assertStationaryView('project-detail', '#project/amelodios-merch');
-    await page.locator('.view[data-view="project-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await assertStationaryRestore('.view[data-view="project-detail"] .back-link', 'portfolio', '#portfolio');
 
     // 3. Portfolio keyboard Enter
     await page.locator('#pfGrid .work[data-project="amelodios-comic"]').focus();
     await page.keyboard.press('Enter');
     await assertStationaryView('project-detail', '#project/amelodios-comic');
-    await page.locator('.view[data-view="project-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await assertStationaryRestore('.view[data-view="project-detail"] .back-link', 'portfolio', '#portfolio');
 
-    // 4. Free Assets click card
+    // 4. Free Assets click card (synchronous nav + stationary restore)
     await page.evaluate(() => {
       location.hash = '#free-assets';
       window.CrabbieAssets.apply([
@@ -5201,29 +5288,46 @@ try {
       ]);
     });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
-    await page.locator('#faGrid .item[data-asset="petal-pack"]').click();
+    await assertSynchronousNav('#faGrid .item[data-asset="petal-pack"]', '#asset/petal-pack', 'free-asset-detail');
     await assertStationaryView('free-asset-detail', '#asset/petal-pack');
-    await page.locator('.view[data-view="free-asset-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#free-assets' && document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await assertStationaryRestore('.view[data-view="free-asset-detail"] .back-link', 'free-assets', '#free-assets');
 
     // 5. Free Assets keyboard Enter
     await page.locator('#faGrid .item[data-asset="sparkle-stars"]').focus();
     await page.keyboard.press('Enter');
     await assertStationaryView('free-asset-detail', '#asset/sparkle-stars');
-    await page.locator('.view[data-view="free-asset-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#free-assets' && document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await assertStationaryRestore('.view[data-view="free-asset-detail"] .back-link', 'free-assets', '#free-assets');
 
-    // 6. Prefers-reduced-motion check: stationary detail view holds in both states
+    // 6. Project-to-project navigation (Next Project / Previous Project)
+    await page.evaluate(() => { location.hash = '#project/color-fiesta'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await assertSynchronousNav('#pdNext', '#project/amelodios-merch', 'project-detail');
+    await assertStationaryView('project-detail', '#project/amelodios-merch');
+    assert.equal(await page.locator('#pdNext.is-jelly, #pdPrev.is-jelly').count(), 0, 'no jelly on pdNext or pdPrev');
+    await assertSynchronousNav('#pdPrev', '#project/color-fiesta', 'project-detail');
+    await assertStationaryView('project-detail', '#project/color-fiesta');
+    assert.equal(await page.locator('#pdNext.is-jelly, #pdPrev.is-jelly').count(), 0, 'no jelly on pdPrev');
+    await page.locator('.view[data-view="project-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 7. Route-changing CTA sparkle suppression check
+    await assertSynchronousNav('#mainNav .nav-cta', '#commissions', 'commissions');
+    assert.equal(await page.locator('.anim-sparkle').count(), 0, 'no anim-sparkle particles survived or created by route CTA');
+    await assertSynchronousNav('#mainNav .brand', '#home', 'home');
+    await page.waitForFunction(() => location.hash === '#home' && document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await assertSynchronousNav('.hero-ctas [data-goto="portfolio"]', '#portfolio', 'portfolio');
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 8. Prefers-reduced-motion check: stationary detail view holds in both states
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.evaluate(() => { location.hash = '#portfolio'; });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-    await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+    await assertSynchronousNav('#pfGrid .work[data-project="color-fiesta"]', '#project/color-fiesta', 'project-detail');
     await assertStationaryView('project-detail', '#project/color-fiesta');
-    await page.locator('.view[data-view="project-detail"] .back-link').click();
-    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await assertStationaryRestore('.view[data-view="project-detail"] .back-link', 'portfolio', '#portfolio');
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
-    console.log('PASS navigation motion stability: no jelly on cards/see-more, stationary detail view/title/back/eyebrow (SDK fixture)');
+    console.log('PASS navigation motion stability: synchronous route application, stationary restore over 200ms, no jelly on cards/nav controls, stationary detail view/title/back/eyebrow (SDK fixture)');
     await page.setViewportSize({width: 1280, height: 800});
 
     // ---- Public lightbox: bounded pan/zoom, wrapping captions, 44px controls

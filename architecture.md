@@ -51,10 +51,12 @@ Unknown public routes render the 404 view. Unknown admin modules fall back to th
 
 When adding a public route, update all relevant route parsing, title handling, navigation state, rendering, and tests together.
 
-Route scroll and focus ownership: `navigate()` applies a route once (the hash
-listener ignores its echo), `instantScrollTo` is the only route-scroll
-primitive, same-route detail refresh re-renders in place without routing,
-and admin dirty-navigation guards plus URL/deep-link behavior are unchanged.
+Route scroll and focus ownership: `navigate()` applies the destination route
+synchronously in the same event tick before the asynchronous `hashchange`
+event fires (the hash listener treats the subsequent event as an echo and
+dedupes it), `instantScrollTo` is the only route-scroll primitive, same-route
+detail refresh re-renders in place without routing, and admin dirty-navigation
+guards plus URL/deep-link behavior are unchanged.
 
 ## Module boundaries
 
@@ -148,8 +150,8 @@ Portfolio grid presentation is deterministic and presentation-only:
 - Compact widths (<=1180px) and tablet/phone columns strictly use `pf-s` (and single-column at <=720px), avoiding legacy multi-row spans.
 - The plan is derived purely from visible ordered DOM cards via `planPortfolioVariants()` (`src/portfolio-grid-core.js`, mirrored inline in the SPA) during hydration, reorder, removal/reintroduction, filter, search, reset, and debounced window resize.
 - Artwork readiness (`is-art-ready`) dynamically reconciles image availability, errors, and natural dimensions, releasing the 180px minimum fallback height on load without distortion.
-- Jelly squash/stretch feedback (`.is-jelly`) is strictly excluded from navigation cards (`.work[data-project]`, `.item[data-asset]`, `.work-more`, and descendants); card navigation executes immediately without animation delays.
-- Navigation to `project-detail` and `free-asset-detail` is visually stationary on initial activation (suppressing `animViewIn`, `animFadeUp`, and `animEyebrowPop`, keeping stationary `-2deg` rotation on eyebrow). Returning to list view uses `.is-restoring` to skip list re-animation and restore scroll position.
+- Jelly squash/stretch feedback (`.is-jelly`) and sparkle particle bursts are strictly excluded from navigation controls (`isNavigatingControl`: `[data-goto]`, `[data-project]`, `[data-asset]`, `.work`, `.item`, `#pdPrev`, `#pdNext`, `.back-link`, `[data-admin-jump]`, `[data-admin-module]`); navigation executes immediately and synchronously without animation delays.
+- Navigation to `project-detail` and `free-asset-detail` is visually stationary on initial activation (suppressing `animViewIn`, `animFadeUp`, and `animEyebrowPop`, keeping stationary `-2deg` rotation on eyebrow). Returning to list view applies `body.is-restoring` during scroll restoration and leaves `.view.is-restored-activation` on the list view for its entire active lifetime, suppressing `animViewIn` and `animFadeScale` permanently for that activation.
 
 ## Asset preview gallery data flow
 
