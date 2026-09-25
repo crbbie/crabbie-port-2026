@@ -272,7 +272,7 @@ for (const mobile of [false, true]) {
     if (!jellySeen) await page.waitForTimeout(200);
   }
   assert.equal(jellySeen, true, `${mode}: jelly press feedback fires`);
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(800);
   assert.equal(await page.locator('.is-jelly').count(), 0, `${mode}: jelly releases without resticking`);
   if (!mobile) {
     await page.locator('#pfGrid .work').first().hover();
