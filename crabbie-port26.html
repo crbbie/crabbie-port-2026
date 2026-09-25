@@ -1444,6 +1444,11 @@ body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
 </style>
 
+<style id="nav-hover-color-override">
+body:not(.admin-mode) .nav-links a:not(.active):hover{ color:#F077B9; }
+body:not(.admin-mode) .mobile-menu a:not(.active):hover{ color:#F077B9; }
+</style>
+
 <!-- ============================================================
      ADMIN SHELL CSS v2 — unified layout, sidebar 244px, sticky save, i18n
      ============================================================ -->
@@ -2633,21 +2638,28 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 }
 
 /* ============================================================
-   TAB / CHIP — pop khi active (không lặp)
+   TAB / CHIP — pop khi active (hợp nhất với jelly, không bị pop nối tiếp)
    ============================================================ */
 @keyframes animTabPop{
   0%   { transform: translateY(-2px) scale(.9); }
   55%  { transform: translateY(0) scale(1.06); }
   100% { transform: translateY(0) scale(1); }
 }
-.tab-btn.on{ animation: animTabPop .4s var(--ease-squish); }
 
 @keyframes animChipPop{
   0%   { transform: scale(.9); }
   55%  { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
-.chip.on{ animation: animChipPop .4s var(--ease-squish); }
+
+body:not(.admin-mode) .chip.is-jelly{
+  animation: jelly .7s cubic-bezier(.22, 1, .36, 1) both,
+             animChipPop .4s var(--ease-squish) .05s !important;
+}
+body:not(.admin-mode) .tab-btn.is-jelly{
+  animation: jelly .7s cubic-bezier(.22, 1, .36, 1) both,
+             animTabPop .4s var(--ease-squish) .05s !important;
+}
 
 /* ============================================================
    ADMIN — status badge pulse, list record slide, confetti, check
@@ -3180,15 +3192,20 @@ body:not(.admin-mode) .nav-cta::before{
 }
 body:not(.admin-mode) .nav-cta::before{ width:44px; height:23px; top:-15px; right:-7px; }
 
-body:not(.admin-mode) .btn-primary:hover::before,
+@media (hover: hover) and (pointer: fine){
+  body:not(.admin-mode) .btn-primary:hover::before,
+  body:not(.admin-mode) .btn-purple:hover::before,
+  body:not(.admin-mode) .btn-yellow:hover::before,
+  body:not(.admin-mode) .nav-cta:hover::before{
+    animation:decoBowPop .36s cubic-bezier(.34,1.56,.64,1) both;
+  }
+}
 body:not(.admin-mode) .btn-primary:focus-visible::before,
-body:not(.admin-mode) .btn-purple:hover::before,
 body:not(.admin-mode) .btn-purple:focus-visible::before,
-body:not(.admin-mode) .btn-yellow:hover::before,
 body:not(.admin-mode) .btn-yellow:focus-visible::before,
-body:not(.admin-mode) .nav-cta:hover::before,
 body:not(.admin-mode) .nav-cta:focus-visible::before{
-  animation:decoBowPop .36s cubic-bezier(.34,1.56,.64,1) both;
+  opacity:1;
+  transform:scale(1) rotate(10deg);
 }
 
 @keyframes decoBowPop{
