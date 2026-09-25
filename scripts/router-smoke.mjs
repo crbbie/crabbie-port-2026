@@ -3898,8 +3898,97 @@ try {
     assert.equal(await page.locator('#faGrid [data-asset="feat-plain"].is-cms-featured').count(), 1, 'a featured asset still gets featured card styling');
     await page.locator('#faChips .chip[data-filter="brushes"]').click();
     assert.equal(await page.locator('#faGrid [data-asset="hot-brush"]:visible').count(), 1, 'the asset category chip keeps matching assets');
-    assert.equal(await page.locator('#faGrid [data-asset="feat-plain"]:visible').count(), 0, 'the asset category chip filters other categories');
     await page.locator('#faChips .chip[data-filter="all"]').click();
+
+    // Regression (P2 audit): canonical asset category filtering, chip clicking, search combination, reset, retention, and category deletion.
+    const baselineAssets = [
+      {slug:'hot-brush',title:'Hot Brush',cat:'Brushes',category:'Brushes',format:'PNG',availability:'available',downloadUrl:'https://example.test/hot.zip',showDirectDownload:true,showDriveDownload:false,flowerTag:'HOT',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀',published:true},
+      {slug:'feat-plain',title:'Feat Plain',cat:'Icons',category:'Icons',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:true,filterCat:'icons',tags:[],thumbnail:'',icon:'★',published:true},
+      {slug:'drive-only',title:'Drive Only',cat:'Brushes',category:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:false,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀',published:true},
+      {slug:'both-dl',title:'Both DL',cat:'Brushes',category:'Brushes',format:'ZIP',availability:'available',downloadUrl:'https://example.test/both.zip',showDirectDownload:true,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'NEW',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀',published:true},
+      {slug:'no-dl',title:'No DL',cat:'Brushes',category:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀',published:true}
+    ];
+
+    const regressionAssets = [
+      {slug:'overlay-pack',title:'Neon Stream Pack',category:'stream overlays',cat:'stream overlays',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['overlay'],published:true},
+      {slug:'overlay-cam',title:'Webcam Box',category:'stream overlays',cat:'stream overlays',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['cam'],published:true},
+      {slug:'sticker-viet',title:'Sticker Hoa',category:'nhãn dán',cat:'nhãn dán',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['cute'],published:true},
+      {slug:'psd-source',title:'UI Source File',category:'psd/png',cat:'psd/png',format:'PSD',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['source'],published:true},
+      {slug:'solo-stream',title:'Stream Music',category:'stream',cat:'stream',format:'MP3',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['audio'],published:true},
+      {slug:'brush-item',title:'Soft Brush',category:'brushes',cat:'brushes',format:'BRUSH',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['brush'],published:true}
+    ];
+
+    await page.evaluate((items) => {
+      window.CrabbieAssets.apply(items);
+      location.hash = '#free-assets';
+    }, regressionAssets);
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+
+    // 1. Multi-word canonical category chip clicking (does not tokenize or fail with 0 results)
+    const overlayChip = page.locator('#faChips .chip[data-filter="stream overlays"]');
+    await overlayChip.waitFor({state:'visible'});
+    await overlayChip.click();
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-pack"]:visible').count(), 1, 'stream overlays card 1 is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-cam"]:visible').count(), 1, 'stream overlays card 2 is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="solo-stream"]:visible').count(), 0, 'solo stream category is filtered out and not matched as token');
+    assert.equal(await page.locator('#faGrid [data-asset="brush-item"]:visible').count(), 0, 'brush item is filtered out');
+    assert.equal(await page.locator('#faEmpty:visible').count(), 0, 'empty state is not triggered for stream overlays');
+
+    // 2. Unicode category chip clicking
+    const unicodeChip = page.locator('#faChips .chip[data-filter="nhãn dán"]');
+    await unicodeChip.waitFor({state:'visible'});
+    await unicodeChip.click();
+    assert.equal(await page.locator('#faGrid [data-asset="sticker-viet"]:visible').count(), 1, 'unicode category card is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-pack"]:visible').count(), 0, 'other categories filtered out');
+
+    // 3. Punctuation category chip clicking
+    const punctChip = page.locator('#faChips .chip[data-filter="psd/png"]');
+    await punctChip.waitFor({state:'visible'});
+    await punctChip.click();
+    assert.equal(await page.locator('#faGrid [data-asset="psd-source"]:visible').count(), 1, 'punctuation category card is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="sticker-viet"]:visible').count(), 0, 'other categories filtered out');
+
+    // 4. Combined search + category filter
+    await overlayChip.click();
+    await page.locator('#faSearch').fill('Neon');
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-pack"]:visible').count(), 1, 'search + category shows matching card');
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-cam"]:visible').count(), 0, 'search filters out non-matching category card');
+    await page.locator('#faSearch').fill('no-such-thing-exists-xyz');
+    assert.equal(await page.locator('#faGrid [data-asset]:visible').count(), 0, 'impossible search yields no cards');
+    assert.equal(await page.locator('#faEmpty:visible').count(), 1, 'empty state shows reset button');
+
+    // 5. Reset button restores all cards and All chip
+    await page.locator('#faEmpty [data-reset="fa"]').click();
+    assert.equal(await page.locator('#faChips .chip[data-filter="all"].on').count(), 1, 'All chip is active after reset');
+    assert.equal(await page.locator('#faGrid [data-asset]:visible').count(), regressionAssets.length, 'all cards visible after reset');
+
+    // 6. Selection retention across hydration/reorder
+    await overlayChip.click();
+    assert.equal(await page.locator('#faChips .chip[data-filter="stream overlays"].on').count(), 1, 'stream overlays is active before hydration');
+    // Reorder records and re-hydrate
+    const reorderedAssets = [...regressionAssets].reverse();
+    await page.evaluate((items) => {
+      window.CrabbieAssets.apply(items);
+    }, reorderedAssets);
+    assert.equal(await page.locator('#faChips .chip[data-filter="stream overlays"].on').count(), 1, 'stream overlays selection retained across hydration/reorder');
+    assert.equal(await page.locator('#faGrid [data-asset="overlay-pack"]:visible').count(), 1, 'overlay pack still visible after hydration');
+    assert.equal(await page.locator('#faGrid [data-asset="solo-stream"]:visible').count(), 0, 'unmatched card still hidden after hydration');
+
+    // 7. Category deletion resets selection to All
+    const assetsWithoutOverlay = regressionAssets.filter((a) => a.category !== 'stream overlays');
+    await page.evaluate((items) => {
+      window.CrabbieAssets.apply(items);
+    }, assetsWithoutOverlay);
+    assert.equal(await page.locator('#faChips .chip[data-filter="all"].on').count(), 1, 'selection resets to All when selected category is deleted');
+    assert.equal(await page.locator('#faGrid [data-asset]:visible').count(), assetsWithoutOverlay.length, 'all remaining cards visible');
+
+    // Restore baseline assets for subsequent tests
+    await page.evaluate((items) => {
+      window.CrabbieAssets.apply(items);
+      location.hash = '#free-assets';
+    }, baselineAssets);
+    await page.locator('#faChips .chip[data-filter="all"]').click();
+
     // G: download button combinations.
     const dlVisible = async (id) => ({
       direct: await page.locator('#adDownload').isVisible(),

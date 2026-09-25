@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mapFreeAsset, assetCategorySlug, assetFilterChips } from './free-assets-core.js';
+import {
+  mapFreeAsset,
+  assetCategorySlug,
+  assetFilterChips,
+  normalizeAssetCategory,
+  matchesAssetCategory,
+  resolveAssetCategoryFilter
+} from './free-assets-core.js';
 
 const fallback = {
   slug: 'proto-asset',
@@ -57,4 +64,28 @@ assert.equal(assetCategorySlug({ cat: 'Elements' }), 'elements');
 assert.equal(assetCategorySlug({ filterCat: 'Legacy' }), 'legacy', 'a legacy-only row still filters');
 assert.equal(assetCategorySlug({}), 'other');
 assert.deepEqual(assetFilterChips([{ category: 'Brushes' }, { cat: 'brushes' }, { cat: 'Audio' }]), ['audio', 'brushes'], 'chips follow the live taxonomy');
+
+// Canonical asset category normalization
+assert.equal(normalizeAssetCategory(''), '');
+assert.equal(normalizeAssetCategory(null), '');
+assert.equal(normalizeAssetCategory('  Stream   Overlays  '), 'stream overlays');
+assert.equal(normalizeAssetCategory('Nhãn Dán'), 'nhãn dán');
+assert.equal(normalizeAssetCategory('PSD/PNG'), 'psd/png');
+
+// Canonical category matching: whole canonical value, not tokenized
+assert.equal(matchesAssetCategory('stream overlays', 'all'), true);
+assert.equal(matchesAssetCategory('stream overlays', 'stream overlays'), true);
+assert.equal(matchesAssetCategory('Stream Overlays', 'stream overlays'), true);
+assert.equal(matchesAssetCategory('stream overlays', 'Stream Overlays'), true);
+assert.equal(matchesAssetCategory('stream overlays', 'stream'), false, 'multi-word category must not match single word token');
+assert.equal(matchesAssetCategory('stream overlays', 'overlays'), false, 'multi-word category must not match single word token');
+assert.equal(matchesAssetCategory('nhãn dán', 'Nhãn Dán'), true, 'unicode categories match canonical values');
+assert.equal(matchesAssetCategory('psd/png', 'PSD/PNG'), true, 'punctuation categories match canonical values');
+
+// Selection retention across hydration/reorder and deletion
+assert.equal(resolveAssetCategoryFilter('stream overlays', ['brushes', 'stream overlays', 'elements']), 'stream overlays');
+assert.equal(resolveAssetCategoryFilter('Stream Overlays', ['brushes', 'stream overlays', 'elements']), 'stream overlays');
+assert.equal(resolveAssetCategoryFilter('deleted-category', ['brushes', 'stream overlays', 'elements']), 'all', 'removed category resets to all');
+assert.equal(resolveAssetCategoryFilter('all', ['brushes', 'stream overlays']), 'all');
+
 console.log('Free Assets mapping test passed.');

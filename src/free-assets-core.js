@@ -35,15 +35,34 @@ export function mapFreeAsset(row, fallback = {}) {
   };
 }
 
+export function normalizeAssetCategory(value) {
+  return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 /* Canonical asset taxonomy: the CMS category wins; the legacy filterCat is
  * only a last-resort fallback and never overrides the canonical value. */
 export function assetCategorySlug(record) {
   if (!record || typeof record !== 'object') return 'other';
   const canonical = record.category || record.cat || record.categorySlug || '';
-  const text = String(canonical).trim().toLowerCase();
+  const text = normalizeAssetCategory(canonical);
   if (text) return text;
-  const legacy = String(record.filterCat || '').trim().toLowerCase();
+  const legacy = normalizeAssetCategory(record.filterCat || '');
   return legacy || 'other';
+}
+
+export function matchesAssetCategory(cardCategory, selectedCategory) {
+  const selected = normalizeAssetCategory(selectedCategory);
+  if (!selected || selected === 'all') return true;
+  const card = normalizeAssetCategory(cardCategory);
+  return card === selected;
+}
+
+export function resolveAssetCategoryFilter(currentCategory, availableCategories) {
+  const current = normalizeAssetCategory(currentCategory);
+  if (!current || current === 'all') return 'all';
+  const available = Array.isArray(availableCategories) ? availableCategories : [];
+  const match = available.find((cat) => normalizeAssetCategory(cat) === current);
+  return match || 'all';
 }
 
 export function assetFilterChips(records) {

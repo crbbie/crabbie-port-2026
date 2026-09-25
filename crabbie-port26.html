@@ -5388,6 +5388,32 @@ if(portfolioCompositionTimer) clearTimeout(portfolioCompositionTimer);
 portfolioCompositionTimer = setTimeout(syncPortfolioComposition, 120);
 });
 
+function normalizeAssetCategory(value){
+  return String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function matchesAssetCategory(cardCategory, selectedCategory){
+  var selected = normalizeAssetCategory(selectedCategory);
+  if(!selected || selected === 'all') return true;
+  var card = normalizeAssetCategory(cardCategory);
+  return card === selected;
+}
+function resolveAssetCategoryFilter(currentCategory, availableCategories){
+  var current = normalizeAssetCategory(currentCategory);
+  if(!current || current === 'all') return 'all';
+  var available = Array.isArray(availableCategories) ? availableCategories : [];
+  for(var i = 0; i < available.length; i++){
+    if(normalizeAssetCategory(available[i]) === current) return available[i];
+  }
+  return 'all';
+}
+function assetCanonicalCat(record){
+  var canonical = (record && (record.category || record.cat || record.categorySlug)) || '';
+  var text = normalizeAssetCategory(canonical);
+  if(text) return text;
+  var legacy = normalizeAssetCategory((record && record.filterCat) || '');
+  return legacy || 'other';
+}
+
 var filterState = {};
 function initFilter(key, cfg){
 var grid = $(cfg.grid); if(!grid) return;
@@ -5407,8 +5433,13 @@ function applyFilter(key){
 var st = filterState[key]; if(!st) return;
 var cards = $$('[data-cat]', st.grid); var shown = 0;
 cards.forEach(function(card){
-var cats = (card.getAttribute('data-cat') || '').split(/\s+/);
-var okCat = st.cat === 'all' || cats.indexOf(st.cat) !== -1;
+var okCat;
+if(key === 'fa'){
+  okCat = matchesAssetCategory(card.getAttribute('data-cat'), st.cat);
+} else {
+  var cats = (card.getAttribute('data-cat') || '').split(/\s+/);
+  okCat = st.cat === 'all' || cats.indexOf(st.cat) !== -1;
+}
 var hay = (card.getAttribute('data-search') || card.textContent || '').toLowerCase();
 var okQ = !st.q || hay.indexOf(st.q) !== -1;
 var show = okCat && okQ;
@@ -5425,16 +5456,18 @@ function resetFilter(key){
 var st = filterState[key]; if(!st) return;
 st.cat = 'all'; st.q = '';
 if(st.search) st.search.value = '';
-st.chips.forEach(function(x, i){ var on = i === 0; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+st.chips.forEach(function(x, i){ var on = x.getAttribute('data-filter') === 'all' || i === 0; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
 applyFilter(key);
 }
 initFilter('pf', { grid:'#pfGrid', chips:'#pfChips', empty:'#pfEmpty', search:'#pfSearch', status:'#pfStatus', noun:'projects' });
-initFilter('fa', { grid:'#faGrid', chips:'#faChips', empty:'#faEmpty', search:'#faSearch', status:'#faStatus', noun:'assets' });
 $$('#faGrid [data-asset]').forEach(function(card){
 var a = ASSETS[card.getAttribute('data-asset')]; if(!a) return;
+card.setAttribute('data-cat', assetCanonicalCat(a));
 var st = $('.item-status', card);
 if(st) st.textContent = assetHasPublicDownload(a) ? 'Available' : 'File not available yet';
 });
+initFilter('fa', { grid:'#faGrid', chips:'#faChips', empty:'#faEmpty', search:'#faSearch', status:'#faStatus', noun:'assets' });
+
 
 function wireAccordions(root){
 $$('.acc', root || document).forEach(function(acc, i){
@@ -11040,9 +11073,9 @@ function portfolioFilterGroup(record){
    only a last-resort fallback and never overrides the canonical value. */
 function assetCanonicalCat(record){
   var canonical = (record && (record.category || record.cat || record.categorySlug)) || '';
-  var text = String(canonical).trim().toLowerCase();
+  var text = normalizeAssetCategory(canonical);
   if(text) return text;
-  var legacy = String((record && record.filterCat) || '').trim().toLowerCase();
+  var legacy = normalizeAssetCategory((record && record.filterCat) || '');
   return legacy || 'other';
 }
 /* Filter chips follow the live CMS taxonomy (same source as Admin), keeping
@@ -11057,10 +11090,10 @@ function syncAssetChips(records){
   var values = Object.keys(seen).sort();
   var st = (typeof filterState !== 'undefined' && filterState.fa) ? filterState.fa : null;
   var current = st ? st.cat : 'all';
-  if(current !== 'all' && values.indexOf(current) === -1) current = 'all';
+  current = resolveAssetCategoryFilter(current, values);
   wrap.innerHTML = '<button class="chip' + (current === 'all' ? ' on' : '') + '" data-filter="all" aria-pressed="' + (current === 'all') + '">All</button>' +
     values.map(function(v){
-      var on = v === current;
+      var on = normalizeAssetCategory(v) === normalizeAssetCategory(current);
       return '<button class="chip' + (on ? ' on' : '') + '" data-filter="' + esc(v) + '" aria-pressed="' + on + '">' + esc(prettyTaxonomyLabel(v, v)) + '</button>';
     }).join('');
   var chips = Array.prototype.slice.call(wrap.querySelectorAll('.chip'));
@@ -11342,14 +11375,14 @@ apply: function(records){
       card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug));
       card.setAttribute('data-asset', record.slug);
       card.setAttribute('data-cat', assetCanonicalCat(record));
-      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.category || record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
       var img = publicImage(record.thumbnail, record.title);
       var preview = img
         ? '<div class="item-preview">' + img + '<span class="format">' + esc(record.format || '') + '</span></div>'
         : '<div class="item-preview"><span class="icon">' + esc(record.icon || '★') + '</span><span class="format">' + esc(record.format || '') + '</span></div>';
       card.innerHTML = assetBadgeMarkup(record) + preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
-        '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
+        '<div class="item-cat">' + esc(record.category || record.cat || 'Other') + '</div>' +
         '<div class="item-status">' + (assetHasPublicDownload(record) ? 'Available' : 'File not available yet') + '</div>';
       assetGrid.appendChild(card);
     });
@@ -11369,14 +11402,14 @@ apply: function(records){
     card.style.display = visible ? '' : 'none';
     if(!visible) return;
     var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
-    var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
+    var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.category || record.cat || 'Other';
     var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
     var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
     if(st) st.textContent = assetHasPublicDownload(record) ? 'Available' : 'File not available yet';
     syncAssetBadge(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
-    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.category || record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', assetCanonicalCat(record));
   });
   var homeAssets = document.getElementById('assetsGrid');
@@ -11384,7 +11417,7 @@ apply: function(records){
     homeAssets.innerHTML = '';
     records.filter(function(record){ return record.published === true && record.featured === true; }).slice(0, 8).forEach(function(record){
       var card = document.createElement('a'); card.className = 'item'; card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug)); card.setAttribute('data-asset', record.slug);
-      card.innerHTML = assetBadgeMarkup(record) + '<div class="item-preview">' + (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span></div><div class="item-name">' + esc(record.title || record.slug) + '</div><div class="item-cat">' + esc(record.cat || 'Other') + '</div>';
+      card.innerHTML = assetBadgeMarkup(record) + '<div class="item-preview">' + (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span></div><div class="item-name">' + esc(record.title || record.slug) + '</div><div class="item-cat">' + esc(record.category || record.cat || 'Other') + '</div>';
       homeAssets.appendChild(card); syncAssetBadge(card, record);
     });
   }
