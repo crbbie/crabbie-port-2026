@@ -85,7 +85,7 @@ for (const mobile of [false, true]) {
   const context = await browser.newContext(
     mobile
       ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' }
-      : { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }
+      : { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' }
   );
   await context.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({ contentType: 'text/javascript', body: stub }));
   // Keep transformed thumbnails loading: WebKit fires onerror quickly and would
@@ -122,7 +122,8 @@ for (const mobile of [false, true]) {
     window.CrabbieAssets.apply([
       { slug: 'mx-asset', title: 'Matrix Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: 'many previews', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: 'Matrix cover', gallery: gallery13 },
       { slug: 'mx-nocover', title: 'Matrix No Cover', cat: 'Brushes', format: 'PNG', icon: '❀', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx2.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [{ id: 'n0', url: 'media/broken-x.png', alt: 'Broken', caption: '' }] },
-      { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] }
+      { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] },
+      { slug: 'mx-stream', title: 'Matrix Stream', cat: 'stream overlays', category: 'stream overlays', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx4.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [] }
     ]);
   });
 
@@ -199,6 +200,15 @@ for (const mobile of [false, true]) {
   assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 600) <= 3, `${mode}: browser Back restores list position`);
   note(`${mode} scroll restoration`, 'Back-to-list + browser Back, no traversal');
 
+  // 3b. Canonical asset category filtering: multi-word chip filters correctly.
+  await page.evaluate(() => { location.hash = '#free-assets'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+  await page.locator('#faChips .chip[data-filter="stream overlays"]').click();
+  assert.equal(await page.locator('#faGrid [data-asset="mx-stream"]:visible').count(), 1, `${mode}: stream overlays asset is visible`);
+  assert.equal(await page.locator('#faGrid [data-asset="mx-asset"]:visible').count(), 0, `${mode}: brushes asset is hidden`);
+  await page.locator('#faChips .chip[data-filter="all"]').click();
+  note(`${mode} canonical category chip filter`);
+
   // 4. Same-route refresh keeps position.
   await page.evaluate(() => { location.hash = '#asset/mx-asset'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
@@ -208,7 +218,7 @@ for (const mobile of [false, true]) {
     rec.description = 'many previews (refreshed)';
     // Re-apply the full set: snapshots are authoritative, a partial list
     // would read as unpublish for the missing slugs.
-    const others = ['mx-nocover', 'mx-single'].map((s) => window.CrabbieAssets.getPrototype(s));
+    const others = ['mx-nocover', 'mx-single', 'mx-stream'].map((s) => window.CrabbieAssets.getPrototype(s));
     window.CrabbieAssets.apply([rec].concat(others));
   });
   await page.waitForTimeout(300);
