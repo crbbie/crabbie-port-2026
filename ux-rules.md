@@ -288,20 +288,29 @@ After responsive changes, verify at least desktop, tablet, and mobile widths wit
   scrolling. Forward navigation goes to top; explicit project/asset returns
   restore the remembered list position and filters; Back/Forward restores a
   visited view with memory; direct detail loads with no memory go top.
-- `navigate()` is the single navigation owner: it applies the route once and
-  the hash listener ignores the echo of that same hash. Same-route public
-  refresh (`sameRoute`) keeps scroll and focus; only genuine view/id changes
-  scroll or move focus.
+- `navigate()` is the single navigation owner: it applies the destination
+  route synchronously during activation so the active view and URL switch in
+  the exact same event tick without intermediate frames or layout mismatch;
+  subsequent `hashchange` events are treated as echoes and deduped by
+  `handleHash`. Same-route public refresh (`sameRoute`) keeps scroll and
+  focus; only genuine view/id changes scroll or move focus.
 - Detail navigation is visually stationary: initial activation of `project-detail`
   and `free-asset-detail` suppresses route-level entrance animations (`animViewIn`),
   title/back-link pop animations (`animFadeUp`), and eyebrow pop animations
   (`animEyebrowPop`, keeping stationary `-2deg` rotation without overshoot).
-- Restored list content is stationary (`body.is-restoring` suppresses the view
-  and grid entrances for that activation); fresh navigation keeps the playful
-  entrance. Grid entrances use `backwards` fill so completed entrances release
-  hover lift. The shared jelly press animates `translate`/`scale` (never
-  `transform`) so it composes with hover lift and never replays entrances.
-  Navigation cards and their children are excluded from jelly entirely.
+- Restored list content is stationary: `body.is-restoring` applies during
+  the restoration tick, while `.view.is-restored-activation` persists on the
+  restored list view container for its entire active lifetime (suppressing
+  root `animViewIn` and grid card `animFadeScale` so no delayed animations
+  can trigger when `is-restoring` is dropped). Fresh navigation clears
+  `is-restored-activation` and plays entrances normally. Grid entrances use
+  `backwards` fill so completed entrances release hover lift.
+- Semantic navigation controls (`isNavigatingControl`: `[data-goto]`,
+  `[data-project]`, `[data-asset]`, `.work`, `.item`, `#pdPrev`, `#pdNext`,
+  `.back-link`, `[data-admin-jump]`, `[data-admin-module]`) are strictly excluded
+  from jelly squash/stretch and sparkle particle bursts (`sparkleBurst`).
+  Route transitions immediately sweep any lingering `.anim-sparkle` elements
+  so clicks never delay routing or leave visible artifacts across view changes.
 - The public lightbox gesture policy is scale-aware: at 1x the dialog scrolls
   natively (`touch-action: pan-x pan-y pinch-zoom`); zoomed artwork owns the
   gesture (`is-zoomed` → `touch-action:none`). Drag/pinch paint transforms
