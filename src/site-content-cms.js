@@ -12,6 +12,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
+/* Latest-request ownership: startup hydration and an explicit CMS refresh can
+   overlap, so only the newest request may publish or fire the ready signal. */
+let generation = 0;
+
 function markSiteContentReady(ok) {
   window.__CRABBIE_SITE_CONTENT_HYDRATED__ = true;
   document.documentElement.classList.remove('cms-content-pending');
@@ -22,6 +26,7 @@ function markSiteContentReady(ok) {
 }
 
 export async function hydrateSiteContent() {
+  const gen = ++generation;
   let ok = false;
 
   try {
@@ -50,6 +55,12 @@ export async function hydrateSiteContent() {
       console.warn('Site Settings Supabase query failed:', settingsRes.error.message);
     }
 
+    /* A superseded response never publishes: the newer request owns the pages,
+       navigation and settings snapshot even when this one resolves later. */
+    if (gen !== generation) {
+      return !pagesRes.error && !navRes.error && !settingsRes.error;
+    }
+
     const pages = (pagesRes.data || []).map((row) => mapCmsPage(row, {}));
     const nav = (navRes.data || []).map((row) => mapNavigationItem(row, {}));
     const settings = mapSiteSettings(settingsRes.data || [], {});
@@ -66,7 +77,10 @@ export async function hydrateSiteContent() {
     console.warn('Site Content CMS hydration failed:', err && err.message ? err.message : err);
     return false;
   } finally {
-    markSiteContentReady(ok);
+    /* Ready is a one-shot public signal (content gate + Home bloom): only the
+       newest request may fire it, so a superseded response — success or failure
+       — can never mark a newer pending hydration as ready. */
+    if (gen === generation) markSiteContentReady(ok);
   }
 }
 
