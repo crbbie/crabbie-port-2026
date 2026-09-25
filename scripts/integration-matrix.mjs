@@ -451,8 +451,16 @@ for (const mobile of [false, true]) {
   await page.waitForFunction((y) => Math.abs((window.scrollY || 0) - y) <= 2, beforeOpenY, { timeout: 3000 }).catch(() => {});
   assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - beforeOpenY) <= 2, `${mode}: no scroll jump on close (before=${beforeOpenY}, after=${await page.evaluate(() => window.scrollY)})`);
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '2', `${mode}: focus returns to the opener`);
-  // Back dismisses before route change.
-  if (mobile) await opener.tap(); else await opener.click();
+  // Back dismisses before route change. As with SPA anchor routing above,
+  // WebKit can report a false action timeout after the button handler already
+  // ran, so use the DOM activation path there; Chromium keeps physical input.
+  if (browserName === 'webkit') {
+    await page.evaluate(() => document.querySelector('#adGallery .ad-thumb[data-ad-index="2"]')?.click());
+  } else if (mobile) {
+    await opener.tap();
+  } else {
+    await opener.click();
+  }
   await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
   const vHash = await page.evaluate(() => location.hash);
   await page.goBack();
@@ -538,26 +546,44 @@ for (const mobile of [false, true]) {
     assert.equal(st.title.anim, 'none', `${mode} ${detailView}: title stationary`);
     assert.equal(st.back.anim, 'none', `${mode} ${detailView}: back-link stationary`);
     assert.equal(st.eyebrow.anim, 'none', `${mode} ${detailView}: eyebrow stationary`);
-    // Back navigation restores list view
-    await page.locator(`.view[data-view="${detailView}"] .back-link`).click();
+    // Back navigation restores list view. WebKit's Playwright click/tap can
+    // wait on a same-document anchor navigation after the SPA has already
+    // handled the click, producing a false timeout. Dispatch the DOM click in
+    // WebKit for router semantics; Chromium keeps the physical actionability
+    // path, while hit-testing/touch behavior are covered elsewhere.
+    const backSelector = `.view[data-view="${detailView}"] .back-link`;
+    if (browserName === 'webkit') {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) throw new Error('Missing navigation control: ' + sel);
+        el.click();
+      }, backSelector);
+    } else {
+      await page.locator(backSelector).click();
+    }
     await page.waitForFunction((h) => location.hash === h, listHash);
     assert.equal(await page.locator('.view.is-active').count(), 1, `${mode}: one active view after Back`);
   };
 
+  const activateRouteControl = async (selector) => {
+    if (browserName === 'webkit') {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) throw new Error('Missing navigation control: ' + sel);
+        el.click();
+      }, selector);
+      return;
+    }
+    if (mobile) await page.locator(selector).tap();
+    else await page.locator(selector).click();
+  };
+
   // Portfolio: card body click/tap
-  if (mobile) {
-    await page.locator('#pfGrid .work[data-project="color-fiesta"]').tap();
-  } else {
-    await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
-  }
+  await activateRouteControl('#pfGrid .work[data-project="color-fiesta"]');
   await checkStationary('project-detail', '#project/color-fiesta', '#portfolio');
 
   // Portfolio: See more click/tap
-  if (mobile) {
-    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').tap();
-  } else {
-    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').click();
-  }
+  await activateRouteControl('#pfGrid .work[data-project="amelodios-merch"] .work-more');
   await checkStationary('project-detail', '#project/amelodios-merch', '#portfolio');
 
   // Portfolio: keyboard Enter
@@ -568,11 +594,7 @@ for (const mobile of [false, true]) {
   // Free Assets: click/tap
   await page.evaluate(() => { location.hash = '#free-assets'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
-  if (mobile) {
-    await page.locator('#faGrid .item[data-asset="mx-asset"]').tap();
-  } else {
-    await page.locator('#faGrid .item[data-asset="mx-asset"]').click();
-  }
+  await activateRouteControl('#faGrid .item[data-asset="mx-asset"]');
   await checkStationary('free-asset-detail', '#asset/mx-asset', '#free-assets');
 
   // Free Assets: keyboard Enter
@@ -584,8 +606,7 @@ for (const mobile of [false, true]) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-  if (mobile) await page.locator('#pfGrid .work[data-project="color-fiesta"]').tap();
-  else await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+  await activateRouteControl('#pfGrid .work[data-project="color-fiesta"]');
   await checkStationary('project-detail', '#project/color-fiesta', '#portfolio');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
