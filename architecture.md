@@ -98,7 +98,7 @@ Examples include:
 - form normalization;
 - request validation;
 - desktop pet/dialogue rules (`src/desktop-pet-core.js`);
-- portfolio grid composition bands (`src/portfolio-grid-core.js`).
+- portfolio grid variant planning and deterministic composition (`src/portfolio-grid-core.js`).
 
 ## Admin state model
 
@@ -140,6 +140,16 @@ Supabase public table
   → view render
   → route/detail UI
 ```
+
+## Portfolio grid composition and navigation motion
+
+Portfolio grid presentation is deterministic and presentation-only:
+- Desktop (>1180px) repeats complete bands `[large,tall], [small,small,small], [wide,wide]` (`pf-l, pf-t, pf-s, pf-s, pf-s, pf-w, pf-w`), with incomplete tails falling back to compact smalls (`pf-s`).
+- Compact widths (<=1180px) and tablet/phone columns strictly use `pf-s` (and single-column at <=720px), avoiding legacy multi-row spans.
+- The plan is derived purely from visible ordered DOM cards via `planPortfolioVariants()` (`src/portfolio-grid-core.js`, mirrored inline in the SPA) during hydration, reorder, removal/reintroduction, filter, search, reset, and debounced window resize.
+- Artwork readiness (`is-art-ready`) dynamically reconciles image availability, errors, and natural dimensions, releasing the 180px minimum fallback height on load without distortion.
+- Jelly squash/stretch feedback (`.is-jelly`) is strictly excluded from navigation cards (`.work[data-project]`, `.item[data-asset]`, `.work-more`, and descendants); card navigation executes immediately without animation delays.
+- Navigation to `project-detail` and `free-asset-detail` is visually stationary on initial activation (suppressing `animViewIn`, `animFadeUp`, and `animEyebrowPop`, keeping stationary `-2deg` rotation on eyebrow). Returning to list view uses `.is-restoring` to skip list re-animation and restore scroll position.
 
 ## Asset preview gallery data flow
 

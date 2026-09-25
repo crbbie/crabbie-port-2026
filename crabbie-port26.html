@@ -220,16 +220,42 @@ button{font:inherit; color:inherit;}
    `translate`/`scale` properties (not `transform`) so it composes cleanly with
    each control's hover lift instead of snapping back when `.is-jelly` is
    removed. Public-only (body:not(.admin-mode)). */
+/* Jelly "bubble" — biên độ lớn hơn, nhiều mốc hơn, easing KHÔNG overshoot
+   để không bị giật ở các mốc trung gian. Biên độ giảm dần kiểu damped
+   oscillation (~0.55 → 0.45 → 0.35 → 0.2 → 0.1). */
 @keyframes jelly{
-  0%   { translate: 0 0; scale: 1 1; }
-  30%  { translate: 0 0; scale: 1.035 0.975; }
-  58%  { translate: 0 -3px; scale: 0.985 1.03; }
-  78%  { translate: 0 0; scale: 1.01 0.992; }
-  100% { translate: 0 0; scale: 1 1; }
+  0%   { translate: 0 0;    scale: 1     1;     }
+  8%   { translate: 0 1px;  scale: 1.14  0.86;  }  /* squash xuống nhanh */
+  22%  { translate: 0 -7px; scale: 0.90  1.12;  }  /* bật lên mạnh */
+  36%  { translate: 0 1px;  scale: 1.08  0.92;  }  /* squash lại */
+  50%  { translate: 0 -4px; scale: 0.95  1.06;  }  /* bounce lên */
+  63%  { translate: 0 0;    scale: 1.04  0.96;  }  /* squash nhẹ */
+  76%  { translate: 0 -2px; scale: 0.98  1.02;  }  /* bounce nhỏ */
+  88%  { translate: 0 0;    scale: 1.015 0.99;  }  /* micro squash */
+  100% { translate: 0 0;    scale: 1     1;     }
 }
 body:not(.admin-mode) .is-jelly{
-  animation: jelly .5s cubic-bezier(.34,1.12,.5,1) both !important;
-  transform-origin: center bottom;
+  /* Easing KHÔNG overshoot — bounce nằm trong keyframes, không nằm trong easing */
+  animation: jelly .7s cubic-bezier(.22, 1, .36, 1) both !important;
+  transform-origin: center center;
+  will-change: translate, scale;
+  backface-visibility: hidden;
+}
+@media (hover: hover) and (pointer: fine){
+  body:not(.admin-mode) .btn,
+  body:not(.admin-mode) .nav-cta,
+  body:not(.admin-mode) .chip,
+  body:not(.admin-mode) .tab-btn{
+    transition: transform .3s var(--ease),
+                box-shadow .3s var(--ease),
+                scale .12s ease-out;
+  }
+  body:not(.admin-mode) .btn:active,
+  body:not(.admin-mode) .nav-cta:active,
+  body:not(.admin-mode) .chip:active,
+  body:not(.admin-mode) .tab-btn:active{
+    scale: .96;
+  }
 }
 @media (prefers-reduced-motion: reduce){
   body:not(.admin-mode) .is-jelly{ animation: none !important; }
@@ -1399,12 +1425,19 @@ body:not(.admin-mode) .tos-nav a:hover,
 body:not(.admin-mode) .tos-nav button:hover,
 body:not(.admin-mode) .tos-nav button[aria-current="true"],
 body:not(.admin-mode) .chip:hover,
-body:not(.admin-mode) .tab-btn:hover,
+body:not(.admin-mode) .tab-btn:hover:not(.on),
 body:not(.admin-mode) .back-link:hover,
 body:not(.admin-mode) .lang span.on{ color:var(--text-body); }
 body:not(.admin-mode) .chip.on,
 body:not(.admin-mode) .chip.on:hover{
   color:#fff;
+}
+
+/* Tab form đang được chọn: luôn giữ chữ trắng + shadow để nổi trên nền hồng,
+   bất kể palette pastel override màu --text-muted như thế nào. */
+body:not(.admin-mode) .tab-btn.on{
+  color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
 }
 
 body:not(.admin-mode) .foot ul a:hover{ color:var(--text-accent); }
@@ -1418,6 +1451,11 @@ body:not(.admin-mode) .search-box input,
 body:not(.admin-mode) .field input,
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
+</style>
+
+<style id="nav-hover-color-override">
+body:not(.admin-mode) .nav-links a:hover{ color:#F077B9; }
+body:not(.admin-mode) .mobile-menu a:hover{ color:#F077B9; }
 </style>
 
 <!-- ============================================================
@@ -2350,28 +2388,7 @@ html.home-reveal-sequence.home-reveal-active footer{
   --ease-out-soft:  cubic-bezier(.22, 1, .36, 1);
 }
 
-/* ============================================================
-   JELLY BUBBLE — bấm vào nảy như thạch bong bóng
-   ============================================================ */
-@keyframes animJellySoft{
-  0%   { transform: scale3d(1,1,1); }
-  18%  { transform: scale3d(1.14,.86,1); }
-  36%  { transform: scale3d(.92,1.10,1); }
-  54%  { transform: scale3d(1.06,.95,1); }
-  72%  { transform: scale3d(.97,1.03,1); }
-  100% { transform: scale3d(1,1,1); }
-}
-@keyframes animJellyStrong{
-  0%   { transform: scale3d(1,1,1) rotate(0deg); }
-  15%  { transform: scale3d(1.22,.78,1) rotate(-1.2deg); }
-  30%  { transform: scale3d(.85,1.18,1) rotate(1.6deg); }
-  45%  { transform: scale3d(1.12,.90,1) rotate(-1deg); }
-  60%  { transform: scale3d(.93,1.08,1) rotate(.6deg); }
-  80%  { transform: scale3d(1.03,.97,1) rotate(-.3deg); }
-  100% { transform: scale3d(1,1,1) rotate(0deg); }
-}
-.anim-jelly        { animation: animJellySoft    .72s var(--ease-squish); transform-origin: center; }
-.anim-jelly-strong { animation: animJellyStrong  .85s var(--ease-squish); transform-origin: center; }
+
 
 /* ============================================================
    ENTRANCE KEYFRAMES
@@ -2522,6 +2539,43 @@ body.is-restoring .view.is-active .values-grid > *{ animation: none !important; 
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 
+/* Scoped visually stationary activation for project-detail and free-asset-detail:
+   Immediately active without translate, scale, blur, opacity fade, title/back-link pop, or eyebrow overshoot.
+   All other public and admin views retain their normal entrance animations. */
+.view[data-view="project-detail"].is-active,
+.view[data-view="free-asset-detail"].is-active{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.view[data-view="project-detail"].is-active .page-head,
+.view[data-view="project-detail"].is-active .page-title,
+.view[data-view="project-detail"].is-active .back-link,
+.view[data-view="free-asset-detail"].is-active .page-head,
+.view[data-view="free-asset-detail"].is-active .page-title,
+.view[data-view="free-asset-detail"].is-active .back-link{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.view[data-view="project-detail"].is-active .eyebrow,
+.view[data-view="free-asset-detail"].is-active .eyebrow{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: rotate(-2deg) !important;
+}
+
+body:not(.admin-mode) .work[data-project].is-jelly,
+body:not(.admin-mode) .work[data-project] .is-jelly,
+body:not(.admin-mode) .item[data-asset].is-jelly,
+body:not(.admin-mode) .item[data-asset] .is-jelly{
+  animation: none !important;
+}
+
+
 /* ============================================================
    TOAST — nảy nhẹ
    ============================================================ */
@@ -2625,21 +2679,28 @@ footer .foot-inner > *:nth-child(3){ animation-delay: .25s; }
 }
 
 /* ============================================================
-   TAB / CHIP — pop khi active (không lặp)
+   TAB / CHIP — pop khi active (hợp nhất với jelly, không bị pop nối tiếp)
    ============================================================ */
 @keyframes animTabPop{
   0%   { transform: translateY(-2px) scale(.9); }
   55%  { transform: translateY(0) scale(1.06); }
   100% { transform: translateY(0) scale(1); }
 }
-.tab-btn.on{ animation: animTabPop .4s var(--ease-squish); }
 
 @keyframes animChipPop{
   0%   { transform: scale(.9); }
   55%  { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
-.chip.on{ animation: animChipPop .4s var(--ease-squish); }
+
+body:not(.admin-mode) .chip.is-jelly{
+  animation: jelly .7s cubic-bezier(.22, 1, .36, 1) both,
+             animChipPop .4s var(--ease-squish) .05s !important;
+}
+body:not(.admin-mode) .tab-btn.is-jelly{
+  animation: jelly .7s cubic-bezier(.22, 1, .36, 1) both,
+             animTabPop .4s var(--ease-squish) .05s !important;
+}
 
 /* ============================================================
    ADMIN — status badge pulse, list record slide, confetti, check
@@ -3172,15 +3233,20 @@ body:not(.admin-mode) .nav-cta::before{
 }
 body:not(.admin-mode) .nav-cta::before{ width:44px; height:23px; top:-15px; right:-7px; }
 
-body:not(.admin-mode) .btn-primary:hover::before,
+@media (hover: hover) and (pointer: fine){
+  body:not(.admin-mode) .btn-primary:hover::before,
+  body:not(.admin-mode) .btn-purple:hover::before,
+  body:not(.admin-mode) .btn-yellow:hover::before,
+  body:not(.admin-mode) .nav-cta:hover::before{
+    animation:decoBowPop .36s cubic-bezier(.34,1.56,.64,1) both;
+  }
+}
 body:not(.admin-mode) .btn-primary:focus-visible::before,
-body:not(.admin-mode) .btn-purple:hover::before,
 body:not(.admin-mode) .btn-purple:focus-visible::before,
-body:not(.admin-mode) .btn-yellow:hover::before,
 body:not(.admin-mode) .btn-yellow:focus-visible::before,
-body:not(.admin-mode) .nav-cta:hover::before,
 body:not(.admin-mode) .nav-cta:focus-visible::before{
-  animation:decoBowPop .36s cubic-bezier(.34,1.56,.64,1) both;
+  opacity:1;
+  transform:scale(1) rotate(10deg);
 }
 
 @keyframes decoBowPop{
@@ -10961,6 +11027,10 @@ function portfolioIsImageCard(record){ return !!(record && record.cardMode === '
    publicImage() inline cover sizing) so responsive rules can show the whole
    source on phones/tablets while desktop keeps cover. A broken source
    removes itself, leaving the labeled placeholder box and working nav. */
+/* `is-art-ready` is set the moment a real source paints (inline onload also
+   covers lazy/cached completions) so the responsive 180px fallback minimum
+   applies only while artwork is absent, loading or failed. A broken source
+   clears the flag and removes itself, leaving the labeled box sized. */
 function portfolioCardArtwork(record){
 var src = safePublicUrl(record && (record.cover || record.thumbnail), true);
 if(!src) return '';
@@ -11145,6 +11215,8 @@ apply: function(records){
 if(typeof filterState !== 'undefined' && filterState.pf){
     filterState.pf.cards = $$('#pfGrid [data-cat]');
     applyFilter('pf');
+  } else {
+    syncPortfolioComposition();
   }
 
   if(currentRoute.view === 'project-detail'){
@@ -12224,24 +12296,55 @@ window.addEventListener('hashchange', function(){ setTimeout(reinit, 90); });
 <script id="home-jelly-buttons">
 (function(){
 'use strict';
+var JELLY_CLASS = 'is-jelly';
+var JELLY_MS = 700; // khớp với animation-duration trong CSS
 var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
 /* One shared bubble bounce for every public control. Delegated in the capture
    phase so the press plays before any navigation, replays on every click/tap,
    and still applies to CMS-rendered or re-rendered controls. */
-var JELLY_TARGETS = '.btn, .nav-cta, .work, .banner, .work-more, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
-function jelly(el){
-  el.classList.remove('is-jelly');
-  void el.offsetWidth;
-  el.classList.add('is-jelly');
-  if(el.__jellyTimer) clearTimeout(el.__jellyTimer);
-  el.__jellyTimer = setTimeout(function(){
-    el.classList.remove('is-jelly');
-    el.__jellyTimer = null;
-  }, 520);
+var JELLY_TARGETS = '.btn, .nav-cta, .banner, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
+
+function playJelly(el){
+  if (!el || el.nodeType !== 1) return;
+  if (reduceMotion.matches) return;
+  if (document.body.classList.contains('admin-mode')) return;
+  if (el.closest('.view[data-view="admin"]')) return;
+
+  // Bỏ qua click mới khi đang chạy → tránh snap về 0% giữa animation
+  if (el.__jellyRunning) return;
+  el.__jellyRunning = true;
+
+  // Reset sạch rồi force reflow để animation restart từ frame 0
+  el.classList.remove(JELLY_CLASS);
+  void el.offsetWidth; // bắt buộc
+  el.classList.add(JELLY_CLASS);
+
+  var done = function(){
+    el.classList.remove(JELLY_CLASS);
+    el.__jellyRunning = false;
+    el.removeEventListener('animationend', onEnd);
+    if(el.__jellyFallback) clearTimeout(el.__jellyFallback);
+    el.__jellyFallback = null;
+  };
+  var onEnd = function(ev){
+    if (ev.target !== el) return;
+    if (ev.animationName !== 'jelly') return;
+    done();
+  };
+  el.addEventListener('animationend', onEnd);
+
+  // Fallback phòng khi animationend không bắn (tab ẩn, element bị remove, ...)
+  el.__jellyFallback = setTimeout(done, JELLY_MS + 100);
 }
-document.addEventListener('click', function(e){
-  if(reduceMotion.matches) return;
-  if(document.body.classList.contains('admin-mode')) return;
+
+function handleJellyEvent(e){
+  if (reduceMotion.matches) return;
+  if (document.body.classList.contains('admin-mode')) return;
+  if (!e.target || e.target.nodeType !== 1) return;
+  // Exclude Portfolio and Free Asset navigation cards and all descendants:
+  // navigation must remain immediate and never jelly before routing.
+  if (e.target.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
   var el = e.target.closest(JELLY_TARGETS);
   if(!el){
     var choice = e.target.closest('.choice');
@@ -12249,8 +12352,21 @@ document.addEventListener('click', function(e){
   }
   if(!el || el.disabled) return;
   if(el.closest('.view[data-view="admin"]')) return;
-  jelly(el);
+  if(el.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
+  playJelly(el);
+}
+
+// Bắt cả pointerdown để nảy tức thì và click phòng fallback/synthetic click
+if (window.PointerEvent) {
+  document.addEventListener('pointerdown', function(e){
+    if (e.button != null && e.button !== 0) return;
+    handleJellyEvent(e);
+  }, { capture: true, passive: true });
+}
+document.addEventListener('click', function(e){
+  handleJellyEvent(e);
 }, true);
+
 })();
 </script>
 

@@ -402,7 +402,7 @@ for (const mobile of [false, true]) {
     if (!jellySeen) await page.waitForTimeout(200);
   }
   assert.equal(jellySeen, true, `${mode}: jelly press feedback fires`);
-  await page.waitForTimeout(700);
+  await page.waitForFunction(() => document.querySelectorAll('.is-jelly').length === 0, null, { timeout: 3000 });
   assert.equal(await page.locator('.is-jelly').count(), 0, `${mode}: jelly releases without resticking`);
   if (!mobile) {
     await page.locator('#pfGrid .work').first().hover();
@@ -426,6 +426,90 @@ for (const mobile of [false, true]) {
   assert.equal(accMotion, 'accSheen', `${mode}: decorative loop runs with motion allowed`);
   assert.equal(accReduced, 'none', `${mode}: reduced motion stills decorative loops without reload`);
   note(`${mode} jelly/hover/reduced-motion`);
+
+  // 8. Navigation motion stability: no jelly on cards, stationary detail activation.
+  // Restore initial portfolio prototype records so standard navigation links work
+  await page.evaluate(() => {
+    location.hash = '#portfolio';
+    window.CrabbiePortfolio.apply([
+      {slug:'color-fiesta', title:'Color Fiesta Booth', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:true, published:true},
+      {slug:'amelodios-merch', title:'Amelodios Merch Table', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true},
+      {slug:'amelodios-comic', title:'Amelodios Promo Comic', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true}
+    ]);
+  });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+  const checkStationary = async (detailView, detailHash, listHash) => {
+    assert.equal(await page.evaluate(() => location.hash), detailHash, `${mode}: correct detail hash`);
+    assert.equal(await page.locator('.view.is-active').count(), 1, `${mode}: exactly one active view`);
+    assert.equal(await page.locator('.is-jelly').count(), 0, `${mode}: no element has .is-jelly`);
+    const st = await page.evaluate((v) => {
+      const root = document.querySelector(`.view[data-view="${v}"]`);
+      const title = root ? root.querySelector('.page-title') : null;
+      const back = root ? root.querySelector('.back-link') : null;
+      const eyebrow = root ? root.querySelector('.eyebrow') : null;
+      const cs = (el) => el ? { anim: getComputedStyle(el).animationName, opacity: getComputedStyle(el).opacity, transform: getComputedStyle(el).transform, filter: getComputedStyle(el).filter } : null;
+      return { root: cs(root), title: cs(title), back: cs(back), eyebrow: cs(eyebrow) };
+    }, detailView);
+    assert.equal(st.root.anim, 'none', `${mode} ${detailView}: root stationary`);
+    assert.equal(st.root.opacity, '1', `${mode} ${detailView}: root full opacity`);
+    assert.equal(st.root.transform, 'none', `${mode} ${detailView}: root no translate/scale`);
+    assert.ok(st.root.filter === 'none' || st.root.filter === '', `${mode} ${detailView}: root no blur`);
+    assert.equal(st.title.anim, 'none', `${mode} ${detailView}: title stationary`);
+    assert.equal(st.back.anim, 'none', `${mode} ${detailView}: back-link stationary`);
+    assert.equal(st.eyebrow.anim, 'none', `${mode} ${detailView}: eyebrow stationary`);
+    // Back navigation restores list view
+    await page.locator(`.view[data-view="${detailView}"] .back-link`).click();
+    await page.waitForFunction((h) => location.hash === h, listHash);
+    assert.equal(await page.locator('.view.is-active').count(), 1, `${mode}: one active view after Back`);
+  };
+
+  // Portfolio: card body click/tap
+  if (mobile) {
+    await page.locator('#pfGrid .work[data-project="color-fiesta"]').tap();
+  } else {
+    await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+  }
+  await checkStationary('project-detail', '#project/color-fiesta', '#portfolio');
+
+  // Portfolio: See more click/tap
+  if (mobile) {
+    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').tap();
+  } else {
+    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').click();
+  }
+  await checkStationary('project-detail', '#project/amelodios-merch', '#portfolio');
+
+  // Portfolio: keyboard Enter
+  await page.locator('#pfGrid .work[data-project="amelodios-comic"]').focus();
+  await page.keyboard.press('Enter');
+  await checkStationary('project-detail', '#project/amelodios-comic', '#portfolio');
+
+  // Free Assets: click/tap
+  await page.evaluate(() => { location.hash = '#free-assets'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+  if (mobile) {
+    await page.locator('#faGrid .item[data-asset="mx-asset"]').tap();
+  } else {
+    await page.locator('#faGrid .item[data-asset="mx-asset"]').click();
+  }
+  await checkStationary('free-asset-detail', '#asset/mx-asset', '#free-assets');
+
+  // Free Assets: keyboard Enter
+  await page.locator('#faGrid .item[data-asset="mx-nocover"]').focus();
+  await page.keyboard.press('Enter');
+  await checkStationary('free-asset-detail', '#asset/mx-nocover', '#free-assets');
+
+  // Verify reduced-motion
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.evaluate(() => { location.hash = '#portfolio'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  if (mobile) await page.locator('#pfGrid .work[data-project="color-fiesta"]').tap();
+  else await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+  await checkStationary('project-detail', '#project/color-fiesta', '#portfolio');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  note(`${mode} stationary detail navigation + no jelly`);
 
   assert.deepEqual(errors, [], `${mode}: no uncaught script errors`);
   await context.close();
