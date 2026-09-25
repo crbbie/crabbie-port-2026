@@ -1,12 +1,22 @@
 name: QA
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  unit:
+    name: unit
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -16,13 +26,107 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Run unit tests
         run: npm test
+
+  foundation:
+    name: foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Check foundation
         run: npm run check:foundation
-      - name: Install browser
+
+  schema:
+    name: schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check schema
+        run: npm run check:schema
+
+  router:
+    name: router
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Check rendered routes
         run: npm run test:router
+      - name: Upload router screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: router-screenshots
+          path: /tmp/crabbie-router-*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+  matrix-chromium:
+    name: matrix-chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run integration matrix (Chromium)
+        run: node scripts/integration-matrix.mjs --browser=chromium
+
+  matrix-webkit:
+    name: matrix-webkit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install WebKit
+        run: npx playwright install --with-deps webkit
+      - name: Run integration matrix (WebKit)
+        run: node scripts/integration-matrix.mjs --browser=webkit
