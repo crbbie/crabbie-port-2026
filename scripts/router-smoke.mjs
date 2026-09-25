@@ -3291,7 +3291,7 @@ try {
     assert.equal(decoBroken.opacity[2], 0, 'no crossfade targets the undecodable layer');
     assert.ok(Math.abs(decoBroken.opacity.reduce((a, b) => a + b, 0) - 1) < 0.01, 'a failed decode keeps a valid layer (no blank)');
     await page.unroute('**/deco-bg*');
-    assert.equal(errors.length, decoErrBase, 'decor loading adds no uncaught script errors');
+    assert.deepEqual(errors.slice(decoErrBase), [], 'decor loading adds no uncaught script errors: ' + JSON.stringify(errors.slice(decoErrBase)).slice(0, 1200));
     await page.setViewportSize({ width: 1440, height: 900 });
     console.log('PASS decor progressive loading: cold state 1 only, deep-scroll prefetch, rapid-scroll hold, decode-failure guard (SDK fixture)');
 
