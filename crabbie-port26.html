@@ -2872,6 +2872,7 @@ body:not(.admin-mode) .tab-btn.is-jelly{
 <script src="/api/public-config.js"></script>
 <script type="module" src="/src/supabase-client.js"></script>
 <script type="module" src="/src/site-motion.js"></script>
+<script type="module" src="/src/lightbox-gesture.js"></script>
 <script type="module" src="/src/site-decor.js"></script>
 
 <style id="brand-font-readability">
@@ -6010,6 +6011,20 @@ var lightboxDragging = false;
    policy class only flips on discrete changes or gesture end, because the
    browser does not transfer touch-action ownership mid-gesture. */
 var lightboxGestureActive = false;
+/* Pure geometry comes from window.CrabbieLightboxGesture (the exact unit-tested
+   implementation in src/lightbox-gesture-core.js). The controller keeps DOM
+   ownership: measuring the artwork box, owning gesture state, and painting.
+   Inline math below is only a fallback when the bridge module has not loaded
+   yet; any divergence is reported so a refactor can never drift silently. */
+function lightboxGestureCore(){
+  try{ return window.CrabbieLightboxGesture || null; }catch(e){ return null; }
+}
+function assertLightboxInvariant(cond, message, detail){
+  if(cond) return;
+  try{
+    if(typeof console !== 'undefined' && console.warn) console.warn('[lightbox-geometry] ' + message, detail || '');
+  }catch(e){}
+}
 function lightboxBounds(){
   /* Valid pan range for the current zoom, relative to the artwork's own
      laid-out box: at full deflection an image edge lands exactly on the
@@ -6019,25 +6034,61 @@ function lightboxBounds(){
   if(!publicLightboxImg) return { x: 0, y: 0 };
   var w = publicLightboxImg.clientWidth || 0;
   var h = publicLightboxImg.clientHeight || 0;
-  return {
+  var fallback = {
     x: Math.max(0, (w * lightboxScale - w) / 2),
     y: Math.max(0, (h * lightboxScale - h) / 2)
   };
+  var core = lightboxGestureCore();
+  if(!core || typeof core.panBounds !== 'function') return fallback;
+  var decided = core.panBounds(w, h, lightboxScale);
+  assertLightboxInvariant(
+    Math.abs((decided.x || 0) - fallback.x) < 1e-9 && Math.abs((decided.y || 0) - fallback.y) < 1e-9,
+    'panBounds drifted from the tested core', { decided: decided, fallback: fallback, w: w, h: h, scale: lightboxScale }
+  );
+  return { x: Math.max(0, decided.x || 0), y: Math.max(0, decided.y || 0) };
 }
 function clampLightboxPan(){
   var b = lightboxBounds();
-  lightboxPan.x = Math.max(-b.x, Math.min(b.x, lightboxPan.x));
-  lightboxPan.y = Math.max(-b.y, Math.min(b.y, lightboxPan.y));
-  if(lightboxScale <= 1){ lightboxPan.x = 0; lightboxPan.y = 0; }
+  var fallbackX = Math.max(-b.x, Math.min(b.x, lightboxPan.x));
+  var fallbackY = Math.max(-b.y, Math.min(b.y, lightboxPan.y));
+  if(lightboxScale <= 1){ fallbackX = 0; fallbackY = 0; }
+  var core = lightboxGestureCore();
+  if(core && typeof core.clampPan === 'function'){
+    var decided = core.clampPan(lightboxPan.x, lightboxPan.y, b, lightboxScale);
+    assertLightboxInvariant(
+      Math.abs((decided.x || 0) - fallbackX) < 1e-9 && Math.abs((decided.y || 0) - fallbackY) < 1e-9,
+      'clampPan drifted from the tested core', { decided: decided, fallbackX: fallbackX, fallbackY: fallbackY }
+    );
+    lightboxPan.x = decided.x || 0;
+    lightboxPan.y = decided.y || 0;
+    return;
+  }
+  lightboxPan.x = fallbackX;
+  lightboxPan.y = fallbackY;
 }
 function paintLightboxTransform(animated){
   if(!publicLightboxImg) return;
+  var rootY = (typeof window !== 'undefined' && typeof window.scrollY === 'number') ? window.scrollY : 0;
   clampLightboxPan();
   publicLightboxImg.classList.toggle('anim-zoom', !!animated && !lightboxDragging);
   if(lightboxScale === 1 && lightboxPan.x === 0 && lightboxPan.y === 0) publicLightboxImg.style.transform = '';
   else if(lightboxPan.x === 0 && lightboxPan.y === 0) publicLightboxImg.style.transform = 'scale(' + lightboxScale + ')';
   else publicLightboxImg.style.transform = 'translate(' + lightboxPan.x + 'px,' + lightboxPan.y + 'px) scale(' + lightboxScale + ')';
   if(!lightboxGestureActive && publicLightbox) publicLightbox.classList.toggle('is-zoomed', lightboxScale > 1);
+  /* Runtime geometry assertions: zoom stays 1-4x, pan stays inside the
+     image-relative bounds, the transform lands only on the artwork (credit
+     avatars never inherit it), and panning never moves the root document. */
+  var b = lightboxBounds();
+  assertLightboxInvariant(isFinite(lightboxScale) && lightboxScale >= 1 && lightboxScale <= 4, 'scale out of 1-4x range', lightboxScale);
+  assertLightboxInvariant(isFinite(lightboxPan.x) && isFinite(lightboxPan.y), 'pan is not finite', { x: lightboxPan.x, y: lightboxPan.y });
+  assertLightboxInvariant(Math.abs(lightboxPan.x) <= b.x + 1e-9 && Math.abs(lightboxPan.y) <= b.y + 1e-9, 'pan escaped image-relative bounds', { pan: { x: lightboxPan.x, y: lightboxPan.y }, bounds: b });
+  if(publicLightbox){
+    var stray = publicLightbox.querySelector('.credit-avatar[style*="transform"], .lb-credit img[style*="transform"]');
+    assertLightboxInvariant(!stray, 'artwork transform leaked onto credits/avatar');
+  }
+  if(typeof window !== 'undefined' && typeof window.scrollY === 'number'){
+    assertLightboxInvariant(window.scrollY === rootY, 'root drifted during transform-only pan', { before: rootY, after: window.scrollY });
+  }
 }
 function syncZoomGestureClass(){
   if(publicLightbox) publicLightbox.classList.toggle('is-zoomed', lightboxScale > 1);
@@ -6047,7 +6098,17 @@ function syncZoomLabel(){
   if(publicLightboxZoomLabel && publicLightboxZoomLabel.textContent !== text) publicLightboxZoomLabel.textContent = text;
 }
 function setLightboxScale(next, animated){
-  lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
+  var core = lightboxGestureCore();
+  if(core && typeof core.clampScale === 'function'){
+    var fallback = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
+    var decided = core.clampScale(next);
+    /* NaN input is the one known divergence: legacy inline math propagates
+       NaN while the tested core resets to the minimum scale. The core wins. */
+    if(isFinite(next)) assertLightboxInvariant(decided === fallback, 'clampScale drifted from the tested core', { decided: decided, fallback: fallback, next: next });
+    lightboxScale = decided;
+  } else {
+    lightboxScale = Math.max(LIGHTBOX_MIN_SCALE, Math.min(LIGHTBOX_MAX_SCALE, next));
+  }
   paintLightboxTransform(animated !== false);
   syncZoomLabel();
 }

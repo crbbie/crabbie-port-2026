@@ -57,6 +57,16 @@ assert.ok(html.includes("addEventListener('dragstart'"), 'native image drag neve
 assert.ok(html.includes('stepViewer') && html.includes('panBy'), 'arrows step collections but pan a single zoomed image');
 assert.ok(html.includes('portfolioCardArtwork'), 'image-only card artwork keeps its own stacking-safe markup');
 assert.ok(html.includes('.pd-cover > img'), 'the cover-overflow fix survives integration');
+// --- lightbox runtime binding: the tested core owns pure geometry ---
+assert.ok(html.includes('/src/lightbox-gesture.js'), 'the lightbox gesture bridge module is loaded');
+assert.ok(html.includes('window.CrabbieLightboxGesture') || html.includes('CrabbieLightboxGesture'), 'the running viewer reads the tested gesture core');
+assert.ok(html.includes('core.panBounds') && html.includes('core.clampPan') && html.includes('core.clampScale'), 'bounds/clamp/scale decisions delegate to the core');
+assert.ok(html.includes('assertLightboxInvariant'), 'runtime geometry assertions guard future refactors');
+assert.ok(html.includes('publicLightboxImg.clientWidth') && html.includes('publicLightboxImg.clientHeight'), 'bounds stay image-relative (transform-free client size)');
+assert.ok(!html.includes('innerWidth * lightboxScale'), 'bounds never go viewport-relative');
+const gestureBridge = await readFile(new URL('./lightbox-gesture.js', import.meta.url), 'utf8');
+assert.ok(gestureBridge.includes('lightbox-gesture-core.js'), 'the bridge imports the tested core module');
+assert.ok(gestureBridge.includes('panBounds') && gestureBridge.includes('clampPan') && gestureBridge.includes('clampScale') && gestureBridge.includes('lightboxTransform'), 'the bridge exposes the tested decisions');
 
 const motion = await readFile(new URL('./site-motion.js', import.meta.url), 'utf8');
 assert.ok(motion.includes('handleReduceChange'), 'idempotent reduced-motion handler exists');
