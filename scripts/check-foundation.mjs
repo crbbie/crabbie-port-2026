@@ -16,6 +16,16 @@ if (!html.includes('class="admin-entry-link"') || !html.includes('href="#admin"'
 for (const [, body] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
   if (body.trim()) new Script(body, { filename: 'crabbie-port26.html' });
 }
+// The portfolio planner is a synchronous classic script: it must parse as
+// one and load before the inline composition wiring (no race, no flash).
+const planner = await readFile('src/portfolio-grid-core.js', 'utf8');
+new Script(planner, { filename: 'src/portfolio-grid-core.js' });
+if (!html.includes('<script src="/src/portfolio-grid-core.js">')) {
+  throw new Error('Portfolio planner script tag missing.');
+}
+if (html.indexOf('<script src="/src/portfolio-grid-core.js">') > html.indexOf('function syncPortfolioComposition()')) {
+  throw new Error('Portfolio planner must load before the composition wiring.');
+}
 
 const vercelConfig = JSON.parse(await readFile('vercel.json', 'utf8'));
 const rewrites = Array.isArray(vercelConfig.rewrites) ? vercelConfig.rewrites : [];

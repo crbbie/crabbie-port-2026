@@ -4309,6 +4309,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,audio/*,application/pdf,application/zip,.zip">
 
+<script src="/src/portfolio-grid-core.js"></script>
 <script>
 (function(){
 'use strict';
@@ -5396,27 +5397,22 @@ setTimeout(function(){ el.classList.remove('is-hover-wobble'); }, 1000);
 });
 });
 
-/* Deterministic, presentation-only grid composition (inline mirror of
-   src/portfolio-grid-core.js). Desktop uses repeating complete bands
-   [large,tall],[small,small,small],[wide,wide]; an incomplete tail falls back
-   to compact smalls. Compact widths never use the legacy three-row spans. The
-   plan depends only on the visible ordered count, so reorder/filter/removal
-   can never leave a DOM-history-dependent composition. Defined before the
-   filter wiring runs (initFilter calls applyFilter immediately). */
-var PORTFOLIO_DESKTOP_BANDS = [['pf-l','pf-t'],['pf-s','pf-s','pf-s'],['pf-w','pf-w']];
+/* Deterministic, presentation-only grid composition (single source:
+   src/portfolio-grid-core.js, loaded synchronously before this inline
+   script via <script src="/src/portfolio-grid-core.js">). Desktop uses
+   repeating complete bands [large,tall],[small,small,small],[wide,wide];
+   an incomplete tail falls back to compact smalls. Compact widths never
+   use the legacy three-row spans. The plan depends only on the visible
+   ordered count, so reorder/filter/removal can never leave a
+   DOM-history-dependent composition. This inline layer owns only DOM
+   wiring (mode observation via matchMedia, card assignment, debounced
+   resize) and forwards planning to window.CrabbiePortfolioGrid with no
+   local band/planner algorithm. Defined before the filter wiring runs
+   (initFilter calls applyFilter immediately), and the core script tag
+   above guarantees the planner exists before first use, so there is no
+   race and no grid flash. */
 function planPortfolioVariants(count, mode){
-var total = Math.max(0, Math.floor(Number(count) || 0));
-var out = [];
-if(mode !== 'desktop'){ for(var k = 0; k < total; k++) out.push('pf-s'); return out; }
-var band = 0;
-while(out.length < total){
-  var next = PORTFOLIO_DESKTOP_BANDS[band % PORTFOLIO_DESKTOP_BANDS.length];
-  if(total - out.length < next.length) break;
-  for(var n = 0; n < next.length; n++) out.push(next[n]);
-  band++;
-}
-while(out.length < total) out.push('pf-s');
-return out;
+return window.CrabbiePortfolioGrid.planPortfolioVariants(count, mode);
 }
 function portfolioGridMode(){
 try{ return window.matchMedia('(min-width:1181px)').matches ? 'desktop' : 'compact'; }

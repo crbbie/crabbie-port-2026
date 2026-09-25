@@ -159,7 +159,7 @@ Supabase public table
 Portfolio grid presentation is deterministic and presentation-only:
 - Desktop (>1180px) repeats complete bands `[large,tall], [small,small,small], [wide,wide]` (`pf-l, pf-t, pf-s, pf-s, pf-s, pf-w, pf-w`), with incomplete tails falling back to compact smalls (`pf-s`).
 - Compact widths (<=1180px) and tablet/phone columns strictly use `pf-s` (and single-column at <=720px), avoiding legacy multi-row spans.
-- The plan is derived purely from visible ordered DOM cards via `planPortfolioVariants()` (`src/portfolio-grid-core.js`, mirrored inline in the SPA) during hydration, reorder, removal/reintroduction, filter, search, reset, and debounced window resize.
+- The plan is derived purely from visible ordered DOM cards via `planPortfolioVariants()` (`src/portfolio-grid-core.js`, loaded synchronously in the SPA and forwarded through one shared assignment path) during hydration, reorder, removal/reintroduction, filter, search, reset, and debounced window resize.
 - Artwork readiness (`is-art-ready`) dynamically reconciles image availability, errors, and natural dimensions, releasing the 180px minimum fallback height on load without distortion.
 - Jelly squash/stretch feedback (`.is-jelly`) and sparkle particle bursts are strictly excluded from navigation controls (`isNavigatingControl`: `[data-goto]`, `[data-project]`, `[data-asset]`, `.work`, `.item`, `#pdPrev`, `#pdNext`, `.back-link`, `[data-admin-jump]`, `[data-admin-module]`); navigation executes immediately and synchronously without animation delays.
 - Navigation to `project-detail` and `free-asset-detail` is visually stationary on initial activation (suppressing `animViewIn`, `animFadeUp`, and `animEyebrowPop`, keeping stationary `-2deg` rotation on eyebrow). Returning to list view applies `body.is-restoring` during scroll restoration and leaves `.view.is-restored-activation` on the list view for its entire active lifetime, suppressing `animViewIn` and `animFadeScale` permanently for that activation.
@@ -190,8 +190,11 @@ without restoring obsolete scroll.
 
 `src/portfolio-grid-core.js` owns the pure, presentation-only desktop band
 pattern (`[large,tall]`, `[small,small,small]`, `[wide,wide]`) and the compact
-fallback (paired smalls). The SPA cannot import ES modules at parse time, so it
-mirrors the same pattern inline and recomputes variants for the visible ordered
+fallback (paired smalls). It is a classic script (no static import/export) so
+the SPA loads it synchronously via `<script src="/src/portfolio-grid-core.js">`
+before its inline wiring runs; the inline `planPortfolioVariants()` only
+forwards to `window.CrabbiePortfolioGrid` and holds no band/planner rule of
+its own. The SPA recomputes variants for the visible ordered
 collection on hydration, reorder, filtering/search and breakpoint resize through
 one shared assignment path (`syncPortfolioComposition`). Composition is never
 dense auto-placement and never reorders cards. Image-only card geometry and the
