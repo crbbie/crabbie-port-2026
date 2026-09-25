@@ -7,6 +7,16 @@
  * browser wiring (styles, DOM layers, scroll progress, rAF); it never touches
  * layout, CMS data or admin mode.
  *
+ * Loading policy (progressive, no eager fan-out): only state 1 is requested
+ * on cold boot. States 2/3 are requested once scroll progress comes within
+ * PREFETCH_MARGIN of the range where they start fading in, so a cold initial
+ * route never downloads unneeded states (mobile included). The duplicate
+ * eager `preload()` of all three URLs was removed. Opacity is gated on
+ * decode readiness, so a crossfade never targets a layer that is not ready:
+ * missing shares collapse onto the ready layers (never a blank frame), and a
+ * failed decode keeps the last valid layer instead of popping (a corrupt
+ * asset is retried at most twice, never re-requested on every scroll frame).
+ *
  * Stacking: the layer uses `z-index:-2` (the same slot as `body::before`, but
  * later in tree order so it paints above the background) which keeps every
  * real page element — nav, content, forms, modals, the candy and pet layers —
@@ -27,6 +37,11 @@ const LAYER_ID = 'crabbieDecoLayer';
 const THRESHOLD_ONE = 0.32;
 const THRESHOLD_TWO = 0.66;
 const FADE_HALF = 0.09;
+/* States 2/3 start fading in at THRESHOLD - FADE_HALF (0.23 / 0.57).
+   Request each one PREFETCH_MARGIN of progress earlier (i.e. from 0.08 /
+   0.42) so it is decoded before its first blended frame under normal
+   scroll speeds, while a cold boot at the top requests nothing extra. */
+const PREFETCH_MARGIN = 0.15;
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const isReduced = () => reduceMotion.matches;
@@ -77,7 +92,58 @@ body.admin-mode #${LAYER_ID}{display:none !important;}
   document.head.appendChild(style);
 }
 
-const deco = { layer: null, items: [], max: 1, rafId: 0, observer: null };
+const deco = { layer: null, items: [], imgs: [], ready: [false, false, false], loading: [false, false, false], tries: [0, 0, 0], lastOp: null, max: 1, rafId: 0, observer: null };
+/* A corrupt asset must not be re-requested on every scroll frame: after
+   MAX_DECO_ATTEMPTS failed attempts the state stays unready and the opacity
+   gate keeps the last valid layer indefinitely. */
+const MAX_DECO_ATTEMPTS = 2;
+
+function markReady(i, ok) {
+  deco.ready[i] = ok;
+  deco.loading[i] = false;
+  const entry = deco.items[i];
+  if (entry) {
+    if (ok) entry.el.dataset.ready = 'true';
+    else delete entry.el.dataset.ready;
+  }
+  scheduleUpdate();
+}
+
+/* Request state `i` at most once per attempt; resolve readiness via decode
+   (with a load/error fallback). A failure leaves ready[i] false so the
+   opacity gate keeps the last valid layer instead of crossfading into a
+   broken image. */
+function ensureLoaded(i) {
+  if (deco.ready[i] || deco.loading[i] || deco.tries[i] >= MAX_DECO_ATTEMPTS) return;
+  const img = deco.imgs[i];
+  if (!img) return;
+  if (img.getAttribute('src')) {
+    if (img.complete && img.naturalWidth > 0) { markReady(i, true); return; }
+  } else {
+    img.src = DECO_SRC[i];
+  }
+  deco.tries[i] += 1;
+  deco.loading[i] = true;
+  const done = (ok) => markReady(i, ok);
+  if (typeof img.decode === 'function') {
+    img.decode().then(() => done(img.naturalWidth > 0), () => {
+      /* decode() can reject while the resource still loads (or for a
+         corrupt payload); fall through to the element events below. */
+      if (img.complete) done(img.naturalWidth > 0);
+    });
+  }
+  img.addEventListener('load', () => done(img.naturalWidth > 0), { once: true });
+  img.addEventListener('error', () => done(false), { once: true });
+}
+
+/* Prefetch states 2/3 ahead of the scroll range where they are needed.
+   A deep jump (fast scroll, restored position, short page) requests both at
+   once from the same frame — no blank crossfade while they decode. */
+function maybeLoadFor(progress) {
+  ensureLoaded(0);
+  if (progress > THRESHOLD_ONE - FADE_HALF - PREFETCH_MARGIN) ensureLoaded(1);
+  if (progress > THRESHOLD_TWO - FADE_HALF - PREFETCH_MARGIN) ensureLoaded(2);
+}
 
 function buildLayer() {
   injectStyles();
@@ -99,7 +165,12 @@ function buildLayer() {
     float.style.setProperty('--deco-delay', delays[i]);
     float.style.setProperty('--deco-drift', drifts[i]);
     const img = document.createElement('img');
-    img.src = src;
+    /* Progressive policy: only state 1 gets a src on boot. States 2/3 are
+       assigned their src by ensureLoaded() shortly before first use. */
+    if (i === 0) {
+      img.src = src;
+      if ('fetchPriority' in img) img.fetchPriority = 'high';
+    }
     img.alt = '';
     img.decoding = 'async';
     img.draggable = false;
@@ -107,19 +178,12 @@ function buildLayer() {
     item.appendChild(float);
     layer.appendChild(item);
     deco.items.push({ el: item, depth: depths[i] });
+    deco.imgs.push(img);
   });
   document.body.appendChild(layer);
   deco.layer = layer;
-  preload();
+  ensureLoaded(0);
   return layer;
-}
-
-function preload() {
-  DECO_SRC.forEach((src) => {
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = src;
-  });
 }
 
 function clamp01(value) {
@@ -141,9 +205,30 @@ function refreshMax() {
 function applyProgress() {
   if (!deco.layer) return;
   const progress = clamp01(window.scrollY / deco.max);
+  maybeLoadFor(progress);
   const fadeOne = smoothstep((progress - (THRESHOLD_ONE - FADE_HALF)) / (FADE_HALF * 2));
   const fadeTwo = smoothstep((progress - (THRESHOLD_TWO - FADE_HALF)) / (FADE_HALF * 2));
-  const opacities = [1 - fadeOne, fadeOne * (1 - fadeTwo), fadeTwo];
+  let opacities = [1 - fadeOne, fadeOne * (1 - fadeTwo), fadeTwo];
+  /* Never crossfade into a layer that has not decoded yet: collapse the
+     missing share onto the ready layers (renormalised, still summing to 1)
+     so fast/deep scroll holds a valid layer instead of blanking. A failed
+     decode keeps its share at zero permanently. */
+  const gated = opacities.map((value, i) => (deco.ready[i] ? value : 0));
+  const total = gated[0] + gated[1] + gated[2];
+  if (total > 0) {
+    opacities = gated.map((value) => value / total);
+    deco.lastOp = opacities;
+  } else if (deco.lastOp) {
+    /* A later state failed after earlier frames already showed a valid
+       blend (e.g. corrupt state 3 at the bottom): hold that blend instead
+       of snapping elsewhere, so there is never a blank or popping frame. */
+    opacities = deco.lastOp;
+  } else {
+    /* Cold error path (state 1 itself failed): keep the layer mounted with
+       the nominal blend so layout/style stay intact, showing nothing rather
+       than a half-applied state. */
+    opacities = [1, 0, 0];
+  }
     const reduced = isReduced();
     deco.items.forEach((item, i) => {
       item.el.style.opacity = opacities[i].toFixed(3);
