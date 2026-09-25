@@ -48,7 +48,12 @@ async function fetchProjectPeopleMap() {
   }
 }
 
+/* Latest-request ownership: startup hydration and an explicit CMS refresh can
+   overlap, so only the newest request may apply or settle public state. */
+let generation = 0;
+
 export async function hydratePortfolio() {
+  const gen = ++generation;
   try {
     if (!isConfigured || !supabase || !window.CrabbiePortfolio) return false;
     const { data, error } = await supabase.from('portfolio_projects').select('id,slug,title,description,tags,thumbnail_path,cover_path,featured,published,content,sort_order').eq('published', true).order('sort_order', { ascending: true });
@@ -57,6 +62,10 @@ export async function hydratePortfolio() {
     try {
       assoc = await fetchProjectPeopleMap();
     } catch { assoc = {}; }
+    /* The association fetch is a second round trip. A superseded snapshot must
+       not come back when it is the slower one, so ownership is re-checked after
+       it settles and before anything is published. */
+    if (gen !== generation) return true;
     const idToSlug = {};
     (data || []).forEach((row) => { if (row.id) idToSlug[String(row.id)] = row.slug; });
     const grouped = {};
@@ -84,9 +93,13 @@ export async function hydratePortfolio() {
     return true;
   } finally {
     /* Settled either way: a pending detail route must resolve (record, real
-       404, or prototype fallback) instead of waiting forever. */
-    window.__CRABBIE_PORTFOLIO_HYDRATED__ = true;
-    if (window.CrabbiePortfolio && window.CrabbiePortfolio.settled) window.CrabbiePortfolio.settled();
+       404, or prototype fallback) instead of waiting forever. Only the newest
+       request settles, so a superseded response can never mark a newer pending
+       hydration as ready. */
+    if (gen === generation) {
+      window.__CRABBIE_PORTFOLIO_HYDRATED__ = true;
+      if (window.CrabbiePortfolio && window.CrabbiePortfolio.settled) window.CrabbiePortfolio.settled();
+    }
   }
 }
 hydratePortfolio();

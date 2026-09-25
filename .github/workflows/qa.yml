@@ -111,6 +111,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run integration matrix (Chromium)
         run: node scripts/integration-matrix.mjs --browser=chromium
+      - name: Check public CMS request ownership (Chromium)
+        run: node scripts/public-cms-race.mjs --browser=chromium
 
   matrix-webkit:
     name: matrix-webkit
@@ -130,3 +132,5 @@ jobs:
         run: npx playwright install --with-deps webkit
       - name: Run integration matrix (WebKit)
         run: node scripts/integration-matrix.mjs --browser=webkit
+      - name: Check public CMS request ownership (WebKit)
+        run: node scripts/public-cms-race.mjs --browser=webkit
