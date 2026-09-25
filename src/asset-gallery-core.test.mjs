@@ -24,6 +24,13 @@ import {
   findAuthoritativeMediaReferences,
   collectPagedRows
 } from './admin-media-safety-core.js';
+import {
+  buildAdminWritePlan,
+  concurrencyConflictError,
+  isConcurrencyConflictResponse,
+  applySuccessfulSave
+} from './admin-record-save-core.js';
+import { reconcileSavedTarget } from './admin-persisted-baseline-core.js';
 import { buildReferenceIndex } from './media-cleanup-scanner-core.js';
 
 const ids = (() => { let n = 0; return () => 'g' + (++n); })();
@@ -126,24 +133,67 @@ assert.deepEqual(legacyMapped.gallery, [], 'legacy cover-only assets map to []')
 assert.equal(legacyMapped.coverAlt, '', 'legacy cover alt stays empty');
 
 // --- record-save round trip: add, reorder, replace, remove, clear, reload ---
-const draft = createAssetDraft({ id: 'a1', slug: 'a1', title: 'A', gallery: [{ url: 'media/1.png' }] });
+const draft = createAssetDraft({ id: 'a1', slug: 'a1', title: 'A', thumbnail: 'media/cover.png', gallery: [{ url: 'media/1.png' }] });
 assert.equal(draft.gallery.length, 1, 'draft creation keeps authored rows');
 assert.equal(draft.availability, 'available', 'draft defaults preserved');
+assert.equal(draft.thumbnail, 'media/cover.png', 'draft preserves authored cover');
 const saved = formatAssetRow({ ...draft, gallery: [...draft.gallery, { id: 'g9', url: 'media/2.png', alt: 'Two' }] });
 assert.equal(saved.metadata.gallery.length, 2, 'save serializes both rows in order');
 assert.equal(saved.metadata.gallery[1].alt, 'Two', 'alt survives the save');
 assert.equal(saved.file_path, draft.downloadUrl ?? draft.media ?? '', 'download serialization unchanged');
 assert.equal(saved.availability, 'available', 'availability serialization unchanged');
+assert.equal(saved.thumbnail_path, 'media/cover.png', 'cover serialization unchanged');
+assert.ok(!saved.metadata.gallery.some((item) => item.url === saved.thumbnail_path), 'the cover is never injected into the gallery');
 const reordered = { ...draft, gallery: moveGalleryItem([...draft.gallery, { id: 'g9', url: 'media/2.png' }], 1, 'up') };
 assert.equal(reordered.gallery[0].id, 'g9', 'reorder persists through the draft');
 const cleared = formatAssetRow({ ...draft, gallery: [] });
 assert.deepEqual(cleared.metadata.gallery, [], 'clearing the gallery persists an explicit empty list');
-assert.ok(!('cover' in cleared.metadata) || true, 'the cover is never injected into the gallery');
+assert.ok(!cleared.metadata.gallery.some((item) => item.url === cleared.thumbnail_path), 'clearing the gallery never injects the cover');
+assert.ok(!('cover' in cleared.metadata), 'metadata does not hold a separate cover property');
 assert.equal(cleared.thumbnail_path, draft.thumbnail || null, 'cover serialization unchanged');
 
-// --- conflict / failed-save paths preserve drafts (pure shape) ---
-const conflictDraft = { ...draft, gallery: [{ id: 'x', url: 'media/x.png' }], originalUpdatedAt: 't0' };
-assert.equal(conflictDraft.gallery[0].url, 'media/x.png', 'a stale-save conflict keeps the draft gallery in memory');
+// --- conflict / failed-save workflow preserves draft gallery in memory ---
+{
+  const baselineAsset = {
+    id: 'a1',
+    dbId: 'uuid-a1',
+    slug: 'a1',
+    title: 'Asset A',
+    thumbnail: 'media/cover.png',
+    gallery: [{ id: 'g1', url: 'media/prev-orig.png', alt: 'Original' }],
+    originalUpdatedAt: '2026-01-01T00:00:00Z'
+  };
+  const savedState = { assets: [structuredClone(baselineAsset)] };
+  const liveDraft = createAssetDraft(baselineAsset);
+  // Author edits gallery in editor:
+  liveDraft.gallery = [{ id: 'x', url: 'media/x.png', alt: 'New Preview' }];
+
+  // Execute save workflow through guarded update plan
+  const plan = buildAdminWritePlan('assets', liveDraft);
+  const target = { kind: 'record', scope: 'assets', recordId: liveDraft.id };
+  const captured = structuredClone(liveDraft);
+
+  // Simulate guarded update response hitting 0 rows (stale update conflict)
+  const conflictResponse = { data: null, error: null };
+  const isConflict = isConcurrencyConflictResponse(conflictResponse);
+  assert.equal(isConflict, true, 'zero-row update response is identified as concurrency conflict');
+
+  let saveError = null;
+  try {
+    if (isConflict) throw concurrencyConflictError(plan.scope);
+    applySuccessfulSave(liveDraft, conflictResponse.data);
+    reconcileSavedTarget(savedState, target, captured, { success: true, mode: plan.mode, row: conflictResponse.data });
+  } catch (err) {
+    saveError = err;
+  }
+
+  assert.ok(saveError, 'save workflow aborted on conflict');
+  assert.equal(saveError.code, 'stale_save', 'conflict error carries stale_save code');
+  assert.equal(liveDraft.gallery.length, 1, 'failed save preserves draft gallery length');
+  assert.equal(liveDraft.gallery[0].url, 'media/x.png', 'a stale-save conflict keeps the draft gallery in memory');
+  assert.equal(liveDraft.originalUpdatedAt, '2026-01-01T00:00:00Z', 'draft baseline is not advanced on failure');
+  assert.equal(savedState.assets[0].gallery[0].url, 'media/prev-orig.png', 'persisted baseline is untouched by failed save');
+}
 
 // --- media safety: saved AND draft gallery references block deletion ---
 const media = { url: 'https://cdn.test/media/prev1.png', storagePath: 'media/prev1.png' };
