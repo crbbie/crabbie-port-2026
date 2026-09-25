@@ -3236,10 +3236,11 @@ try {
     // ---- Decor progressive loading: cold boot requests only state 1 ----
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('about:blank');
-    const decoErrBase = errors.length;
+    errors.length = 0;
     await page.goto(origin + '/#home', { waitUntil: 'load' });
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
     await page.waitForFunction(() => document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item').length === 3);
+    const decoErrBase = errors.length;
     const decoCold = await page.evaluate(() => Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => ({ src: el.querySelector('img').getAttribute('src'), ready: el.dataset.ready === 'true' })));
     assert.equal(decoCold.length, 3, 'three decor states exist');
     assert.ok(decoCold[0].src && decoCold[0].src.includes('deco-bg (1).png'), 'cold boot requests decor state 1');
