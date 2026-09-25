@@ -51,6 +51,13 @@ Full-resolution originals load on demand in the shared viewer only — the grid
 never preloads every original of a large gallery. No autoplay, no mandatory
 swipe navigation.
 
+Decorative background artwork (`src/site-decor.js`, three local `deco-bg`
+PNGs) loads progressively: a cold top-of-page load requests only state 1,
+states 2/3 are prefetched from 0.08/0.42 scroll progress (ahead of their
+0.23/0.57 fade-in starts), and opacity is gated on decode readiness so fast
+scroll holds a valid layer and a failed decode (retried at most twice) never
+blanks or pops. The former duplicate eager preload of all three URLs is gone.
+
 ## Upload pipeline
 
 Current rules:
