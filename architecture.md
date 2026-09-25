@@ -58,6 +58,56 @@ dedupes it), `instantScrollTo` is the only route-scroll primitive, same-route
 detail refresh re-renders in place without routing, and admin dirty-navigation
 guards plus URL/deep-link behavior are unchanged.
 
+## Startup settlement contract
+
+The document starts with `html.cms-content-pending`, which hides the nav shell,
+every public view and the footer until the first CMS snapshot arrives. That gate
+is owned by one **startup settlement** controller (inline `startup-settlement`
+script in the document head, exposed as `window.CrabbieStartup`) so it can never
+depend on a single animation or module succeeding.
+
+- `settle(reason)` is idempotent: the first settlement wins, later reports are
+  ignored and never rewrite the recorded reason.
+- The gate is released (`cms-content-pending` off, `cms-content-ready` on) by the
+  settlement. It hides only public content, so releasing it can never expose the
+  admin shell.
+- Bounded waiting: a deadline (default 6s, `window.__CRABBIE_STARTUP_TIMEOUT_MS__`
+  overrides it for tests/diagnostics) settles the startup with
+  `module-timeout` if nothing else does.
+- Failure acceleration: the public CMS entry module (`/src/supabase-client.js`)
+  failing to load/evaluate settles immediately (`module-error`);
+  `src/supabase-client.js` reports a failed `site-content-cms.js` import as
+  `cms-module-error`; the CMS module reports its own outcome as `cms-settled`;
+  the Home animation's bounded fallback reports `home-animation-timeout`.
+- `isDegraded()` means "settled without the CMS module reporting itself", so
+  authoritative public data may still be missing.
+- A late CMS success still hydrates normally. Settlement only releases first
+  paint and resolves route state; it never invents CMS data.
+- The Home bloom animation declares its own worst-case duration through
+  `expectHomeTransition(ms)`. The settlement then arms a terminal Home cleanup
+  after that declared window (or a short default when no animation claims the
+  transition) which clears `home-transition-pending`, `home-reveal-sequence`/
+  `home-reveal-active` and the `is-loading` scroll lock. A healthy load finishes
+  its animation long before that net, so the animation is never cut short.
+- While degraded, a detail route that was still waiting on CMS data resolves
+  against the prototype snapshot (prototype record or the real 404) instead of an
+  endless loading view. The substituted 404 stays revivable, so a late CMS
+  record still hydrates the detail through the normal `CrabbiePortfolio`/
+  `CrabbieAssets` apply path. No history entry is rewritten and a previous route
+  is never re-entered.
+
+Contract summary:
+
+```text
+document boot
+  → cms-content-pending gate
+  → CrabbieStartup.settle(reason)   (cms-settled | module-error | cms-module-error
+                                     | module-timeout | home-animation-timeout)
+  → cms-content-ready (nav/views/footer visible)
+  → pending detail route resolves (record / prototype / real 404)
+  → late CMS success hydrates normally and may revive the detail
+```
+
 ## Module boundaries
 
 ### Public CMS adapters
@@ -70,7 +120,10 @@ Examples:
 - `src/commissions-cms.js`
 - `src/site-content-cms.js`
 
-These query published public data and bridge it into the SPA.
+These query published public data and bridge it into the SPA. `src/site-content-cms.js`
+also reports its outcome to the startup settlement (see the startup settlement
+contract above) — that report disarms the bounded first-paint fallback on a
+healthy load.
 
 ### Admin browser services
 

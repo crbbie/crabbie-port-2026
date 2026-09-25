@@ -8,7 +8,8 @@
     "check:foundation": "node scripts/check-foundation.mjs",
     "check:schema": "node scripts/check-media-schema.mjs && node scripts/check-performance-schema.mjs && node scripts/check-security-headers.mjs",
     "test:router": "node scripts/router-smoke.mjs",
-    "test:matrix": "node scripts/integration-matrix.mjs --browser=chromium && node scripts/integration-matrix.mjs --browser=webkit"
+    "test:startup": "node scripts/startup-settlement.mjs --browser=chromium && node scripts/startup-settlement.mjs --browser=webkit",
+    "test:matrix": "node scripts/integration-matrix.mjs --browser=chromium && node scripts/integration-matrix.mjs --browser=webkit && npm run test:startup"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4"

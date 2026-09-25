@@ -15,7 +15,14 @@ import('./portfolio-cms.js');
 import('./people-cms.js');
 import('./free-assets-cms.js');
 import('./commissions-cms.js');
-import('./site-content-cms.js');
+import('./site-content-cms.js').catch((err) => {
+  /* The CMS module itself never evaluated: report it so startup settlement
+     fails open immediately instead of waiting out the bounded deadline. */
+  console.warn('Site Content CMS module failed to load:', err && err.message ? err.message : err);
+  if (typeof window !== 'undefined' && window.CrabbieStartup && typeof window.CrabbieStartup.settle === 'function') {
+    window.CrabbieStartup.settle('cms-module-error');
+  }
+});
 import('./admin-auth.js');
 /* The CRUD module may lose the first-load race with session restoration; a
    load failure is recorded so hydration reports a genuine error instead of

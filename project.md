@@ -60,6 +60,12 @@ Portfolio list → choose project → route resolves by project slug → project
 
 Never allow newly created/saved projects to resolve to 404 because public CMS state was not refreshed or the route map was not updated.
 
+When the startup settlement gives up waiting for CMS data (module failure or
+bounded timeout), an unresolved detail resolves against the prototype snapshot —
+a real 404 for an unknown slug — but that substitution stays revivable, so a late
+CMS snapshot still hydrates the detail. See `architecture.md` (startup
+settlement contract).
+
 ### 2. View a free asset
 
 Free Assets list → choose asset → asset detail renders metadata, availability, preview, and download action.

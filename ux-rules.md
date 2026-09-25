@@ -321,6 +321,30 @@ After responsive changes, verify at least desktop, tablet, and mobile widths wit
   stops candy/pet loops; reduced off reconciles/restarts enabled systems only.
   Pinned positions, counts and the single music instance are preserved.
 
+## Startup, loading and fail-open
+
+The public shell (nav, views, footer) is hidden by `html.cms-content-pending`
+until the first CMS snapshot settles, so prototype content never flashes before
+live content. That gate is a bounded contract, not an open-ended wait.
+
+- A healthy load releases the gate from the CMS module: hydrated content appears
+  directly, with no prototype flash, and the Home bloom animation plays in full.
+- When the CMS module graph fails (CDN abort, failed module) or never settles,
+  the shell still becomes visible within a bounded window (default 6s at the
+  latest, usually immediately on a module failure). The visitor always keeps
+  working navigation instead of a blank page.
+- A direct project/asset URL that cannot be resolved because CMS data never
+  arrived resolves against the prototype snapshot: a known prototype record
+  renders, an unknown slug shows the real 404. A loading view is never permanent.
+- If the CMS data does arrive later, it still hydrates normally and can revive
+  the detail the visitor asked for. Fail-open never fabricates data and never
+  rewrites history or returns the visitor to an earlier route.
+- The Home load animation is decorative: if it is disabled (reduced motion),
+  absent (deep link) or fails, the page must still be fully usable, scrollable
+  and visible without it.
+- Reduced motion keeps its guarantee: no bloom overlay, no reveal stagger, and
+  no scroll lock.
+
 ## Accessibility basics
 
 - Preserve keyboard-focusable controls.

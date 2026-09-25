@@ -16,6 +16,12 @@ function markSiteContentReady(ok) {
   window.__CRABBIE_SITE_CONTENT_HYDRATED__ = true;
   document.documentElement.classList.remove('cms-content-pending');
   document.documentElement.classList.add('cms-content-ready');
+  /* The startup settlement owns the same first-paint gate: report the CMS
+     outcome so its bounded fallback stands down. Idempotent - the first
+     settlement wins and a late report never re-settles. */
+  if (window.CrabbieStartup && typeof window.CrabbieStartup.settle === 'function') {
+    window.CrabbieStartup.settle('cms-settled');
+  }
   window.dispatchEvent(new CustomEvent('crabbie:site-content-ready', {
     detail: { ok: Boolean(ok) }
   }));

@@ -99,6 +99,7 @@ Run the smallest relevant set, then run the full safety set for cross-cutting ch
 ```bash
 npm test
 npm run test:router
+npm run test:startup
 npm run check:foundation
 npm run check:schema
 ```
@@ -169,6 +170,9 @@ Do not break these flows:
 3. Commission services/pricing render correctly.
 4. Commission request form validates, prevents duplicate submission, and only reports success after a confirmed insert.
 5. Admin auth/RLS and safe admin persistence remain intact.
+6. Startup settlement releases the public shell (`cms-content-pending` →
+   `cms-content-ready`) within its bounded window and resolves pending detail
+   routes, on every route, even when the CMS module graph fails or never settles.
 
 ## Architecture guardrails
 
