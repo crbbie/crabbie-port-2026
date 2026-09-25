@@ -11,6 +11,145 @@ if('scrollRestoration' in history){
 }
 window.scrollTo(0, 0);
 </script>
+<script id="startup-settlement">
+/* ============================================================
+   STARTUP SETTLEMENT
+   One bounded, idempotent owner for "the app shell must be
+   visible and usable now".
+   It is independent of:
+     - the Home bloom animation (which may never run, may early
+       return, or may die mid-transition);
+     - the CMS modules evaluating successfully (CDN abort, module
+       graph failure, a query that never settles).
+   Healthy loads are unchanged: the CMS module reports its own
+   settlement and the bounded fallback stands down. A late CMS
+   success still hydrates normally - this only clears the
+   first-paint gate and the Home transition classes; it never
+   invents CMS data and never touches the admin shell.
+   ============================================================ */
+(function(){
+  'use strict';
+
+  var DEFAULT_DEADLINE_MS = 6000;  /* bounded wait for the CMS modules */
+  var HOME_NET_DELAY_MS = 2600;    /* shell reveal when no animation owns the transition */
+  var HOME_NET_SLACK_MS = 300;     /* margin after a declared Home animation deadline */
+
+  var root = document.documentElement;
+  var settled = false;
+  var reason = null;
+  var settledAt = 0;
+  var deadlineTimer = null;
+  var homeNetTimer = null;
+  var homeOwnerDeadline = 0;
+  var readyResolve = null;
+  var ready = new Promise(function(resolve){ readyResolve = resolve; });
+
+  function now(){
+    return (window.performance && window.performance.now) ? window.performance.now() : Date.now();
+  }
+
+  function deadlineMs(){
+    /* Internal/ops override used by tests and diagnostics; production waits
+       the default bounded window. */
+    var override = window.__CRABBIE_STARTUP_TIMEOUT_MS__;
+    return (typeof override === 'number' && isFinite(override) && override >= 0) ? override : DEFAULT_DEADLINE_MS;
+  }
+
+  /* Degraded means "settled without the CMS module reporting itself", so
+     authoritative public data may still be missing. */
+  function isDegraded(){ return settled && reason !== 'cms-settled'; }
+
+  function snapshot(){
+    return { settled: settled, reason: reason, degraded: isDegraded(), settledAt: settledAt };
+  }
+
+  /* The first-paint gate only ever hides public views, the nav shell and the
+     footer (never the admin view), so clearing it cannot expose admin. */
+  function revealShell(){
+    root.classList.remove('cms-content-pending');
+    root.classList.add('cms-content-ready');
+  }
+
+  /* Terminal Home state. These classes can trap the visitor behind a
+     full-screen overlay or leave Home/footer content transparent, so they must
+     not survive a startup that gave up waiting. Only ever runs after the Home
+     animation's own bounded timeline, so a healthy load is never cut short. */
+  function clearHomeShell(){
+    root.classList.remove('home-transition-pending');
+    root.classList.remove('home-reveal-active');
+    root.classList.remove('home-reveal-sequence');
+    if(document.body) document.body.classList.remove('is-loading');
+    var overlay = document.getElementById('homeBloomTransition');
+    if(overlay) overlay.classList.add('is-hidden');
+  }
+
+  function armHomeNet(){
+    if(homeNetTimer !== null){ clearTimeout(homeNetTimer); homeNetTimer = null; }
+    var delay = HOME_NET_DELAY_MS;
+    if(homeOwnerDeadline > 0){
+      var ownerDelay = (homeOwnerDeadline + HOME_NET_SLACK_MS) - now();
+      if(ownerDelay > delay) delay = ownerDelay;
+    }
+    if(delay < 0) delay = 0;
+    homeNetTimer = setTimeout(function(){
+      homeNetTimer = null;
+      try{
+        revealShell();
+        clearHomeShell();
+      }catch(e){ /* the terminal state is best effort by definition */ }
+    }, delay);
+  }
+
+  function settle(nextReason){
+    if(settled) return false;
+    settled = true;
+    reason = nextReason || 'unknown';
+    settledAt = now();
+    if(deadlineTimer !== null){ clearTimeout(deadlineTimer); deadlineTimer = null; }
+    try{
+      revealShell();
+      armHomeNet();
+      window.dispatchEvent(new CustomEvent('crabbie:startup-settled', {
+        detail: { reason: reason, degraded: isDegraded(), at: settledAt }
+      }));
+    }catch(e){ /* settlement state is already recorded */ }
+    if(readyResolve){ var resolve = readyResolve; readyResolve = null; resolve(); }
+    return true;
+  }
+
+  window.CrabbieStartup = {
+    ready: ready,
+    settle: settle,
+    isSettled: function(){ return settled; },
+    isDegraded: isDegraded,
+    snapshot: snapshot,
+    /* The Home animation declares its own worst-case duration so the shell net
+       waits for it instead of racing it. Never shortens a declared deadline. */
+    expectHomeTransition: function(ms){
+      var duration = Number(ms);
+      if(!isFinite(duration) || duration < 0) return;
+      var deadline = now() + duration;
+      if(deadline > homeOwnerDeadline) homeOwnerDeadline = deadline;
+      armHomeNet();
+    }
+  };
+
+  /* The public CMS entry module failing to load/evaluate is the strongest
+     signal that hydration will never happen: fail open immediately instead of
+     waiting out the whole deadline. Decorative modules failing do not release
+     first paint early - the CMS module still reports its own settlement. */
+  window.addEventListener('error', function(event){
+    var target = event && event.target;
+    if(!target || target.tagName !== 'SCRIPT') return;
+    if(/^\/src\/supabase-client\.js(\?|$)/.test(target.getAttribute('src') || '')) settle('module-error');
+  }, true);
+
+  deadlineTimer = setTimeout(function(){
+    deadlineTimer = null;
+    settle('module-timeout');
+  }, deadlineMs());
+})();
+</script>
 <style>
 /* ============================================================
    TOKENS
@@ -4474,15 +4613,37 @@ var isPopstate = false;
 /* The last syntactically valid detail route the visitor asked for. Lets a late
    CMS refresh revive a route that was resolved before the record existed. */
 var lastDetailRequest = null;
+/* A detail route the startup settlement resolved to 404 while CMS data was
+   still unavailable. A late CMS success may still revive it, so it is not a
+   permanent 404. */
+var startupFallback404 = null;
+function startupDegraded(){
+  return !!(window.CrabbieStartup && typeof window.CrabbieStartup.isDegraded === 'function' && window.CrabbieStartup.isDegraded());
+}
 function cmsDetailPending(view, id){
+  /* Degraded startup (module graph failure / bounded wait expired) never waits
+     forever: the route resolves against the prototype snapshot below. */
+  if(startupDegraded()) return false;
   if(view === 'project-detail') return !Object.prototype.hasOwnProperty.call(PROJECTS, id) && !window.__CRABBIE_PORTFOLIO_HYDRATED__;
   if(view === 'free-asset-detail') return !Object.prototype.hasOwnProperty.call(ASSETS, id) && !window.__CRABBIE_ASSETS_HYDRATED__;
   return false;
 }
 function cmsDetailMissing(view, id){
-  if(view === 'project-detail') return !Object.prototype.hasOwnProperty.call(PROJECTS, id) && !!window.__CRABBIE_PORTFOLIO_HYDRATED__;
-  if(view === 'free-asset-detail') return !Object.prototype.hasOwnProperty.call(ASSETS, id) && !!window.__CRABBIE_ASSETS_HYDRATED__;
+  if(view === 'project-detail') return !Object.prototype.hasOwnProperty.call(PROJECTS, id) && (!!window.__CRABBIE_PORTFOLIO_HYDRATED__ || startupDegraded());
+  if(view === 'free-asset-detail') return !Object.prototype.hasOwnProperty.call(ASSETS, id) && (!!window.__CRABBIE_ASSETS_HYDRATED__ || startupDegraded());
   return false;
+}
+function isStartupFallback404(view, id){
+  /* Only a degraded startup turns an unknown detail into a revivable 404; a
+     prototype slug always resolves to its prototype record instead. */
+  if(!startupDegraded()) return false;
+  if(view === 'project-detail') return !Object.prototype.hasOwnProperty.call(PROJECTS, id);
+  if(view === 'free-asset-detail') return !Object.prototype.hasOwnProperty.call(ASSETS, id);
+  return false;
+}
+function detailRevivableFromStartupFallback(view){
+  if(currentRoute.view !== '404' || !startupFallback404 || !lastDetailRequest) return false;
+  return startupFallback404.view === view && lastDetailRequest.view === view && startupFallback404.id === lastDetailRequest.id;
 }
 
 function visibleCmsValue(value){
@@ -5194,12 +5355,18 @@ try{ el.focus({ preventScroll: true }); }catch(e){ try{ el.focus(); }catch(e2){}
 function applyRoute(route, opts){
 opts = opts || {};
 var view = route.view || '404';
+var requestedView = view;
+var requestedId = route.id;
 if(view === 'project-detail' || view === 'free-asset-detail') lastDetailRequest = { view: view, id: route.id };
+/* A detail route that only became a 404 because startup settled without CMS
+   data stays revivable for a late CMS success. */
+var startupFallback = isStartupFallback404(view, requestedId);
 /* A genuinely unknown/unpublished slug only becomes a real 404 once the
    authoritative CMS snapshot has settled; before that we show the loading
    view instead of a false 404. */
 if(cmsDetailMissing(view, route.id)){ route = { view:'404', id:null, adminModule:null }; view = '404'; }
-else if(cmsDetailPending(view, route.id)){ view = 'loading'; }
+else if(cmsDetailPending(view, route.id)){ view = 'loading'; startupFallback = false; }
+startupFallback404 = startupFallback ? { view: requestedView, id: requestedId } : null;
 if(prevView !== null && prevView !== view){
   if(!opts.restored) scrollMemory[prevView] = window.scrollY || 0;
 }
@@ -11432,8 +11599,9 @@ if(typeof filterState !== 'undefined' && filterState.pf){
       try{ renderProjectCredits(PROJECTS[currentRoute.id]); }catch(e){}
     }
     else applyRoute(parseRoute('project/' + currentRoute.id));
-  } else if(currentRoute.view === 'loading' && lastDetailRequest && lastDetailRequest.view === 'project-detail'){
-    /* Revive a detail route that was parsed before this record existed. */
+  } else if((currentRoute.view === 'loading' || detailRevivableFromStartupFallback('project-detail')) && lastDetailRequest && lastDetailRequest.view === 'project-detail'){
+    /* Revive a detail route that was parsed before this record existed, or one
+       the degraded startup had to resolve to 404 while CMS data was missing. */
     applyRoute(parseRoute('project/' + lastDetailRequest.id));
   }
 },
@@ -11544,7 +11712,9 @@ if(typeof filterState !== 'undefined' && filterState.fa){
       try{ document.title = titleFor('free-asset-detail', currentRoute.id, null); }catch(e){}
     }
     else applyRoute(parseRoute('asset/' + currentRoute.id));
-  } else if(currentRoute.view === 'loading' && lastDetailRequest && lastDetailRequest.view === 'free-asset-detail'){
+  } else if((currentRoute.view === 'loading' || detailRevivableFromStartupFallback('free-asset-detail')) && lastDetailRequest && lastDetailRequest.view === 'free-asset-detail'){
+    /* Same revive contract as Portfolio: a detail route parsed before the
+       record existed, or one the degraded startup resolved to 404. */
     applyRoute(parseRoute('asset/' + lastDetailRequest.id));
   }
 }
@@ -12321,6 +12491,24 @@ notify: async function(payload){
 };
 
 boot();
+/* Startup settlement is independent of the CMS module graph: when it settles
+   without CMS data, a detail route that is still waiting on that data resolves
+   against the prototype snapshot (real 404 / prototype record) instead of an
+   endless loading view. It never re-enters a previous route and never rewrites
+   history; a late CMS success revives the detail through normal hydration. */
+function resolvePendingDetailAfterStartup(){
+  var requested = lastDetailRequest;
+  if(!requested) return;
+  /* A pending detail keeps its requested route in currentRoute while the
+     applied view is the loading screen, so both are checked. */
+  if(prevView !== 'loading' && currentRoute.view !== 'loading') return;
+  if(currentRoute.view !== requested.view || currentRoute.id !== requested.id) return;
+  applyRoute(parseRoute(requested.view === 'project-detail' ? 'project/' + requested.id : 'asset/' + requested.id));
+}
+window.addEventListener('crabbie:startup-settled', resolvePendingDetailAfterStartup);
+if(window.CrabbieStartup && typeof window.CrabbieStartup.isSettled === 'function' && window.CrabbieStartup.isSettled()){
+  resolvePendingDetailAfterStartup();
+}
 // The audit engine loads as an ES module (src/admin-data-audit.js); once it is
 // ready, refresh the admin view so badges/checklists appear without a reload.
 window.__crabbieAuditReady = function(){
@@ -12587,6 +12775,14 @@ document.addEventListener('click', function(e){
   var logo = document.getElementById('homeTransitionLogo');
 
   if(!overlay || !root.classList.contains('home-transition-pending')) return;
+
+  /* Declare this animation's worst-case timeline to the startup settlement:
+     1.45s until it registers for the CMS, +5s bounded CMS fallback, +1.16s
+     overlay exit, +~1.9s reveal tail. The shell reveal is owned elsewhere, so
+     this animation may die at any point without trapping the visitor. */
+  if(window.CrabbieStartup && typeof window.CrabbieStartup.expectHomeTransition === 'function'){
+    window.CrabbieStartup.expectHomeTransition(9500);
+  }
 
   /* Match the transition background to the website's real current background. */
   try{
@@ -12889,11 +13085,17 @@ document.addEventListener('click', function(e){
 
       window.addEventListener('crabbie:site-content-ready', continueAfterCms, { once:true });
 
-      /* Safety fallback: never trap the visitor behind the overlay forever. */
+      /* Safety fallback: never trap the visitor behind the overlay forever.
+         The first-paint gate belongs to the startup settlement, which owns the
+         bounded fallback for every route; this only ends the animation. */
       later(function(){
         if(!finished){
-          document.documentElement.classList.remove('cms-content-pending');
-          document.documentElement.classList.add('cms-content-ready');
+          if(window.CrabbieStartup && typeof window.CrabbieStartup.settle === 'function'){
+            window.CrabbieStartup.settle('home-animation-timeout');
+          } else {
+            document.documentElement.classList.remove('cms-content-pending');
+            document.documentElement.classList.add('cms-content-ready');
+          }
           continueAfterCms();
         }
       },5000);
