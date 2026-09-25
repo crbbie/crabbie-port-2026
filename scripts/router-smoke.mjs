@@ -16,7 +16,7 @@ const publicConfig = livePublic
   ? {url: process.env.SUPABASE_URL, key: process.env.SUPABASE_PUBLISHABLE_KEY}
   : {url: 'https://router-test.supabase.co', key: 'sb_publishable_test_fixture'};
 if (livePublic && (!publicConfig.url || !publicConfig.key)) throw new Error('Public Supabase configuration is missing.');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' };
 const rewrites = JSON.parse(await readFile(resolve(root, 'vercel.json'), 'utf8')).rewrites;
 const server = createServer(async (request, response) => {
   try {
@@ -29,12 +29,13 @@ const server = createServer(async (request, response) => {
       return;
     }
     const file = resolve(root, '.' + path);
-    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg', '.woff2'].includes(extname(file))) {
+    const ext = extname(file).toLowerCase();
+    if (!file.startsWith(root + sep) || !Object.prototype.hasOwnProperty.call(mime, ext)) {
       response.writeHead(404).end();
       return;
     }
     const body = await readFile(file);
-    response.writeHead(200, { 'Content-Type': mime[extname(file)] });
+    response.writeHead(200, { 'Content-Type': mime[ext] });
     response.end(body);
   } catch {
     response.writeHead(404).end();
