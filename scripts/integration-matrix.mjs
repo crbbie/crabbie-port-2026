@@ -81,6 +81,15 @@ const viewports = [
   [768, 1024, 'tablet'], [820, 1180, 'tablet-tall'],
   [1280, 800, 'desktop'], [1440, 900, 'desktop-wide']
 ];
+const boundaryTriplets = [
+  [379, 667, 'boundary-379'], [380, 667, 'boundary-380'], [381, 667, 'boundary-381'],
+  [599, 800, 'boundary-599'], [600, 800, 'boundary-600'], [601, 800, 'boundary-601'],
+  [719, 800, 'boundary-719'], [720, 800, 'boundary-720'], [721, 800, 'boundary-721'],
+  [859, 800, 'boundary-859'], [860, 800, 'boundary-860'], [861, 800, 'boundary-861'],
+  [899, 900, 'boundary-899'], [900, 900, 'boundary-900'], [901, 900, 'boundary-901'],
+  [1179, 900, 'boundary-1179'], [1180, 900, 'boundary-1180'], [1181, 900, 'boundary-1181']
+];
+const allViewports = [...viewports, ...boundaryTriplets];
 
 for (const mobile of [false, true]) {
   const context = await browser.newContext(
@@ -128,8 +137,10 @@ for (const mobile of [false, true]) {
     ]);
   });
 
-  // 1. Route × viewport matrix: one active view, no overflow, no scrollX.
-  for (const [width, height, label] of viewports) {
+  // 1. Route × viewport matrix plus exact CSS breakpoint boundaries:
+  // 379/380/381, 599/600/601, 719/720/721, 859/860/861,
+  // 899/900/901 and 1179/1180/1181.
+  for (const [width, height, label] of allViewports) {
     await page.setViewportSize({ width, height });
     for (const route of ['home', 'portfolio', 'free-assets', 'commissions', 'about', 'terms', 'contact']) {
       await page.evaluate((r) => { location.hash = '#' + r; }, route);
@@ -144,7 +155,44 @@ for (const mobile of [false, true]) {
       assert.ok(box.docSW <= box.docCW + 1 && box.bodySW <= box.bodyCW + 1 && box.x === 0, `${label} ${route}: width within 1px, scrollX 0`);
     }
   }
-  note(`${mode} route×viewport matrix`, '7 routes × 10 viewports, one active view, ≤1px overflow');
+  note(`${mode} route×viewport matrix + boundary sweep`, '7 routes × 28 viewports, one active view, ≤1px overflow');
+
+  // 1b. Sticky navigation and mobile menu stay usable at the two phone
+  // references and landscape. This runs in both Chromium and WebKit.
+  const NAV_SEED = [
+    { title: 'Home', url: '#home' }, { title: 'Portfolio', url: '#portfolio' },
+    { title: 'Free Assets', url: '#free-assets' }, { title: 'Commissions', url: '#commissions' },
+    { title: 'About', url: '#about' }, { title: 'Terms', url: '#terms' },
+    { title: 'Contact', url: '#contact' }
+  ];
+  await page.evaluate((nav) => {
+    if (window.CrabbieSiteContent) window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {});
+  }, NAV_SEED);
+  for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => window.scrollTo({ top: 500, left: 0, behavior: 'instant' }));
+    await page.waitForTimeout(80);
+    const sticky = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      if (!nav) return null;
+      return { position: getComputedStyle(nav).position, top: nav.getBoundingClientRect().top };
+    });
+    assert.ok(sticky && sticky.position === 'sticky', `${mode}: nav stays sticky at ${width}x${height}`);
+    assert.ok(Math.abs(sticky.top) <= 2, `${mode}: sticky nav pins to viewport top at ${width}x${height}`);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+    const burger = page.locator('#navBurger');
+    if (await burger.isVisible()) {
+      await page.evaluate(() => document.getElementById('navBurger')?.click());
+      await page.waitForFunction(() => document.getElementById('mobileMenu')?.classList.contains('open'));
+      const links = await page.locator('#mobileMenu a').count();
+      assert.ok(links >= 6, `${mode}: mobile menu exposes navigation links at ${width}x${height}`);
+      await page.evaluate(() => document.getElementById('navBurger')?.click());
+      await page.waitForFunction(() => !document.getElementById('mobileMenu')?.classList.contains('open'));
+    }
+  }
+  note(`${mode} sticky nav + mobile menu boundary coverage`);
 
   // 2. Detail routes: direct load, cover geometry, missing → 404.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -342,7 +390,13 @@ for (const mobile of [false, true]) {
       ariaLabel: card.getAttribute('aria-label')
     };
   }, slug);
-  const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
+  const artWidths = [
+    [379, 667], [380, 667], [381, 667], [390, 844], [430, 932],
+    [599, 800], [600, 800], [601, 800], [640, 480], [641, 480],
+    [719, 800], [720, 540], [721, 540], [844, 390],
+    [859, 800], [860, 800], [861, 800], [899, 900], [900, 900], [901, 900],
+    [1179, 900], [1180, 900], [1181, 900], [1280, 800], [1440, 900]
+  ];
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
