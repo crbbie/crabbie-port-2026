@@ -54,8 +54,19 @@ When adding a public route, update all relevant route parsing, title handling, n
 Route scroll and focus ownership: `navigate()` applies the destination route
 synchronously in the same event tick before the asynchronous `hashchange`
 event fires (the hash listener treats the subsequent event as an echo and
-dedupes it), `instantScrollTo` is the only route-scroll primitive, same-route
-detail refresh re-renders in place without routing, and admin dirty-navigation
+dedupes it), `instantScrollTo` is the only route-scroll primitive, and scroll
+outcome is governed by the unified pure contract (`CrabbieRouteScroll.decideScroll`,
+shared between runtime and `src/route-scroll-core.js`):
+- `keep`: if `opts.noScroll` is true or `isSame` is true (same-route refresh), the
+  current scroll position is preserved without jumping to top.
+- `restore`: if `!opts.forceScroll` and `typeof restore === 'number'`, scroll position
+  is restored for both explicit detail returns (`project-detail` → `portfolio`,
+  `free-asset-detail` → `free-assets`) and browser Back/Forward between ordinary views
+  (flagged with `restoredFlag`). Outgoing scroll positions are captured in `popstate`
+  (avoiding WebKit scroll-mutation timing issues before `hashchange`).
+- `top`: fresh navigations, direct loads without memory, or navigations with
+  `opts.forceScroll === true` deterministically scroll to top (0).
+Detail refresh re-renders in place without routing, and admin dirty-navigation
 guards plus URL/deep-link behavior are unchanged.
 
 ## Module boundaries

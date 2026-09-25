@@ -192,14 +192,83 @@ for (const mobile of [false, true]) {
   await page.locator('[data-view="project-detail"] button.mid[data-goto="portfolio"]').click();
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
   assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 600) <= 3, `${mode}: bottom Back to Portfolio restores too`);
-  // Browser Back path.
+  // Browser Back path for detail-to-list.
   await page.evaluate(() => window.scrollTo({ top: 600, left: 0, behavior: 'instant' }));
   await page.evaluate(() => { location.hash = '#project/mx-filler-2'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
   await page.goBack();
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
   assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 600) <= 3, `${mode}: browser Back restores list position`);
-  note(`${mode} scroll restoration`, 'Back-to-list + browser Back, no traversal');
+
+  // Browser Back and Forward between ordinary views across target viewports: 390x844, 844x390, 1440x900.
+  for (const [vw, vh, vlabel] of [[390, 844, 'phone-390'], [844, 390, 'landscape-844'], [1440, 900, 'desktop-wide']]) {
+    await page.setViewportSize({ width: vw, height: vh });
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => window.scrollTo({ top: 420, left: 0, behavior: 'instant' }));
+    await page.waitForFunction(() => Math.abs(window.scrollY - 420) < 2);
+
+    const navigateTo = async (dest) => {
+      await page.evaluate((d) => window.navigate(d), dest);
+    };
+
+    // Fresh navigation to portfolio: must start at top (0), then scroll to 500.
+    await navigateTo('portfolio');
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY)) < 2, `${mode} ${vlabel}: fresh navigation to portfolio starts at top`);
+    await page.evaluate(() => window.scrollTo({ top: 500, left: 0, behavior: 'instant' }));
+    await page.waitForFunction(() => Math.abs(window.scrollY - 500) < 2);
+
+    // Fresh navigation to about: must start at top (0), then scroll to 250.
+    await navigateTo('about');
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY)) < 2, `${mode} ${vlabel}: fresh navigation to about starts at top`);
+    await page.evaluate(() => window.scrollTo({ top: 250, left: 0, behavior: 'instant' }));
+    await page.waitForFunction(() => Math.abs(window.scrollY - 250) < 2);
+
+    // Browser Back to portfolio: must restore remembered 500 without animated traversal.
+    await page.goBack();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const portSamples = await page.evaluate(() => new Promise((done) => {
+      const out = [window.scrollY];
+      const tick = (n) => (n <= 0 ? done(out) : requestAnimationFrame(() => { out.push(window.scrollY); tick(n - 1); }));
+      tick(8);
+    }));
+    assert.ok(portSamples.every((y) => Math.abs(y - 500) <= 3), `${mode} ${vlabel}: browser Back to portfolio restores 500 instantly (${portSamples.map(Math.round).join(',')})`);
+
+    // Browser Back to home: must restore remembered 420 without animated traversal.
+    await page.goBack();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    const homeSamples = await page.evaluate(() => new Promise((done) => {
+      const out = [window.scrollY];
+      const tick = (n) => (n <= 0 ? done(out) : requestAnimationFrame(() => { out.push(window.scrollY); tick(n - 1); }));
+      tick(8);
+    }));
+    assert.ok(homeSamples.every((y) => Math.abs(y - 420) <= 3), `${mode} ${vlabel}: browser Back to home restores 420 instantly (${homeSamples.map(Math.round).join(',')})`);
+
+    // Browser Forward to portfolio: must restore remembered 500.
+    await page.goForward();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const portFwdSamples = await page.evaluate(() => new Promise((done) => {
+      const out = [window.scrollY];
+      const tick = (n) => (n <= 0 ? done(out) : requestAnimationFrame(() => { out.push(window.scrollY); tick(n - 1); }));
+      tick(8);
+    }));
+    assert.ok(portFwdSamples.every((y) => Math.abs(y - 500) <= 3), `${mode} ${vlabel}: browser Forward to portfolio restores 500 (${portFwdSamples.map(Math.round).join(',')})`);
+
+    // Browser Forward to about: must restore remembered 250.
+    await page.goForward();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+    assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 250) <= 3, `${mode} ${vlabel}: browser Forward to about restores 250`);
+
+    // Rapid consecutive navigation: rapid back then forward.
+    await page.goBack();
+    await page.goForward();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'about');
+    assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - 250) <= 3, `${mode} ${vlabel}: rapid back/forward settles on about with restored scroll`);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  note(`${mode} scroll restoration`, 'Back-to-list + ordinary Back/Forward across 390x844, 844x390, 1440x900, no traversal');
 
   // 3b. Canonical asset category filtering: multi-word chip filters correctly.
   await page.evaluate(() => { location.hash = '#free-assets'; });

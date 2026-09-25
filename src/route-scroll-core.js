@@ -24,12 +24,22 @@ export function clampScrollY(y, maxScroll) {
 
 /**
  * Decide the scroll outcome for a route application.
- * - same route -> 'keep' (same-record refresh preserves position/focus)
- * - remembered list position available and (explicit return or Back/Forward) -> 'restore'
- * - otherwise -> 'top' (forward navigation, direct loads with no memory)
+ * - 'keep': no scroll performed (noScroll option set, or same-route refresh).
+ * - 'restore': restore remembered scroll position (detail return or Back/Forward to visited view with memory).
+ * - 'top': reset scroll to top (fresh navigation, forceScroll option, or view without memory).
  */
-export function decideScroll({ restore, prevView, view, restoredFlag = false, isSame = false }) {
-  if (isSame) return 'keep';
-  if (typeof restore === 'number' && (isDetailReturn(prevView, view) || restoredFlag)) return 'restore';
+export function decideScroll({
+  restore,
+  prevView,
+  view,
+  restoredFlag = false,
+  isSame = false,
+  noScroll = false,
+  forceScroll = false
+}) {
+  if (noScroll || isSame) return 'keep';
+  if (!forceScroll && typeof restore === 'number' && (isDetailReturn(prevView, view) || Boolean(restoredFlag))) {
+    return 'restore';
+  }
   return 'top';
 }
