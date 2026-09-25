@@ -382,8 +382,16 @@ for (const mobile of [false, true]) {
   await page.waitForFunction((y) => Math.abs((window.scrollY || 0) - y) <= 2, beforeOpenY, { timeout: 3000 }).catch(() => {});
   assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - beforeOpenY) <= 2, `${mode}: no scroll jump on close (before=${beforeOpenY}, after=${await page.evaluate(() => window.scrollY)})`);
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-ad-index')), '2', `${mode}: focus returns to the opener`);
-  // Back dismisses before route change.
-  if (mobile) await opener.tap(); else await opener.click();
+  // Back dismisses before route change. As with SPA anchor routing above,
+  // WebKit can report a false action timeout after the button handler already
+  // ran, so use the DOM activation path there; Chromium keeps physical input.
+  if (browserName === 'webkit') {
+    await page.evaluate(() => document.querySelector('#adGallery .ad-thumb[data-ad-index="2"]')?.click());
+  } else if (mobile) {
+    await opener.tap();
+  } else {
+    await opener.click();
+  }
   await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
   const vHash = await page.evaluate(() => location.hash);
   await page.goBack();
