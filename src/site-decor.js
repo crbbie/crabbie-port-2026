@@ -92,7 +92,7 @@ body.admin-mode #${LAYER_ID}{display:none !important;}
   document.head.appendChild(style);
 }
 
-const deco = { layer: null, items: [], imgs: [], ready: [false, false, false], loading: [false, false, false], tries: [0, 0, 0], max: 1, rafId: 0, observer: null };
+const deco = { layer: null, items: [], imgs: [], ready: [false, false, false], loading: [false, false, false], tries: [0, 0, 0], lastOp: null, max: 1, rafId: 0, observer: null };
 /* A corrupt asset must not be re-requested on every scroll frame: after
    MAX_DECO_ATTEMPTS failed attempts the state stays unready and the opacity
    gate keeps the last valid layer indefinitely. */
@@ -217,6 +217,12 @@ function applyProgress() {
   const total = gated[0] + gated[1] + gated[2];
   if (total > 0) {
     opacities = gated.map((value) => value / total);
+    deco.lastOp = opacities;
+  } else if (deco.lastOp) {
+    /* A later state failed after earlier frames already showed a valid
+       blend (e.g. corrupt state 3 at the bottom): hold that blend instead
+       of snapping elsewhere, so there is never a blank or popping frame. */
+    opacities = deco.lastOp;
   } else {
     /* Cold error path (state 1 itself failed): keep the layer mounted with
        the nominal blend so layout/style stay intact, showing nothing rather

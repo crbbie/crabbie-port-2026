@@ -3233,6 +3233,68 @@ try {
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
     assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
 
+    // ---- Decor progressive loading: cold boot requests only state 1 ----
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('about:blank');
+    const decoErrBase = errors.length;
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.waitForFunction(() => document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item').length === 3);
+    const decoCold = await page.evaluate(() => Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => ({ src: el.querySelector('img').getAttribute('src'), ready: el.dataset.ready === 'true' })));
+    assert.equal(decoCold.length, 3, 'three decor states exist');
+    assert.ok(decoCold[0].src && decoCold[0].src.includes('deco-bg (1).png'), 'cold boot requests decor state 1');
+    assert.equal(decoCold[1].src, null, 'a cold top-of-page load does not request decor state 2 (mobile)');
+    assert.equal(decoCold[2].src, null, 'a cold top-of-page load does not request decor state 3 (mobile)');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('#crabbieDecoLayer .crabbie-deco-item[data-deco="1"] img');
+      return img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+    }, null, { timeout: 20000 });
+    // Deep scroll prefetches the remaining states and crossfades without blanking.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForFunction(() => {
+      const imgs = Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item img'));
+      return imgs.length === 3 && imgs.every((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+    }, null, { timeout: 30000 });
+    const decoBottom = await page.evaluate(() => ({
+      opacity: Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => Number(el.style.opacity)),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    }));
+    assert.ok(Math.abs(decoBottom.opacity.reduce((a, b) => a + b, 0) - 1) < 0.01, 'decor opacities still sum to 1 at the bottom');
+    assert.ok(decoBottom.opacity[2] > 0.99, 'the bottom of the page shows decor state 3');
+    assert.ok(decoBottom.overflow <= 1, 'decor adds no page-level horizontal overflow at 390px');
+    // Rapid top-bottom scrolling never blanks the layer or throws.
+    for (let i = 0; i < 3; i += 1) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(120);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(120);
+    }
+    const decoRapid = await page.evaluate(() => Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => Number(el.style.opacity)));
+    assert.ok(Math.abs(decoRapid.reduce((a, b) => a + b, 0) - 1) < 0.01, 'rapid scrolling never blanks the decor layer');
+    // A failed decode keeps a valid layer instead of crossfading into breakage.
+    await page.route('**/deco-bg*', (route) => {
+      const url = decodeURIComponent(route.request().url());
+      if (url.includes('deco-bg (3).png')) return route.abort();
+      return route.continue();
+    });
+    await page.goto('about:blank');
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.waitForFunction(() => document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item').length === 3);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(2500);
+    const decoBroken = await page.evaluate(() => ({
+      ready: Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => el.dataset.ready === 'true'),
+      opacity: Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item')).map((el) => Number(el.style.opacity))
+    }));
+    assert.deepEqual(decoBroken.ready, [true, true, false], 'a failed decode never marks its layer ready');
+    assert.equal(decoBroken.opacity[2], 0, 'no crossfade targets the undecodable layer');
+    assert.ok(Math.abs(decoBroken.opacity.reduce((a, b) => a + b, 0) - 1) < 0.01, 'a failed decode keeps a valid layer (no blank)');
+    await page.unroute('**/deco-bg*');
+    assert.equal(errors.length, decoErrBase, 'decor loading adds no uncaught script errors');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    console.log('PASS decor progressive loading: cold state 1 only, deep-scroll prefetch, rapid-scroll hold, decode-failure guard (SDK fixture)');
+
     // Initial pets: a single pet rests in the bottom band on load.
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
