@@ -4511,9 +4511,10 @@ function decideScroll(params){
   }
   return 'top';
 }
-/* Single navigation owner: new hashes apply once via the hashchange listener
-   (guarded by lastAppliedHash + sameRoute); same-hash and replace paths apply
-   directly since no hashchange fires. */
+/* Router activation model: programmatic navigate() applies the destination route
+   synchronously during activation; subsequent hashchange events are guarded as
+   idempotent echoes by lastAppliedHash + sameRoute. Browser-driven navigation
+   (history traversal / back-forward) applies via handleHash. */
 
 var PROJECTS = {
 'color-fiesta': { title: 'Color Fiesta Booth', desc: 'Fanmade merch I illustrated and sold at the Color Fiesta festival', cat: 'Merch / Illustration', tags: ['MERCH','ILLUSTRATION'], credits: '[PROJECT CREDITS]', year: 'YEAR', cover: '[PROJECT COVER]', intro: '[PROJECT INTRODUCTION FROM CMS]', sketch: '[SKETCH CAPTION FROM CMS]', process: '[PROCESS TEXT FROM CMS]', body: '[PROJECT TEXT FROM CMS]', quote: '[PROJECT QUOTE FROM CMS]', link: '', linkLabel: '[PROJECT LINK]' },
