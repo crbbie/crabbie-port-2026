@@ -324,7 +324,13 @@ for (const mobile of [false, true]) {
   await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
   assert.deepEqual(await matrixVariants(), cycle, `${mode} a seven-card cycle tiles the desktop bands`);
   await page.setViewportSize({ width: 900, height: 1000 });
-  await page.evaluate((recs) => window.CrabbiePortfolio.apply(recs), pfSeven);
+  // No re-seed after resize: the debounced recomposition must do the work,
+  // otherwise a re-apply would mask a recomposition timing regression.
+  await page.waitForFunction(() => {
+    const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+    const vis = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+    return vis.length === 7 && vis.every((v) => v === 'pf-s');
+  }, null, { timeout: 5000 });
   assert.ok((await matrixVariants()).every((v) => v === 'pf-s'), `${mode} tablet drops legacy three-row spans`);
   note(`${mode} portfolio image cards + deterministic composition`, '640–1440 + phone landscape, ratios, fallbacks, bands');
 
