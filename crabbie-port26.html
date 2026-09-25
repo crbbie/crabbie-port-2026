@@ -508,13 +508,6 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
      portfolio image scaled on phones; the thumb remains the paint boundary. */
   #pfGrid .work.is-image-card:hover .thumb img{transform:none;}
 }
-/* iPhone/Safari-safe image cards: the grid card is the fixed crop viewport.
-   Keep the full artwork available through the existing lightbox + zoom controls. */
-@media (max-width:720px){
-  #pfGrid .work.is-image-card{aspect-ratio:4/3;height:auto;contain:paint;}
-  #pfGrid .work.is-image-card .thumb{inset:0;width:100%;height:100%;max-width:none;}
-  #pfGrid .work.is-image-card .thumb img{display:block;width:100%;height:100%;max-width:100%;object-fit:cover;object-position:center;transform:none;}
-}
 
 /* PROJECT DETAIL */
 /* Both tracks use minmax(0,…) and every direct child gets min-width:0, so a
@@ -2553,6 +2546,43 @@ body.is-restoring .view.is-active .values-grid > *{ animation: none !important; 
   60%  { filter: blur(0); }
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
+
+/* Scoped visually stationary activation for project-detail and free-asset-detail:
+   Immediately active without translate, scale, blur, opacity fade, title/back-link pop, or eyebrow overshoot.
+   All other public and admin views retain their normal entrance animations. */
+.view[data-view="project-detail"].is-active,
+.view[data-view="free-asset-detail"].is-active{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.view[data-view="project-detail"].is-active .page-head,
+.view[data-view="project-detail"].is-active .page-title,
+.view[data-view="project-detail"].is-active .back-link,
+.view[data-view="free-asset-detail"].is-active .page-head,
+.view[data-view="free-asset-detail"].is-active .page-title,
+.view[data-view="free-asset-detail"].is-active .back-link{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.view[data-view="project-detail"].is-active .eyebrow,
+.view[data-view="free-asset-detail"].is-active .eyebrow{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: rotate(-2deg) !important;
+}
+
+body:not(.admin-mode) .work[data-project].is-jelly,
+body:not(.admin-mode) .work[data-project] .is-jelly,
+body:not(.admin-mode) .item[data-asset].is-jelly,
+body:not(.admin-mode) .item[data-asset] .is-jelly{
+  animation: none !important;
+}
+
 
 /* ============================================================
    TOAST — nảy nhẹ
@@ -5262,6 +5292,47 @@ setTimeout(function(){ el.classList.remove('is-hover-wobble'); }, 1000);
 });
 });
 
+/* Deterministic, presentation-only grid composition (inline mirror of
+   src/portfolio-grid-core.js). Desktop uses repeating complete bands
+   [large,tall],[small,small,small],[wide,wide]; an incomplete tail falls back
+   to compact smalls. Compact widths never use the legacy three-row spans. The
+   plan depends only on the visible ordered count, so reorder/filter/removal
+   can never leave a DOM-history-dependent composition. Defined before the
+   filter wiring runs (initFilter calls applyFilter immediately). */
+var PORTFOLIO_DESKTOP_BANDS = [['pf-l','pf-t'],['pf-s','pf-s','pf-s'],['pf-w','pf-w']];
+function planPortfolioVariants(count, mode){
+var total = Math.max(0, Math.floor(Number(count) || 0));
+var out = [];
+if(mode !== 'desktop'){ for(var k = 0; k < total; k++) out.push('pf-s'); return out; }
+var band = 0;
+while(out.length < total){
+  var next = PORTFOLIO_DESKTOP_BANDS[band % PORTFOLIO_DESKTOP_BANDS.length];
+  if(total - out.length < next.length) break;
+  for(var n = 0; n < next.length; n++) out.push(next[n]);
+  band++;
+}
+while(out.length < total) out.push('pf-s');
+return out;
+}
+function portfolioGridMode(){
+try{ return window.matchMedia('(min-width:1181px)').matches ? 'desktop' : 'compact'; }
+catch(e){ return 'compact'; }
+}
+function syncPortfolioComposition(){
+var grid = document.getElementById('pfGrid'); if(!grid) return;
+var cards = Array.prototype.slice.call(grid.querySelectorAll('[data-project]')).filter(function(card){ return card.style.display !== 'none'; });
+var variants = planPortfolioVariants(cards.length, portfolioGridMode());
+cards.forEach(function(card, i){
+  card.classList.remove('pf-l','pf-t','pf-s','pf-w');
+  card.classList.add(variants[i] || 'pf-s');
+});
+}
+var portfolioCompositionTimer = null;
+window.addEventListener('resize', function(){
+if(portfolioCompositionTimer) clearTimeout(portfolioCompositionTimer);
+portfolioCompositionTimer = setTimeout(syncPortfolioComposition, 120);
+});
+
 var filterState = {};
 function initFilter(key, cfg){
 var grid = $(cfg.grid); if(!grid) return;
@@ -5291,6 +5362,9 @@ if(show) shown++;
 });
 if(st.empty) st.empty.classList.toggle('show', shown === 0);
 if(st.status) st.status.textContent = shown === 0 ? 'No results' : shown + ' ' + st.noun + ' shown';
+/* Filtering/search changes the visible ordered collection: recompute the
+   deterministic grid composition through the one shared assignment path. */
+if(key === 'pf') syncPortfolioComposition();
 }
 function resetFilter(key){
 var st = filterState[key]; if(!st) return;
@@ -10946,10 +11020,14 @@ function portfolioIsImageCard(record){ return !!(record && record.cardMode === '
    publicImage() inline cover sizing) so responsive rules can show the whole
    source on phones/tablets while desktop keeps cover. A broken source
    removes itself, leaving the labeled placeholder box and working nav. */
+/* `is-art-ready` is set the moment a real source paints (inline onload also
+   covers lazy/cached completions) so the responsive 180px fallback minimum
+   applies only while artwork is absent, loading or failed. A broken source
+   clears the flag and removes itself, leaving the labeled box sized. */
 function portfolioCardArtwork(record){
 var src = safePublicUrl(record && (record.cover || record.thumbnail), true);
 if(!src) return '';
-return '<img class="pf-full-art" src="' + esc(src) + '" alt="' + esc((record && record.title) || 'Illustration') + '" loading="lazy" onerror="this.remove()">';
+return '<img class="pf-full-art" src="' + esc(src) + '" alt="' + esc((record && record.title) || 'Illustration') + '" loading="lazy" decoding="async" onload="var c=this.closest(\'.work\');if(c){c.classList.add(\'is-art-ready\');}" onerror="var c=this.closest(\'.work\');if(c){c.classList.remove(\'is-art-ready\');}this.remove()">';
 }
 function portfolioCardImage(record){
 /* Image cards use the cover as their single visual; project cards use thumbnail. */
@@ -10960,6 +11038,11 @@ function syncPortfolioCardMode(card, record){
 if(!card || !record) return;
 var imageOnly = portfolioIsImageCard(record);
 card.classList.toggle('is-image-card', imageOnly);
+/* Reconcile the artwork-readiness flag from the live image: an already-cached
+   or lazily-completed source releases the responsive fallback minimum, while a
+   missing/broken source (no img, or complete with zero natural size) keeps it. */
+var art = card.querySelector('.pf-full-art');
+card.classList.toggle('is-art-ready', !!(art && art.complete && art.naturalWidth > 0));
 var more = card.querySelector('.work-more');
 if(more) more.hidden = imageOnly;
 if(imageOnly){
@@ -11121,6 +11204,8 @@ apply: function(records){
 if(typeof filterState !== 'undefined' && filterState.pf){
     filterState.pf.cards = $$('#pfGrid [data-cat]');
     applyFilter('pf');
+  } else {
+    syncPortfolioComposition();
   }
 
   if(currentRoute.view === 'project-detail'){
@@ -12207,7 +12292,7 @@ var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 /* One shared bubble bounce for every public control. Delegated in the capture
    phase so the press plays before any navigation, replays on every click/tap,
    and still applies to CMS-rendered or re-rendered controls. */
-var JELLY_TARGETS = '.btn, .nav-cta, .work, .banner, .work-more, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
+var JELLY_TARGETS = '.btn, .nav-cta, .banner, .choice span, .tab-btn, .chip, .acc-btn, .mini-card, .link-pill, .gallery-zoom, .nav-burger';
 
 function playJelly(el){
   if (!el || el.nodeType !== 1) return;
@@ -12245,6 +12330,10 @@ function playJelly(el){
 function handleJellyEvent(e){
   if (reduceMotion.matches) return;
   if (document.body.classList.contains('admin-mode')) return;
+  if (!e.target || e.target.nodeType !== 1) return;
+  // Exclude Portfolio and Free Asset navigation cards and all descendants:
+  // navigation must remain immediate and never jelly before routing.
+  if (e.target.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
   var el = e.target.closest(JELLY_TARGETS);
   if(!el){
     var choice = e.target.closest('.choice');
@@ -12252,6 +12341,7 @@ function handleJellyEvent(e){
   }
   if(!el || el.disabled) return;
   if(el.closest('.view[data-view="admin"]')) return;
+  if(el.closest('.work[data-project], .work, [data-project], .item[data-asset], [data-asset]')) return;
   playJelly(el);
 }
 

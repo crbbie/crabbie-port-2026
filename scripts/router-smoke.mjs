@@ -4967,6 +4967,239 @@ try {
     await page.setViewportSize({width: 1280, height: 800});
     console.log('PASS portfolio presentation: bounded meta and full-bleed image cards across 11 viewports, filters, touch and desktop hover (SDK fixture)');
 
+    // ---- Deterministic portfolio grid composition ------------------------
+    // Composition must be a pure function of the visible ordered count,
+    // repeating the complete 7-card desktop cycle [large,tall], [3 smalls], [2 wides]
+    // with incomplete tails falling back to small cards, and compact widths
+    // pairing without legacy three-row spans.
+    const pfVisibleVariants = () => page.evaluate(() => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      return Array.from(document.querySelectorAll('#pfGrid [data-project]'))
+        .filter((c) => c.style.display !== 'none')
+        .map((c) => order.find((v) => c.classList.contains(v)) || null);
+    });
+    const compSeed = (n, imageEvery) => page.evaluate(({n, imageEvery}) => {
+      const cats = ['Illustration', 'Chibi', 'Vtuber', 'Other'];
+      const recs = [];
+      for (let i = 0; i < n; i += 1) {
+        const isImage = imageEvery > 0 && ((i + 1) % imageEvery === 0);
+        recs.push({
+          slug: 'comp-' + i, title: 'Comp ' + i, description: '', cat: cats[i % cats.length], tags: [],
+          thumbnail: '', cover: isImage ? 'https://example.test/art-800x600.svg' : '', cardMode: isImage ? 'image' : 'project',
+          blocks: [], credits: '', year: '2026', featured: false, published: true
+        });
+      }
+      window.CrabbiePortfolio.apply(recs);
+    }, {n, imageEvery: imageEvery || 0});
+    const settleComposition = async (width, height, n, imageEvery) => {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      /* Re-seed at the settled width so the composition is computed through the
+         synchronous apply path (a pure function of the visible count), not by
+         racing the resize debounce. */
+      await compSeed(n, imageEvery || 0);
+      await page.waitForTimeout(60);
+    };
+    const desktopCycle = ['pf-l', 'pf-t', 'pf-s', 'pf-s', 'pf-s', 'pf-w', 'pf-w'];
+    const desktopNine = desktopCycle.concat(['pf-l', 'pf-t']);
+    await settleComposition(1440, 900, 7);
+    assert.deepEqual(await pfVisibleVariants(), desktopCycle, 'a complete seven-card cycle tiles the three desktop bands');
+    assert.equal((await pfVisibleVariants()).filter((v) => v === 'pf-l').length, 1, 'at most one large card per complete seven-card cycle');
+    await compSeed(9);
+    assert.deepEqual(await pfVisibleVariants(), desktopNine, 'an incomplete tail after a full cycle restarts cleanly');
+    const compOverlap = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none');
+      const rects = cards.map((c) => c.getBoundingClientRect());
+      let hits = 0;
+      rects.forEach((a, i) => rects.forEach((b, j) => {
+        if (j <= i) return;
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) hits += 1;
+      }));
+      return hits;
+    });
+    assert.equal(compOverlap, 0, 'complete desktop bands place cards with no overlap or tangled placement');
+    // Reorder recomputes positional composition deterministically.
+    await page.evaluate(() => {
+      const grid = document.getElementById('pfGrid');
+      const cards = Array.from(grid.querySelectorAll('[data-project]')).filter((c) => c.style.display !== 'none');
+      cards.reverse().forEach((c) => grid.appendChild(c));
+      window.dispatchEvent(new Event('resize'));
+    });
+    await page.waitForFunction((expected) => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      const vis = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+      return JSON.stringify(vis) === JSON.stringify(expected);
+    }, desktopNine, {timeout: 5000});
+    assert.deepEqual(await pfVisibleVariants(), desktopNine, 'reorder recomputes the same positional pattern');
+    // Remove + reintroduce the identical set -> identical composition.
+    await compSeed(9);
+    assert.deepEqual(await pfVisibleVariants(), desktopNine, 'removal/reintroduction yields the same composition');
+    // Filtering recomposes over the visible ordered collection.
+    await page.locator('#pfChips .chip[data-filter="chibi"]').click();
+    assert.deepEqual(await pfVisibleVariants(), ['pf-l', 'pf-t'], 'the filtered visible set is recomposed on its own');
+    await page.locator('#pfChips .chip[data-filter="all"]').click();
+    assert.deepEqual(await pfVisibleVariants(), desktopNine, 'clearing the filter restores the full composition');
+    // Tablet: ordinary cards drop to paired small bands (no legacy three-row spans).
+    await settleComposition(900, 1000, 9);
+    assert.ok((await pfVisibleVariants()).every((v) => v === 'pf-s'), 'tablet drops every legacy three-row span');
+    // Mixed tablet: image cards take full-width rows, ordinary neighbors stay paired.
+    await settleComposition(900, 1000, 6, 3);
+    const mixed = await page.evaluate(() => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      return Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => ({
+        image: c.classList.contains('is-image-card'),
+        variant: order.find((v) => c.classList.contains(v)) || null,
+        width: c.getBoundingClientRect().width
+      }));
+    });
+    assert.ok(mixed.some((c) => c.image) && mixed.some((c) => !c.image), 'a mixed tablet collection renders both card kinds');
+    assert.ok(mixed.every((c) => c.variant === 'pf-s'), 'mixed tablet ordinary cards stay paired (no three-row spans)');
+    const ordinaryWidth = mixed.find((c) => !c.image).width;
+    const imageWidth = mixed.find((c) => c.image).width;
+    assert.ok(imageWidth > ordinaryWidth * 1.5, `tablet image cards span a full row (${imageWidth.toFixed(0)}px vs ${ordinaryWidth.toFixed(0)}px)`);
+
+    // Hydration from empty DOM + retained existing DOM nodes check
+    const domRetention = await page.evaluate(() => {
+      const grid = document.getElementById('pfGrid');
+      const firstCard = grid.querySelector('[data-project]');
+      if (!firstCard) return false;
+      firstCard.setAttribute('data-test-sentinel', 'retained');
+      const recs = [
+        {slug:'comp-0', title:'Comp 0', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true},
+        {slug:'comp-1', title:'Comp 1', description:'', cat:'Chibi', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true}
+      ];
+      window.CrabbiePortfolio.apply(recs);
+      const sameCard = grid.querySelector('[data-test-sentinel="retained"]');
+      return !!sameCard;
+    });
+    assert.ok(domRetention, 'retained existing DOM nodes across apply');
+
+    // Desktop -> tablet -> desktop resize hook recomposes without reseeding
+    await page.setViewportSize({width: 1440, height: 900});
+    await compSeed(7);
+    assert.deepEqual(await pfVisibleVariants(), desktopCycle, 'settled desktop cycle at 1440px');
+    await page.setViewportSize({width: 900, height: 1000});
+    await page.waitForFunction(() => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      const vis = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+      return vis.length === 7 && vis.every((v) => v === 'pf-s');
+    }, null, {timeout: 5000});
+    assert.ok((await pfVisibleVariants()).every((v) => v === 'pf-s'), 'resize to tablet drops to pf-s');
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.waitForFunction((expected) => {
+      const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
+      const vis = Array.from(document.querySelectorAll('#pfGrid [data-project]')).filter((c) => c.style.display !== 'none').map((c) => order.find((v) => c.classList.contains(v)) || null);
+      return JSON.stringify(vis) === JSON.stringify(expected);
+    }, desktopCycle, {timeout: 5000});
+    assert.deepEqual(await pfVisibleVariants(), desktopCycle, 'resize back to desktop restores full cycle');
+
+    console.log('PASS deterministic portfolio grid composition: desktop bands, reorder/filter/remove-readd determinism, tablet pairing (SDK fixture)');
+
+    // ---- Navigation motion stability: no jelly, stationary detail activation ----
+    const assertStationaryView = async (detailView, detailHash) => {
+      await page.waitForFunction(
+        ({ expectedHash, expectedView }) => location.hash === expectedHash && document.querySelector('.view.is-active')?.dataset.view === expectedView,
+        { expectedHash: detailHash, expectedView: detailView }
+      );
+      assert.equal(await page.evaluate(() => location.hash), detailHash, `correct destination hash ${detailHash}`);
+      assert.equal(await page.locator('.view.is-active').count(), 1, 'exactly one active view');
+      assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), detailView, `active view is ${detailView}`);
+      assert.equal(await page.locator('.is-jelly').count(), 0, 'no element has is-jelly');
+      const st = await page.evaluate((viewName) => {
+        const root = document.querySelector(`.view[data-view="${viewName}"]`);
+        const title = root.querySelector('.page-title');
+        const back = root.querySelector('.back-link');
+        const eyebrow = root.querySelector('.eyebrow');
+        const cs = (el) => {
+          if (!el) return null;
+          const s = getComputedStyle(el);
+          return { anim: s.animationName, opacity: s.opacity, transform: s.transform, filter: s.filter };
+        };
+        return { root: cs(root), title: cs(title), back: cs(back), eyebrow: cs(eyebrow) };
+      }, detailView);
+      assert.equal(st.root.anim, 'none', `${detailView}: root animation is none`);
+      assert.equal(st.root.opacity, '1', `${detailView}: root opacity is 1`);
+      assert.equal(st.root.transform, 'none', `${detailView}: root transform is none`);
+      assert.ok(st.root.filter === 'none' || st.root.filter === '', `${detailView}: root filter is none`);
+
+      assert.equal(st.title.anim, 'none', `${detailView}: title animation is none`);
+      assert.equal(st.title.opacity, '1', `${detailView}: title opacity is 1`);
+      assert.equal(st.title.transform, 'none', `${detailView}: title transform is none`);
+
+      assert.equal(st.back.anim, 'none', `${detailView}: back-link animation is none`);
+      assert.equal(st.back.opacity, '1', `${detailView}: back-link opacity is 1`);
+      assert.equal(st.back.transform, 'none', `${detailView}: back-link transform is none`);
+
+      assert.equal(st.eyebrow.anim, 'none', `${detailView}: eyebrow animation is none`);
+      assert.equal(st.eyebrow.opacity, '1', `${detailView}: eyebrow opacity is 1`);
+    };
+
+    // Restore prototype portfolio records for navigation checks
+    await page.evaluate(() => {
+      location.hash = '#portfolio';
+      window.CrabbiePortfolio.apply([
+        {slug:'color-fiesta', title:'Color Fiesta Booth', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'amelodios-merch', title:'Amelodios Merch Table', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true},
+        {slug:'amelodios-comic', title:'Amelodios Promo Comic', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true},
+        {slug:'event-poster', title:'Official Event Poster', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', cardMode:'project', blocks:[], credits:'', year:'2026', featured:false, published:true}
+      ]);
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 1. Portfolio card click body
+    await page.locator('#pfGrid .work[data-project="color-fiesta"] .thumb').click();
+    await assertStationaryView('project-detail', '#project/color-fiesta');
+    await page.locator('.view[data-view="project-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 2. Portfolio click See more
+    await page.locator('#pfGrid .work[data-project="amelodios-merch"] .work-more').click();
+    await assertStationaryView('project-detail', '#project/amelodios-merch');
+    await page.locator('.view[data-view="project-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 3. Portfolio keyboard Enter
+    await page.locator('#pfGrid .work[data-project="amelodios-comic"]').focus();
+    await page.keyboard.press('Enter');
+    await assertStationaryView('project-detail', '#project/amelodios-comic');
+    await page.locator('.view[data-view="project-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+
+    // 4. Free Assets click card
+    await page.evaluate(() => {
+      location.hash = '#free-assets';
+      window.CrabbieAssets.apply([
+        {slug:'petal-pack', title:'Petal pack', cat:'Brushes', format:'ZIP', icon:'🌸', thumbnail:'', availability:'available', downloadUrl:'https://example.test/petal.zip'},
+        {slug:'sparkle-stars', title:'Sparkle Stars', cat:'Effects', format:'PNG', icon:'✨', thumbnail:'', availability:'available', downloadUrl:'https://example.test/sparkle.zip'}
+      ]);
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await page.locator('#faGrid .item[data-asset="petal-pack"]').click();
+    await assertStationaryView('free-asset-detail', '#asset/petal-pack');
+    await page.locator('.view[data-view="free-asset-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#free-assets' && document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+
+    // 5. Free Assets keyboard Enter
+    await page.locator('#faGrid .item[data-asset="sparkle-stars"]').focus();
+    await page.keyboard.press('Enter');
+    await assertStationaryView('free-asset-detail', '#asset/sparkle-stars');
+    await page.locator('.view[data-view="free-asset-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#free-assets' && document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+
+    // 6. Prefers-reduced-motion check: stationary detail view holds in both states
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+    await assertStationaryView('project-detail', '#project/color-fiesta');
+    await page.locator('.view[data-view="project-detail"] .back-link').click();
+    await page.waitForFunction(() => location.hash === '#portfolio' && document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    console.log('PASS navigation motion stability: no jelly on cards/see-more, stationary detail view/title/back/eyebrow (SDK fixture)');
+    await page.setViewportSize({width: 1280, height: 800});
+
     // ---- Public lightbox: bounded pan/zoom, wrapping captions, 44px controls
     // BUG-05: zoom pairs with a clamped pan (one-finger touch, mouse drag,
     // arrows) so every artwork edge stays reachable; Reset/reopen are
