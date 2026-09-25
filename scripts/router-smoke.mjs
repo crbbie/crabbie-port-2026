@@ -3279,6 +3279,7 @@ try {
       return route.continue();
     });
     await page.goto('about:blank');
+    errors.length = decoErrBase;
     await page.goto(origin + '/#home', { waitUntil: 'load' });
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
     await page.waitForFunction(() => document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item').length === 3);
