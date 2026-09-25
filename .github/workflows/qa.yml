@@ -113,6 +113,8 @@ jobs:
         run: node scripts/integration-matrix.mjs --browser=chromium
       - name: Check public CMS request ownership (Chromium)
         run: node scripts/public-cms-race.mjs --browser=chromium
+      - name: Check startup settlement (Chromium)
+        run: node scripts/startup-settlement.mjs --browser=chromium
 
   matrix-webkit:
     name: matrix-webkit
@@ -134,3 +136,5 @@ jobs:
         run: node scripts/integration-matrix.mjs --browser=webkit
       - name: Check public CMS request ownership (WebKit)
         run: node scripts/public-cms-race.mjs --browser=webkit
+      - name: Check startup settlement (WebKit)
+        run: node scripts/startup-settlement.mjs --browser=webkit
