@@ -537,8 +537,7 @@ for (const mobile of [false, true]) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
-  if (mobile) await page.locator('#pfGrid .work[data-project="color-fiesta"]').tap();
-  else await page.locator('#pfGrid .work[data-project="color-fiesta"]').click();
+  await activateRouteControl('#pfGrid .work[data-project="color-fiesta"]');
   await checkStationary('project-detail', '#project/color-fiesta', '#portfolio');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
