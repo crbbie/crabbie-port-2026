@@ -6713,7 +6713,12 @@ if(t){ e.preventDefault(); openOtherServiceDetail(t.getAttribute('data-other-ser
 t = e.target.closest('[data-service]');
 if(t){ e.preventDefault(); selectService(t); return; }
 t = e.target.closest('[data-project]');
-if(t){ e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return; }
+if(t){
+  /* An image-only card with no usable source is a visible fallback, not a
+     route target. Keep click/keyboard activation in the current list. */
+  if(t.hasAttribute('data-missing-source') || (t.classList && t.classList.contains('is-missing-source'))){ e.preventDefault(); return; }
+  e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return;
+}
 t = e.target.closest('[data-asset]');
 if(t){ e.preventDefault(); navigate('asset/' + encodeURIComponent(t.getAttribute('data-asset'))); return; }
 t = e.target.closest('[data-reset]');
@@ -11424,6 +11429,8 @@ if(more) more.hidden = imageOnly;
 if(imageOnly){
   var src = safePublicUrl(record.cover || record.thumbnail, true);
   if(src){
+    card.removeAttribute('data-missing-source');
+    card.classList.remove('is-missing-source');
     card.setAttribute('href', src);
     card.setAttribute('data-lightbox-src', src);
     card.setAttribute('data-lightbox-alt', record.title || 'Illustration');
@@ -11433,10 +11440,15 @@ if(imageOnly){
     if(caption) card.setAttribute('data-lightbox-caption', caption);
     else card.removeAttribute('data-lightbox-caption');
   } else {
+    /* Missing-source image card stays visible but never opens an empty detail
+       or viewer. Broken URLs still take the normal viewer error/retry path. */
     card.setAttribute('href', '#portfolio');
     card.removeAttribute('data-lightbox-src');
     card.removeAttribute('data-lightbox-alt');
     card.removeAttribute('data-lightbox-caption');
+    card.setAttribute('data-missing-source', 'true');
+    card.classList.add('is-missing-source');
+    card.setAttribute('aria-label', (record.title || 'Illustration') + ' — image unavailable');
   }
 } else {
   card.setAttribute('href', '#project/' + encodeURIComponent(record.slug || ''));
@@ -11444,6 +11456,8 @@ if(imageOnly){
   card.removeAttribute('data-lightbox-alt');
   card.removeAttribute('data-lightbox-caption');
   card.removeAttribute('aria-label');
+  card.removeAttribute('data-missing-source');
+  card.classList.remove('is-missing-source');
 }
 }
 function portfolioBadgeLabel(record){

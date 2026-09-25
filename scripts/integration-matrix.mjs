@@ -337,7 +337,9 @@ for (const mobile of [false, true]) {
       artReady: card.classList.contains('is-art-ready'),
       hasLabel: Boolean(thumb.querySelector('.ph-label')),
       badge: badge ? b(badge) : null,
-      href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+      href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src'),
+      missing: card.hasAttribute('data-missing-source'),
+      ariaLabel: card.getAttribute('aria-label')
     };
   }, slug);
   const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
@@ -388,8 +390,29 @@ for (const mobile of [false, true]) {
     const missingCard = await probeArtCard('mx-missing');
     assert.equal(missingCard.lightbox, null, `${mode} mx-missing carries no lightbox state at ${at}`);
     assert.equal(missingCard.href, '#portfolio', `${mode} mx-missing never points the lightbox anywhere at ${at}`);
+    assert.equal(missingCard.missing, true, `${mode} mx-missing carries the non-navigating marker at ${at}`);
+    assert.ok((missingCard.ariaLabel || '').includes('unavailable'), `${mode} mx-missing has a truthful unavailable label at ${at}`);
     const brokenCard = await probeArtCard('mx-broken');
     assert.equal(brokenCard.lightbox, 'https://matrix-art.test/broken.png', `${mode} mx-broken keeps its real viewer source (opens retry) at ${at}`);
+    assert.equal(brokenCard.missing, false, `${mode} mx-broken with a source URL is never marked missing at ${at}`);
+  }
+
+  // Missing-source cards stay in the list under mouse/touch/keyboard semantics
+  // at the mobile/landscape/grid breakpoint edges. DOM click avoids WebKit's
+  // known actionability flake while still exercising the delegated click owner.
+  for (const [width, height] of [[390, 844], [844, 390], [1180, 900], [1181, 900]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => document.querySelector('#pfGrid [data-project="mx-missing"]')?.click());
+    await page.waitForTimeout(80);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `${mode} missing-source click stays in list at ${width}x${height}`);
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `${mode} missing-source click never opens viewer at ${width}x${height}`);
+    await page.locator('#pfGrid [data-project="mx-missing"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(80);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `${mode} missing-source Enter stays in list at ${width}x${height}`);
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `${mode} missing-source Enter never opens viewer at ${width}x${height}`);
   }
   // Deterministic composition: desktop cycle, tablet pairing, no overlap.
   const matrixVariants = () => page.evaluate(() => {

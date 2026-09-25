@@ -5003,7 +5003,10 @@ try {
         titleLines: title.clientHeight / (parseFloat(getComputedStyle(title).lineHeight) || 20),
         titleOverflows: title.scrollHeight > title.clientHeight + 1,
         isImage: card.classList.contains('is-image-card'),
-        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src'),
+        missing: card.hasAttribute('data-missing-source'),
+        missingClass: card.classList.contains('is-missing-source'),
+        ariaLabel: card.getAttribute('aria-label')
       };
     }, slug);
     const pfMetaOverlap = () => page.evaluate(() => {
@@ -5073,9 +5076,21 @@ try {
     assert.ok(missing.hasLabel && missing.card.h >= 200, 'a missing source keeps a sized labeled box and working nav');
     assert.equal(missing.href, '#portfolio', 'a missing source never points the lightbox anywhere');
     assert.equal(missing.lightbox, null, 'a missing source carries no lightbox state');
+    assert.equal(missing.missing, true, 'a missing source carries the explicit non-navigating marker');
+    assert.equal(missing.missingClass, true, 'a missing source carries the missing-source class');
+    assert.ok((missing.ariaLabel || '').includes('unavailable'), 'a missing source has a truthful unavailable label');
+    await page.locator('#pfGrid [data-project="img-missing"]').click();
+    await page.waitForTimeout(120);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', 'clicking a missing-source card stays in Portfolio');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, 'clicking a missing-source card never opens viewer');
+    await page.locator('#pfGrid [data-project="img-missing"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', 'Enter on a missing-source card stays in Portfolio');
     const broken = await probePfCard('img-broken');
     assert.equal(broken.img, null, 'a broken source removes itself instead of showing a broken icon');
     assert.ok(broken.hasLabel && broken.card.h >= 200, 'a broken source keeps a sized labeled box and working nav');
+    assert.equal(broken.missing, false, 'a broken URL keeps the viewer retry path and is not marked missing');
     // Filters still scope image and project cards by category.
     await page.locator('#pfChips .chip[data-filter="chibi"]').click();
     assert.equal(await page.locator('#pfGrid [data-project="img-43"]:visible').count(), 1, 'the chip keeps the matching image card');
