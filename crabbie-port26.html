@@ -1435,12 +1435,19 @@ body:not(.admin-mode) .tos-nav a:hover,
 body:not(.admin-mode) .tos-nav button:hover,
 body:not(.admin-mode) .tos-nav button[aria-current="true"],
 body:not(.admin-mode) .chip:hover,
-body:not(.admin-mode) .tab-btn:hover,
+body:not(.admin-mode) .tab-btn:hover:not(.on),
 body:not(.admin-mode) .back-link:hover,
 body:not(.admin-mode) .lang span.on{ color:var(--text-body); }
 body:not(.admin-mode) .chip.on,
 body:not(.admin-mode) .chip.on:hover{
   color:#fff;
+}
+
+/* Tab form đang được chọn: luôn giữ chữ trắng + shadow để nổi trên nền hồng,
+   bất kể palette pastel override màu --text-muted như thế nào. */
+body:not(.admin-mode) .tab-btn.on{
+  color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
 }
 
 body:not(.admin-mode) .foot ul a:hover{ color:var(--text-accent); }
