@@ -3835,6 +3835,86 @@ try {
     assert.equal(await page.locator('#faGrid [data-asset="hot-brush"]:visible').count(), 1, 'the asset category chip keeps matching assets');
     assert.equal(await page.locator('#faGrid [data-asset="feat-plain"]:visible').count(), 0, 'the asset category chip filters other categories');
     await page.locator('#faChips .chip[data-filter="all"]').click();
+
+    // Regression: canonical asset category filtering through CrabbieAssets.apply and real chip clicks.
+    // Handles multi-word (e.g. "stream overlays"), Unicode, punctuation, search combinations,
+    // empty state reset, and selection retention across hydration/reorder or fallback to All on deletion.
+    const baselineAssets = [
+      {slug:'hot-brush',title:'Hot Brush',cat:'Brushes',format:'PNG',availability:'available',downloadUrl:'https://example.test/hot.zip',showDirectDownload:true,showDriveDownload:false,flowerTag:'HOT',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+      {slug:'feat-plain',title:'Feat Plain',cat:'Icons',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:true,filterCat:'icons',tags:[],thumbnail:'',icon:'★'},
+      {slug:'drive-only',title:'Drive Only',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:false,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+      {slug:'both-dl',title:'Both DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'https://example.test/both.zip',showDirectDownload:true,driveUrl:'https://drive.google.com/file/d/abc/view',showDriveDownload:true,flowerTag:'NEW',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'},
+      {slug:'no-dl',title:'No DL',cat:'Brushes',format:'ZIP',availability:'available',downloadUrl:'',showDirectDownload:true,showDriveDownload:false,flowerTag:'',featured:false,filterCat:'brushes',tags:[],thumbnail:'',icon:'❀'}
+    ];
+
+    const regressionAssets = [
+      {slug:'reg-brush',title:'Fluffy Brushes Pack',cat:'Brushes',format:'ABR',availability:'available',published:true,tags:['brush','paint'],thumbnail:'',icon:'🖌'},
+      {slug:'reg-stream-1',title:'Cozy Stream Overlays',cat:'Stream Overlays',format:'PNG',availability:'available',published:true,tags:['stream','overlay','cozy'],thumbnail:'',icon:'📺'},
+      {slug:'reg-stream-2',title:'Neon Stream Overlays',cat:'Stream Overlays',format:'PNG',availability:'available',published:true,tags:['stream','overlay','neon'],thumbnail:'',icon:'✨'},
+      {slug:'reg-unicode',title:'Bộ Nhãn Dán 2026',cat:'Nhãn Dán',format:'PNG',availability:'available',published:true,tags:['sticker','cute'],thumbnail:'',icon:'🌸'},
+      {slug:'reg-punct',title:'PSD/PNG Resources Pack',cat:'PSD/PNG',format:'PSD',availability:'available',published:true,tags:['psd','png','template'],thumbnail:'',icon:'📁'}
+    ];
+
+    await page.evaluate((items) => { window.CrabbieAssets.apply(items); }, regressionAssets);
+
+    // 1. Multi-word category click: "stream overlays"
+    await page.locator('#faChips .chip[data-filter="stream overlays"]').click();
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-1"]:visible').count(), 1, 'first multi-word stream overlay asset is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-2"]:visible').count(), 1, 'second multi-word stream overlay asset is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-brush"]:visible').count(), 0, 'brushes filtered out when stream overlays selected');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-unicode"]:visible').count(), 0, 'unicode asset filtered out');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-punct"]:visible').count(), 0, 'punctuation asset filtered out');
+    assert.equal(await page.locator('#faEmpty').isVisible(), false, 'empty state is not visible for matching stream overlays');
+    assert.match(await page.locator('#faStatus').innerText(), /2 assets shown/i, 'status reflects 2 stream overlays assets shown');
+
+    // 2. Unicode category click: "nhãn dán"
+    await page.locator('#faChips .chip[data-filter="nhãn dán"]').click();
+    assert.equal(await page.locator('#faGrid [data-asset="reg-unicode"]:visible').count(), 1, 'unicode category asset is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-1"]:visible').count(), 0, 'stream overlays filtered out');
+    assert.match(await page.locator('#faStatus').innerText(), /1 assets shown/i, 'status reflects 1 asset shown');
+
+    // 3. Punctuation category click: "psd/png"
+    await page.locator('#faChips .chip[data-filter="psd/png"]').click();
+    assert.equal(await page.locator('#faGrid [data-asset="reg-punct"]:visible').count(), 1, 'punctuation category asset is visible');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-unicode"]:visible').count(), 0, 'unicode filtered out');
+
+    // 4. Combined search + category
+    await page.locator('#faChips .chip[data-filter="stream overlays"]').click();
+    await page.locator('#faSearch').fill('Neon');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-2"]:visible').count(), 1, 'search matches within active category');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-1"]:visible').count(), 0, 'non-matching search title filtered out within category');
+
+    // 4b. Search with no match shows empty state
+    await page.locator('#faSearch').fill('xyznotfoundquery');
+    assert.equal(await page.locator('#faEmpty').isVisible(), true, 'empty state shown when search finds no match in category');
+    assert.match(await page.locator('#faStatus').innerText(), /no results/i, 'status reports no results');
+
+    // 5. Reset filter clears query and resets category selection to All
+    await page.locator('#faEmpty button[data-reset="fa"]').click();
+    assert.equal(await page.locator('#faSearch').inputValue(), '', 'reset button clears search input');
+    assert.equal(await page.locator('#faChips .chip[data-filter="all"].on').count(), 1, 'reset button restores All chip active');
+    assert.equal(await page.locator('#faGrid .item:visible').count(), 5, 'all assets visible after reset');
+
+    // 6. Hydration/reorder preserves active selection
+    await page.locator('#faChips .chip[data-filter="stream overlays"]').click();
+    assert.equal(await page.locator('#faGrid .item:visible').count(), 2, '2 stream overlay items visible before reorder');
+    const reorderedAssets = [regressionAssets[4], regressionAssets[2], regressionAssets[3], regressionAssets[1], regressionAssets[0]];
+    await page.evaluate((items) => { window.CrabbieAssets.apply(items); }, reorderedAssets);
+    assert.equal(await page.locator('#faChips .chip[data-filter="stream overlays"].on').count(), 1, 'stream overlays chip stays on after reorder hydration');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-1"]:visible').count(), 1, 'reg-stream-1 still visible after reorder');
+    assert.equal(await page.locator('#faGrid [data-asset="reg-stream-2"]:visible').count(), 1, 'reg-stream-2 still visible after reorder');
+    assert.equal(await page.locator('#faGrid .item:visible').count(), 2, 'selection still kept strictly to 2 items after reorder');
+
+    // 7. Deletion of selected category falls back cleanly to All
+    const withoutStreamOverlays = [regressionAssets[0], regressionAssets[3], regressionAssets[4]];
+    await page.evaluate((items) => { window.CrabbieAssets.apply(items); }, withoutStreamOverlays);
+    assert.equal(await page.locator('#faChips .chip[data-filter="all"].on').count(), 1, 'category deletion resets active chip to All');
+    assert.equal(await page.locator('#faChips .chip[data-filter="stream overlays"]').count(), 0, 'deleted category chip is removed');
+    assert.equal(await page.locator('#faGrid .item:visible').count(), 3, 'all remaining items visible after fallback to All');
+
+    // Restore baseline assets for subsequent tests (G: download buttons, hover, etc.)
+    await page.evaluate((items) => { window.CrabbieAssets.apply(items); }, baselineAssets);
+    await page.locator('#faChips .chip[data-filter="all"]').click();
     // G: download button combinations.
     const dlVisible = async (id) => ({
       direct: await page.locator('#adDownload').isVisible(),
@@ -4849,7 +4929,11 @@ try {
         titleLines: title.clientHeight / (parseFloat(getComputedStyle(title).lineHeight) || 20),
         titleOverflows: title.scrollHeight > title.clientHeight + 1,
         isImage: card.classList.contains('is-image-card'),
-        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+        href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src'),
+        missing: card.hasAttribute('data-missing-source'),
+        missingClass: card.classList.contains('is-missing-source'),
+        ariaDisabled: card.getAttribute('aria-disabled'),
+        ariaLabel: card.getAttribute('aria-label')
       };
     }, slug);
     const pfMetaOverlap = () => page.evaluate(() => {
@@ -4922,6 +5006,132 @@ try {
     const broken = await probePfCard('img-broken');
     assert.equal(broken.img, null, 'a broken source removes itself instead of showing a broken icon');
     assert.ok(broken.hasLabel && broken.card.h >= 200, 'a broken source keeps a sized labeled box and working nav');
+    assert.equal(broken.lightbox, 'https://example.test/broken.png', 'a broken source keeps its viewer source for error/retry');
+    assert.equal(broken.missing, false, 'a broken source with a URL is never marked missing');
+    assert.equal(normalSem.missing, false, 'normal cards are never marked missing');
+    assert.equal(imageSem.missing, false, 'valid image cards are never marked missing');
+    assert.equal(missing.missing, true, 'a missing source carries the explicit non-navigating marker');
+    assert.equal(missing.missingClass, true, 'a missing source carries the missing-source class');
+    assert.ok((missing.ariaLabel || '').indexOf('unavailable') !== -1, 'a missing source stays focusable with a truthful unavailable label');
+    // Missing-source image cards never navigate: mouse, keyboard, across viewports.
+    for (const [width, height] of [[390, 844], [844, 390], [1180, 900], [1181, 900]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => { location.hash = '#portfolio'; });
+      await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      const at = `${width}x${height}`;
+      await page.locator('#pfGrid [data-project="img-missing"]').scrollIntoViewIfNeeded();
+      await page.locator('#pfGrid [data-project="img-missing"]').click();
+      await page.waitForTimeout(250);
+      assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `mouse click on the missing-source card stays in the list at ${at}`);
+      assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, `mouse click on the missing-source card never opens detail at ${at}`);
+      assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `mouse click on the missing-source card never opens the viewer at ${at}`);
+      await page.locator('#pfGrid [data-project="img-missing"]').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(250);
+      assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `Enter on the missing-source card stays in the list at ${at}`);
+      assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, `Enter on the missing-source card never opens detail at ${at}`);
+      assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `Enter on the missing-source card never opens the viewer at ${at}`);
+    }
+    await page.setViewportSize({width: 390, height: 844});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    // Valid image card still opens the viewer; normal card still opens detail.
+    await page.locator('#pfGrid [data-project="img-11"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="img-11"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/art-2048x2048.svg', 'a valid image card still opens the viewer');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    await page.locator('#pfGrid [data-project="short-normal"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="short-normal"]').click();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await page.evaluate(() => location.hash), '#project/short-normal', 'a normal card still opens detail');
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    // Broken source (has URL) still opens the viewer error/retry path.
+    await page.locator('#pfGrid [data-project="img-broken"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="img-broken"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    await page.waitForFunction(() => !document.getElementById('publicLightboxError').hidden, null, {timeout: 15000});
+    assert.equal(await page.locator('#publicLightboxStatus').innerText(), 'This image could not be loaded. Retry is available.', 'a broken source opens the viewer error/retry path');
+    await page.locator('#publicLightboxErrorClose').click();
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Hydration cover clear/re-add flips the behavior exactly.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'img-11', title:'Art img-11', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ]);
+    });
+    await page.waitForFunction(() => document.querySelector('#pfGrid [data-project="img-11"]').hasAttribute('data-missing-source'));
+    await page.locator('#pfGrid [data-project="img-11"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="img-11"]').click();
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', 'a cleared cover stops navigating after hydration');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, 'a cleared cover stops opening the viewer after hydration');
+    await page.evaluate(({ratios, longTitle}) => {
+      const recs = [
+        {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ];
+      ratios.forEach(([slug, w, h, cat]) => {
+        recs.push({slug, title:'Art ' + slug, description:'', cat, tags:[], thumbnail:'', cover:`https://example.test/art-${w}x${h}.svg`, cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true});
+      });
+      recs.push({slug:'img-missing', title:'Missing Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      recs.push({slug:'img-broken', title:'Broken Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      window.CrabbiePortfolio.apply(recs);
+    }, {ratios: artRatios, longTitle: longCardTitle});
+    await page.waitForFunction(() => {
+      const card = document.querySelector('#pfGrid [data-project="img-11"]');
+      return card && card.getAttribute('data-lightbox-src') === 'https://example.test/art-2048x2048.svg' && !card.hasAttribute('data-missing-source');
+    }, null, {timeout: 15000});
+    await page.locator('#pfGrid [data-project="img-11"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="img-11"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/art-2048x2048.svg', 'a restored cover resumes the viewer after hydration');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Home featured: a missing-source card stays in place, a valid one views.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([
+        {slug:'home-valid', title:'Home Valid', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-800x600.svg', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'home-missing', title:'Home Missing', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'home-normal', title:'Home Normal', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ]);
+      location.hash = '#home';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.waitForFunction(() => Boolean(document.querySelector('#worksGrid [data-project="home-missing"][data-missing-source]')));
+    await page.locator('#worksGrid [data-project="home-missing"]').scrollIntoViewIfNeeded();
+    await page.locator('#worksGrid [data-project="home-missing"]').click();
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'home', 'Home missing-source card stays in place on click');
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, 'Home missing-source card never opens the viewer');
+    await page.locator('#worksGrid [data-project="home-missing"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'home', 'Home missing-source card stays in place on Enter');
+    await page.locator('#worksGrid [data-project="home-valid"]').scrollIntoViewIfNeeded();
+    await page.locator('#worksGrid [data-project="home-valid"]').click();
+    await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+    assert.equal(await page.locator('#publicLightboxImg').getAttribute('src'), 'https://example.test/art-800x600.svg', 'Home valid image card still opens the viewer');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+    // Restore the portfolio presentation fixture for the steps below.
+    await page.evaluate(({ratios, longTitle}) => {
+      const recs = [
+        {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
+        {slug:'short-normal', title:'Sunny Day', description:'', cat:'Chibi', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true}
+      ];
+      ratios.forEach(([slug, w, h, cat]) => {
+        recs.push({slug, title:'Art ' + slug, description:'', cat, tags:[], thumbnail:'', cover:`https://example.test/art-${w}x${h}.svg`, cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true});
+      });
+      recs.push({slug:'img-missing', title:'Missing Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      recs.push({slug:'img-broken', title:'Broken Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'https://example.test/broken.png', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true});
+      window.CrabbiePortfolio.apply(recs);
+      location.hash = '#portfolio';
+    }, {ratios: artRatios, longTitle: longCardTitle});
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
     // Filters still scope image and project cards by category.
     await page.locator('#pfChips .chip[data-filter="chibi"]').click();
     assert.equal(await page.locator('#pfGrid [data-project="img-43"]:visible').count(), 1, 'the chip keeps the matching image card');
@@ -4968,7 +5178,8 @@ try {
       await touchPage.evaluate(({longTitle}) => {
         window.CrabbiePortfolio.apply([
           {slug:'long-normal', title:longTitle, description:'', cat:'Illustration', tags:[], thumbnail:'https://example.test/art-800x600.svg', cover:'', blocks:[], credits:'', year:'2026', featured:true, published:true},
-          {slug:'img-11', title:'Art img-11', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true}
+          {slug:'img-11', title:'Art img-11', description:'', cat:'Illustration', tags:[], thumbnail:'', cover:'https://example.test/art-2048x2048.svg', cardMode:'image', blocks:[], credits:'', year:'2026', featured:true, published:true},
+          {slug:'img-missing', title:'Missing Art', description:'', cat:'Other', tags:[], thumbnail:'', cover:'', cardMode:'image', blocks:[], credits:'', year:'2026', featured:false, published:true}
         ]);
       }, {longTitle: longCardTitle});
       await touchPage.waitForFunction(() => {
@@ -4986,6 +5197,13 @@ try {
       await touchPage.locator('#pfGrid [data-project="long-normal"]').tap();
       await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
       assert.ok((await touchPage.evaluate(() => location.hash)).startsWith('#project/long-normal'), 'tapping the long card still navigates to detail');
+      await touchPage.evaluate(() => { location.hash = '#portfolio'; });
+      await touchPage.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+      await touchPage.locator('#pfGrid [data-project="img-missing"]').tap();
+      await touchPage.waitForTimeout(400);
+      assert.equal(await touchPage.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', 'tapping the missing-source card stays in the list');
+      assert.ok((await touchPage.evaluate(() => location.hash)).indexOf('#project/') !== 0, 'tapping the missing-source card never opens detail');
+      assert.equal(await touchPage.evaluate(() => document.getElementById('publicLightbox').hidden), true, 'tapping the missing-source card never opens the viewer');
     } finally {
       await artContext.close();
     }

@@ -85,7 +85,7 @@ for (const mobile of [false, true]) {
   const context = await browser.newContext(
     mobile
       ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' }
-      : { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }
+      : { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' }
   );
   await context.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({ contentType: 'text/javascript', body: stub }));
   // Keep transformed thumbnails loading: WebKit fires onerror quickly and would
@@ -257,7 +257,9 @@ for (const mobile of [false, true]) {
       artReady: card.classList.contains('is-art-ready'),
       hasLabel: Boolean(thumb.querySelector('.ph-label')),
       badge: badge ? b(badge) : null,
-      href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
+      href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src'),
+      missing: card.hasAttribute('data-missing-source'),
+      ariaLabel: card.getAttribute('aria-label')
     };
   }, slug);
   const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
@@ -308,9 +310,51 @@ for (const mobile of [false, true]) {
     const missingCard = await probeArtCard('mx-missing');
     assert.equal(missingCard.lightbox, null, `${mode} mx-missing carries no lightbox state at ${at}`);
     assert.equal(missingCard.href, '#portfolio', `${mode} mx-missing never points the lightbox anywhere at ${at}`);
+    assert.equal(missingCard.missing, true, `${mode} mx-missing carries the non-navigating marker at ${at}`);
+    assert.ok((missingCard.ariaLabel || '').indexOf('unavailable') !== -1, `${mode} mx-missing keeps a truthful unavailable label at ${at}`);
     const brokenCard = await probeArtCard('mx-broken');
     assert.equal(brokenCard.lightbox, 'https://matrix-art.test/broken.png', `${mode} mx-broken keeps its real viewer source (opens retry) at ${at}`);
+    assert.equal(brokenCard.missing, false, `${mode} mx-broken with a URL is never marked missing at ${at}`);
   }
+  // Missing-source routing: mouse/tap/Enter never leaves the list; valid image
+  // still views, broken still retries, normal still details. Covers Home too.
+  for (const [width, height] of [[390, 844], [844, 390], [1180, 900], [1181, 900]]) {
+    await page.setViewportSize({width, height});
+    await page.evaluate(() => { location.hash = '#portfolio'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    const at = `${width}x${height}`;
+    const activate = mobile ? 'tap' : 'click';
+    await page.locator('#pfGrid [data-project="mx-missing"]').scrollIntoViewIfNeeded();
+    await page.locator('#pfGrid [data-project="mx-missing"]')[activate]();
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `${mode} missing-source ${activate} stays in the list at ${at}`);
+    assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, `${mode} missing-source ${activate} never opens detail at ${at}`);
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `${mode} missing-source ${activate} never opens the viewer at ${at}`);
+    await page.locator('#pfGrid [data-project="mx-missing"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'portfolio', `${mode} missing-source Enter stays in the list at ${at}`);
+    assert.ok((await page.evaluate(() => location.hash)).indexOf('#project/') !== 0, `${mode} missing-source Enter never opens detail at ${at}`);
+    assert.equal(await page.evaluate(() => document.getElementById('publicLightbox').hidden), true, `${mode} missing-source Enter never opens the viewer at ${at}`);
+  }
+  await page.setViewportSize({width: 390, height: 844});
+  await page.evaluate(() => { location.hash = '#portfolio'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  await page.locator('#pfGrid [data-project="mx-sq"]').scrollIntoViewIfNeeded();
+  if (mobile) await page.locator('#pfGrid [data-project="mx-sq"]').tap();
+  else await page.locator('#pfGrid [data-project="mx-sq"]').click();
+  await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+  assert.ok((await page.locator('#publicLightboxImg').getAttribute('src')).includes('art-800x800.svg'), `${mode} valid image card still opens the viewer`);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+  await page.locator('#pfGrid [data-project="mx-broken"]').scrollIntoViewIfNeeded();
+  if (mobile) await page.locator('#pfGrid [data-project="mx-broken"]').tap();
+  else await page.locator('#pfGrid [data-project="mx-broken"]').click();
+  await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+  await page.waitForFunction(() => !document.getElementById('publicLightboxError').hidden, null, {timeout: 15000});
+  assert.equal(await page.locator('#publicLightboxStatus').innerText(), 'This image could not be loaded. Retry is available.', `${mode} broken source opens the viewer error/retry path`);
+  await page.locator('#publicLightboxErrorClose').click();
+  await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
   // Deterministic composition: desktop cycle, tablet pairing, no overlap.
   const matrixVariants = () => page.evaluate(() => {
     const order = ['pf-l', 'pf-t', 'pf-s', 'pf-w'];
@@ -499,6 +543,28 @@ for (const mobile of [false, true]) {
   await page.locator('#faGrid .item[data-asset="mx-nocover"]').focus();
   await page.keyboard.press('Enter');
   await checkStationary('free-asset-detail', '#asset/mx-nocover', '#free-assets');
+
+  // Canonical asset category filtering verification across viewports
+  await page.evaluate(() => {
+    window.CrabbieAssets.apply([
+      { slug: 'mx-stream', title: 'Matrix Stream Overlay', cat: 'Stream Overlays', format: 'PNG', availability: 'available', published: true, tags: ['stream'], thumbnail: '', coverAlt: '', gallery: [] },
+      { slug: 'mx-brush', title: 'Matrix Brush Kit', cat: 'Brushes', format: 'ABR', availability: 'available', published: true, tags: ['brush'], thumbnail: '', coverAlt: '', gallery: [] }
+    ]);
+  });
+  if (mobile) {
+    await page.locator('#faChips .chip[data-filter="stream overlays"]').tap();
+  } else {
+    await page.locator('#faChips .chip[data-filter="stream overlays"]').click();
+  }
+  assert.equal(await page.locator('#faGrid [data-asset="mx-stream"]:visible').count(), 1, `${mode}: stream overlays asset is visible`);
+  assert.equal(await page.locator('#faGrid [data-asset="mx-brush"]:visible').count(), 0, `${mode}: brushes asset filtered out`);
+  if (mobile) {
+    await page.locator('#faChips .chip[data-filter="all"]').tap();
+  } else {
+    await page.locator('#faChips .chip[data-filter="all"]').click();
+  }
+  assert.equal(await page.locator('#faGrid .item:visible').count(), 2, `${mode}: all assets visible under all chip`);
+
 
   // Verify reduced-motion
   await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -5389,6 +5389,14 @@ portfolioCompositionTimer = setTimeout(syncPortfolioComposition, 120);
 });
 
 var filterState = {};
+function normalizeAssetCategory(value){
+  return String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function matchesAssetCategory(cardCategory, selectedCategory){
+  var selected = normalizeAssetCategory(selectedCategory);
+  if(!selected || selected === 'all') return true;
+  return normalizeAssetCategory(cardCategory) === selected;
+}
 function initFilter(key, cfg){
 var grid = $(cfg.grid); if(!grid) return;
 var chips = $$(cfg.chips + ' .chip'); var empty = $(cfg.empty); var search = $(cfg.search); var status = $(cfg.status);
@@ -5407,8 +5415,13 @@ function applyFilter(key){
 var st = filterState[key]; if(!st) return;
 var cards = $$('[data-cat]', st.grid); var shown = 0;
 cards.forEach(function(card){
-var cats = (card.getAttribute('data-cat') || '').split(/\s+/);
-var okCat = st.cat === 'all' || cats.indexOf(st.cat) !== -1;
+var okCat;
+if(key === 'fa'){
+  okCat = matchesAssetCategory(card.getAttribute('data-cat'), st.cat);
+}else{
+  var cats = (card.getAttribute('data-cat') || '').split(/\s+/);
+  okCat = st.cat === 'all' || cats.indexOf(st.cat) !== -1;
+}
 var hay = (card.getAttribute('data-search') || card.textContent || '').toLowerCase();
 var okQ = !st.q || hay.indexOf(st.q) !== -1;
 var show = okCat && okQ;
@@ -5432,6 +5445,7 @@ initFilter('pf', { grid:'#pfGrid', chips:'#pfChips', empty:'#pfEmpty', search:'#
 initFilter('fa', { grid:'#faGrid', chips:'#faChips', empty:'#faEmpty', search:'#faSearch', status:'#faStatus', noun:'assets' });
 $$('#faGrid [data-asset]').forEach(function(card){
 var a = ASSETS[card.getAttribute('data-asset')]; if(!a) return;
+card.setAttribute('data-cat', assetCanonicalCat(a));
 var st = $('.item-status', card);
 if(st) st.textContent = assetHasPublicDownload(a) ? 'Available' : 'File not available yet';
 });
@@ -6404,7 +6418,13 @@ if(t){ e.preventDefault(); openOtherServiceDetail(t.getAttribute('data-other-ser
 t = e.target.closest('[data-service]');
 if(t){ e.preventDefault(); selectService(t); return; }
 t = e.target.closest('[data-project]');
-if(t){ e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return; }
+if(t){
+  /* Missing-source image cards are explicit non-navigating fallbacks: stay in
+     the list instead of opening an empty detail/viewer. This also covers
+     keyboard Enter, which fires click on the anchor. */
+  if(t.hasAttribute('data-missing-source') || (t.classList && t.classList.contains('is-missing-source'))){ e.preventDefault(); return; }
+  e.preventDefault(); navigate('project/' + encodeURIComponent(t.getAttribute('data-project'))); return;
+}
 t = e.target.closest('[data-asset]');
 if(t){ e.preventDefault(); navigate('asset/' + encodeURIComponent(t.getAttribute('data-asset'))); return; }
 t = e.target.closest('[data-reset]');
@@ -11040,9 +11060,9 @@ function portfolioFilterGroup(record){
    only a last-resort fallback and never overrides the canonical value. */
 function assetCanonicalCat(record){
   var canonical = (record && (record.category || record.cat || record.categorySlug)) || '';
-  var text = String(canonical).trim().toLowerCase();
+  var text = normalizeAssetCategory(canonical);
   if(text) return text;
-  var legacy = String((record && record.filterCat) || '').trim().toLowerCase();
+  var legacy = normalizeAssetCategory(record && record.filterCat);
   return legacy || 'other';
 }
 /* Filter chips follow the live CMS taxonomy (same source as Admin), keeping
@@ -11056,11 +11076,21 @@ function syncAssetChips(records){
   });
   var values = Object.keys(seen).sort();
   var st = (typeof filterState !== 'undefined' && filterState.fa) ? filterState.fa : null;
-  var current = st ? st.cat : 'all';
-  if(current !== 'all' && values.indexOf(current) === -1) current = 'all';
+  var current = st ? normalizeAssetCategory(st.cat) : 'all';
+  var matchedValue = null;
+  if(current !== 'all'){
+    for(var i = 0; i < values.length; i++){
+      if(normalizeAssetCategory(values[i]) === current){
+        matchedValue = values[i];
+        break;
+      }
+    }
+    if(matchedValue) current = matchedValue;
+    else current = 'all';
+  }
   wrap.innerHTML = '<button class="chip' + (current === 'all' ? ' on' : '') + '" data-filter="all" aria-pressed="' + (current === 'all') + '">All</button>' +
     values.map(function(v){
-      var on = v === current;
+      var on = (current !== 'all' && normalizeAssetCategory(v) === normalizeAssetCategory(current));
       return '<button class="chip' + (on ? ' on' : '') + '" data-filter="' + esc(v) + '" aria-pressed="' + on + '">' + esc(prettyTaxonomyLabel(v, v)) + '</button>';
     }).join('');
   var chips = Array.prototype.slice.call(wrap.querySelectorAll('.chip'));
@@ -11115,6 +11145,8 @@ if(more) more.hidden = imageOnly;
 if(imageOnly){
   var src = safePublicUrl(record.cover || record.thumbnail, true);
   if(src){
+    card.removeAttribute('data-missing-source');
+    card.classList.remove('is-missing-source');
     card.setAttribute('href', src);
     card.setAttribute('data-lightbox-src', src);
     card.setAttribute('data-lightbox-alt', record.title || 'Illustration');
@@ -11124,10 +11156,17 @@ if(imageOnly){
     if(caption) card.setAttribute('data-lightbox-caption', caption);
     else card.removeAttribute('data-lightbox-caption');
   } else {
+    /* Missing-source image card: stay in the list with the sized labeled
+       fallback. It carries an explicit non-navigating marker so the delegated
+       [data-project] handler never opens an empty detail/viewer. A record that
+       has a source (even a broken URL) keeps its viewer error/retry path. */
     card.setAttribute('href', '#portfolio');
     card.removeAttribute('data-lightbox-src');
     card.removeAttribute('data-lightbox-alt');
     card.removeAttribute('data-lightbox-caption');
+    card.setAttribute('data-missing-source', 'true');
+    card.classList.add('is-missing-source');
+    card.setAttribute('aria-label', (record.title || 'Illustration') + ' — image unavailable');
   }
 } else {
   card.setAttribute('href', '#project/' + encodeURIComponent(record.slug || ''));
@@ -11135,6 +11174,8 @@ if(imageOnly){
   card.removeAttribute('data-lightbox-alt');
   card.removeAttribute('data-lightbox-caption');
   card.removeAttribute('aria-label');
+  card.removeAttribute('data-missing-source');
+  card.classList.remove('is-missing-source');
 }
 }
 function portfolioBadgeLabel(record){
@@ -11342,14 +11383,14 @@ apply: function(records){
       card.setAttribute('href', '#asset/' + encodeURIComponent(record.slug));
       card.setAttribute('data-asset', record.slug);
       card.setAttribute('data-cat', assetCanonicalCat(record));
-      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+      card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.category || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
       var img = publicImage(record.thumbnail, record.title);
       var preview = img
         ? '<div class="item-preview">' + img + '<span class="format">' + esc(record.format || '') + '</span></div>'
         : '<div class="item-preview"><span class="icon">' + esc(record.icon || '★') + '</span><span class="format">' + esc(record.format || '') + '</span></div>';
       card.innerHTML = assetBadgeMarkup(record) + preview +
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
-        '<div class="item-cat">' + esc(record.cat || 'Other') + '</div>' +
+        '<div class="item-cat">' + esc(record.cat || record.category || 'Other') + '</div>' +
         '<div class="item-status">' + (assetHasPublicDownload(record) ? 'Available' : 'File not available yet') + '</div>';
       assetGrid.appendChild(card);
     });
@@ -11369,14 +11410,14 @@ apply: function(records){
     card.style.display = visible ? '' : 'none';
     if(!visible) return;
     var nameEl = card.querySelector('.item-name'); if(nameEl) nameEl.textContent = record.title;
-    var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat;
+    var catEl = card.querySelector('.item-cat'); if(catEl) catEl.textContent = record.cat || record.category || 'Other';
     var fmtEl = card.querySelector('.format'); if(fmtEl) fmtEl.textContent = record.format;
     var assetPreview = card.querySelector('.item-preview'); if(assetPreview) assetPreview.innerHTML = (publicImage(record.thumbnail, record.title) || '<span class="icon">' + esc(record.icon || '★') + '</span>') + '<span class="format">' + esc(record.format || '') + '</span>';
     var st = card.querySelector('.item-status');
     if(st) st.textContent = assetHasPublicDownload(record) ? 'Available' : 'File not available yet';
     syncAssetBadge(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
-    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
+    card.setAttribute('data-search', ((record.title || '') + ' ' + (record.cat || '') + ' ' + (record.category || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', assetCanonicalCat(record));
   });
   var homeAssets = document.getElementById('assetsGrid');
