@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,16 @@ const require = createRequire(import.meta.url);
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const engine = browserName === 'webkit' ? webkit : chromium;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+const mime = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp'
+};
 const rewrites = JSON.parse(await readFile(resolve(root, 'vercel.json'), 'utf8')).rewrites;
 const server = createServer(async (request, response) => {
   try {
@@ -30,12 +39,13 @@ const server = createServer(async (request, response) => {
       return;
     }
     const file = resolve(root, '.' + path);
-    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg', '.woff2'].includes(extname(file))) {
+    const ext = extname(file).toLowerCase();
+    if (!file.startsWith(root + sep) || !Object.prototype.hasOwnProperty.call(mime, ext)) {
       response.writeHead(404).end();
       return;
     }
     const body = await readFile(file);
-    response.writeHead(200, { 'Content-Type': mime[extname(file)] });
+    response.writeHead(200, { 'Content-Type': mime[ext] });
     response.end(body);
   } catch {
     response.writeHead(404).end();
@@ -81,6 +91,15 @@ const viewports = [
   [1280, 800, 'desktop'], [1440, 900, 'desktop-wide']
 ];
 
+const matrixAssetRecs = () => {
+  const gallery13 = Array.from({ length: 13 }, (_, i) => ({ id: 'g' + i, url: 'media/g' + i + '.png', alt: 'Shot ' + i, caption: i === 0 ? 'First caption' : '' }));
+  return [
+    { slug: 'mx-asset', title: 'Matrix Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: 'many previews', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: 'Matrix cover', gallery: gallery13 },
+    { slug: 'mx-nocover', title: 'Matrix No Cover', cat: 'Brushes', format: 'PNG', icon: '❀', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx2.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [{ id: 'n0', url: 'media/broken-x.png', alt: 'Broken', caption: '' }] },
+    { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] }
+  ];
+};
+
 for (const mobile of [false, true]) {
   const context = await browser.newContext(
     mobile
@@ -111,38 +130,173 @@ for (const mobile of [false, true]) {
   await page.waitForFunction(() => Boolean(window.CrabbiePortfolio && window.CrabbieAssets));
   await page.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true && window.__CRABBIE_ASSETS_HYDRATED__ === true);
   // Deterministic fixtures through the production bridges (no production data).
-  await page.evaluate(() => {
-    window.CrabbiePortfolio.apply([
+  await page.evaluate(({ portRecs, assetRecs }) => {
+    window.CrabbiePortfolio.apply(portRecs);
+    window.CrabbieAssets.apply(assetRecs);
+  }, {
+    portRecs: [
       { slug: 'mx-tall', title: 'Matrix Tall', desc: 'tall cover art', cat: 'Illustration', tags: ['TALL'], thumbnail: '', cover: 'media/mx-tall.png', blocks: [{ type: 'text', text: 'Body one' }, { type: 'text', text: 'Body two' }], credits: '', year: '2026' },
       { slug: 'mx-filler-1', title: 'Filler One', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
       { slug: 'mx-filler-2', title: 'Filler Two', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
       { slug: 'mx-filler-3', title: 'Filler Three', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' }
-    ]);
-    const gallery13 = Array.from({ length: 13 }, (_, i) => ({ id: 'g' + i, url: 'media/g' + i + '.png', alt: 'Shot ' + i, caption: i === 0 ? 'First caption' : '' }));
-    window.CrabbieAssets.apply([
-      { slug: 'mx-asset', title: 'Matrix Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: 'many previews', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: 'Matrix cover', gallery: gallery13 },
-      { slug: 'mx-nocover', title: 'Matrix No Cover', cat: 'Brushes', format: 'PNG', icon: '❀', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx2.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [{ id: 'n0', url: 'media/broken-x.png', alt: 'Broken', caption: '' }] },
-      { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] }
-    ]);
+    ],
+    assetRecs: matrixAssetRecs()
   });
 
-  // 1. Route × viewport matrix: one active view, no overflow, no scrollX.
-  for (const [width, height, label] of viewports) {
+  // 1a. Real decoration assets verification: three decor PNGs and pet GIF.
+  await page.waitForFunction(() => {
+    const imgs = Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item img'));
+    return imgs.length === 3 && imgs.every((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+  });
+  const decoCheck = await page.evaluate(() => {
+    const layer = document.getElementById('crabbieDecoLayer');
+    if (!layer) return null;
+    const imgs = Array.from(layer.querySelectorAll('.crabbie-deco-item img'));
+    return {
+      count: imgs.length,
+      loaded: imgs.every((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0),
+      srcs: imgs.map((img) => decodeURIComponent(new URL(img.src, location.href).pathname))
+    };
+  });
+  assert.ok(decoCheck && decoCheck.count === 3 && decoCheck.loaded, `${mode}: three decor PNGs load with real dimensions`);
+  assert.deepEqual(decoCheck.srcs, [
+    '/assets/decorations/deco-bg (1).png',
+    '/assets/decorations/deco-bg (2).png',
+    '/assets/decorations/deco-bg (3).png'
+  ], `${mode}: decor PNGs use canonical paths`);
+
+  // Activate pet to assert Desktop-Pet.gif loads with real intrinsic dimensions:
+  await page.evaluate(() => {
+    if (window.CrabbieSiteMotion) {
+      window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 1 } });
+    }
+  });
+  await page.waitForSelector('#crabbiePetLayer .crabbie-pet', { timeout: 15000 });
+  await page.waitForFunction(() => {
+    const img = document.querySelector('#crabbiePetLayer img[src*="/assets/decorations/pet/"]');
+    return img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+  });
+  const petCheck = await page.evaluate(() => {
+    const img = document.querySelector('#crabbiePetLayer img[src*="/assets/decorations/pet/"]');
+    return img ? { complete: img.complete, natW: img.naturalWidth, natH: img.naturalHeight } : null;
+  });
+  assert.ok(petCheck && petCheck.complete && petCheck.natW > 0 && petCheck.natH > 0, `${mode}: pet GIF loads with real dimensions`);
+  await page.evaluate(() => {
+    if (window.CrabbieSiteMotion) {
+      window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } });
+    }
+  });
+  note(`${mode} real decor PNGs and pet GIF bitmap loading`);
+
+  // 1b. Route × viewport matrix + boundary triplets: one active view, no overflow, no scrollX.
+  const boundaryTriplets = [
+    [379, 667, 'boundary-379'], [380, 667, 'boundary-380'], [381, 667, 'boundary-381'],
+    [599, 800, 'boundary-599'], [600, 800, 'boundary-600'], [601, 800, 'boundary-601'],
+    [719, 800, 'boundary-719'], [720, 800, 'boundary-720'], [721, 800, 'boundary-721'],
+    [859, 800, 'boundary-859'], [860, 800, 'boundary-860'], [861, 800, 'boundary-861'],
+    [899, 900, 'boundary-899'], [900, 900, 'boundary-900'], [901, 900, 'boundary-901'],
+    [1179, 900, 'boundary-1179'], [1180, 900, 'boundary-1180'], [1181, 900, 'boundary-1181']
+  ];
+  const allViewports = [...viewports, ...boundaryTriplets];
+  for (const [width, height, label] of allViewports) {
     await page.setViewportSize({ width, height });
     for (const route of ['home', 'portfolio', 'free-assets', 'commissions', 'about', 'terms', 'contact']) {
       await page.evaluate((r) => { location.hash = '#' + r; }, route);
       await page.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
       await page.evaluate(() => new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d))));
-      const box = await page.evaluate(() => ({
-        active: document.querySelectorAll('.view.is-active').length,
-        docSW: document.documentElement.scrollWidth, docCW: document.documentElement.clientWidth,
-        bodySW: document.body.scrollWidth, bodyCW: document.body.clientWidth, x: window.scrollX || 0
-      }));
+      const box = await page.evaluate(() => {
+        const doc = document.documentElement;
+        const body = document.body;
+        const right = body.getBoundingClientRect().right;
+        const culprits = [];
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+        let el;
+        while ((el = walker.nextNode())) {
+          if (culprits.length >= 3) break;
+          const b = el.getBoundingClientRect();
+          if (b.width > 0 && b.height > 0 && b.right > right + 1) {
+            const cls = el.className && el.className.baseVal !== undefined ? '[svg]' : String(el.className || '').slice(0, 40);
+            culprits.push(`<${el.tagName}${el.id ? '#' + el.id : ''}.${cls}>@${Math.round(b.right)}`);
+          }
+        }
+        return {
+          active: document.querySelectorAll('.view.is-active').length,
+          docSW: doc.scrollWidth, docCW: doc.clientWidth,
+          bodySW: body.scrollWidth, bodyCW: body.clientWidth,
+          x: window.scrollX || 0,
+          culprits
+        };
+      });
+      if (box.active !== 1 || box.docSW > box.docCW + 1 || box.bodySW > box.bodyCW + 1 || box.x !== 0) {
+        try {
+          const artifactDir = resolve(root, 'test-artifacts');
+          await mkdir(artifactDir, { recursive: true });
+          await page.screenshot({ path: resolve(artifactDir, `overflow-${browserName}-${label}-${route}.png`) });
+        } catch {}
+      }
       assert.equal(box.active, 1, `${label} ${route}: exactly one active view`);
-      assert.ok(box.docSW <= box.docCW + 1 && box.bodySW <= box.bodyCW + 1 && box.x === 0, `${label} ${route}: width within 1px, scrollX 0`);
+      assert.ok(box.docSW <= box.docCW + 1 && box.bodySW <= box.bodyCW + 1 && box.x === 0, `${label} ${route}: width within 1px, scrollX 0 (culprits: ${box.culprits.join(', ') || 'none'})`);
     }
   }
-  note(`${mode} route×viewport matrix`, '7 routes × 10 viewports, one active view, ≤1px overflow');
+  note(`${mode} route×viewport matrix & boundary sweep`, '7 routes × 28 viewports (incl. boundary triplets), one active view, ≤1px overflow');
+
+  // 1c. Focused WebKit/Chromium: Menu and sticky navigation across 390x844, 430x932, 844x390.
+  const NAV_SEED = [
+    { title: 'Home', url: '#home' }, { title: 'Portfolio', url: '#portfolio' },
+    { title: 'Free Assets', url: '#free-assets' }, { title: 'Commissions', url: '#commissions' },
+    { title: 'About', url: '#about' }, { title: 'Terms', url: '#terms' },
+    { title: 'Contact', url: '#contact' }
+  ];
+  await page.evaluate((nav) => {
+    if (window.CrabbieSiteContent) {
+      window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {});
+    }
+  }, NAV_SEED);
+  for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+
+    // Sticky nav pins while scrolling:
+    await page.evaluate(() => window.scrollTo({ top: 500, left: 0, behavior: 'instant' }));
+    await page.waitForTimeout(100);
+    const sticky = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      if (!nav) return null;
+      return {
+        pos: getComputedStyle(nav).position,
+        top: nav.getBoundingClientRect().top
+      };
+    });
+    assert.ok(sticky && sticky.pos === 'sticky', `${mode}: nav is position:sticky at ${width}x${height}`);
+    assert.ok(Math.abs(sticky.top) <= 2, `${mode}: sticky nav pins at top while scrolled at ${width}x${height}`);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+
+    // Mobile menu toggle & hit testing:
+    const burger = page.locator('#navBurger');
+    if (await burger.isVisible()) {
+      if (mobile) await burger.tap(); else await burger.click();
+      await page.waitForFunction(() => document.getElementById('mobileMenu').classList.contains('open'));
+      const menuAudit = await page.evaluate(() => {
+        const menu = document.getElementById('mobileMenu');
+        const mr = menu.getBoundingClientRect();
+        const links = Array.from(menu.querySelectorAll('a'));
+        const items = links.map((a) => {
+          menu.scrollTop = Math.max(0, a.offsetTop - 60);
+          const b = a.getBoundingClientRect();
+          const y = Math.min(Math.max(b.top + b.height / 2, mr.top + 2), mr.bottom - 2);
+          const hit = document.elementFromPoint(b.left + b.width / 2, y);
+          return { text: a.textContent.trim(), owned: hit === a || a.contains(hit) };
+        });
+        return { count: links.length, items };
+      });
+      assert.ok(menuAudit.count >= 6, `${mode}: menu renders links at ${width}x${height}`);
+      assert.ok(menuAudit.items.every((it) => it.owned), `${mode}: menu links own hit-testing at ${width}x${height}`);
+      if (mobile) await burger.tap(); else await burger.click();
+      await page.waitForFunction(() => !document.getElementById('mobileMenu').classList.contains('open'));
+    }
+  }
+  note(`${mode} menu & sticky nav pinned across 390, 430 and 844`);
 
   // 2. Detail routes: direct load, cover geometry, missing → 404.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -260,7 +414,18 @@ for (const mobile of [false, true]) {
       href: card.getAttribute('href'), lightbox: card.getAttribute('data-lightbox-src')
     };
   }, slug);
-  const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
+  const artWidths = [
+    [379, 667], [380, 667], [381, 667],
+    [390, 844], [430, 932],
+    [599, 800], [600, 800], [601, 800],
+    [640, 480], [641, 480],
+    [719, 800], [720, 540], [721, 540],
+    [844, 390],
+    [859, 800], [860, 800], [861, 800],
+    [899, 900], [900, 900], [901, 900],
+    [1179, 900], [1180, 900], [1181, 900],
+    [1280, 800], [1440, 900]
+  ];
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
@@ -278,10 +443,17 @@ for (const mobile of [false, true]) {
     await page.evaluate(() => { location.hash = '#portfolio'; });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-    await page.waitForTimeout(160);
+    await page.waitForTimeout(60);
     await page.mouse.move(2, 2);
     const at = `${width}x${height}`;
     const sw = await page.evaluate(() => ({ docCW: document.documentElement.clientWidth, docSW: document.documentElement.scrollWidth, bodyCW: document.body.clientWidth, bodySW: document.body.scrollWidth }));
+    if (sw.docSW > sw.docCW + 1 || sw.bodySW > sw.bodyCW + 1) {
+      try {
+        const artifactDir = resolve(root, 'test-artifacts');
+        await mkdir(artifactDir, { recursive: true });
+        await page.screenshot({ path: resolve(artifactDir, `overflow-${browserName}-art-${at}.png`) });
+      } catch {}
+    }
     assert.ok(sw.docSW <= sw.docCW + 1 && sw.bodySW <= sw.bodyCW + 1, `${mode} image cards keep the page width at ${at}`);
     for (const [slug] of matrixRatios) {
       const c = await probeArtCard(slug);
@@ -362,6 +534,59 @@ for (const mobile of [false, true]) {
   await page.locator('#publicLightboxZoomIn').click();
   const zoomed = await page.evaluate(() => document.getElementById('publicLightboxImg').style.transform);
   assert.ok(/scale\((1\.[2-9]|[2-9])/.test(zoomed), `${mode}: discrete zoom scales`);
+
+  // Focus trap: Shift+Tab wraps to last item, Tab wraps back to first.
+  await page.evaluate(() => document.getElementById('publicLightboxClose').focus());
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('Tab');
+  await page.keyboard.up('Shift');
+  const wrappedToLast = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll('#publicLightbox button:not([hidden]):not([disabled])')).filter((el) => el.getClientRects().length > 0);
+    return items.length > 0 && document.activeElement === items[items.length - 1];
+  });
+  assert.ok(wrappedToLast, `${mode}: viewer focus trap wraps Shift+Tab to last focusable control`);
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), 'publicLightboxClose', `${mode}: viewer focus trap wraps Tab back to first control`);
+
+  // Keyboard pan: Arrow keys adjust pan when zoomed.
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowUp');
+  const panTransform = await page.evaluate(() => document.getElementById('publicLightboxImg')?.style.transform);
+  assert.ok(panTransform.includes('scale('), `${mode}: keyboard pan maintains scale transform`);
+
+  // Pointer drag pan:
+  const imgBox = await page.locator('#publicLightboxImg').boundingBox();
+  if (imgBox) {
+    const startX = imgBox.x + imgBox.width / 2;
+    const startY = imgBox.y + imgBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 30, startY + 20, { steps: 5 });
+    const isPanning = await page.evaluate(() => document.getElementById('publicLightbox').classList.contains('is-panning'));
+    await page.mouse.up();
+    const afterDrag = await page.evaluate(() => {
+      const img = document.getElementById('publicLightboxImg');
+      return {
+        transform: img ? img.style.transform : '',
+        panningRemoved: !document.getElementById('publicLightbox').classList.contains('is-panning')
+      };
+    });
+    assert.ok(afterDrag.panningRemoved, `${mode}: is-panning class removes after pointer drag release`);
+    assert.ok(afterDrag.transform.includes('scale('), `${mode}: pointer drag maintains scale`);
+  }
+
+  // Capability statement for gestures:
+  note(`${mode} gesture limitation: native iOS multi-touch pinch is not natively executable in Playwright WebKit runner; synthetic touch events are not claimed as native iPhone gesture tests`);
+
+  // Resize preserves zoom scale:
+  const currentZoomText = await page.evaluate(() => document.getElementById('publicLightboxZoomLabel')?.textContent);
+  await page.setViewportSize({ width: 950, height: 650 });
+  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+  await page.waitForTimeout(60);
+  const zoomAfterResize = await page.evaluate(() => document.getElementById('publicLightboxZoomLabel')?.textContent);
+  assert.equal(zoomAfterResize, currentZoomText, `${mode}: resize preserves zoom scale`);
+  await page.setViewportSize({ width: mobile ? 390 : 1280, height: mobile ? 844 : 800 });
+
   await page.locator('#publicLightboxNext').click();
   await page.waitForFunction(() => document.getElementById('publicLightboxPosition').textContent === '4 / 14');
   await page.keyboard.press('Escape');
@@ -379,6 +604,94 @@ for (const mobile of [false, true]) {
   await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
   assert.equal(await page.evaluate(() => location.hash), vHash, `${mode}: Back dismisses viewer without navigating`);
   note(`${mode} viewer open/zoom/step/Back/focus/lock`);
+
+  // 6b. Viewer error and retry:
+  await page.evaluate((recs) => {
+    window.CrabbiePortfolio.apply(recs);
+    location.hash = '#portfolio';
+  }, matrixArtRecs());
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  await page.locator('#pfGrid [data-project="mx-broken"]').scrollIntoViewIfNeeded();
+  await page.locator('#pfGrid [data-project="mx-broken"]').click();
+  await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+  await page.waitForFunction(() => !document.getElementById('publicLightboxError').hidden, null, { timeout: 15000 });
+  const errorControls = await page.evaluate(() => ({
+    errorShown: !document.getElementById('publicLightboxError').hidden,
+    loadingHidden: document.getElementById('publicLightboxLoading').hidden,
+    retryVisible: !document.getElementById('publicLightboxRetry').hidden,
+    closeVisible: !document.getElementById('publicLightboxErrorClose').hidden
+  }));
+  assert.ok(errorControls.errorShown && errorControls.loadingHidden && errorControls.retryVisible && errorControls.closeVisible, `${mode}: broken image renders retry and close controls`);
+  
+  // Retry triggers generation change:
+  const genBefore = await page.evaluate(() => document.getElementById('publicLightboxImg')?.dataset.viewGen);
+  await page.locator('#publicLightboxRetry').click();
+  const genAfter = await page.evaluate(() => document.getElementById('publicLightboxImg')?.dataset.viewGen);
+  assert.notEqual(genBefore, genAfter, `${mode}: retry increments view generation to reload`);
+
+  // Close from error dialog:
+  await page.locator('#publicLightboxErrorClose').click();
+  await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+  note(`${mode} viewer error/retry`);
+
+  // 6c. History departure when viewer is open:
+  await page.evaluate(() => { location.hash = '#asset/mx-asset'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+  await page.locator('#adGallery .ad-thumb[data-ad-index="2"]').click();
+  await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+  assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', `${mode}: body scroll locked when viewer open`);
+
+  // Route departure while viewer is open:
+  await page.evaluate(() => { location.hash = '#portfolio'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+  const departureCheck = await page.evaluate(() => ({
+    lightboxHidden: document.getElementById('publicLightbox').hidden,
+    bodyOverflow: document.body.style.overflow
+  }));
+  assert.ok(departureCheck.lightboxHidden, `${mode}: viewer automatically closes upon route departure`);
+  assert.ok(departureCheck.bodyOverflow === '' || departureCheck.bodyOverflow === 'visible' || getComputedStyle(document.body).overflow === 'visible', `${mode}: scroll lock is released upon route departure`);
+
+  // Probe Back behavior:
+  await page.goBack();
+  await page.waitForTimeout(300);
+  const backProbe = await page.evaluate(() => ({
+    hash: location.hash,
+    view: document.querySelector('.view.is-active')?.dataset.view,
+    lightboxHidden: document.getElementById('publicLightbox').hidden
+  }));
+  note(`${mode} history departure settled`, `viewer closed, overflow restored; back navigation landed at ${backProbe.hash}`);
+
+  // 6d. Wheel interaction with long metadata:
+  const longCaption = 'Exquisite detailed artwork metadata description. '.repeat(80);
+  await page.evaluate((caption) => {
+    window.CrabbieAssets.apply([
+      { slug: 'mx-long-cap', title: 'Long Caption Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: '', availability: 'available', downloadUrl: 'media/mx.zip', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: '', gallery: [{ id: 'lc0', url: 'media/g0.png', alt: 'Long shot', caption }] }
+    ]);
+  }, longCaption);
+  await page.evaluate(() => { location.hash = '#asset/mx-long-cap'; });
+  await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+  await page.locator('#adGallery .ad-thumb[data-ad-index="1"]').click();
+  await page.waitForFunction(() => !document.getElementById('publicLightbox').hidden);
+  
+  const capBox = await page.locator('#publicLightboxCaption').boundingBox();
+  assert.ok(capBox && capBox.height > 0, `${mode}: long caption is rendered`);
+  const initialZoom = await page.evaluate(() => document.getElementById('publicLightboxZoomLabel')?.textContent);
+  if (!mobile) {
+    if (capBox) {
+      await page.mouse.move(capBox.x + capBox.width / 2, capBox.y + capBox.height / 2);
+      await page.mouse.wheel(0, 100);
+      await page.waitForTimeout(200);
+    }
+    const afterWheelZoom = await page.evaluate(() => document.getElementById('publicLightboxZoomLabel')?.textContent);
+    const afterWheelScrollTop = await page.evaluate(() => document.getElementById('publicLightbox').scrollTop);
+    note(`${mode} wheel with long metadata probed`, `initialZoom=${initialZoom}, afterWheelZoom=${afterWheelZoom}, scrollTop=${afterWheelScrollTop}`);
+  } else {
+    note(`${mode} metadata display`, `long caption rendered at height ${Math.round(capBox?.height || 0)}px, mobile scroll handled via touch gestures`);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('publicLightbox').hidden);
+  // Restore initial assets fixture for subsequent sections:
+  await page.evaluate((recs) => window.CrabbieAssets.apply(recs), matrixAssetRecs());
 
   // 7. Animations: jelly press, hover lift, reduced-motion switch.
   // Jelly is a motion-allowed press effect: opt into motion first.

@@ -16,7 +16,16 @@ const publicConfig = livePublic
   ? {url: process.env.SUPABASE_URL, key: process.env.SUPABASE_PUBLISHABLE_KEY}
   : {url: 'https://router-test.supabase.co', key: 'sb_publishable_test_fixture'};
 if (livePublic && (!publicConfig.url || !publicConfig.key)) throw new Error('Public Supabase configuration is missing.');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+const mime = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp'
+};
 const rewrites = JSON.parse(await readFile(resolve(root, 'vercel.json'), 'utf8')).rewrites;
 const server = createServer(async (request, response) => {
   try {
@@ -29,12 +38,13 @@ const server = createServer(async (request, response) => {
       return;
     }
     const file = resolve(root, '.' + path);
-    if (!file.startsWith(root + sep) || !['.html', '.js', '.css', '.svg', '.woff2'].includes(extname(file))) {
+    const ext = extname(file).toLowerCase();
+    if (!file.startsWith(root + sep) || !Object.prototype.hasOwnProperty.call(mime, ext)) {
       response.writeHead(404).end();
       return;
     }
     const body = await readFile(file);
-    response.writeHead(200, { 'Content-Type': mime[extname(file)] });
+    response.writeHead(200, { 'Content-Type': mime[ext] });
     response.end(body);
   } catch {
     response.writeHead(404).end();
@@ -3232,11 +3242,42 @@ try {
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: false } }); });
     assert.equal(await page.locator('#crabbieCandyLayer .crabbie-candy').count(), 0, 'turning candy off clears the layer');
 
+    // Assert real decorative background PNGs load with non-zero dimensions
+    await page.waitForFunction(() => {
+      const imgs = Array.from(document.querySelectorAll('#crabbieDecoLayer .crabbie-deco-item img'));
+      return imgs.length === 3 && imgs.every((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+    });
+    const decoStatus = await page.evaluate(() => {
+      const layer = document.getElementById('crabbieDecoLayer');
+      if (!layer) return null;
+      const imgs = Array.from(layer.querySelectorAll('.crabbie-deco-item img'));
+      return {
+        count: imgs.length,
+        loaded: imgs.every((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0),
+        srcs: imgs.map((img) => decodeURIComponent(new URL(img.src, location.href).pathname))
+      };
+    });
+    assert.ok(decoStatus && decoStatus.count === 3 && decoStatus.loaded, 'three decor background PNGs load successfully with non-zero dimensions');
+    assert.deepEqual(decoStatus.srcs, [
+      '/assets/decorations/deco-bg (1).png',
+      '/assets/decorations/deco-bg (2).png',
+      '/assets/decorations/deco-bg (3).png'
+    ], 'decor PNGs point to canonical asset paths');
+
     // Initial pets: a single pet rests in the bottom band on load.
     await page.evaluate(() => { window.CrabbieSiteMotion.applyMotion({ fallingCandy: false, pet: { enabled: true, maxDesktop: 5, dialogues: [{ text: 'one' }, { text: 'two' }] } }); });
     await page.waitForSelector('#crabbiePetLayer .crabbie-pet');
     assert.equal(await page.locator('#crabbiePetLayer .crabbie-pet').count(), 1, 'exactly one pet exists on load');
     assert.equal(await page.locator('#crabbiePetLayer img[src*="/assets/decorations/pet/"]').count(), 1, 'the pet uses the reorganised decoration asset');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('#crabbiePetLayer img[src*="/assets/decorations/pet/"]');
+      return img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+    });
+    const petImgStatus = await page.evaluate(() => {
+      const img = document.querySelector('#crabbiePetLayer img[src*="/assets/decorations/pet/"]');
+      return img ? { complete: img.complete, natW: img.naturalWidth, natH: img.naturalHeight } : null;
+    });
+    assert.ok(petImgStatus && petImgStatus.complete && petImgStatus.natW > 0 && petImgStatus.natH > 0, 'desktop pet GIF loads successfully with non-zero dimensions');
     const petBand = await page.evaluate(() => {
       const nav = document.querySelector('.nav-shell');
       const navH = nav ? nav.getBoundingClientRect().height : 90;
