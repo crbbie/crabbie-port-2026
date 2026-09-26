@@ -81,17 +81,31 @@ const viewports = [
   [768, 1024, 'tablet'], [820, 1180, 'tablet-tall'],
   [1280, 800, 'desktop'], [1440, 900, 'desktop-wide']
 ];
+const boundaryTriplets = [
+  [379, 667, 'boundary-379'], [380, 667, 'boundary-380'], [381, 667, 'boundary-381'],
+  [599, 800, 'boundary-599'], [600, 800, 'boundary-600'], [601, 800, 'boundary-601'],
+  [719, 800, 'boundary-719'], [720, 800, 'boundary-720'], [721, 800, 'boundary-721'],
+  [859, 800, 'boundary-859'], [860, 800, 'boundary-860'], [861, 800, 'boundary-861'],
+  [899, 900, 'boundary-899'], [900, 900, 'boundary-900'], [901, 900, 'boundary-901'],
+  [1179, 900, 'boundary-1179'], [1180, 900, 'boundary-1180'], [1181, 900, 'boundary-1181']
+];
 
-for (const mobile of [false, true]) {
-  const context = await browser.newContext(
-    mobile
-      ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' }
-      : { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' }
-  );
+// WebKit stability: the expanded boundary sweep carries hundreds of
+// viewport/route transitions. A single long-lived page/context accumulates
+// history and layout state until WebKit closes the target mid-run
+// ("Target page, context or browser has been closed" at non-deterministic
+// later lines, after the desktop sweep already passed). Each major phase
+// group therefore gets a FRESH context+page that is closed before the next
+// group opens, so no page ever carries the whole matrix. Peak load stays at
+// one context; every viewport, route and assertion is preserved.
+const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+const matrixContextOptions = (mobile) => (mobile
+  ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' }
+  : { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+const wireMatrixRoutes = async (context) => {
   await context.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({ contentType: 'text/javascript', body: stub }));
   // Keep transformed thumbnails loading: WebKit fires onerror quickly and would
   // otherwise swap src to the original before the transform assertion runs.
-  const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
   await context.route('**/storage/v1/render/image/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
   await context.route('https://matrix-test.supabase.co/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tinyPng }));
   // Deterministic artwork with real intrinsic dimensions for ratio/strip checks.
@@ -102,33 +116,60 @@ for (const mobile of [false, true]) {
     return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#ffb8d4"/></svg>` });
   });
   await context.route('https://matrix-art.test/broken.png', (route) => route.abort());
+};
+// Deterministic fixtures through the production bridges (no production data).
+const seedMatrixBase = (page) => page.evaluate(() => {
+  window.CrabbiePortfolio.apply([
+    { slug: 'mx-tall', title: 'Matrix Tall', desc: 'tall cover art', cat: 'Illustration', tags: ['TALL'], thumbnail: '', cover: 'media/mx-tall.png', blocks: [{ type: 'text', text: 'Body one' }, { type: 'text', text: 'Body two' }], credits: '', year: '2026' },
+    { slug: 'mx-filler-1', title: 'Filler One', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
+    { slug: 'mx-filler-2', title: 'Filler Two', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
+    { slug: 'mx-filler-3', title: 'Filler Three', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' }
+  ]);
+  const gallery13 = Array.from({ length: 13 }, (_, i) => ({ id: 'g' + i, url: 'media/g' + i + '.png', alt: 'Shot ' + i, caption: i === 0 ? 'First caption' : '' }));
+  window.CrabbieAssets.apply([
+    { slug: 'mx-asset', title: 'Matrix Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: 'many previews', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: 'Matrix cover', gallery: gallery13 },
+    { slug: 'mx-nocover', title: 'Matrix No Cover', cat: 'Brushes', format: 'PNG', icon: '❀', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx2.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [{ id: 'n0', url: 'media/broken-x.png', alt: 'Broken', caption: '' }] },
+    { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] },
+    { slug: 'mx-stream', title: 'Matrix Stream', cat: 'stream overlays', category: 'stream overlays', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx4.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [] }
+  ]);
+});
+const openMatrixPage = async (mobile) => {
+  const context = await browser.newContext(matrixContextOptions(mobile));
+  await wireMatrixRoutes(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.stack || e.message));
   const mode = mobile ? 'mobile-touch' : 'desktop';
-
   await page.goto(origin + '/#portfolio', { waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.CrabbiePortfolio && window.CrabbieAssets));
   await page.waitForFunction(() => window.__CRABBIE_PORTFOLIO_HYDRATED__ === true && window.__CRABBIE_ASSETS_HYDRATED__ === true);
-  // Deterministic fixtures through the production bridges (no production data).
-  await page.evaluate(() => {
-    window.CrabbiePortfolio.apply([
-      { slug: 'mx-tall', title: 'Matrix Tall', desc: 'tall cover art', cat: 'Illustration', tags: ['TALL'], thumbnail: '', cover: 'media/mx-tall.png', blocks: [{ type: 'text', text: 'Body one' }, { type: 'text', text: 'Body two' }], credits: '', year: '2026' },
-      { slug: 'mx-filler-1', title: 'Filler One', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
-      { slug: 'mx-filler-2', title: 'Filler Two', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' },
-      { slug: 'mx-filler-3', title: 'Filler Three', desc: '', cat: 'Chibi', tags: [], thumbnail: '', cover: '', blocks: [], credits: '', year: '' }
-    ]);
-    const gallery13 = Array.from({ length: 13 }, (_, i) => ({ id: 'g' + i, url: 'media/g' + i + '.png', alt: 'Shot ' + i, caption: i === 0 ? 'First caption' : '' }));
-    window.CrabbieAssets.apply([
-      { slug: 'mx-asset', title: 'Matrix Asset', cat: 'Brushes', format: 'PNG', icon: '★', description: 'many previews', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-cover.png', coverAlt: 'Matrix cover', gallery: gallery13 },
-      { slug: 'mx-nocover', title: 'Matrix No Cover', cat: 'Brushes', format: 'PNG', icon: '❀', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx2.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [{ id: 'n0', url: 'media/broken-x.png', alt: 'Broken', caption: '' }] },
-      { slug: 'mx-single', title: 'Matrix Single', cat: 'Brushes', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx3.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: 'media/mx-single.png', coverAlt: '', gallery: [] },
-      { slug: 'mx-stream', title: 'Matrix Stream', cat: 'stream overlays', category: 'stream overlays', format: 'PNG', icon: '★', description: '', version: '', date: '', credit: '', license: '', update: '', availability: 'available', downloadUrl: 'media/mx4.zip', driveUrl: '', showDirectDownload: true, showDriveDownload: false, featured: false, published: true, tags: [], thumbnail: '', coverAlt: '', gallery: [] }
-    ]);
-  });
+  await seedMatrixBase(page);
+  return { context, page, errors, mode };
+};
+const closeMatrixPage = async (context, page, errors, mode, label) => {
+  assert.deepEqual(errors, [], `${mode}: no uncaught script errors (${label})`);
+  await page.close().catch(() => {});
+  await context.close().catch(() => {});
+};
 
-  // 1. Route × viewport matrix: one active view, no overflow, no scrollX.
+for (const mobile of [false, true]) {
+  const mode = mobile ? 'mobile-touch' : 'desktop';
+  let group = await openMatrixPage(mobile);
+  let page = group.page;
+  let context = group.context;
+  let errors = group.errors;
+  // Roll to a fresh page+context between phase groups: asserts the outgoing
+  // page stayed error-free, closes it, and rehydrates fixtures on the new one.
+  const rollMatrixPage = async (label) => {
+    await closeMatrixPage(context, page, errors, mode, label);
+    group = await openMatrixPage(mobile);
+    page = group.page;
+    context = group.context;
+    errors = group.errors;
+  };
+
+  // 1a. Base route × viewport matrix: one active view, no overflow, no scrollX.
   for (const [width, height, label] of viewports) {
     await page.setViewportSize({ width, height });
     for (const route of ['home', 'portfolio', 'free-assets', 'commissions', 'about', 'terms', 'contact']) {
@@ -145,6 +186,66 @@ for (const mobile of [false, true]) {
     }
   }
   note(`${mode} route×viewport matrix`, '7 routes × 10 viewports, one active view, ≤1px overflow');
+  await rollMatrixPage('route×viewport matrix');
+
+  // 1a2. Exact CSS breakpoint boundaries on a fresh page so WebKit never
+  // carries the base sweep plus the triplets in one target:
+  // 379/380/381, 599/600/601, 719/720/721, 859/860/861,
+  // 899/900/901 and 1179/1180/1181.
+  for (const [width, height, label] of boundaryTriplets) {
+    await page.setViewportSize({ width, height });
+    for (const route of ['home', 'portfolio', 'free-assets', 'commissions', 'about', 'terms', 'contact']) {
+      await page.evaluate((r) => { location.hash = '#' + r; }, route);
+      await page.waitForFunction((r) => document.querySelector('.view.is-active')?.dataset.view === r, route);
+      await page.evaluate(() => new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d))));
+      const box = await page.evaluate(() => ({
+        active: document.querySelectorAll('.view.is-active').length,
+        docSW: document.documentElement.scrollWidth, docCW: document.documentElement.clientWidth,
+        bodySW: document.body.scrollWidth, bodyCW: document.body.clientWidth, x: window.scrollX || 0
+      }));
+      assert.equal(box.active, 1, `${label} ${route}: exactly one active view`);
+      assert.ok(box.docSW <= box.docCW + 1 && box.bodySW <= box.bodyCW + 1 && box.x === 0, `${label} ${route}: width within 1px, scrollX 0`);
+    }
+  }
+  note(`${mode} breakpoint boundary sweep`, '7 routes × 18 boundary viewports (379/380/381, 599/600/601, 719/720/721, 859/860/861, 899/900/901, 1179/1180/1181), one active view, ≤1px overflow');
+
+  // 1b. Sticky navigation and mobile menu stay usable at the two phone
+  // references and landscape. This runs in both Chromium and WebKit.
+  const NAV_SEED = [
+    { title: 'Home', url: '#home' }, { title: 'Portfolio', url: '#portfolio' },
+    { title: 'Free Assets', url: '#free-assets' }, { title: 'Commissions', url: '#commissions' },
+    { title: 'About', url: '#about' }, { title: 'Terms', url: '#terms' },
+    { title: 'Contact', url: '#contact' }
+  ];
+  await page.evaluate((nav) => {
+    if (window.CrabbieSiteContent) window.CrabbieSiteContent.apply(undefined, nav, window.__cmsPublicSettings || {});
+  }, NAV_SEED);
+  for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => { location.hash = '#home'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.evaluate(() => window.scrollTo({ top: 500, left: 0, behavior: 'instant' }));
+    await page.waitForTimeout(80);
+    const sticky = await page.evaluate(() => {
+      const nav = document.querySelector('.nav-shell');
+      if (!nav) return null;
+      return { position: getComputedStyle(nav).position, top: nav.getBoundingClientRect().top };
+    });
+    assert.ok(sticky && sticky.position === 'sticky', `${mode}: nav stays sticky at ${width}x${height}`);
+    assert.ok(Math.abs(sticky.top) <= 2, `${mode}: sticky nav pins to viewport top at ${width}x${height}`);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+    const burger = page.locator('#navBurger');
+    if (await burger.isVisible()) {
+      await page.evaluate(() => document.getElementById('navBurger')?.click());
+      await page.waitForFunction(() => document.getElementById('mobileMenu')?.classList.contains('open'));
+      const links = await page.locator('#mobileMenu a').count();
+      assert.ok(links >= 6, `${mode}: mobile menu exposes navigation links at ${width}x${height}`);
+      await page.evaluate(() => document.getElementById('navBurger')?.click());
+      await page.waitForFunction(() => !document.getElementById('mobileMenu')?.classList.contains('open'));
+    }
+  }
+  note(`${mode} sticky nav + mobile menu boundary coverage`);
+  await rollMatrixPage('breakpoint boundary sweep + sticky nav');
 
   // 2. Detail routes: direct load, cover geometry, missing → 404.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -308,6 +409,7 @@ for (const mobile of [false, true]) {
   assert.equal(await page.locator('#adGallery .ad-thumb').count(), 1, `${mode}: no-cover still shows previews`);
   assert.equal(await page.locator('[data-view="free-asset-detail"] .ad-preview img').count(), 0, `${mode}: missing cover falls back to icon`);
   note(`${mode} gallery batches + no-cover`);
+  await rollMatrixPage('detail-scroll-filter-gallery');
 
   // 5b. Portfolio image-card geometry + deterministic composition.
   //     The listing image-card model must stay coherent at every required
@@ -342,7 +444,13 @@ for (const mobile of [false, true]) {
       ariaLabel: card.getAttribute('aria-label')
     };
   }, slug);
-  const artWidths = [[640, 480], [641, 480], [720, 540], [721, 540], [844, 390], [1180, 900], [1181, 900], [1280, 800], [1440, 900]];
+  const artWidths = [
+    [379, 667], [380, 667], [381, 667], [390, 844], [430, 932],
+    [599, 800], [600, 800], [601, 800], [640, 480], [641, 480],
+    [719, 800], [720, 540], [721, 540], [844, 390],
+    [859, 800], [860, 800], [861, 800], [899, 900], [900, 900], [901, 900],
+    [1179, 900], [1180, 900], [1181, 900], [1280, 800], [1440, 900]
+  ];
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => { location.hash = '#portfolio'; });
   await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
@@ -436,6 +544,7 @@ for (const mobile of [false, true]) {
   }, null, { timeout: 5000 });
   assert.ok((await matrixVariants()).every((v) => v === 'pf-s'), `${mode} tablet drops legacy three-row spans`);
   note(`${mode} portfolio image cards + deterministic composition`, '640–1440 + phone landscape, ratios, fallbacks, bands');
+  await rollMatrixPage('art-geometry-deterministic');
 
 
   // 6. Viewer: open/zoom/pan/prev-next/Back/focus/lock.
@@ -641,8 +750,7 @@ for (const mobile of [false, true]) {
 
   note(`${mode} stationary detail navigation + no jelly`);
 
-  assert.deepEqual(errors, [], `${mode}: no uncaught script errors`);
-  await context.close();
+  await closeMatrixPage(context, page, errors, mode, 'viewer-motion-navigation');
 }
 
 await browser.close();
