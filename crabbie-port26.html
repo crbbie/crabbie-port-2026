@@ -1597,6 +1597,31 @@ body:not(.admin-mode) .nav-links a:hover{ color:#F077B9; }
 body:not(.admin-mode) .mobile-menu a:hover{ color:#F077B9; }
 </style>
 
+<style id="cms-multiline-contract">
+/* Scoped CMS multiline contract (see ux-rules.md): plain-text public nodes keep
+   textContent/escaped rendering; authored newlines become visible line breaks
+   via pre-line only on these exact destinations. Never broaden to p,
+   .page-sub, .hint, .acc-line b or .pd-fact .v. */
+[data-view="about"] .about-hero .bio,
+[data-view="about"] .about-hero .page-sub,
+#pdDesc,
+#publicLightboxCaption,
+#pdCredits,
+#pdBlocks .pd-quote,
+[data-view="commissions"] .comm-desc,
+#otherServiceDetail .osd-desc,
+#clientThanksBody,
+[data-view="home"] .hero-lede,
+footer .foot-tag,
+[data-view="about"] .exp-card p,
+[data-view="about"] .value-card p,
+.acc-line b.cms-fee-multiline,
+.cms-field-help{
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+</style>
+
 <!-- ============================================================
      ADMIN SHELL CSS v2 — unified layout, sidebar 244px, sticky save, i18n
      ============================================================ -->
@@ -3742,7 +3767,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
             <li class="spec"><span class="k">Format</span><span class="v" id="adFormat">PNG</span></li>
             <li class="spec"><span class="k">Version</span><span class="v cms-inline" id="adVersion">[VERSION]</span></li>
             <li class="spec"><span class="k">Added</span><span class="v cms-inline" id="adDate">[DATE]</span></li>
-            <li class="spec"><span class="k">Credit</span><span class="v cms-inline" id="adCredit">[CREDIT REQUIREMENT]</span></li>
+            <li class="spec spec-long"><span class="k">Credit</span><span class="v cms-inline" id="adCredit">[CREDIT REQUIREMENT]</span></li>
             <li class="spec spec-long"><span class="k">Usage &amp; license</span><span class="v cms-inline" id="adLicense">[LICENSE CONTENT FROM CMS]</span></li>
             <li class="spec spec-long"><span class="k">Update note</span><span class="v cms-inline" id="adUpdate">[UPDATE NOTE]</span></li>
           </ul>
@@ -5704,6 +5729,11 @@ wireAccordions(document);
 var otherServiceDetail = document.getElementById('otherServiceDetail');
 function availabilityLabel(a){ return a === 'closed' ? 'CLOSED' : a === 'inquiry' ? 'BY INQUIRY' : 'OPEN'; }
 function availabilityClass(a){ return a === 'closed' ? 'closed' : a === 'inquiry' ? 'inq' : 'open'; }
+/* Multiline fee values keep plain-text rendering (textContent/esc) and gain
+   visible line breaks only through .cms-fee-multiline (see
+   #cms-multiline-contract). Only commercialRule, includedFiles and extraNotes
+   are multiline; every other fee value stays single-line. */
+function feeMultilineClass(key){ return (key === 'commercialRule' || key === 'includedFiles' || key === 'extraNotes') ? ' class="cms-fee-multiline"' : ''; }
 function renderOtherServiceDetail(serviceId){
 if(!otherServiceDetail) return;
 var s = OTHER_SERVICES[serviceId];
@@ -5711,11 +5741,11 @@ if(!s){ otherServiceDetail.classList.remove('show'); otherServiceDetail.innerHTM
 var availClass = availabilityClass(s.availability);
 var disabled = s.availability === 'closed';
 var feeText = function(v){ var t = String(v == null ? '' : v).trim(); return (t && t !== 'undefined' && t !== 'NaN') ? t : ''; };
-var accRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]]
-  .filter(function(r){ return feeText(r[1]) !== ''; });
+var accRows = [['deliveryEstimate','Delivery estimate', s.deliveryEstimate],['includedFiles','Included files', s.includedFiles],['canvas','Canvas', s.canvas],['commercialRule','Commercial rule', s.commercialRule],['extraCharacter','Extra character', s.extraCharacter],['backgroundRule','Background', s.backgroundRule],['tax','Tax', s.tax],['rush','Rush', s.rush],['privateFee','Private commission', s.privateFee]]
+  .filter(function(r){ return feeText(r[2]) !== ''; });
 var alternateLine = feeText(s.alternatePriceFormatted) || (feeText(s.alternatePrice) ? feeText(s.alternatePrice) + (feeText(s.alternateCurrency) ? ' ' + feeText(s.alternateCurrency) : '') : '');
-if(alternateLine) accRows.push(['Alternate price', alternateLine]);
-if(feeText(s.extraNotes)) accRows.push(['Notes', feeText(s.extraNotes)]);
+if(alternateLine) accRows.push(['alternatePrice','Alternate price', alternateLine]);
+if(feeText(s.extraNotes)) accRows.push(['extraNotes','Notes', feeText(s.extraNotes)]);
 var html =
 '<article class="osd-card" aria-labelledby="osdTitle">' +
 '<div class="osd-preview ' + esc(s.previewVariant || '') + '">' +
@@ -5736,7 +5766,7 @@ var html =
 '<div class="acc osd-acc">' +
 '<button class="acc-btn" type="button">What\'s included &amp; fees <span class="caret">▾</span></button>' +
 '<div class="acc-body"><div class="acc-inner">' +
-accRows.map(function(r){ return '<div class="acc-line"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') +
+accRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r[0]) + '"><span>' + esc(r[1]) + '</span><b' + feeMultilineClass(r[0]) + '>' + esc(r[2]) + '</b></div>'; }).join('') +
 '</div></div>' +
 '</div>' +
 '</article>';
@@ -8218,15 +8248,15 @@ function textSizeSel(){ return sel('Text size','textSize',['normal','small','lar
 switch(type){
 case 'heading': body = f('Text','text'); break;
 case 'text': body = f('Text','text','textarea') + textSizeSel(); break;
-case 'image': body = blockMediaPickHtml(path + '.url', 'Choose image…') + f('Alt','alt') + f('Caption','caption'); break;
+case 'image': body = blockMediaPickHtml(path + '.url', 'Choose image…') + f('Alt','alt') + f('Caption','caption','textarea'); break;
 case 'image-text': body = blockMediaPickHtml(path + '.url', 'Choose media…') + f('Text','text','textarea') + textSizeSel() + sel('Layout','layout',['left','right']); break;
 case 'gallery': case 'grid': body = renderMediaItemsEditor(b, path, 'Media items'); break;
-case 'gif': body = blockMediaPickHtml(path + '.url', 'Choose GIF…') + f('Caption','caption'); break;
-case 'video': body = f('URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>' + blockMediaPickHtml(path + '.url', 'Choose uploaded video…') + f('Caption','caption'); break;
+case 'gif': body = blockMediaPickHtml(path + '.url', 'Choose GIF…') + f('Caption','caption','textarea'); break;
+case 'video': body = f('URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>' + blockMediaPickHtml(path + '.url', 'Choose uploaded video…') + f('Caption','caption','textarea'); break;
 case 'youtube': body = f('YouTube URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>' + f('Caption','caption'); break;
-case 'before-after': body = blockMediaPickHtml(path + '.before', 'Choose before image…') + blockMediaPickHtml(path + '.after', 'Choose after image…') + f('Caption','caption'); break;
-case 'quote': body = f('Text','text','textarea') + f('Caption','caption'); break;
-case 'caption': body = f('Text','text') + textSizeSel(); break;
+case 'before-after': body = blockMediaPickHtml(path + '.before', 'Choose before image…') + blockMediaPickHtml(path + '.after', 'Choose after image…') + f('Caption','caption','textarea'); break;
+case 'quote': body = f('Text','text','textarea') + f('Caption','caption','textarea'); break;
+case 'caption': body = f('Text','text','textarea') + textSizeSel(); break;
 case 'link': body = f('Text','text') + f('URL','url') + '<div class="adm-video-preview">' + adminVideoLinkPreviewHtml(b.url) + '</div>'; break;
 case 'divider': body = '<p class="af-hint">No extra content.</p>'; break;
 case 'spacer': body = sel('Size','size',['small','medium','large']); break;
@@ -8246,7 +8276,7 @@ var src = (typeof m === 'string' ? m : m.url) || '';
 var thumb = src && /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i.test(src) || src.indexOf('/storage/v1/object/public/media/') !== -1
   ? (src ? '<img src="' + esc(src) + '" alt="' + esc((typeof m === 'object' && m.alt) || '') + '" loading="lazy">' : '🖼')
   : (src ? '<span class="adm-file-chip">📎 ' + esc(String(src).split('/').pop()) + '</span>' : '🖼');
-return '<div class="adm-media-item"><div class="mi-thumb">' + thumb + '</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc((typeof m === 'object' && m.alt) || '') + '"></label><label class="adm-field"><span class="af-label">Caption</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="caption" value="' + esc((typeof m === 'object' && m.caption) || '') + '"></label></div><div class="mi-actions"><button type="button" data-adm-mi-replace="' + path + '" data-adm-mi-i="' + i + '">Replace</button><button type="button" class="mi-icon" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '" aria-label="Duplicate">⎘</button><button type="button" class="mi-icon" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '" aria-label="Remove">✕</button></div></div></div>';
+return '<div class="adm-media-item"><div class="mi-thumb">' + thumb + '</div><div><div class="adm-row"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="alt" value="' + esc((typeof m === 'object' && m.alt) || '') + '"></label><label class="adm-field"><span class="af-label">Caption</span><textarea data-adm-mi-path="' + path + '" data-adm-mi-i="' + i + '" data-adm-mi-key="caption" style="min-height:60px;">' + esc((typeof m === 'object' && m.caption) || '') + '</textarea></label></div><div class="mi-actions"><button type="button" data-adm-mi-replace="' + path + '" data-adm-mi-i="' + i + '">Replace</button><button type="button" class="mi-icon" data-adm-mi-dup="' + path + '" data-adm-mi-i="' + i + '" aria-label="Duplicate">⎘</button><button type="button" class="mi-icon" data-adm-mi-del="' + path + '" data-adm-mi-i="' + i + '" aria-label="Remove">✕</button></div></div></div>';
 }).join('');
 return '<div>' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-mi-add="' + path + '">' + esc(tAdmin('btn.addMedia')) + '</button><button type="button" class="adm-btn-sm" data-adm-mediabrowse="' + path + '.items">Add from library</button>';
 }
@@ -8299,7 +8329,7 @@ function renderAssetGalleryEditor(rec){
     var err = assetGalleryRowError(url);
     return '<div class="adm-gallery-item" data-adm-ag-row="' + esc(String(id)) + '"><div class="adm-row" style="align-items:center;"><div class="ag-thumb">' + assetGalleryThumb(url, item && item.alt) + '</div>' +
       '<div style="flex:1;min-width:0;"><label class="adm-field"><span class="af-label">Alt</span><input type="text" data-adm-ag-id="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-key="alt" value="' + esc((item && item.alt) || '') + '"></label>' +
-      '<label class="adm-field"><span class="af-label">Caption</span><input type="text" data-adm-ag-id="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-key="caption" value="' + esc((item && item.caption) || '') + '"></label></div></div>' +
+      '<label class="adm-field"><span class="af-label">Caption</span><textarea data-adm-ag-id="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-key="caption" style="min-height:60px;">' + esc((item && item.caption) || '') + '</textarea></label></div></div>' +
       (err ? '<p class="ag-error">' + esc(err) + '</p>' : '') +
       '<div class="mi-actions"><button type="button" data-adm-ag-move="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-dir="up"' + (i === 0 ? ' disabled' : '') + '>↑ Move up</button>' +
       '<button type="button" data-adm-ag-move="' + esc(rec.id) + '" data-adm-ag-item="' + esc(String(id)) + '" data-adm-ag-dir="down"' + (i === gallery.length - 1 ? ' disabled' : '') + '>↓ Move down</button>' +
@@ -8317,7 +8347,7 @@ checklistPanel(aAudit) +
 '<div class="adm-section"><h4>Basic info</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div class="adm-row" style="margin-top:10px;">' + inputSelect(tAdmin('label.category'), base + '.category', adminCategoryOptions(ADMIN_DRAFT.assetCategories, rec.category)) + inputText(tAdmin('label.tags'), base + '.tags', { arraySplit:',', hint: currentAdminLang === 'vi' ? 'Ngăn cách bằng dấu phẩy' : 'Separate with commas' }) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.media')) + '</h4><div class="adm-row">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + mediaField(tAdmin('label.downloadFile'), base + '.downloadUrl', { hint: tAdmin('label.downloadFileHint'), kind: 'file' }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Link Google Drive' : 'Google Drive URL', base + '.driveUrl', { type:'url', hint: currentAdminLang === 'vi' ? 'Dán link file/thư mục Drive được chia sẻ công khai' : 'Paste a publicly shared Drive file/folder link' }) + '<div class="adm-field"><span class="af-label">' + (currentAdminLang === 'vi' ? 'Nút tải hiển thị' : 'Visible download buttons') + '</span><div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;">' + inputCheck(currentAdminLang === 'vi' ? 'Tải trực tiếp' : 'Direct download', base + '.showDirectDownload') + inputCheck('Google Drive', base + '.showDriveDownload') + '</div></div></div><div class="adm-row one" style="margin-top:10px;">' + inputText(currentAdminLang === 'vi' ? 'Chú thích ảnh bìa (alt)' : 'Cover alt text', base + '.coverAlt', { hint: currentAdminLang === 'vi' ? 'Để trống sẽ dùng tiêu đề' : 'Blank falls back to the title' }) + '</div></div>' +
 '<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Ảnh xem trước bổ sung' : 'Additional preview images') + '</h4><p class="af-hint">' + (currentAdminLang === 'vi' ? 'Các ảnh xem trước theo thứ tự hiển thị dưới ảnh bìa. Ảnh bìa và file tải về không bao giờ tự thêm vào đây.' : 'Ordered previews shown below the cover on the asset page. The cover and download file are never added here automatically.') + '</p>' + renderAssetGalleryEditor(rec) + '<div class="adm-media-actions"><button type="button" class="adm-btn-sm" data-adm-ag-lib="' + esc(rec.id) + '">' + (currentAdminLang === 'vi' ? 'Chọn từ thư viện' : 'Add from library') + '</button><button type="button" class="adm-btn-sm" data-adm-ag-upload="' + esc(rec.id) + '">' + esc(tAdmin('btn.upload')) + '</button></div></div>' +
-'<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText(tAdmin('auditf.credit'), base + '.credit') + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
+'<div class="adm-section"><h4>' + (currentAdminLang === 'vi' ? 'Chi tiết tài nguyên' : 'Asset details') + '</h4><div class="adm-row three">' + inputText(tAdmin('auditf.fileFormat'), base + '.fileFormat', { placeholder:'PNG / ZIP / PDF…' }) + inputText(tAdmin('auditf.version'), base + '.version') + inputText(tAdmin('auditf.dateAdded'), base + '.dateAdded') + '</div><div class="adm-row" style="margin-top:10px;">' + inputTextarea(tAdmin('auditf.credit'), base + '.credit', { minHeight:60 }) + inputSelect(currentAdminLang === 'vi' ? 'Nhãn bông hoa' : 'Flower badge', base + '.flowerTag', [{value:'',label:currentAdminLang === 'vi' ? 'Không có' : 'None'},{value:'NEW',label:'NEW'},{value:'HOT',label:'HOT'},{value:'FEATURED',label:'FEATURED'}]) + '</div>' + inputTextarea(tAdmin('auditf.license'), base + '.license', { minHeight:80 }) + inputTextarea(tAdmin('auditf.updateNote'), base + '.updateNote', { minHeight:70 }) + '</div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputSelect('Availability', base + '.availability', [{ value:'available', label:'Available' },{ value:'unavailable', label:'Unavailable' }]) + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + inputCheck(tAdmin('label.placeholder'), base + '.placeholder') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(aAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="assets" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="assets">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -8361,8 +8391,8 @@ return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2>' +
 checklistPanel(cAudit) +
 '<div class="adm-section"><h4>Basic</h4><div class="adm-row title-slug">' + inputText(tAdmin('label.title'), base + '.title') + inputText(tAdmin('label.slug'), base + '.slug', { readonly:true, hint: currentAdminLang === 'vi' ? 'Tự động tạo từ tiêu đề' : 'Generated automatically from title' }) + '</div>' + inputTextarea(tAdmin('label.description'), base + '.description', { minHeight:70 }) + '<div style="margin-top:10px;">' + mediaField(tAdmin('label.thumbnail'), base + '.thumbnail') + '</div></div>' +
 '<div class="adm-section"><h4>Pricing</h4><div class="adm-row pair">' + inputText('Price', base + '.price') + inputSelect('Currency', base + '.currency', CURRENCIES) + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputText('Alternate Price', base + '.alternatePrice') + inputSelect('Alternate Currency', base + '.alternateCurrency', CURRENCIES) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputText('Price note', base + '.priceNote') + '</div></div>' +
-'<div class="adm-section"><h4>Fees / Usage / Additional Pricing</h4><div class="adm-row one">' + inputText('Commercial rule', base + '.commercialRule') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Extra character', base + '.extraCharacterFee') + inputText('Background fee', base + '.backgroundFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Tax', base + '.tax') + inputText('Rush fee', base + '.rushFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Private fee', base + '.privateFee') + '</div><div class="adm-row one" style="margin-top:10px;">' + inputText('Extra notes', base + '.extraNotes') + '</div></div>' +
-'<div class="adm-section"><h4>Details</h4><div class="adm-row">' + inputText('Included Files', base + '.includedFiles') + inputText('Canvas', base + '.canvas') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputText(tAdmin('auditf.delivery'), base + '.delivery') + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
+'<div class="adm-section"><h4>Fees / Usage / Additional Pricing</h4><div class="adm-row one">' + inputTextarea('Commercial rule', base + '.commercialRule', { full:true, minHeight:70 }) + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Extra character', base + '.extraCharacterFee') + inputText('Background fee', base + '.backgroundFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Tax', base + '.tax') + inputText('Rush fee', base + '.rushFee') + '</div><div class="adm-row" style="margin-top:10px;">' + inputText('Private fee', base + '.privateFee') + '</div><div class="adm-row one" style="margin-top:10px;">' + inputTextarea('Extra notes', base + '.extraNotes', { full:true, minHeight:70 }) + '</div></div>' +
+'<div class="adm-section"><h4>Details</h4><div class="adm-row one">' + inputTextarea('Included Files', base + '.includedFiles', { full:true, minHeight:70 }) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputText('Canvas', base + '.canvas') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputText(tAdmin('auditf.delivery'), base + '.delivery') + inputSelect('Availability', base + '.availability', [{ value:'open', label: tAdmin('avail.open') },{ value:'inquiry', label: tAdmin('avail.inquiry') },{ value:'closed', label: tAdmin('avail.closed') }]) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Request Form', base + '.form', formOpts) + '</div></div>' +
 '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.featured'), base + '.featured') + inputCheck(tAdmin('label.published'), base + '.published') + '</div><div id="admPublishWarningWrap">' + publishWarningHtml(cAudit, rec.published) + '</div></div>' +
 '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm danger" data-adm-delete="' + esc(rec.id) + '" data-adm-delete-list="commissions" data-adm-delete-name="' + esc(rec.title) + '">' + esc(tAdmin('btn.delete')) + '</button><button type="button" class="adm-btn-sm primary" data-adm-save="commissions">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
@@ -8386,7 +8416,7 @@ return '<div class="adm-editor"><h2>' + esc(rec.title) + '</h2><div class="adm-s
 
 function renderFormField(formId, f, i){
 var base = 'forms.' + formId + '.fields.' + i;
-var body = '<div class="adm-row one">' + inputText('Label', base + '.label') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + '<div class="adm-field"><span class="af-label">&nbsp;</span><div style="padding-top:6px;">' + inputCheck('Required', base + '.required') + '</div></div></div><div class="adm-row" style="margin-top:10px;">' + inputText('Placeholder', base + '.placeholder') + inputText('Help text', base + '.help') + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Contact role', base + '.contactRole', CONTACT_ROLE_VALUES) + '</div>' + (OPTION_FIELD_TYPES.indexOf(f.type) !== -1 ? '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Options (one per line)</span><textarea data-adm-options-path="' + esc(base + '.options') + '" style="min-height:90px;" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea></label>' : '');
+var body = '<div class="adm-row one">' + inputText('Label', base + '.label') + '</div><div class="adm-row pair" style="margin-top:10px;">' + inputSelect('Field type', base + '.type', FIELD_TYPES) + '<div class="adm-field"><span class="af-label">&nbsp;</span><div style="padding-top:6px;">' + inputCheck('Required', base + '.required') + '</div></div></div><div class="adm-row" style="margin-top:10px;">' + inputText('Placeholder', base + '.placeholder') + inputTextarea('Help text', base + '.help', { minHeight:60 }) + '</div><div class="adm-row one" style="margin-top:10px;">' + inputSelect('Contact role', base + '.contactRole', CONTACT_ROLE_VALUES) + '</div>' + (OPTION_FIELD_TYPES.indexOf(f.type) !== -1 ? '<label class="adm-field" style="margin-top:10px;"><span class="af-label">Options (one per line)</span><textarea data-adm-options-path="' + esc(base + '.options') + '" style="min-height:90px;" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea></label>' : '');
 return '<div class="adm-qblock" data-adm-qblock="' + i + '"><div class="adm-qblock-head" role="button" tabindex="0" aria-expanded="false" data-adm-q-toggle="' + i + '"><span class="qb-num">' + (i + 1) + '</span><span class="qb-title">' + esc(f.label || ('Q' + (i + 1))) + '</span><span class="qb-type">' + esc(f.type) + '</span><span class="qb-actions"><button type="button" data-adm-q-del="' + i + '">✕</button></span></div><div class="adm-qblock-body">' + body + '</div></div>';
 }
 
@@ -8801,10 +8831,10 @@ var skillRows = p.skills.map(function(s, i){
 return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-actions"><button type="button" data-adm-about-move="skills" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="skills" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="skills" data-adm-about-i="' + i + '">✕</button></span></div><label class="adm-field"><span class="af-label">Skill</span><input type="text" data-adm-about-edit="skills" data-adm-about-i="' + i + '" data-adm-about-key="text" value="' + esc(s) + '"></label></div>';
 }).join('');
 var expRows = p.experience.map(function(e, i){
-return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(e.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="experience" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row pair"><label class="adm-field"><span class="af-label">Tag / badge</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="tag" value="' + esc(e.tag || '') + '"></label><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(e.title || '') + '"></label></div><div class="adm-row one" style="margin-top:8px;"><label class="adm-field"><span class="af-label">Description</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="body" value="' + esc(e.body || '') + '"></label></div></div>';
+return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(e.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="experience" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="experience" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row pair"><label class="adm-field"><span class="af-label">Tag / badge</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="tag" value="' + esc(e.tag || '') + '"></label><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(e.title || '') + '"></label></div><div class="adm-row one" style="margin-top:8px;"><label class="adm-field"><span class="af-label">Description</span><textarea data-adm-about-edit="experience" data-adm-about-i="' + i + '" data-adm-about-key="body" style="min-height:70px;">' + esc(e.body || '') + '</textarea></label></div></div>';
 }).join('');
 var valueRows = p.values.map(function(v, i){
-return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(v.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="values" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row"><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(v.title || '') + '"></label><label class="adm-field"><span class="af-label">Body</span><input type="text" data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="body" value="' + esc(v.body || '') + '"></label></div></div>';
+return '<div class="adm-repeat"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(v.title || 'Untitled') + '</span><span class="rr-actions"><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="up">↑</button><button type="button" data-adm-about-move="values" data-adm-about-i="' + i + '" data-adm-about-dir="down">↓</button><button type="button" data-adm-about-del="values" data-adm-about-i="' + i + '">✕</button></span></div><div class="adm-row"><label class="adm-field"><span class="af-label">Title</span><input type="text" data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="title" value="' + esc(v.title || '') + '"></label><label class="adm-field"><span class="af-label">Body</span><textarea data-adm-about-edit="values" data-adm-about-i="' + i + '" data-adm-about-key="body" style="min-height:70px;">' + esc(v.body || '') + '</textarea></label></div></div>';
 }).join('');
 return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(aboutAudit) + '<div class="adm-section"><h4>Profile</h4><div class="adm-row">' + mediaField('Profile image', base + '.profileImage') + inputText('Name', base + '.name') + '</div>' + inputTextarea('Bio', base + '.bio', { minHeight:80, full:true }) + '</div><div class="adm-section"><h4>Page content</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:140 }) + '</div>' +
 '<div class="adm-section"><h4>What I make</h4><div>' + skillRows + '</div><button type="button" class="adm-btn-sm purple" data-adm-about-add="skills">+ Add skill</button></div>' +
@@ -11743,7 +11773,7 @@ function renderCmsCommissionField(formSlug, field, index){
   var label = field.label || FALLBACK_LABELS[key] || key;
   var required = !!field.required;
   var req = required ? ' <span class="req">*</span>' : '';
-  var help = field.help ? '<div class="hint">' + esc(field.help) + '</div>' : '';
+  var help = field.help ? '<div class="hint cms-field-help">' + esc(field.help) + '</div>' : '';
   var placeholder = field.placeholder || '';
   var type = String(field.type || 'text').toLowerCase();
   var shortKeys = ['name', 'email'];
@@ -11806,8 +11836,8 @@ apply: function(services, forms){
       if(!cardBtn && !miniBtn && slug && !s.isOtherService && s.published !== false){
         var commGrid = document.querySelector('.comm-grid');
         if(commGrid){
-          var feeRows = [['Delivery estimate', s.deliveryEstimate],['Included files', s.includedFiles],['Canvas', s.canvas],['Commercial rule', s.commercialRule],['Extra character', s.extraCharacter],['Background', s.backgroundRule],['Tax', s.tax],['Rush', s.rush],['Private commission', s.privateFee]]
-            .filter(function(r){ var t = String(r[1] == null ? '' : r[1]).trim(); return t && t !== 'undefined' && t !== 'NaN'; });
+          var feeRows = [['deliveryEstimate','Delivery estimate', s.deliveryEstimate],['includedFiles','Included files', s.includedFiles],['canvas','Canvas', s.canvas],['commercialRule','Commercial rule', s.commercialRule],['extraCharacter','Extra character', s.extraCharacter],['backgroundRule','Background', s.backgroundRule],['tax','Tax', s.tax],['rush','Rush', s.rush],['privateFee','Private commission', s.privateFee]]
+            .filter(function(r){ var t = String(r[2] == null ? '' : r[2]).trim(); return t && t !== 'undefined' && t !== 'NaN'; });
           var newItem = document.createElement('div');
           newItem.className = 'comm-item';
           newItem.setAttribute('data-cms-service', slug);
@@ -11819,7 +11849,7 @@ apply: function(services, forms){
           var newAcc = document.createElement('div');
           newAcc.className = 'acc';
           newAcc.innerHTML = '<button class="acc-btn" type="button">What\'s included &amp; fees <span class="caret">▾</span></button><div class="acc-body"><div class="acc-inner">' +
-            feeRows.map(function(r){ return '<div class="acc-line"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') +
+            feeRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r[0]) + '"><span>' + esc(r[1]) + '</span><b' + feeMultilineClass(r[0]) + '>' + esc(r[2]) + '</b></div>'; }).join('') +
             '</div></div>';
           newItem.appendChild(newCard);
           newItem.appendChild(newAcc);
@@ -11873,7 +11903,7 @@ apply: function(services, forms){
             return { key: def[0], label: def[1], value: visibleCmsValue(clean) };
           }).filter(function(r){ return r && r.value; });
           var accInner = (card.closest('.comm-item') || card).querySelector('.acc-inner');
-          if(accInner) accInner.innerHTML = feeRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r.key) + '"><span>' + esc(r.label) + '</span><b>' + esc(r.value) + '</b></div>'; }).join('');
+          if(accInner) accInner.innerHTML = feeRows.map(function(r){ return '<div class="acc-line" data-fee-key="' + esc(r.key) + '"><span>' + esc(r.label) + '</span><b' + feeMultilineClass(r.key) + '>' + esc(r.value) + '</b></div>'; }).join('');
         }
       }
     });
@@ -12055,7 +12085,7 @@ function renderCmsTermsContent(content){
     if(blockLines.every(function(line){ return /^[-*]\s+/.test(line); })) return linesToList(blockLines, className || '');
     var first = blockLines[0];
     if(first.indexOf('## ') === 0){
-      return '<p class="tos-sub">' + inline(first.slice(3).trim()) + '</p>' + (blockLines.length > 1 ? '<p>' + inline(blockLines.slice(1).join('\n')) + '</p>' : '');
+      return '<p class="tos-sub">' + inline(first.slice(3).trim()) + '</p>' + (blockLines.length > 1 ? '<p>' + inline(blockLines.slice(1).join('\n')).replace(/\n/g, '<br>') + '</p>' : '');
     }
     return '<p' + (className ? ' class="' + className + '"' : '') + '>' + inline(blockLines.join('\n')).replace(/\n/g, '<br>') + '</p>';
   };

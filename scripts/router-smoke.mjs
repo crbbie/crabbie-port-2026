@@ -3556,20 +3556,20 @@ try {
     await page.locator('#adminContent input[data-adm-about-edit="skills"]').last().fill('Test Skill');
     await page.locator('#adminContent [data-adm-about-add="values"]').click();
     await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"]').last().fill('Test Value');
-    await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="body"]').last().fill('Test value body.');
+    await page.locator('#adminContent textarea[data-adm-about-edit="values"][data-adm-about-key="body"]').last().fill('Test value body.\nSecond line.');
     const startExp = await aboutExpCount();
     await page.locator('#adminContent [data-adm-about-add="experience"]').click();
     assert.equal(await aboutExpCount(), startExp + 1, 'an experience entry can be added');
     await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="tag"]').last().fill('TEST');
     await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"]').last().fill('Test Experience');
-    await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().fill('Test experience body.');
+    await page.locator('#adminContent textarea[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().fill('Test experience body.\nSecond line.');
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.locator('#adminTopSave').click();
     await page.waitForFunction(() => (window.__routerWrites || []).some((write) => write.table === 'cms_pages'));
     const aboutWrite = await page.evaluate(() => window.__routerWrites.filter((write) => write.table === 'cms_pages').slice(-1)[0]);
     assert.ok((aboutWrite.payload.data.skills || []).includes('Test Skill'), 'the new skill is in the DB payload');
-    assert.ok((aboutWrite.payload.data.values || []).some((v) => v.title === 'Test Value' && v.body === 'Test value body.'), 'the new value is in the DB payload');
-    assert.ok((aboutWrite.payload.data.experience || []).some((e) => e.title === 'Test Experience'), 'the new experience is in the DB payload');
+    assert.ok((aboutWrite.payload.data.values || []).some((v) => v.title === 'Test Value' && v.body === 'Test value body.\nSecond line.'), 'the new value is in the DB payload');
+    assert.ok((aboutWrite.payload.data.experience || []).some((e) => e.title === 'Test Experience' && e.body === 'Test experience body.\nSecond line.'), 'the new experience is in the DB payload');
     // Reload the admin page: the full round-trip must survive hydration.
     // The SDK fixture lives in page memory, so re-seed the saved row first.
     const p5SavedAboutRow = await page.evaluate(() => (window.__routerRows.cms_pages || []).slice(-1)[0]);
@@ -3585,6 +3585,8 @@ try {
     assert.ok((await page.locator('#adminContent input[data-adm-about-edit="skills"][value="Test Skill"]').count()) >= 1, 'the saved skill survives an admin reload');
     assert.ok((await page.locator('#adminContent input[data-adm-about-edit="values"][data-adm-about-key="title"][value="Test Value"]').count()) >= 1, 'the saved value survives an admin reload');
     assert.ok((await page.locator('#adminContent input[data-adm-about-edit="experience"][data-adm-about-key="title"][value="Test Experience"]').count()) >= 1, 'the saved experience survives an admin reload');
+    assert.equal(await page.locator('#adminContent textarea[data-adm-about-edit="values"][data-adm-about-key="body"]').last().inputValue(), 'Test value body.\nSecond line.', 'the saved value body newlines survive an admin reload');
+    assert.equal(await page.locator('#adminContent textarea[data-adm-about-edit="experience"][data-adm-about-key="body"]').last().inputValue(), 'Test experience body.\nSecond line.', 'the saved experience body newlines survive an admin reload');
     // The public modules hydrate at boot, so seed before load like P4-E.
     await page.addInitScript((row) => {
       window.__routerRows = window.__routerRows || {};
@@ -3595,6 +3597,7 @@ try {
     assert.match(await page.locator('[data-view="about"] .chip-cloud').innerText(), /Test Skill/, 'the new skill reaches the public page');
     assert.match(await page.locator('[data-view="about"] .exp-grid').innerText(), /Test Experience/, 'the new experience reaches the public page');
     assert.match(await page.locator('[data-view="about"] .values-grid').innerText(), /Test Value/, 'the new creative value reaches the public page');
+    assert.match(await page.locator('[data-view="about"] .values-grid').innerText(), /Second line\./, 'the saved value body newlines reach the public page');
     console.log('PASS About CMS groups add, save, reload, and render publicly (SDK fixture)');
 
     // ---- Patch 5 I: image cards open a lightbox, galleries zoom without navigating ----
