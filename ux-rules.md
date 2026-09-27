@@ -268,16 +268,50 @@ Important current behavior:
 - portfolio grid composition is deterministic and presentation-only (`src/portfolio-grid-core.js`, loaded synchronously as the single planner source; the inline SPA planner only forwards to `window.CrabbiePortfolioGrid`): desktop (>1180px) applies the repeating complete bands `[large, tall]`, `[small, small, small]`, `[wide, wide]` (six columns, 128px rows, 26px gaps), so each complete seven-card cycle has exactly one large card; only complete bands are used and an incomplete tail falls back to compact small cards. The plan is a pure function of the visible ordered count, recomputed through one shared path on hydration, reorder, filtering/search and breakpoint resize, so the same final records/order/filter always produce the same composition regardless of source slug or an earlier removal/reintroduction. Placement stays in CMS/DOM/keyboard order (never dense auto-placement). At 721–1180px ordinary cards drop to paired small bands with no legacy three-row spans, and a full-width image card ends/restarts the band so it can never stretch an unrelated multi-row card; at `<=720px` the grid is a single column with readable normal previews and natural image-card artwork with metadata underneath;
 - the public music control sits below the nav/mobile menu in the stack (z-index 55) and hides while a field is focused on touch devices (display only — audio, source, mute and playback survive; blur and route changes restore it without restarting); its buttons are 44px on coarse pointers (34px stays for fine-pointer desktops);
 - public editable text stays at 16px or more on touch devices at every width (search boxes and commission fields gain a coarse-pointer rule so phones, landscape and tablets never trigger iOS focus zoom); footer links grow to real 44px targets on coarse pointers via padding, with desktop sizing untouched;
-- asset detail: short metadata keeps label/value side by side; long-form fields (description, usage/license, update note) stack the label over a left-aligned, full-width paragraph (authored line breaks preserved); empty optional rows stay hidden;
+- asset detail: short metadata keeps label/value side by side; long-form fields (description, usage/license, update note, credit requirement) stack the label over a left-aligned, full-width paragraph (authored line breaks preserved); empty optional rows stay hidden;
 - asset preview galleries: the cover stays first in `.ad-preview`; additional previews render below in a responsive grid (`repeat(auto-fill, minmax(150px, 1fr))`, 3 columns on phones) with stable 1/1 boxes, `min-width:0` and no root overflow; broken thumbs keep a stable fallback box; single-image assets show no gallery section and no viewer prev/next chrome; no cover never hides valid previews;
 - shared public viewer: one overlay serves Portfolio cover, asset collections and existing gallery/image-card triggers; viewport-filling modal (no Fullscreen API), fit/reset, zoom ± with status, bounded pan/pinch, prev/next with position indicator for collections, captions and optional project credits; the contained artwork and the prev/next controls center on the media stage (never the viewport), image positioning stays separate from the translate/scale gesture transform, and the pan bounds stay image-relative (`clientWidth`/`clientHeight`), re-clamped after image load, stage resize (`ResizeObserver`) and orientation changes without ever resetting zoom; loading/error/retry states with stale-request guards; focus trap, polite position/loading announcements, return to the actual opener (route fallback otherwise), preserved background lock, instant (never smooth) scroll restoration; Back dismisses before route change; controls keep ~44px targets and safe-area padding; `prefers-reduced-motion` stills the discrete zoom easing via the global rule;
 - portfolio project detail: divider/spacer render without a numbered card, and untitled text/caption blocks drop the extra white card (one dashed frame); on phones Previous/Next share a row with Back to Portfolio on its own row;
 - contact: the stamp takes its own row above the letter body on phones (never over the eyebrow); the email wraps naturally; the email CTA is primary with the secondary actions sharing a row;
-- terms: the section badge reuses the number already in the CMS heading (never doubles); the number aligns with the first line of a multi-line heading; the mobile TOC is a collapsed disclosure with every section reachable;
+- terms: the section badge reuses the number already in the CMS heading (never doubles); the number aligns with the first line of a multi-line heading; the mobile TOC is a collapsed disclosure with every section reachable; body lines under a `##` subheading render on separate visible lines (`<br>`), matching the normal paragraph branch — escaping runs before markup generation and headings/lists/tables/panels/closing blocks/TOC are unchanged;
 - commission cards use one fixed 16/11 preview frame, so a real thumbnail and the placeholder keep the same ratio (the image is cropped to the frame, never stretched); cards share one height so the CTA rows line up, and switch to natural heights while an accordion is open so siblings gain no dead whitespace;
 - the what's-included accordion expands to its content height (no fixed max-height, so nothing is clipped);
 - the request form keeps the wide decorative shell but limits its reading/input column (~880px) and keeps two columns for short fields; on phones it is one column with trimmed nested padding, ≥16px inputs (no iOS focus zoom), a two-column tab group, a stacked consent block, and grouped primary/secondary result actions;
 - the commission direct-email card wraps the address naturally and lays its actions out in a tidy grid on phones.
+
+## CMS multiline contract
+
+Authored newlines survive Admin input → draft → Supabase → hydration → public
+model untouched. Public plain-text nodes keep `textContent`/escaped rendering
+(no raw CMS `innerHTML`, no global `\n` → `<br>`); authored newlines become
+visible line breaks only through the scoped `#cms-multiline-contract` block:
+
+```css
+white-space: pre-line;
+overflow-wrap: anywhere;
+```
+
+Covered destinations (and only these): About bio (`.about-hero .bio`), About
+content (`.about-hero .page-sub`), experience bodies (`.exp-card p`), value
+bodies (`.value-card p`), portfolio description detail (`#pdDesc`), portfolio
+description lightbox caption (`#publicLightboxCaption`), production notes
+(`#pdCredits`), quote blocks (`#pdBlocks .pd-quote`, still plain-text),
+ordinary commission descriptions (`.comm-desc`), Other Service descriptions
+(`#otherServiceDetail .osd-desc`), multiline fee values
+(`.acc-line b.cms-fee-multiline` — only `commercialRule`, `includedFiles` and
+the existing Other Service Notes `extraNotes` destination), request-form help
+(`.cms-field-help`), client thank-you body (`#clientThanksBody`), branding
+intro (`[data-view="home"] .hero-lede`), footer (`footer .foot-tag`). Asset
+credit reuses the existing `.spec-long .v.cms-inline` row; portfolio captions
+and gallery figure captions keep their existing rich-text renderers.
+
+Never broaden to `p`, `.page-sub`, `.hint`, `.acc-line b`, `.pd-fact .v`.
+Titles, names, slugs, tags, badges, labels, URLs, emails, alt text, prices,
+fees (other than the three above), taxes, canvas shorthand, delivery
+estimates, headings, SEO fields and pet dialogue stay single-line. Request-form
+options stay one-per-line ordered arrays (blank lines collapse, never
+paragraphs). Regression coverage lives in
+`src/cms-multiline-contract.test.mjs`.
 
 After responsive changes, verify at least desktop, tablet, and mobile widths with `npm run test:router` or equivalent browser checks.
 
