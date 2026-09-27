@@ -2374,6 +2374,66 @@ try {
     await page.waitForTimeout(600);
     assert.equal(await page.evaluate(() => window.__routerRows.portfolio_projects[0].title), 'Second shortcut title', 'a conflicting save never overwrites the stored row');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'a conflicting save keeps the draft dirty');
+
+    // Regression: bare s/S typing in an Admin field is never swallowed.
+    // The shortcut handler only owns Ctrl/Cmd+S; every other keydown must
+    // reach the field untouched and trigger no save/write.
+    await page.evaluate(() => { window.__routerWrites = []; window.__routerWriteError = null; });
+    const sTitleField = page.locator('#adminContent [data-adm-path$=".title"]').first();
+    await sTitleField.click();
+    await sTitleField.fill('');
+    await sTitleField.pressSequentially('sassy sunset');
+    assert.equal(await sTitleField.inputValue(), 'sassy sunset', 'typing s characters into an Admin input keeps every character');
+    assert.equal(await page.evaluate(() => (window.__routerWrites || []).length), 0, 'bare s typing never triggers a save/write');
+    await sTitleField.fill('');
+    await sTitleField.pressSequentially('SASSY SUNSET');
+    assert.equal(await sTitleField.inputValue(), 'SASSY SUNSET', 'uppercase S typing is never swallowed either');
+    assert.equal(await page.evaluate(() => (window.__routerWrites || []).length), 0, 'bare S typing never triggers a save/write');
+    const bareOutcomes = await page.evaluate(() => {
+      const results = {};
+      for (const key of ['s', 'S']) {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        document.querySelector('#adminContent [data-adm-path$=".title"]').dispatchEvent(event);
+        results[key] = event.defaultPrevented;
+      }
+      return results;
+    });
+    assert.deepEqual(bareOutcomes, { s: false, S: false }, 'a bare s/S keydown is never preventDefaulted');
+    // Ctrl+S while a modal is open: blocked from saving, still suppresses the browser dialog.
+    await page.locator('#adminContent [data-adm-mediabrowse]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminMediaModal.open')));
+    const modalWritesBefore = await page.evaluate(() => (window.__routerWrites || []).length);
+    const modalOutcome = await page.evaluate(() => {
+      const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
+      document.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, writes: (window.__routerWrites || []).length };
+    });
+    assert.equal(modalOutcome.prevented, true, 'a blocked Ctrl+S still suppresses the browser Save dialog');
+    assert.equal(modalOutcome.writes, modalWritesBefore, 'a blocked Ctrl+S never writes while a modal is open');
+    await page.locator('#adminMediaCancel').click();
+    await page.waitForFunction(() => !document.querySelector('#adminMediaModal.open'));
+    // Ctrl+S while not ready: blocked from saving, still suppresses the browser dialog.
+    await page.evaluate(() => window.CrabbieAdminCrud.setAdminLoadState('idle'));
+    const idleWritesBefore = await page.evaluate(() => (window.__routerWrites || []).length);
+    const idleOutcome = await page.evaluate(() => {
+      const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
+      document.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, writes: (window.__routerWrites || []).length };
+    });
+    assert.equal(idleOutcome.prevented, true, 'a not-ready Ctrl+S still suppresses the browser Save dialog');
+    assert.equal(idleOutcome.writes, idleWritesBefore, 'a not-ready Ctrl+S never writes');
+    await page.evaluate(() => window.CrabbieAdminCrud.setAdminLoadState('ready'));
+    // Meta+S contract (macOS): still owned, still prevents the browser dialog, still saves the dirty draft.
+    const metaWritesBefore = await page.evaluate(() => (window.__routerWrites || []).length);
+    const metaPrevented = await page.evaluate(() => {
+      const event = new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true });
+      document.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    assert.equal(metaPrevented, true, 'Meta+S still suppresses the browser Save dialog');
+    await page.waitForFunction((count) => (window.__routerWrites || []).length === count + 1, metaWritesBefore);
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites.map((write) => write.table + ':' + write.operation).slice(-1)), ['portfolio_projects:update'], 'Meta+S saves the current dirty module');
+    console.log('PASS bare s/S typing keeps every character with no save, Ctrl/Cmd+S still saves and blocked shortcuts still suppress the browser dialog (SDK fixture)');
     console.log('PASS media drop, picker multi-select, bulk delete and the save shortcut stay single-action (SDK fixture)');
 
     // ---- Batch 5 Group 7: portfolio block integration and final a11y ------
