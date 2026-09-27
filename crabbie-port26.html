@@ -11207,6 +11207,11 @@ return Boolean(uploadTask && (uploadTask.status === 'queued' || uploadTask.statu
 }
 
 function handleAdminSaveShortcut(event){
+/* The handler only owns Ctrl/Cmd+S. A bare s/S without a modifier must
+   return immediately so normal typing in inputs, textareas and
+   contenteditable regions is never blocked. */
+if(String(event.key || '').toLowerCase() !== 's') return;
+if(!event.ctrlKey && !event.metaKey) return;
 var media = window.CrabbieAdminMedia || {};
 if(typeof media.keyboardSaveDecision !== 'function') return;
 var decision = media.keyboardSaveDecision({
@@ -11220,9 +11225,9 @@ var decision = media.keyboardSaveDecision({
   busy: adminSaveTransactionActive() || adminUploadBusy()
 });
 if(decision.action !== 'save'){
-  /* The browser's own save dialog must never appear for the shortcut, but a
-     blocked decision never touches the draft. */
-  if(decision.reason !== 'not-save-shortcut') event.preventDefault();
+  /* Blocked Ctrl/Cmd+S decisions still suppress the browser Save dialog,
+     but they never touch the draft. Non-shortcut events returned above. */
+  event.preventDefault();
   return;
 }
 event.preventDefault();
