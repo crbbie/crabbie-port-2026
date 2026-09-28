@@ -576,6 +576,30 @@ try {
       await page.evaluate(module => { location.hash = '#admin/' + module; }, module);
       await page.locator('#adminNav [data-admin-module="' + module + '"][aria-current="page"]').waitFor({state: 'visible'});
     };
+    await goAdmin('contact');
+    await page.waitForFunction(() => document.querySelectorAll('#adminContent [data-adm-contact-row]').length >= 2);
+    const contactInitialCount = await page.locator('#adminContent [data-adm-contact-row]').count();
+    await page.locator('#adminContent [data-adm-contact-row="0"] input[data-adm-path$=".label"]').fill('Studio email');
+    await page.locator('#adminContent [data-adm-contact-row="1"] input[type="checkbox"]').uncheck();
+    await page.locator('#adminContent [data-adm-contact-add]').click();
+    await page.waitForFunction((count) => document.querySelectorAll('#adminContent [data-adm-contact-row]').length === count + 1, contactInitialCount);
+    const contactNew = page.locator('#adminContent [data-adm-contact-row]').last();
+    await contactNew.locator('input[data-adm-path$=".label"]').fill('Instagram');
+    await contactNew.locator('input[data-adm-path$=".value"]').fill('https://instagram.com/crabbie');
+    await page.locator('#adminContent [data-adm-contact-add]').click();
+    const afterTempAdd = await page.locator('#adminContent [data-adm-contact-row]').count();
+    await page.locator('#adminContent [data-adm-contact-del]').last().click();
+    assert.equal(await page.locator('#adminContent [data-adm-contact-row]').count(), afterTempAdd - 1, 'Contact rows can be deleted before save');
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => document.getElementById('adminSaveStatus')?.classList.contains('saved'));
+    const savedContact = await page.evaluate(() => (window.__routerRows.site_settings || []).find((row) => row.key === 'contact')?.value);
+    assert.ok(savedContact && Array.isArray(savedContact.links), 'Contact saves as one structured site_settings value');
+    assert.equal(savedContact.links[0].label, 'Studio email', 'Contact display names persist');
+    assert.equal(savedContact.links[1].visible, false, 'Contact visibility persists');
+    assert.equal(savedContact.links.some((link) => link.label === 'Instagram' && link.value === 'https://instagram.com/crabbie'), true, 'new Contact links persist');
+    assert.equal(savedContact.links.some((link) => link.label === 'New link'), false, 'deleted Contact rows are absent from the saved value');
+    console.log('PASS Admin Contact supports rename/add/delete/hide and persists one structured settings value');
+
     await goAdmin('dashboard');
     await page.getByRole('heading', {name: 'Data health'}).waitFor({state: 'visible'});
     const healthPanel = page.locator('.adm-panel').filter({has: page.getByRole('heading', {name: 'Data health'})});
@@ -3260,17 +3284,33 @@ try {
     assert.equal(await page.locator('.lang button[data-lang="VI"]:not([hidden])').count(), 0, 'no visible public VI switch is presented');
     console.log('PASS GIF galleries render animated and the fake public VI switch is gone (SDK fixture)');
 
-    // ---- Patch 5 E: footer follows CMS contact settings ----
+    // ---- Contact / Social: legacy fallback + repeatable public links ----
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, {contact:{email:'artist@example.test',twitter:'https://x.com/example'}});
     });
-    assert.equal(await page.locator('#footEmail').innerText(), 'artist@example.test', 'the footer email follows CMS settings');
+    assert.equal(await page.locator('#footEmail').innerText(), 'Email', 'legacy email is normalized into a named footer item');
     assert.equal(await page.locator('#footEmail').getAttribute('href'), 'mailto:artist@example.test');
-    assert.equal(await page.locator('#footTwitter').getAttribute('href'), 'https://x.com/example', 'the footer Twitter follows CMS settings');
-    assert.doesNotMatch(await page.locator('footer').innerText(), /Find me/, 'no useless Find me section remains');
+    assert.equal(await page.locator('#footTwitter').innerText(), 'Twitter / X');
+    assert.equal(await page.locator('#footTwitter').getAttribute('href'), 'https://x.com/example', 'legacy Twitter remains backward compatible');
+
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{links:[
+        {id:'mail',label:'Studio mail',value:'hello@example.test',visible:true},
+        {id:'x',label:'X / updates',value:'https://x.com/custom',visible:false},
+        {id:'ig',label:'Instagram',value:'https://instagram.com/crabbie',visible:true}
+      ]}});
+    });
+    const customFooter = await page.locator('#footContactList .cms-contact-link a').allInnerTexts();
+    assert.deepEqual(customFooter, ['Studio mail','Instagram'], 'public footer follows custom order/name and omits hidden links');
+    assert.equal(await page.locator('#footContactList .cms-contact-link a').nth(0).getAttribute('href'), 'mailto:hello@example.test');
+    assert.equal(await page.locator('#footContactList .cms-contact-link a').nth(1).getAttribute('href'), 'https://instagram.com/crabbie');
+    assert.deepEqual(await page.locator('#publicContactRows .ck').allInnerTexts(), ['Studio mail','Instagram'], 'Contact page uses the same visible custom list');
+    assert.equal(await page.locator('#publicContactActions .cms-contact-action').count(), 2, 'Contact page actions are generated from the custom list');
+    assert.equal(await page.locator('.email-strong').innerText(), 'hello@example.test', 'first email remains the operational commission email even when labels are custom');
+    assert.doesNotMatch(await page.locator('footer').innerText(), /X \/ updates/, 'hidden links are absent from the public footer');
     const footHeads = await page.locator('footer .foot h5').allInnerTexts();
-    assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer has Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
-    console.log('PASS the footer follows CMS contact settings with no Find me section (SDK fixture)');
+    assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer keeps Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
+    console.log('PASS custom Contact links support rename/order/visibility and render consistently on public Contact + footer (SDK fixture)');
 
     // ---- Appearance: semantic text color tokens + website background image ----
     await page.evaluate(() => {
