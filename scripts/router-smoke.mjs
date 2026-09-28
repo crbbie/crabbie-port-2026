@@ -560,7 +560,10 @@ try {
           {id:'00000000-0000-4000-8000-000000000006',slug:'terms',title:'Terms fixture',content:'# 1. Contact\n\nFixture terms content long enough to render.',published:true,data:{},updated_at:'2026-01-06T00:00:00Z'}
         ],
         cms_navigation: [{id:'00000000-0000-4000-8000-0000000000aa',title:'Portfolio',url:'#portfolio',published:true,sort_order:0,updated_at:'2026-01-07T00:00:00Z'}],
-        site_settings: [{key:'branding',value:{title:'CRABBIE'}}],
+        site_settings: [
+          {key:'branding',value:{title:'CRABBIE'}},
+          {key:'contact',value:{email:'crabbie.art@gmail.com',twitter:'https://x.com/crbbie'},updated_at:'2026-01-10T00:00:00Z'}
+        ],
         commission_requests: [],
         media: []
       };
@@ -599,6 +602,64 @@ try {
     assert.equal(savedContact.links.some((link) => link.label === 'Instagram' && link.value === 'https://instagram.com/crabbie'), true, 'new Contact links persist');
     assert.equal(savedContact.links.some((link) => link.label === 'New link'), false, 'deleted Contact rows are absent from the saved value');
     console.log('PASS Admin Contact supports rename/add/delete/hide and persists one structured settings value');
+
+    /* Ordering + safety: the authored order is what gets saved, and an unsafe
+       value is refused in the editor instead of being published silently. */
+    const contactLabels = () => page.locator('#adminContent [data-adm-contact-row] input[data-adm-path$=".label"]').evaluateAll((els) => els.map((el) => el.value));
+    const contactValues = () => page.locator('#adminContent [data-adm-contact-row] input[data-adm-path$=".value"]').evaluateAll((els) => els.map((el) => el.value));
+    const contactVisibility = () => page.locator('#adminContent [data-adm-contact-row] input[type="checkbox"]').evaluateAll((els) => els.map((el) => el.checked));
+    const orderBefore = await contactLabels();
+    await page.locator('#adminContent [data-adm-contact-row="0"] [data-adm-contact-dir="down"]').click();
+    assert.deepEqual(await contactLabels(), [orderBefore[1], orderBefore[0], ...orderBefore.slice(2)], 'Move down swaps the authored Contact order');
+    assert.deepEqual(await contactVisibility(), [false, true, true], 'reordering keeps each link visibility with its own row');
+    await page.locator('#adminContent [data-adm-contact-row="1"] [data-adm-contact-dir="up"]').click();
+    assert.deepEqual(await contactLabels(), orderBefore, 'Move up restores the original order');
+    const contactLastRow = page.locator('#adminContent [data-adm-contact-row]').last();
+    await contactLastRow.locator('input[data-adm-path$=".value"]').fill('javascript:alert(1)');
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent .adm-contact-warn')));
+    assert.equal(await contactLastRow.locator('.adm-contact-warn').count(), 1, 'an unsafe value is flagged in its own row while typing');
+    await contactLastRow.locator('input[data-adm-path$=".value"]').fill('https://bsky.app/profile/crabbie.test');
+    await page.waitForFunction(() => !document.querySelector('#adminContent .adm-contact-warn'));
+    assert.equal(await page.locator('#adminContent .adm-contact-warn').count(), 0, 'a safe https value clears the warning');
+    const orderSaved = await contactLabels();
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => document.getElementById('adminSaveStatus')?.classList.contains('saved'));
+    const orderedContact = await page.evaluate(() => (window.__routerRows.site_settings || []).find((row) => row.key === 'contact')?.value);
+    assert.deepEqual(orderedContact.links.map((link) => link.label), orderSaved, 'the saved Contact list keeps the authored order');
+    assert.deepEqual(orderedContact.links.map((link) => link.value), await contactValues(), 'every edited value is saved');
+    assert.deepEqual(orderedContact.links.map((link) => link.visible), [true, false, true], 'visibility is saved per link');
+    console.log('PASS Admin Contact reorders with up/down and refuses unsafe values before publish (SDK fixture)');
+
+    /* A real reload hydrates the saved row: renames, order, values, visibility
+       and the deleted rows all come back exactly as they were stored. The whole
+       fixture DB is restored (plus the saved contact row) so the reload starts
+       from the same database the app just wrote to. */
+    const adminDbAfterSave = await page.evaluate(() => JSON.parse(JSON.stringify(window.__routerRows || {})));
+    await page.goto(origin + '/admin', {waitUntil: 'load'});
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService && window.CrabbieAdminCrud));
+    await page.evaluate((rows) => {
+      window.__routerRows = rows;
+      window.__routerWrites = [];
+      window.__routerQueryCount = {};
+      window.__routerFail = null;
+    }, adminDbAfterSave);
+    await page.locator('#adminEmail').fill('admin@example.test');
+    await page.locator('#adminPassword').fill('synthetic-router-test-password');
+    await page.locator('#adminLoginBtn').click();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('contact');
+    await page.locator('#adminContent [data-adm-contact-row]').first().waitFor({state: 'visible'});
+    assert.deepEqual(await contactLabels(), orderedContact.links.map((link) => link.label), 'renamed Contact links survive a reload');
+    assert.deepEqual(await contactValues(), orderedContact.links.map((link) => link.value), 'edited Contact values survive a reload');
+    assert.deepEqual(await contactVisibility(), orderedContact.links.map((link) => link.visible !== false), 'Contact visibility survives a reload');
+    assert.equal(await page.locator('#adminContent [data-adm-contact-row]').count(), orderedContact.links.length, 'deleted Contact rows never come back after a reload');
+    assert.deepEqual(await page.locator('#adminContent [data-adm-contact-row] .rr-label').allInnerTexts(), orderedContact.links.map((link) => link.label), 'the editor headers match the hydrated list');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(120);
+    const contactEditorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    assert.ok(contactEditorOverflow <= 4, 'the Admin Contact editor has no horizontal overflow at 390px (' + contactEditorOverflow + 'px)');
+    await page.setViewportSize({ width: 1280, height: 720 });
+    console.log('PASS Admin Contact hydration restores order, names, values and visibility after a full reload (SDK fixture)');
 
     await goAdmin('dashboard');
     await page.getByRole('heading', {name: 'Data health'}).waitFor({state: 'visible'});
@@ -3285,6 +3346,11 @@ try {
     console.log('PASS GIF galleries render animated and the fake public VI switch is gone (SDK fixture)');
 
     // ---- Contact / Social: legacy fallback + repeatable public links ----
+    /* Contact row text is CSS-uppercased when the view is active, so these read
+       textContent (the authored value) rather than rendered innerText. */
+    const contactRowKeys = () => page.locator('#publicContactRows .ck').evaluateAll((els) => els.map((el) => el.textContent.trim()));
+    const contactRowValues = () => page.locator('#publicContactRows .cv').evaluateAll((els) => els.map((el) => el.textContent.trim()));
+    const contactFooterLinks = () => page.locator('#footContactList .cms-contact-link a').evaluateAll((els) => els.map((el) => ({ text: el.textContent.trim(), href: el.getAttribute('href') })));
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, {contact:{email:'artist@example.test',twitter:'https://x.com/example'}});
     });
@@ -3292,6 +3358,11 @@ try {
     assert.equal(await page.locator('#footEmail').getAttribute('href'), 'mailto:artist@example.test');
     assert.equal(await page.locator('#footTwitter').innerText(), 'Twitter / X');
     assert.equal(await page.locator('#footTwitter').getAttribute('href'), 'https://x.com/example', 'legacy Twitter remains backward compatible');
+    assert.deepEqual(await contactRowKeys(), ['Email','Twitter / X'], 'the public Contact page follows the legacy pair instead of hard-coded rows');
+    assert.deepEqual(await contactRowValues(), ['artist@example.test','https://x.com/example'], 'legacy values reach the public Contact rows');
+    assert.equal(await page.locator('.email-strong').innerText(), 'artist@example.test', 'the legacy email still drives the commission e-mail controls');
+    assert.equal(await page.locator('#directEmail').getAttribute('href'), 'mailto:artist@example.test');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed]').count(), 2, 'the fixed Commission and Terms footer links stay in the Contact column');
 
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, {contact:{links:[
@@ -3304,13 +3375,78 @@ try {
     assert.deepEqual(customFooter, ['Studio mail','Instagram'], 'public footer follows custom order/name and omits hidden links');
     assert.equal(await page.locator('#footContactList .cms-contact-link a').nth(0).getAttribute('href'), 'mailto:hello@example.test');
     assert.equal(await page.locator('#footContactList .cms-contact-link a').nth(1).getAttribute('href'), 'https://instagram.com/crabbie');
-    assert.deepEqual(await page.locator('#publicContactRows .ck').allInnerTexts(), ['Studio mail','Instagram'], 'Contact page uses the same visible custom list');
+    assert.deepEqual(await contactFooterLinks(), [{text:'Studio mail',href:'mailto:hello@example.test'},{text:'Instagram',href:'https://instagram.com/crabbie'}], 'the footer follows the custom order, name and hrefs');
+    assert.deepEqual(await contactRowKeys(), ['Studio mail','Instagram'], 'Contact page uses the same visible custom list');
     assert.equal(await page.locator('#publicContactActions .cms-contact-action').count(), 2, 'Contact page actions are generated from the custom list');
     assert.equal(await page.locator('.email-strong').innerText(), 'hello@example.test', 'first email remains the operational commission email even when labels are custom');
     assert.doesNotMatch(await page.locator('footer').innerText(), /X \/ updates/, 'hidden links are absent from the public footer');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed]').count(), 2, 'the fixed Commission and Terms footer links survive custom contact links');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed="commission"] a').getAttribute('href'), '#commissions');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed="terms"] a').getAttribute('href'), '#terms');
+    assert.equal(await page.locator('#footContactList .cms-contact-link a[target="_blank"][rel="noopener noreferrer"]').count(), 1, 'external links carry target=_blank with rel=noopener noreferrer');
+    assert.equal(await page.locator('#publicContactActions .cms-contact-action').nth(0).innerText(), 'Studio mail', 'Contact actions follow the authored order');
+    assert.equal(await page.locator('#directSocial').innerText(), 'Instagram', 'the first visible social link drives the commission DM shortcut');
+    assert.equal(await page.locator('#directSocial').getAttribute('href'), 'https://instagram.com/crabbie');
     const footHeads = await page.locator('footer .foot h5').allInnerTexts();
     assert.ok(footHeads.some((text) => /^explore$/i.test(text.trim())) && footHeads.some((text) => /^contact$/i.test(text)), 'the footer keeps Explore and Contact columns (got ' + JSON.stringify(footHeads) + ')');
     console.log('PASS custom Contact links support rename/order/visibility and render consistently on public Contact + footer (SDK fixture)');
+
+    // ---- Contact / Social: authored order, unsafe values, empty list ----
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{links:[
+        {id:'ig',label:'Instagram',value:'https://instagram.com/crabbie',visible:true},
+        {id:'mail',label:'Studio mail',value:'hello@example.test',visible:true}
+      ]}});
+    });
+    assert.deepEqual((await contactFooterLinks()).map((link) => link.text), ['Instagram','Studio mail'], 'the footer follows the authored order');
+    await page.evaluate(() => { location.hash = '#contact'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'contact');
+    assert.deepEqual(await contactRowKeys(), ['Instagram','Studio mail'], 'the public Contact page follows the same authored order');
+    assert.equal(await page.locator('#publicContactRows .cms-contact-row').count(), 2, 'one public row per visible link');
+    assert.equal(await page.locator('#publicContactRows').isVisible(), true, 'the Contact rows render on the public Contact page');
+
+    /* Responsive: custom footer contact links never push the page sideways. */
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(120);
+    const contactMobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    assert.ok(contactMobileOverflow <= 1, 'the Contact page and footer add no horizontal overflow at 390px (' + contactMobileOverflow + 'px)');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    console.log('PASS the public Contact page and footer follow the authored order without mobile overflow (SDK fixture)');
+
+    /* Unsafe values are never emitted: no javascript:, http: or data: href can
+       reach the DOM, and a link without a name falls back to its value. */
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{links:[
+        {id:'js',label:'Script',value:'javascript:alert(1)',visible:true},
+        {id:'insecure',label:'Insecure',value:'http://example.test/insecure',visible:true},
+        {id:'data',label:'Data',value:'data:text/html,<script>alert(1)</script>',visible:true},
+        {id:'relative',label:'Relative',value:'/admin',visible:true},
+        {id:'mail',label:'Studio mail',value:'mailto:studio@example.test',visible:true},
+        {id:'unnamed',label:'',value:'https://discord.gg/crabbie',visible:true}
+      ]}});
+    });
+    assert.equal(await page.locator('#footContactList a[href^="javascript:"], #footContactList a[href^="http:"], #footContactList a[href^="data:"], #footContactList a[href^="/"]').count(), 0, 'unsafe contact URLs never reach the footer');
+    assert.deepEqual((await contactFooterLinks()).map((link) => link.text), ['Studio mail','https://discord.gg/crabbie'], 'only safe values publish, and an unnamed link falls back to its value');
+    assert.deepEqual((await contactFooterLinks()).map((link) => link.href), ['mailto:studio@example.test','https://discord.gg/crabbie']);
+    assert.deepEqual(await contactRowKeys(), ['Studio mail','https://discord.gg/crabbie'], 'the Contact page drops every unsafe value');
+    assert.deepEqual(await page.locator('#publicContactActions .cms-contact-action').evaluateAll((els) => els.map((el) => el.getAttribute('href'))), ['mailto:studio@example.test','https://discord.gg/crabbie'], 'contact actions only expose safe hrefs');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed]').count(), 2, 'the fixed footer links stay in place with custom links');
+    assert.equal(await page.locator('.email-strong').innerText(), 'studio@example.test', 'the first usable email stays the operational commission email');
+
+    /* An explicitly empty list clears both public surfaces without leaving an
+       empty frame, and the fixed footer links stay intact. */
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{links:[]}});
+    });
+    assert.equal(await page.locator('#footContactList .cms-contact-link').count(), 0, 'an empty list clears the footer Contact column');
+    assert.equal(await page.locator('#footContactList [data-foot-fixed]').count(), 2, 'the fixed footer links render even without contact links');
+    assert.equal(await page.locator('#publicContactRows').isVisible(), false, 'an empty list leaves no empty Contact frame');
+    assert.equal(await page.locator('#publicContactRows .contact-row').count(), 0);
+    assert.equal(await page.locator('#publicContactActions .cms-contact-action').count(), 0, 'an empty list leaves no Contact action');
+    assert.equal(await page.locator('#copyEmailBtn').isVisible(), false, 'no operational email hides the copy action');
+    assert.equal(await page.locator('#directEmail').isVisible(), false, 'no operational email hides the direct-email CTA');
+    assert.equal(await page.locator('#footContactList li.cms-contact-link').count(), 0, 'no ghost markup is left behind');
+    console.log('PASS unsafe contact values never render, an empty list clears Contact + footer and fixed links survive');
 
     // ---- Appearance: semantic text color tokens + website background image ----
     await page.evaluate(() => {

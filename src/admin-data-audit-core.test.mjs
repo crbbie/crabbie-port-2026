@@ -185,7 +185,40 @@ import {
   assert.equal(s3.status, 'warning');
 }
 
-// 8. Site summary (dashboard counts, no hardcoding)
+// 8. Contact is an authored list: custom links replace the required legacy pair.
+{
+  const base = { branding: { logo: 'l', heroMedia: 'h' }, seo: { socialImage: 's' } };
+  const custom = auditSettingsRecord({ ...base, contact: { links: [
+    { id: 'mail', label: 'Studio mail', value: 'studio@example.test', visible: true },
+    { id: 'ig', label: 'Instagram', value: 'https://instagram.com/crabbie', visible: false }
+  ] } });
+  assert.deepEqual(custom.missing, [], 'an authored contact list satisfies the contact requirement');
+  assert.ok(!custom.warnings.includes('no-contact-email'), 'the authored list replaces the required legacy email');
+  assert.ok(!custom.warnings.includes('no-contact-twitter'), 'the authored list replaces the required legacy twitter');
+  assert.ok(!custom.warnings.includes('no-contact-method'));
+  assert.equal(custom.status, 'complete');
+
+  const empty = auditSettingsRecord({ ...base, contact: { links: [] } });
+  assert.ok(empty.warnings.includes('no-contact-method'), 'an empty authored list has no contact method');
+  assert.ok(empty.missing.includes('contact.email'));
+  assert.equal(empty.status, 'incomplete');
+
+  const broken = auditSettingsRecord({ ...base, contact: { links: [{ id: 'm', label: 'Mail', value: 'not-an-email@', visible: true }] } });
+  assert.ok(broken.warnings.includes('bad-contact-email'), 'a malformed address in the authored list is flagged');
+  assert.ok(!broken.missing.length, 'a malformed value is still a configured contact method');
+
+  const mailto = auditSettingsRecord({ ...base, contact: { links: [{ id: 'm', label: 'Mail', value: 'mailto:studio@example.test', visible: true }] } });
+  assert.ok(!mailto.warnings.includes('bad-contact-email'), 'a valid mailto value is clean');
+  assert.equal(mailto.status, 'complete');
+
+  const about = auditPageRecord({ title: 'About', name: 'C', bio: 'b', content: 'hello [about page](https://x)', profileImage: 'p', skills: ['s'], experience: ['e'] }, 'about', { settings: { contact: { links: [{ id: 'ig', label: 'Instagram', value: 'https://instagram.com/crabbie', visible: true }] } } });
+  assert.ok(!about.warnings.includes('no-contact-link'), 'custom contact links satisfy the About page contact check');
+
+  const terms = auditPageRecord({ title: 'Terms', content: '# 1. Contact\n\nReach me on Instagram.\n\n# 2. Payment\n\n100% upfront.' }, 'terms', { settings: { contact: { links: [{ id: 'ig', label: 'Instagram', value: 'https://instagram.com/crabbie', visible: true }] } } });
+  assert.ok(!terms.warnings.includes('no-contact-method'), 'custom contact links satisfy the Terms page contact check');
+}
+
+// 9. Site summary (dashboard counts, no hardcoding)
 {
   const data = {
     portfolio: [{ published: true, thumbnail: '', cover: '', blocks: [], tags: [], title: 't', slug: 't', description: 'd', category: 'c' }],

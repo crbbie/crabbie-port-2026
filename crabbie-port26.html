@@ -2348,6 +2348,9 @@ details.adm-cleanup-group > summary:focus-visible{ outline:3px solid var(--purpl
 .adm-repeat-head .rr-actions{display:flex; gap:2px;}
 .adm-repeat-head .rr-actions button{width:20px; height:20px; border-radius:50%; border:none; cursor:pointer; background:var(--pink-soft); color:var(--pink-hot); font-size:10px; font-weight:900; display:grid; place-items:center;}
 .adm-repeat-head .rr-actions button:hover{background:var(--pink-hot); color:#fff;}
+/* Contact links: an unsafe value (javascript:, http:, malformed) is never
+   published, so its row says so inline instead of silently dropping the link. */
+.adm-contact-warn{margin-top:6px; font-size:10.5px; font-weight:800; color:var(--pink-hot); padding-left:2px;}
 
 .adm-media-item{background:#fff; border:2px solid var(--blue-light); border-radius:14px; padding:10px 12px; margin-bottom:8px; display:grid; grid-template-columns: 70px 1fr; gap:12px; align-items:start;}
 .adm-media-item .mi-thumb{aspect-ratio:1/1; background: linear-gradient(160deg, var(--purple-light), #d9efff); border-radius:10px; display:grid; place-items:center; font-size:20px; color:var(--purple-hot); border:2px solid #fff; box-shadow:0 0 0 1.5px var(--purple-light);}
@@ -3277,6 +3280,7 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
 .adm-advanced > summary{font-size:13px;}
 .adm-translate-badge{font-size:11px;}
 .adm-repeat-head .rr-label{font-size:13px;}
+.adm-contact-warn{font-size:11.5px;line-height:1.5;}
 .adm-ui-copy-row .uc-key{font-size:12px;}
 .adm-ui-copy-row input,.adm-ui-copy-row textarea{font-size:12.5px;line-height:1.5;}
 
@@ -4884,8 +4888,11 @@ function visibleCmsValue(value){
 function safePublicUrl(value, media){
   var raw = visibleCmsValue(value);
   if(!raw) return '';
+  /* An explicit mailto: must win over the bare-address rule below: without this
+     order "mailto:name@host" matches the address pattern and would be prefixed
+     twice (mailto:mailto:name@host). */
+  if(!media && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return 'mailto:' + raw.slice(7);
   if(!media && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return 'mailto:' + raw;
-  if(!media && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return raw;
   if(!media && /^#[a-z0-9/_-]+$/i.test(raw)) return raw;
   if(/^https:\/\//i.test(raw)){
     try { var url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password ? url.href : ''; } catch(e){ return ''; }
@@ -6242,6 +6249,9 @@ return lines.join('\n');
 }
 function mailtoFor(text){
 var subject = 'Commission inquiry — ' + (selectedService || TAB_LABELS[activeTab] || 'Commission');
+/* No configured contact e-mail means no mailto: the copy of the brief stays
+   available in the panel instead of producing a broken "mailto:?subject=". */
+if(!MAIL) return '';
 return 'mailto:' + MAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
 }
 function hideBrief(){ if(briefResult) briefResult.hidden = true; }
@@ -6252,8 +6262,9 @@ var note = briefResult.querySelector('.brief-note');
 if(note) note.textContent = 'Your commission request was saved. A copy of your brief is below.';
 briefResult.hidden = false;
 var href = mailtoFor(text);
-if(briefEmailLink) briefEmailLink.href = href;
-if(directEmailLink) directEmailLink.href = href;
+if(briefEmailLink){ if(href) briefEmailLink.href = href; else briefEmailLink.removeAttribute('href'); }
+if(directEmailLink){ if(href) directEmailLink.href = href; else directEmailLink.removeAttribute('href'); }
+if(briefEmailLink) briefEmailLink.style.display = href ? '' : 'none';
 smoothScrollTo(briefResult);
 }
 function setFormState(state){
@@ -9271,7 +9282,14 @@ var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.setti
 return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
+/* Contact/Social links: the pure normalizer lives in src/site-content-core.js
+   (window.CrabbieSiteContentModel) so the Admin editor, the public site and the
+   data-health audit read one shape. The inline mirror below is the pre-module
+   fallback with the same contract: an authored `links` array is authoritative,
+   legacy email/twitter stay read-compatible. */
 function contactLinksFromSettings(contact){
+var model = (typeof window !== 'undefined' && window.CrabbieSiteContentModel) || null;
+if(model && typeof model.contactLinksSettings === 'function') return model.contactLinksSettings(contact);
 var src = contact && Array.isArray(contact.links) ? contact.links : null;
 if(src){
   return src.map(function(link, i){
@@ -9306,6 +9324,38 @@ function contactHref(value){
 var raw = String(value == null ? '' : value).trim();
 return raw ? safePublicUrl(raw, false) : '';
 }
+/* A published link needs a name and a safe target. The label falls back to the
+   value so an authored link is never silently dropped, and contactHref() rejects
+   every unsafe value (javascript:, http:, data:) before it can reach the DOM. */
+function contactDisplayLabel(link){
+var label = String((link && link.label) || '').trim();
+return label || String((link && link.value) || '').trim();
+}
+function contactIsUnsafeValue(value){
+var raw = String(value == null ? '' : value).trim();
+return !!raw && !contactHref(raw);
+}
+/* Admin feedback: the same rule the public renderer enforces, stated inline. */
+function contactValueWarningText(){
+return currentAdminLang === 'vi'
+  ? 'Giá trị này không được xuất bản: chỉ nhận https://, mailto: hoặc địa chỉ email.'
+  : 'This value is never published: only https://, mailto: or an email address is accepted.';
+}
+function refreshContactValueWarning(input, value){
+var row = input && input.closest ? input.closest('[data-adm-contact-row]') : null;
+if(!row) return;
+var unsafe = contactIsUnsafeValue(value);
+var warn = row.querySelector('[data-adm-contact-value-warning]');
+if(unsafe && !warn){
+  warn = document.createElement('p');
+  warn.className = 'af-hint adm-contact-warn';
+  warn.setAttribute('data-adm-contact-value-warning', '1');
+  row.appendChild(warn);
+}
+if(!warn) return;
+if(unsafe) warn.textContent = contactValueWarningText();
+else if(warn.parentNode) warn.parentNode.removeChild(warn);
+}
 function contactEmailValue(links){
 for(var i = 0; i < links.length; i++){
   var href = contactHref(links[i] && links[i].value);
@@ -9318,7 +9368,7 @@ var base = 'settings.contact';
 var links = ensureAdminContactLinks();
 var vi = currentAdminLang === 'vi';
 var rows = links.map(function(link, i){
-  var label = link.label || (vi ? 'Liên kết chưa đặt tên' : 'Untitled link');
+  var label = contactDisplayLabel(link) || (vi ? 'Liên kết chưa đặt tên' : 'Untitled link');
   return '<div class="adm-repeat" data-adm-contact-row="' + i + '">' +
     '<div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(label) + '</span><span class="rr-actions">' +
       '<button type="button" data-adm-contact-move="' + i + '" data-adm-contact-dir="up" aria-label="' + (vi ? 'Đưa lên' : 'Move up') + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
@@ -9328,6 +9378,7 @@ var rows = links.map(function(link, i){
     '<div class="adm-row"><label class="adm-field"><span class="af-label">' + (vi ? 'Tên hiển thị' : 'Display name') + '</span><input type="text" data-adm-path="' + base + '.links.' + i + '.label" value="' + esc(link.label || '') + '" placeholder="' + (vi ? 'Ví dụ: Instagram' : 'Example: Instagram') + '"></label>' +
     '<label class="adm-field"><span class="af-label">' + (vi ? 'Email hoặc URL' : 'Email or URL') + '</span><input type="text" data-adm-path="' + base + '.links.' + i + '.value" value="' + esc(link.value || '') + '" placeholder="https://… / name@example.com"></label></div>' +
     '<div style="margin-top:9px;">' + inputCheck(vi ? 'Hiện ở Contact công khai' : 'Show in public Contact', base + '.links.' + i + '.visible') + '</div>' +
+    (contactIsUnsafeValue(link.value) ? '<p class="af-hint adm-contact-warn" data-adm-contact-value-warning="1">' + esc(contactValueWarningText()) + '</p>' : '') +
   '</div>';
 }).join('');
 return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2>' +
@@ -10707,6 +10758,9 @@ if(path === 'settings.music.volume'){
   var musicHint = adminContent.querySelector('[data-adm-music-volume-value="1"]');
   if(musicHint) musicHint.textContent = readControlValue(el) + '%';
 }
+/* Contact links state the safety rule while typing: an unsafe value is never
+   published, so the row says so instead of only failing after a re-render. */
+if(/^settings\.contact\.links\.\d+\.value$/.test(path)) refreshContactValueWarning(el, v);
 });
 el.addEventListener('change', function(){
 if(el.type === 'color') return;
@@ -11001,7 +11055,7 @@ var arr = getByPath(ADMIN_DRAFT, path); if(!Array.isArray(arr)) return;
 arr.splice(i, 1); markDirty(); renderAdmin('portfolio');
 });
 });
-$('[data-adm-contact-add]', adminContent).forEach(function(btn){
+$$('[data-adm-contact-add]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   var links = ensureAdminContactLinks();
   links.push({ id:newId('contact'), label:'New link', value:'', visible:true });
@@ -11009,7 +11063,7 @@ btn.addEventListener('click', function(){
   renderAdmin('contact');
 });
 });
-$('[data-adm-contact-del]', adminContent).forEach(function(btn){
+$$('[data-adm-contact-del]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   var links = ensureAdminContactLinks();
   var i = parseInt(btn.getAttribute('data-adm-contact-del'), 10);
@@ -11019,7 +11073,7 @@ btn.addEventListener('click', function(){
   renderAdmin('contact');
 });
 });
-$('[data-adm-contact-move]', adminContent).forEach(function(btn){
+$$('[data-adm-contact-move]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
   var links = ensureAdminContactLinks();
   var i = parseInt(btn.getAttribute('data-adm-contact-move'), 10);
@@ -11031,7 +11085,7 @@ btn.addEventListener('click', function(){
   renderAdmin('contact');
 });
 });
-$('[data-adm-about-add]', adminContent).forEach(function(btn){
+$$('[data-adm-about-add]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var group = btn.getAttribute('data-adm-about-add');
 var page = ADMIN_DRAFT.pages && ADMIN_DRAFT.pages.about; if(!page) return;
@@ -13264,8 +13318,10 @@ function applyCmsSiteSettings(settings){
     var copyEmail = document.getElementById('copyEmailBtn');
     if(copyEmail) copyEmail.style.display = primaryEmail ? '' : 'none';
 
+    /* A visible link renders when it has a display name (falling back to its
+       value) and a safe target; hidden items and unsafe values never publish. */
     var visibleContactLinks = contactLinks.filter(function(link){
-      return link.visible !== false && String(link.label || '').trim() && contactHref(link.value);
+      return link.visible !== false && contactDisplayLabel(link) && contactHref(link.value);
     });
 
     var footList = document.getElementById('footContactList');
@@ -13276,7 +13332,7 @@ function applyCmsSiteSettings(settings){
       visibleContactLinks.forEach(function(link){
         var href = contactHref(link.value); if(!href) return;
         var li = document.createElement('li'); li.className = 'cms-contact-link'; li.setAttribute('data-cms-contact-id', link.id || '');
-        var a = document.createElement('a'); a.textContent = link.label; a.href = href;
+        var a = document.createElement('a'); a.textContent = contactDisplayLabel(link); a.href = href;
         if(/^https:\/\//i.test(href)){ a.target = '_blank'; a.rel = 'noopener noreferrer'; }
         if(!emailIdUsed && /^mailto:/i.test(href)){ a.id = 'footEmail'; emailIdUsed = true; }
         if(!twitterIdUsed && /https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\//i.test(href)){ a.id = 'footTwitter'; twitterIdUsed = true; }
@@ -13292,7 +13348,7 @@ function applyCmsSiteSettings(settings){
         var row = document.createElement('div'); row.className = 'contact-row cms-contact-row';
         var icon = document.createElement('span'); icon.className = 'ic'; icon.textContent = /^mailto:/i.test(href) ? '✉' : '✦';
         var body = document.createElement('div');
-        var key = document.createElement('div'); key.className = 'ck'; key.textContent = link.label;
+        var key = document.createElement('div'); key.className = 'ck'; key.textContent = contactDisplayLabel(link);
         var value = document.createElement('div'); value.className = 'cv'; value.textContent = /^mailto:/i.test(href) ? href.replace(/^mailto:/i, '') : String(link.value || '');
         body.appendChild(key); body.appendChild(value); row.appendChild(icon); row.appendChild(body); contactRowsHost.appendChild(row);
       });
@@ -13304,7 +13360,7 @@ function applyCmsSiteSettings(settings){
       Array.prototype.slice.call(actionHost.querySelectorAll('.cms-contact-action')).forEach(function(node){ node.remove(); });
       visibleContactLinks.forEach(function(link, i){
         var href = contactHref(link.value); if(!href) return;
-        var a = document.createElement('a'); a.className = 'btn ' + (i % 2 ? 'btn-purple' : 'btn-primary') + ' cms-contact-action'; a.textContent = link.label; a.href = href;
+        var a = document.createElement('a'); a.className = 'btn ' + (i % 2 ? 'btn-purple' : 'btn-primary') + ' cms-contact-action'; a.textContent = contactDisplayLabel(link); a.href = href;
         if(/^https:\/\//i.test(href)){ a.target = '_blank'; a.rel = 'noopener noreferrer'; }
         actionHost.insertBefore(a, copyEmail || null);
       });
@@ -13314,7 +13370,7 @@ function applyCmsSiteSettings(settings){
     if(directSocial){
       var social = visibleContactLinks.find(function(link){ return /^https:\/\//i.test(contactHref(link.value)); });
       if(social){
-        directSocial.textContent = social.label;
+        directSocial.textContent = contactDisplayLabel(social);
         directSocial.href = contactHref(social.value);
         directSocial.style.display = '';
       } else {

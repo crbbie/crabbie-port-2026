@@ -1,5 +1,5 @@
 ﻿import assert from 'node:assert/strict';
-import { mapCmsPage, mapNavigationItem, mapSiteSettings, hasSettingsKey, settingsText, cmsBrandName, cmsSeoTitle, routeTitleFor, aboutPublicModel } from './site-content-core.js';
+import { mapCmsPage, mapNavigationItem, mapSiteSettings, hasSettingsKey, settingsText, cmsBrandName, cmsSeoTitle, routeTitleFor, aboutPublicModel, contactLinksSettings } from './site-content-core.js';
 
 const page = mapCmsPage({
   slug: 'about',
@@ -59,5 +59,32 @@ assert.equal(about.bio, 'Hero bio', 'bio stays the hero paragraph');
 assert.equal(about.content, 'Long body', 'content survives beside bio');
 const aboutNoName = aboutPublicModel({ name: '', title: 'About', bio: '', content: '' });
 assert.equal(aboutNoName.heading, 'About', 'the CMS title backs the heading without a name');
+
+// Contact/Social links: legacy fallback, authored order, visibility, explicit empty.
+{
+  const legacy = contactLinksSettings({ email: 'hello@example.com', twitter: 'https://x.com/crbbie' });
+  assert.deepEqual(legacy.map((link) => link.id), ['contact-email', 'contact-twitter']);
+  assert.deepEqual(legacy.map((link) => link.label), ['Email', 'Twitter / X']);
+  assert.equal(legacy[0].value, 'hello@example.com');
+  assert.equal(legacy[1].value, 'https://x.com/crbbie');
+  assert.equal(legacy.every((link) => link.visible), true);
+
+  const custom = contactLinksSettings({ links: [
+    { id: 'bsky', label: ' Bluesky ', value: ' https://bsky.app/profile/example.com ', visible: true },
+    { label: '', value: 'studio@example.test' },
+    { id: 'hidden', label: 'Hidden', value: 'https://example.test/hidden', visible: false },
+    { url: 'https://discord.gg/example' }
+  ] });
+  assert.deepEqual(custom.map((link) => link.id), ['bsky', 'contact-2', 'hidden', 'contact-4'], 'authored order and ids stay stable');
+  assert.equal(custom[0].value, 'https://bsky.app/profile/example.com', 'values are trimmed');
+  assert.equal(custom[1].label, '', 'a missing label stays empty for the caller to name');
+  assert.equal(custom[2].visible, false);
+  assert.equal(custom[3].value, 'https://discord.gg/example', 'a legacy url key is read as the value');
+
+  assert.deepEqual(contactLinksSettings({ email: 'legacy@example.com', links: [] }), [], 'an explicit empty list never falls back to legacy fields');
+  assert.deepEqual(contactLinksSettings({ links: null, email: 'a@b.dev' }).map((link) => link.value), ['a@b.dev'], 'a non-array links value stays read-compatible');
+  assert.deepEqual(contactLinksSettings({ email: '', twitter: '' }), [], 'present-but-empty legacy fields add no link');
+  assert.deepEqual(contactLinksSettings(), [], 'missing contact settings render nothing');
+}
 
 console.log('Site content mapping tests passed.');

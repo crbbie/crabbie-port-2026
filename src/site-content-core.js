@@ -55,6 +55,41 @@ export function cmsSeoTitle(settings) {
   return title || '';
 }
 
+/**
+ * Contact/Social links (site_settings key "contact").
+ *
+ * The authored `links` array is authoritative when present: an ordered list of
+ * { id, label, value, visible } where `value` is an email address, a mailto:
+ * address, a #anchor or an https URL. An explicit empty list clears the public
+ * contact list. Legacy `email` / `twitter` settings are upgraded in memory only,
+ * so existing production data keeps rendering without a data migration.
+ */
+export function contactLinksSettings(contact = {}) {
+  const group = contact && typeof contact === 'object' && !Array.isArray(contact) ? contact : {};
+  if (Array.isArray(group.links)) {
+    return group.links.map((raw, index) => {
+      const link = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+      const rawValue = link.value == null ? (link.url == null ? '' : link.url) : link.value;
+      return {
+        id: typeof link.id === 'string' && link.id.trim() ? link.id.trim() : ('contact-' + (index + 1)),
+        label: typeof link.label === 'string' ? link.label : '',
+        value: (typeof rawValue === 'string' ? rawValue : String(rawValue == null ? '' : rawValue)).trim(),
+        visible: link.visible !== false
+      };
+    });
+  }
+  const legacy = [];
+  if (hasSettingsKey(group, 'email')) {
+    const email = String(group.email == null ? '' : group.email).trim();
+    if (email) legacy.push({ id: 'contact-email', label: 'Email', value: email, visible: true });
+  }
+  if (hasSettingsKey(group, 'twitter')) {
+    const twitter = String(group.twitter == null ? '' : group.twitter).trim();
+    if (twitter) legacy.push({ id: 'contact-twitter', label: 'Twitter / X', value: twitter, visible: true });
+  }
+  return legacy;
+}
+
 export const PORTFOLIO_THANKS_DEFAULTS = Object.freeze({
   enabled: true,
   heading: 'Made with lovely people ♡',
