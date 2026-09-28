@@ -4085,6 +4085,51 @@ try {
       return (style.transform && style.transform !== 'none') || (style.translate && style.translate !== 'none' && style.translate !== '0px');
     });
     console.log('PASS category clouds and filters, flower badges, and download combinations (SDK fixture)');
+    // ---- Public Free Asset tag chips reconcile from record.tags ----
+    await page.evaluate(() => {
+      window.CrabbieAssets.apply([
+        {slug:'tag-cms-only',title:'Tag CMS Only',cat:'Brushes',category:'Brushes',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['pastel','ocean'],published:true,thumbnail:'',icon:'★'},
+        {slug:'sparkle-stars',title:'Sparkle Stars',cat:'Elements',category:'Elements',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['updated','cute'],published:true,thumbnail:'',icon:'★'}
+      ]);
+      location.hash = '#free-assets';
+    });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    // 1. CMS-only asset renders its tags in order.
+    assert.deepEqual(await page.locator('#faGrid [data-asset="tag-cms-only"] .item-tags span').evaluateAll((nodes) => nodes.map((n) => n.textContent)), ['pastel', 'ocean'], 'a CMS-only card shows record.tags chips in order');
+    // 2. Prototype-backed asset is reconciled: stale chips are replaced.
+    assert.deepEqual(await page.locator('#faGrid [data-asset="sparkle-stars"] .item-tags span').evaluateAll((nodes) => nodes.map((n) => n.textContent)), ['updated', 'cute'], 'stale prototype chips are replaced by record.tags');
+    // Tag placement stays between .item-cat and .item-status.
+    assert.equal(await page.evaluate(() => {
+      const card = document.querySelector('#faGrid [data-asset="tag-cms-only"]');
+      const kids = Array.from(card.children).map((el) => el.className);
+      return kids.indexOf('item-tags') > kids.indexOf('item-cat') && kids.indexOf('item-tags') < kids.indexOf('item-status');
+    }), true, 'tag chips sit after .item-cat and before .item-status');
+    // 3. Clearing tags removes chips with no stale residue or empty spacing.
+    await page.evaluate(() => {
+      window.CrabbieAssets.apply([
+        {slug:'tag-cms-only',title:'Tag CMS Only',cat:'Brushes',category:'Brushes',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:[],published:true,thumbnail:'',icon:'★'},
+        {slug:'sparkle-stars',title:'Sparkle Stars',cat:'Elements',category:'Elements',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:[],published:true,thumbnail:'',icon:'★'}
+      ]);
+    });
+    assert.equal(await page.locator('#faGrid [data-asset="tag-cms-only"] .item-tags').count(), 0, 'clearing tags removes the container');
+    assert.equal(await page.locator('#faGrid [data-asset="sparkle-stars"] .item-tags').count(), 0, 'stale prototype chips disappear when tags are cleared');
+    // 4. Re-apply is idempotent: one container, no duplicated chips.
+    await page.evaluate(() => {
+      const rec = {slug:'tag-cms-only',title:'Tag CMS Only',cat:'Brushes',category:'Brushes',format:'PNG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['pastel','ocean'],published:true,thumbnail:'',icon:'★'};
+      window.CrabbieAssets.apply([rec, {slug:'sparkle-stars',title:'Sparkle Stars',cat:'Elements',category:'Elements',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['updated','cute'],published:true,thumbnail:'',icon:'★'}]);
+      window.CrabbieAssets.apply([rec, {slug:'sparkle-stars',title:'Sparkle Stars',cat:'Elements',category:'Elements',format:'SVG',availability:'available',downloadUrl:'',showDirectDownload:true,tags:['updated','cute'],published:true,thumbnail:'',icon:'★'}]);
+    });
+    assert.equal(await page.locator('#faGrid [data-asset="tag-cms-only"] .item-tags').count(), 1, 'repeated apply keeps a single tag container');
+    assert.deepEqual(await page.locator('#faGrid [data-asset="tag-cms-only"] .item-tags span').evaluateAll((nodes) => nodes.map((n) => n.textContent)), ['pastel', 'ocean'], 'repeated apply keeps chips without duplication');
+    // 5. Tag text stays searchable through the existing asset search.
+    await page.locator('#faChips .chip[data-filter="all"]').click();
+    await page.locator('#faSearch').fill('ocean');
+    assert.equal(await page.locator('#faGrid [data-asset="tag-cms-only"]:visible').count(), 1, 'a tag search keeps the matching card');
+    assert.equal(await page.locator('#faGrid [data-asset="sparkle-stars"]:visible').count(), 0, 'a tag search filters out non-matching cards');
+    await page.locator('#faSearch').fill('');
+    // Category and format are never synthesized into the chips.
+    assert.deepEqual(await page.locator('#faGrid [data-asset="tag-cms-only"] .item-tags span').evaluateAll((nodes) => nodes.map((n) => n.textContent)), ['pastel', 'ocean'], 'chips come only from record.tags, never category/format');
+    console.log('PASS public Free Asset tag chips render and reconcile from record.tags (SDK fixture)');
     // Mobile centers the home hero; desktop keeps the editorial left align.
     await page.evaluate(() => { location.hash = '#home'; });
     await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
