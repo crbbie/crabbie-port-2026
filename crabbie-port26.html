@@ -226,7 +226,8 @@ window.scrollTo(0, 0);
 html{scroll-behavior:smooth; scrollbar-gutter:stable; background-color:var(--cms-bg-color,#fff);}
 body{
   font-family:var(--font-body), system-ui, sans-serif;
-  color:var(--berry);
+  /* Inherited reading color follows the body token (defaults to berry). */
+  color:var(--text-body);
   background: #fdeadd;
   line-height:1.6;
   -webkit-font-smoothing: antialiased;
@@ -445,7 +446,7 @@ body:not(.admin-mode) .assets .banner .banner-title{
 .hero h1 .accent{color: var(--text-display);text-shadow:-3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff, 3px 3px 0 #fff,-3px 0 0 #fff, 3px 0 0 #fff, 0 -3px 0 #fff, 0 3px 0 #fff,0 8px 0 #ceb4fd;}
 .hero-tagline{font-family:var(--font-body); font-weight:600;font-size: clamp(17px, 1.9vw, 22px);line-height:1.3;color: var(--text-body);max-width: 520px;margin-bottom: 14px;cursor: default;}
 .hero-lede{font-size: 16px; color: var(--text-muted); font-weight: 600;max-width: 480px; margin-bottom: 32px;cursor: default;}
-.hero-lede b{ color: var(--berry); font-weight:800;}
+.hero-lede b{ color: var(--text-body); font-weight:800;}
 .hero-ctas{display:flex; gap:16px; flex-wrap:wrap;}
 .signature{display:inline-block;font-family:var(--font-decorative);font-size: 22px;color: var(--text-decorative);margin-top: 26px;transform: rotate(-3deg);opacity: .9;cursor: default;}
 
@@ -564,7 +565,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .foot-inner{display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:40px;padding: 20px 0 34px;}
 .foot-brand{font-family:var(--font-display); font-weight:700; font-size:24px;letter-spacing:-.01em; color: var(--berry); margin-bottom: 10px;}
 .foot-brand span{ color: var(--pink-hot);}
-.foot-tag{font-family:var(--font-body); font-size:13px; color: var(--berry-soft);max-width:300px; overflow-wrap:anywhere;}
+.foot-tag{font-family:var(--font-body); font-size:13px; color: var(--text-muted);max-width:300px; overflow-wrap:anywhere;}
 .foot h5{font-family:var(--font-body); font-weight:600; font-size:11px;text-transform: uppercase; letter-spacing:.15em;color: var(--berry-faint); margin-bottom: 12px;}
 .foot ul{ list-style:none; display:flex; flex-direction:column; gap:6px; min-width:0;}
 /* Long emails/links wrap inside the narrow footer column. */
@@ -767,7 +768,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .ba-item .ph{ aspect-ratio: 4/3; }
 .ba-label{position:absolute; top:-14px; left:20px; z-index:3;padding: 4px 16px; border-radius: 10px;font-family:var(--font-decorative); font-weight:600; font-size: 10.5px; letter-spacing:.14em;color:#fff; background: linear-gradient(180deg, var(--pink) 0%, var(--pink-hot) 100%);border: 2px solid #fff;box-shadow: 0 4px 0 rgba(217,74,128,.5);transform: rotate(-3deg);}
 .ba-label.after{background: linear-gradient(180deg, #dccaff 0%, var(--purple-hot) 100%);box-shadow: 0 4px 0 rgba(92,61,153,.5);}
-.pd-quote{position:relative;font-family:var(--font-decorative); font-size: 24px; line-height:1.5;color: var(--berry); text-align:center;padding: 40px 44px;background: var(--yellow-light);border: 3px dashed var(--yellow-hot);border-radius: 28px;}
+.pd-quote{position:relative;font-family:var(--font-decorative); font-size: 24px; line-height:1.5;color: var(--text-body); text-align:center;padding: 40px 44px;background: var(--yellow-light);border: 3px dashed var(--yellow-hot);border-radius: 28px;}
 .pd-quote::before, .pd-quote::after{font-family:var(--font-decorative); font-weight:700; font-size: 46px; color: var(--yellow-hot);line-height:0; position:absolute; opacity:.7;}
 .pd-quote::before{ content:"“"; top: 34px; left: 22px; }
 .pd-quote::after{ content:"”"; bottom: 8px; right: 22px; }
@@ -1401,9 +1402,17 @@ body:not(.admin-mode) .eyebrow.yellow{
 
 <style id="semantic-text-tokens">
 /* Semantic text color roles. One token per reading role (never per element):
-   display / accent / body / decorative / muted. Defaults resolve to the live
-   palette so the untouched site is visually unchanged; Admin > Appearance can
-   override any token and every role follows through CSS variables. */
+   display / accent / body / decorative / muted (+ field-label). Defaults
+   resolve to the live palette so the untouched site is visually unchanged;
+   Admin > Appearance can override any token and every role follows through
+   CSS variables.
+   Phase 1 bypass audit: body inherited color, .hero-lede b, .foot-tag,
+   .ad-gallery-title and .pd-quote now follow their semantic roles above.
+   Intentionally NOT moved (brand/state variants, not reading bypasses):
+   .ad-cta h3, .page-title .hi-p, .cta-inner h2 .hi, .foot-brand span
+   (brand accents); .tos-disclosure-summary (meta label with its own
+   responsive variant); .link-pill, .tos-note and viewer status/loading/error
+   (interactive/contrast state colors). */
 body:not(.admin-mode) .hero h1,
 body:not(.admin-mode) .hero h1 .accent,
 body:not(.admin-mode) .brand,
@@ -1559,7 +1568,6 @@ body:not(.admin-mode) .choice input:checked + span{
   color:#fff;
   text-shadow:0 1px 2px rgba(200,60,120,.45);
 }
-body:not(.admin-mode) .nav-links a:hover,
 body:not(.admin-mode) .tos-nav a:hover,
 body:not(.admin-mode) .tos-nav button:hover,
 body:not(.admin-mode) .tos-nav button[aria-current="true"],
@@ -1567,6 +1575,27 @@ body:not(.admin-mode) .chip:hover,
 body:not(.admin-mode) .tab-btn:hover:not(.on),
 body:not(.admin-mode) .back-link:hover,
 body:not(.admin-mode) .lang span.on{ color:var(--text-body); }
+/* Navigation states (Phase 1 explicit ownership; no Advanced controls yet).
+   normal: muted token (see the muted role list above, which owns
+   `.nav-links a` and `.mobile-menu a`).
+   hover: fixed candy default #F077B9 (unchanged visual default when no CMS
+   override exists; hover is a state, not a CMS token).
+   active: white label on the pink gradient pill (selected state must survive
+   the generic muted rule, so these are body-scoped with higher specificity
+   and placed after it). */
+body:not(.admin-mode) .nav-links a:hover,
+body:not(.admin-mode) .mobile-menu a:hover{ color:#F077B9; }
+body:not(.admin-mode) .nav-links a.active{
+  background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
+  color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
+  box-shadow:inset 0 -3px 0 rgba(214,105,162,.17),inset 0 2px 0 rgba(255,255,255,.78);
+}
+body:not(.admin-mode) .mobile-menu a.active{
+  background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
+  color:#fff;
+  text-shadow:0 1px 3px rgba(200,60,120,.55);
+}
 body:not(.admin-mode) .chip.on,
 body:not(.admin-mode) .chip.on:hover{
   color:#fff;
@@ -1590,11 +1619,6 @@ body:not(.admin-mode) .search-box input,
 body:not(.admin-mode) .field input,
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
-</style>
-
-<style id="nav-hover-color-override">
-body:not(.admin-mode) .nav-links a:hover{ color:#F077B9; }
-body:not(.admin-mode) .mobile-menu a:hover{ color:#F077B9; }
 </style>
 
 <style id="cms-multiline-contract">
@@ -1733,7 +1757,7 @@ body.admin-mode .nav-shell, body.admin-mode footer{ display:none !important; }
    previews render below in a responsive grid with stable boxes. Every cell can
    shrink (min-width:0) so long CMS tokens never widen the document. */
 .ad-gallery-wrap{ margin-top:34px; min-width:0; }
-.ad-gallery-title{font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--berry); margin-bottom:16px;}
+.ad-gallery-title{font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--text-display); margin-bottom:16px;}
 .ad-gallery{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:16px; min-width:0;}
 .ad-thumb{position:relative; display:grid; place-items:center; width:100%; min-width:0; aspect-ratio:1/1; padding:0; border:3px solid #fff; border-radius:20px; overflow:hidden; cursor:zoom-in; background:linear-gradient(160deg,#ffd1e3 0%,#e6dcff 100%); box-shadow:0 0 0 3px var(--pink-light),0 14px 28px -18px rgba(217,74,128,.5);}
 .ad-thumb img{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover;}
@@ -3268,20 +3292,35 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
   color:var(--pv-body,var(--text-body));
 }
 .adm-appearance-preview .apv-field-label{
-  font-family:var(--font-decorative);font-size:14px;font-weight:600;margin-bottom:4px;
+  font-family:var(--font-decorative);font-size:13px;font-weight:600;margin-bottom:4px;
   color:var(--pv-field,var(--text-field-label));
 }
+.adm-appearance-preview .apv-field-label .req{color:var(--pv-accent,var(--text-accent));}
 .adm-appearance-preview .apv-muted{
   font-family:var(--font-body);font-size:13px;color:var(--pv-muted,var(--text-muted));
 }
+/* Truthful miniature of public styling (Phase 1): the accent sample mirrors
+   real accent owners (price / required marker / credit link), navigation
+   mirrors the real muted normal state, and the primary button keeps the real
+   candy gradient with a white label instead of an accent fill. */
+.adm-appearance-preview .apv-accent{
+  font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1.15;
+  color:var(--pv-accent,var(--text-accent));margin:6px 0;
+}
+.adm-appearance-preview .apv-accent small{
+  display:block;font-family:var(--font-body);font-weight:800;font-size:11.5px;
+  color:var(--pv-muted,var(--text-muted));margin-top:2px;
+}
+.adm-appearance-preview .apv-credit{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--pv-accent,var(--text-accent));}
 .adm-appearance-preview .apv-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
 .adm-appearance-preview .apv-btn{
   font-family:var(--font-body);font-weight:700;font-size:13px;padding:8px 18px;border-radius:999px;
-  background:var(--pv-accent,var(--text-accent));color:#fff;
+  background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),linear-gradient(180deg,#ffe4ef 0%,#fbc0da 46%,#f793bf 100%);
+  color:#fff;text-shadow:0 1px 3px rgba(200,60,120,.55);
 }
 .adm-appearance-preview .apv-nav{
-  font-family:var(--font-body);font-weight:700;font-size:13px;padding:8px 18px;border-radius:999px;
-  border:2px solid var(--pv-accent,var(--text-accent));color:var(--pv-accent,var(--text-accent));
+  font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:999px;
+  color:var(--pv-nav,var(--text-muted));
 }
 /* Saved palette cards: a swatch strip plus inline name/actions. */
 .adm-palette-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px;}
@@ -3339,7 +3378,14 @@ window.__crabbieBuildBgCss = function(theme){
 var theme = null;
 try{
   var raw = localStorage.getItem('crabbie:appearance');
-  if(raw){ var parsed = JSON.parse(raw); theme = parsed && parsed.theme; }
+  if(raw){
+    var parsed = JSON.parse(raw);
+    /* v1 cache compatibility: `{ v:1, theme:{...} }` or a bare theme. */
+    if(parsed && typeof parsed === 'object'){
+      theme = (parsed.theme && typeof parsed.theme === 'object') ? parsed.theme : parsed;
+      if(theme && typeof theme === 'object' && ('v' in parsed) && !('theme' in parsed)) theme = {};
+    }
+  }
 }catch(e){ theme = null; }
 if(!theme || typeof theme !== 'object') return;
 /* The admin shell keeps its own palette; never apply the public snapshot there. */
@@ -3347,13 +3393,29 @@ try{
   if(/^\/admin(\/|$)/.test(location.pathname) || /^#admin/.test(location.hash)) return;
 }catch(e){}
 try{
+  /* Same #RRGGBB rules as the shared helper (kept inline: this boot script
+     runs before /src/appearance-core.js loads). Invalid cached colors are
+     dropped so a corrupt snapshot can never paint. */
+  var HEX6 = /^#[0-9a-fA-F]{6}$/;
+  var clean = function(v){ return (typeof v === 'string' && HEX6.test(v)) ? ('#' + v.slice(1).toLowerCase()) : null; };
+  var norm = {};
+  ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'].forEach(function(k){
+    var n = clean(theme[k]);
+    if(n) norm[k] = n;
+  });
   var root = document.documentElement;
-  if(theme.pink) root.style.setProperty('--pink', theme.pink);
-  if(theme.lavender) root.style.setProperty('--purple', theme.lavender);
-  root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(theme));
+  var fbTheme = { background: norm.background, backgroundImage: theme.backgroundImage };
+  root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(fbTheme));
   var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted', fieldLabelColor:'--text-field-label' };
   var tokenCss = '';
-  Object.keys(map).forEach(function(k){ if(theme[k]) tokenCss += map[k] + ':' + theme[k] + ';'; });
+  /* Pink/Lavender primitives are owned at the body scope that actually holds
+     the public palette: a local body declaration beats an inherited html
+     value, so writing them on <html> alone would lose to
+     #reference-pastel-theme. They ride in the same body-scoped early block
+     (appended after the reference theme, so equal specificity wins). */
+  if(norm.pink) tokenCss += '--pink:' + norm.pink + ';';
+  if(norm.lavender) tokenCss += '--purple:' + norm.lavender + ';';
+  Object.keys(map).forEach(function(k){ if(norm[k]) tokenCss += map[k] + ':' + norm[k] + ';'; });
   if(tokenCss){
     var ts = document.createElement('style'); ts.id = 'cmsAppearanceEarly';
     ts.textContent = 'body:not(.admin-mode){' + tokenCss + '}';
@@ -4473,6 +4535,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,audio/*,application/pdf,application/zip,.zip">
 
+<script src="/src/appearance-core.js"></script>
 <script src="/src/portfolio-grid-core.js"></script>
 <script>
 (function(){
@@ -6878,10 +6941,20 @@ var REQ_STATUSES = ['New','Reviewing','Contacted','Accepted','Declined','Complet
    avoid a fake control. Stored language data is preserved untouched. */
 var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','SEO','Footer','Interface'];
 /* Semantic typography color tokens (Admin > Appearance). One default per role;
-   these are the only color settings and they never target a single element. */
-var APPEARANCE_COLOR_DEFAULTS = { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
+   these are the only color settings and they never target a single element.
+   Canonical values live in src/appearance-core.js; these aliases keep existing
+   references working without a second independent defaults table. */
+var APPEARANCE_COLOR_DEFAULTS = (window.CrabbieAppearance && window.CrabbieAppearance.APPEARANCE_DEFAULTS) || { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
 /* The full colour group a saved palette captures (one preset = one theme). */
-var PALETTE_KEYS = ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
+var PALETTE_KEYS = (window.CrabbieAppearance && window.CrabbieAppearance.COLOR_KEYS) || ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
+function appearanceCore(){ return window.CrabbieAppearance || null; }
+function appearanceResolve(theme, key){
+  var A = appearanceCore();
+  if(A) return A.resolveColor(theme, key);
+  var raw = theme && theme[key];
+  if(typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) return '#' + raw.slice(1).toLowerCase();
+  return APPEARANCE_COLOR_DEFAULTS[key] || null;
+}
 /* Default desktop-pet dialogue. `url`/`label` are optional; when a url exists the
    bubble renders a safe "Xem thêm" link instead of the raw address. */
 var PET_DIALOGUES_DEFAULT = [
@@ -7133,7 +7206,24 @@ function setByPath(obj, path, value){
   cur[parts[parts.length - 1]] = value;
 }
 function readControlValue(el){ if(!el) return undefined; if(el.type === 'checkbox') return !!el.checked; if(el.type === 'radio') return el.checked ? el.value : undefined; if(el.type === 'number' || el.type === 'range'){ var n = parseFloat(el.value); return isNaN(n) ? '' : n; } return el.value; }
-function applyPathToControl(el, path){ var v = getByPath(ADMIN_DRAFT, path); if(el.type === 'checkbox') el.checked = !!v; else if(el.type === 'radio') el.checked = (el.value === v); else if(v == null) el.value = ''; else el.value = v; }
+function applyPathToControl(el, path){
+  var v = getByPath(ADMIN_DRAFT, path);
+  /* Color pairs never render blank for an absent key: they show the resolved
+     canonical default (the same color Live Preview shows) without persisting
+     it. Invalid stored values also fall back to the resolved default. */
+  if(el && el.hasAttribute && el.hasAttribute('data-adm-color-pair')){
+    var key = appearanceColorKey(path);
+    var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+    var fb = (key && APPEARANCE_COLOR_DEFAULTS[key]) || '#000000';
+    var A = appearanceCore();
+    var n = A ? A.normalizeHex(v) : null;
+    if(!n && v != null && v !== '' && A) { var r = appearanceResolve(theme, key); el.value = r || fb; return; }
+    if(v == null || v === '' || !n){ el.value = (key ? (appearanceResolve(theme, key) || fb) : fb); return; }
+    el.value = n;
+    return;
+  }
+  if(el.type === 'checkbox') el.checked = !!v; else if(el.type === 'radio') el.checked = (el.value === v); else if(v == null) el.value = ''; else el.value = v;
+}
 
 var adminContent = document.getElementById('adminContent');
 var adminHeading = document.getElementById('adminHeading');
@@ -7417,6 +7507,13 @@ async function doSaveCommit(msg, scope){
             ADMIN_DRAFT.settings[key] = settingsForWrite[key];
           } else {
             settingsForWrite[key] = value;
+          }
+          /* Invalid Appearance colors never reach the save payload: the
+             color-field controller blocks them at input, and this second
+             gate drops any stale invalid value (unknown keys and
+             background/media settings pass through untouched). */
+          if(key === 'theme' && settingsForWrite[key] && typeof settingsForWrite[key] === 'object'){
+            settingsForWrite[key] = sanitizeThemeForWrite(settingsForWrite[key]);
           }
         });
         var settingsResult = null;
@@ -7732,12 +7829,54 @@ var optsHtml = options.map(function(o){ var val = typeof o === 'string' ? o : o.
 return '<label class="adm-field"><span class="af-label">' + esc(label) + '</span><select data-adm-path="' + esc(path) + '">' + optsHtml + '</select></label>';
 }
 function inputCheck(label, path){ var v = getByPath(ADMIN_DRAFT, path); return '<label class="adm-check"><input type="checkbox" data-adm-path="' + esc(path) + '"' + (v ? ' checked' : '') + '> ' + esc(label) + '</label>'; }
+/* Color-field ownership contract (Phase 1): each picker + HEX pair has one
+   logical write owner. The picker writes valid #rrggbb immediately; the HEX
+   text only writes when it holds a complete valid #RRGGBB. Incomplete values
+   (#, #f, #ff8a) and invalid values stay in the visible editing buffer, set
+   an accessible invalid state with a message, and never enter ADMIN_DRAFT,
+   CSS variables, palettes, cache, or save payloads. Blur/Enter normalizes a
+   valid value to lowercase canonical form without silently converting
+   invalid values. Absent theme keys render the resolved canonical default
+   (same color as Live Preview) without persisting it. */
+function appearanceColorKey(path){
+  var m = String(path || '').match(/\.theme\.([A-Za-z]+)$/);
+  return m ? m[1] : null;
+}
 function inputColor(label, path, opts){
 opts = opts || {};
+var key = appearanceColorKey(path);
+var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
 var stored = getByPath(ADMIN_DRAFT, path);
-var v = (stored == null || stored === '') ? (opts.default || '#000000') : stored;
+var A = appearanceCore();
+var validStored = (A ? A.normalizeHex(stored) : (/^#[0-9a-fA-F]{6}$/.test(String(stored || '')) ? '#' + String(stored).slice(1).toLowerCase() : null));
+var fallback = opts.default || (key && APPEARANCE_COLOR_DEFAULTS[key]) || '#000000';
+var v = validStored || fallback;
 var pairId = 'cp-' + Math.random().toString(36).slice(2,7);
-return '<div class="adm-field"><span class="af-label">' + esc(label) + '</span><input type="color" data-adm-path="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '"><input type="text" data-adm-path="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '"></div>';
+return '<div class="adm-field" data-adm-color-field="' + esc(pairId) + '"><span class="af-label">' + esc(label) + '</span>' +
+  '<input type="color" data-adm-path="' + esc(path) + '" data-adm-color-picker="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" aria-label="' + esc(label) + ' picker">' +
+  '<input type="text" data-adm-path="' + esc(path) + '" data-adm-color-text="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" spellcheck="false" autocomplete="off" inputmode="text" aria-label="' + esc(label) + ' hex" aria-invalid="false">' +
+  '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>Use a valid #RRGGBB value.</span></div>';
+}
+function setColorFieldInvalid(pairId, invalid){
+  if(!adminContent || !pairId) return;
+  var field = adminContent.querySelector('[data-adm-color-field="' + pairId + '"]');
+  if(!field) return;
+  var text = field.querySelector('[data-adm-color-text]');
+  var err = field.querySelector('[data-adm-color-error]');
+  if(text) text.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+  if(err) err.hidden = !invalid;
+}
+function writeColorField(path, pairId, hex, pickerEl, textEl){
+  var A = appearanceCore();
+  var n = A ? A.normalizeHex(hex) : null;
+  if(!n) return false;
+  setByPath(ADMIN_DRAFT, path, n);
+  if(pickerEl && pickerEl.value !== n) pickerEl.value = n;
+  if(textEl && document.activeElement !== textEl && textEl.value !== n) textEl.value = n;
+  setColorFieldInvalid(pairId, false);
+  markDirty(path);
+  refreshAppearancePreview();
+  return true;
 }
 /* Content-health helpers (audit engine lives in src/admin-data-audit-core.js) */
 function fieldLabel(key){
@@ -9195,28 +9334,61 @@ var n = (v == null || v === '') ? 0.55 : Number(v);
 return isNaN(n) ? 0.55 : Math.max(0, Math.min(0.9, n));
 }
 function appearancePreviewHtml(){
+/* Truthful 1:1 miniature: heading, real accent owners (price + credit link),
+   reading paragraph, decorative label, helper text, real form label with a
+   required marker, real navigation normal state, and the real candy button. */
 return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance-preview" data-adm-appearance-preview="1">' +
   '<span class="apv-label">Decorative label</span>' +
   '<div class="apv-heading">Sweet little heading</div>' +
-  '<p class="apv-field-label">Question / field label</p>' +
+  '<div class="apv-accent">$70<small>price / highlight</small></div>' +
   '<p class="apv-body">Body information reads in the Hogfish face so long-form copy stays clear and calm.</p>' +
+  '<p class="apv-field-label">Question / field label <span class="req">*</span></p>' +
   '<p class="apv-muted">Secondary / muted helper text.</p>' +
+  '<p class="apv-credit">♥ Credit name</p>' +
   '<div class="apv-actions"><span class="apv-btn">Button sample</span><span class="apv-nav">Navigation</span></div>' +
   '</div></div>';
 }
 /* Saved palettes: a preset is the whole colour group, stored in the theme
    settings JSON so no schema migration is needed. */
+/* Sanitize a theme object before it enters a save payload, palette, or cache:
+   color keys keep only valid normalized #rrggbb; invalid color values are
+   dropped (resolved defaults apply at render); unknown keys (background
+   image/size/position/overlay, palettes, future keys) pass through so
+   background/media settings are never accidentally removed. */
+function sanitizeThemeForWrite(theme){
+  if(!theme || typeof theme !== 'object') return theme;
+  var A = appearanceCore();
+  var out = Array.isArray(theme) ? [] : {};
+  Object.keys(theme).forEach(function(k){
+    var v = theme[k];
+    if(k === 'palettes'){ out[k] = v; return; }
+    if(A && A.COLOR_KEYS.indexOf(k) !== -1){
+      var n = A.normalizeHex(v);
+      if(n) out[k] = n;
+      return;
+    }
+    out[k] = v;
+  });
+  return out;
+}
 function paletteSwatchHtml(colors){
-var keys = ['background','pink','lavender','displayColor','accentColor','decorativeColor','mutedColor','fieldLabelColor'];
+var keys = ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
 return '<span class="adm-palette-swatches">' + keys.map(function(k){
-  var c = (colors && colors[k]) || APPEARANCE_COLOR_DEFAULTS[k] || '#ffffff';
+  var c = appearanceResolve(colors, k) || APPEARANCE_COLOR_DEFAULTS[k] || '#ffffff';
   return '<i style="background:' + esc(c) + '"></i>';
 }).join('') + '</span>';
 }
 function currentPaletteColors(){
 var t = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+var A = appearanceCore();
 var colors = {};
-PALETTE_KEYS.forEach(function(k){ colors[k] = t[k] || APPEARANCE_COLOR_DEFAULTS[k] || ''; });
+/* Save current palette uses only valid Appearance values (resolved against
+   canonical defaults so the swatch always matches the visible field). */
+PALETTE_KEYS.forEach(function(k){
+  var raw = t[k];
+  var n = A ? A.normalizeHex(raw) : null;
+  colors[k] = n || appearanceResolve(t, k) || '';
+});
 return colors;
 }
 function renderPaletteSection(){
@@ -9282,13 +9454,17 @@ function refreshAppearancePreview(){
 var preview = adminContent ? adminContent.querySelector('[data-adm-appearance-preview="1"]') : null;
 if(!preview) return;
 var t = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
-var d = APPEARANCE_COLOR_DEFAULTS;
-preview.style.setProperty('--pv-display', t.displayColor || d.displayColor);
-preview.style.setProperty('--pv-accent', t.accentColor || d.accentColor);
-preview.style.setProperty('--pv-body', t.bodyColor || d.bodyColor);
-preview.style.setProperty('--pv-decorative', t.decorativeColor || d.decorativeColor);
-preview.style.setProperty('--pv-muted', t.mutedColor || d.mutedColor);
-preview.style.setProperty('--pv-field', t.fieldLabelColor || d.fieldLabelColor);
+/* Resolved canonical values only: invalid stored entries never reach the
+   preview, and absent keys show the same default the public site resolves. */
+preview.style.setProperty('--pv-display', appearanceResolve(t, 'displayColor'));
+preview.style.setProperty('--pv-accent', appearanceResolve(t, 'accentColor'));
+preview.style.setProperty('--pv-body', appearanceResolve(t, 'bodyColor'));
+preview.style.setProperty('--pv-decorative', appearanceResolve(t, 'decorativeColor'));
+preview.style.setProperty('--pv-muted', appearanceResolve(t, 'mutedColor'));
+preview.style.setProperty('--pv-field', appearanceResolve(t, 'fieldLabelColor'));
+/* Navigation shows its real semantic owner (muted normal state), never a
+   faked accent relationship. */
+preview.style.setProperty('--pv-nav', appearanceResolve(t, 'mutedColor'));
 var img = t.backgroundImage;
 if(img){
   var overlay = appearanceOverlayValue();
@@ -9593,13 +9769,20 @@ if(!adminContent) return;
 if(module === 'settings') refreshAppearancePreview();
 $$('[data-adm-appearance-reset]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
-  var d = APPEARANCE_COLOR_DEFAULTS;
-  var map = { displayColor:d.displayColor, accentColor:d.accentColor, bodyColor:d.bodyColor, decorativeColor:d.decorativeColor, mutedColor:d.mutedColor, fieldLabelColor:d.fieldLabelColor };
-  Object.keys(map).forEach(function(key){
+  /* Reset restores every canonical documented default (all 9 color keys);
+     background/media settings and unknown theme keys are preserved. */
+  var d = (appearanceCore() || {}).APPEARANCE_DEFAULTS || APPEARANCE_COLOR_DEFAULTS;
+  PALETTE_KEYS.forEach(function(key){
+    if(!d[key]) return;
     var p = 'settings.theme.' + key;
-    setByPath(ADMIN_DRAFT, p, map[key]);
-    $$('[data-adm-path="' + p + '"]', adminContent).forEach(function(el){ el.value = map[key]; });
+    setByPath(ADMIN_DRAFT, p, d[key]);
+    $$('[data-adm-path="' + p + '"]', adminContent).forEach(function(el){ el.value = d[key]; });
     markDirty(p);
+  });
+  /* Clear any stale invalid flags on color pairs. */
+  $$('[data-adm-color-field]', adminContent).forEach(function(field){
+    var pairId = field.getAttribute('data-adm-color-field');
+    setColorFieldInvalid(pairId, false);
   });
   refreshAppearancePreview();
 });
@@ -9623,8 +9806,12 @@ btn.addEventListener('click', function(){
   var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
   var preset = list.filter(function(p){ return p.id === id; })[0];
   if(!preset) return;
+  /* Apply never injects invalid colors: each entry is normalized first. */
+  var AC = appearanceCore();
   PALETTE_KEYS.forEach(function(k){
-    if(preset.colors && preset.colors[k] != null) setByPath(ADMIN_DRAFT, 'settings.theme.' + k, preset.colors[k]);
+    if(!preset.colors || preset.colors[k] == null) return;
+    var n = AC ? AC.normalizeHex(preset.colors[k]) : null;
+    if(n) setByPath(ADMIN_DRAFT, 'settings.theme.' + k, n);
   });
   markDirty('settings.theme');
   renderAdmin('settings');
@@ -9637,7 +9824,10 @@ btn.addEventListener('click', function(){
   var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
   var preset = list.filter(function(p){ return p.id === id; })[0];
   if(!preset) return;
-  list.push({ id: newId('palette'), name: (preset.name || 'Palette') + ' copy', colors: Object.assign({}, preset.colors) });
+  /* Duplicate must not share mutable nested structures. */
+  var AC2 = appearanceCore();
+  var dupColors = AC2 ? AC2.clonePaletteColors(preset.colors) : JSON.parse(JSON.stringify(preset.colors || {}));
+  list.push({ id: newId('palette'), name: (preset.name || 'Palette') + ' copy', colors: dupColors });
   markDirty('settings.theme.palettes');
   renderAdmin('settings');
 });
@@ -9835,7 +10025,70 @@ else if(kind === 'about') navigate('about');
 else if(kind === 'terms') navigate('terms');
 });
 });
+/* Color pairs own their writes (see inputColor contract): the generic raw
+   path handlers skip them so picker and HEX text never write independently,
+   never double-mark dirty, and never loop synthetic events. */
+$$('[data-adm-color-field]', adminContent).forEach(function(field){
+var pairId = field.getAttribute('data-adm-color-field');
+var picker = field.querySelector('[data-adm-color-picker]');
+var text = field.querySelector('[data-adm-color-text]');
+if(!picker || !text) return;
+var path = picker.getAttribute('data-adm-color-picker') || text.getAttribute('data-adm-color-text');
+if(!path) return;
+applyPathToControl(picker, path);
+applyPathToControl(text, path);
+if(picker.dataset.colorWired === '1') return;
+picker.dataset.colorWired = '1'; text.dataset.colorWired = '1';
+picker.addEventListener('input', function(){
+  var n = (appearanceCore() || {}).normalizeHex ? appearanceCore().normalizeHex(picker.value) : picker.value;
+  if(!n) return;
+  if(text.value !== n) text.value = n;
+  writeColorField(path, pairId, n, picker, text);
+});
+text.addEventListener('input', function(){
+  var raw = text.value;
+  var A = appearanceCore();
+  var n = A ? A.normalizeHex(raw) : null;
+  if(n){
+    if(picker.value !== n) picker.value = n;
+    writeColorField(path, pairId, n, picker, text);
+    return;
+  }
+  /* Incomplete/invalid: editing-buffer only. Preserve typing + caret, flag
+     invalid, keep last valid theme value in draft/preview. */
+  setColorFieldInvalid(pairId, true);
+});
+var commitText = function(){
+  var raw = text.value;
+  var A = appearanceCore();
+  var n = A ? A.normalizeHex(raw) : null;
+  if(n){
+    text.value = n;
+    if(picker.value !== n) picker.value = n;
+    writeColorField(path, pairId, n, picker, text);
+  } else {
+    /* Do not silently convert invalid values: restore last valid/resolved
+       display value, keep draft untouched. */
+    var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+    var key = appearanceColorKey(path);
+    var shown = appearanceResolve(theme, key) || (APPEARANCE_COLOR_DEFAULTS[key] || '');
+    if(shown && text.value !== shown) text.value = shown;
+    var cur = getByPath(ADMIN_DRAFT, path);
+    var curValid = A ? A.normalizeHex(cur) : null;
+    setColorFieldInvalid(pairId, String(raw).trim() !== '' && !curValid ? true : (String(raw).trim() !== '' && !n));
+    if(!raw || !String(raw).trim()) setColorFieldInvalid(pairId, false);
+    refreshAppearancePreview();
+  }
+};
+text.addEventListener('change', commitText);
+text.addEventListener('keydown', function(ev){
+  if(ev.key === 'Enter'){ ev.preventDefault(); commitText(); }
+  if(ev.key === 'Escape'){ commitText(); try{ text.blur(); }catch(e){} }
+});
+text.addEventListener('blur', commitText);
+});
 $$('[data-adm-path]', adminContent).forEach(function(el){
+if(el.hasAttribute && (el.hasAttribute('data-adm-color-pair') || el.hasAttribute('data-adm-color-picker') || el.hasAttribute('data-adm-color-text'))) return;
 var path = el.getAttribute('data-adm-path');
 var arrSplit = el.getAttribute('data-adm-array-split');
 if(el.type !== 'radio') applyPathToControl(el, path);
@@ -9860,6 +10113,8 @@ if(path === 'settings.music.volume'){
 }
 });
 el.addEventListener('change', function(){
+if(el.type === 'color') return;
+if(el.hasAttribute && (el.hasAttribute('data-adm-color-pair') || el.hasAttribute('data-adm-color-picker') || el.hasAttribute('data-adm-color-text'))) return;
 var v = readControlValue(el);
 if(arrSplit) v = String(v).split(arrSplit).map(function(s){ return s.trim(); }).filter(Boolean);
 // Safe publish guard: confirm before newly toggling a record published while required fields are missing.
@@ -12409,27 +12664,70 @@ function applyCmsSiteSettings(settings){
     }
   }
 
+  /* Authoritative theme reconciliation (Phase 1): the freshly hydrated theme
+     owns every Appearance variable. Valid explicit values are set; absent or
+     invalid keys remove the stale inline override so CSS/default resolution
+     takes over. Theme A -> partial Theme B -> empty theme never leaves old
+     colors stuck inline. CMS latest-request ownership and loading gates are
+     unchanged (this runs inside the normal apply path). */
   var cmsTheme = settings.theme || null;
-  if(cmsTheme){
-    var themeRoot = document.documentElement.style;
+  (function reconcileTheme(theme){
     var themeBody = document.body.style;
-    if(cmsTheme.pink) themeRoot.setProperty('--pink', cmsTheme.pink);
-    if(cmsTheme.lavender) themeRoot.setProperty('--purple', cmsTheme.lavender);
-    if(cmsTheme.background) themeBody.background = cmsTheme.background;
-    /* Semantic typography colors: one token per reading role, never per element.
-       They live on <body> where the tokens are declared, so the override wins. */
-    if(cmsTheme.displayColor) themeBody.setProperty('--text-display', cmsTheme.displayColor);
-    if(cmsTheme.accentColor) themeBody.setProperty('--text-accent', cmsTheme.accentColor);
-    if(cmsTheme.bodyColor) themeBody.setProperty('--text-body', cmsTheme.bodyColor);
-    if(cmsTheme.decorativeColor) themeBody.setProperty('--text-decorative', cmsTheme.decorativeColor);
-    if(cmsTheme.mutedColor) themeBody.setProperty('--text-muted', cmsTheme.mutedColor);
-    if(cmsTheme.fieldLabelColor) themeBody.setProperty('--text-field-label', cmsTheme.fieldLabelColor);
-  }
+    var themeRoot = document.documentElement.style;
+    var A = appearanceCore();
+    var clean = function(v){
+      if(A) return A.normalizeHex(v);
+      return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? ('#' + v.slice(1).toLowerCase()) : null;
+    };
+    var plan = A ? A.planThemeVars(theme || {}) : null;
+    var set = {}, remove = [];
+    if(plan){ set = plan.set; remove = plan.remove; }
+    else {
+      var fbMap = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted', fieldLabelColor:'--text-field-label', pink:'--pink', lavender:'--purple' };
+      Object.keys(fbMap).forEach(function(k){
+        var n = clean(theme && theme[k]);
+        if(n) set[fbMap[k]] = n; else remove.push(fbMap[k]);
+      });
+    }
+    /* Text tokens + pink/purple primitives live on <body> (the scope that
+       owns the public palette; an html-level --pink/--purple would lose to
+       the local body declaration). CMS Pink owns the public --pink
+       primitive; CMS Lavender owns --purple. These recolor the primitives
+       (nav rings, pills, badges, card accents) — not baked PNG/SVG art or
+       hard-coded gradient stops. The admin shell keeps its own palette. */
+    Object.keys(set).forEach(function(v){ themeBody.setProperty(v, set[v]); });
+    remove.forEach(function(v){ themeBody.removeProperty(v); });
+    /* Any legacy html-level primitive override is stale ownership: clear it
+       so the body scope is the single owner. */
+    themeRoot.removeProperty('--pink');
+    themeRoot.removeProperty('--purple');
+    /* Background: a valid explicit value wins; otherwise remove the stale
+       inline shorthand so the default pastel layers show again. */
+    var bg = clean(theme && theme.background);
+    if(bg) themeBody.background = bg;
+    else themeBody.removeProperty('background');
+    /* Stale early-boot appearance styles must not survive hydration. */
+    var early = document.getElementById('cmsAppearanceEarly');
+    if(early && early.parentNode) early.parentNode.removeChild(early);
+  })(cmsTheme);
   /* The database is the source of truth: always reconcile the background and
      the first-paint cache, so a cleared/absent theme can never be masked by a
-     stale localStorage snapshot. */
+     stale localStorage snapshot. Only valid colors are cached. */
   applyCmsSiteBackground(cmsTheme);
-  try{ localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: cmsTheme || {} })); }catch(e){}
+  try{
+    var cacheTheme = {};
+    if(cmsTheme && typeof cmsTheme === 'object'){
+      var AC = appearanceCore();
+      Object.keys(cmsTheme).forEach(function(k){
+        var v = cmsTheme[k];
+        if(AC && AC.COLOR_KEYS.indexOf(k) !== -1){
+          var n = AC.normalizeHex(v);
+          if(n) cacheTheme[k] = n;
+        } else { cacheTheme[k] = v; }
+      });
+    }
+    localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: cacheTheme }));
+  }catch(e){}
 
   if(settings.motion){
     if(window.CrabbieSiteMotion && typeof window.CrabbieSiteMotion.applyMotion === 'function'){

@@ -4263,6 +4263,109 @@ try {
     assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'a palette can be deleted');
     console.log('PASS admin Appearance exposes role tokens, a live preview, the background media picker and saved palettes (SDK fixture)');
 
+    // ---- Appearance Phase 1: validated color fields, truthful preview, authoritative theme ----
+    const phase1Display = page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]');
+    const phase1Picker = page.locator('[data-adm-path="settings.theme.displayColor"][type="color"]');
+    // B/D: a full valid HEX updates the picker and the live preview before Save.
+    await phase1Display.fill('#123abc');
+    assert.equal(await phase1Picker.inputValue(), '#123abc', 'a valid hex edit updates the picker immediately');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim()), '#123abc', 'a valid edit changes the live preview before save');
+    // A/E: partial typing stays an editing buffer (draft/preview keep last valid).
+    await phase1Display.fill('#ff8a');
+    const phase1Partial = await page.evaluate(() => ({
+      preview: getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim(),
+      picker: document.querySelector('[data-adm-path="settings.theme.displayColor"][type="color"]').value,
+      invalid: document.querySelector('[data-adm-color-text="settings.theme.displayColor"]').getAttribute('aria-invalid'),
+      text: document.querySelector('[data-adm-color-text="settings.theme.displayColor"]').value,
+    }));
+    assert.equal(phase1Partial.preview, '#123abc', 'a partial hex never reaches the live preview');
+    assert.equal(phase1Partial.picker, '#123abc', 'a partial hex never reaches the picker');
+    assert.equal(phase1Partial.invalid, 'true', 'a partial hex flags an accessible invalid state');
+    assert.equal(phase1Partial.text, '#ff8a', 'what the user typed is preserved visually');
+    // E (invalid): garbage keeps the last valid preview/picker after blur.
+    await phase1Display.fill('not-a-color');
+    await phase1Display.blur();
+    await page.waitForTimeout(120);
+    const phase1Invalid = await page.evaluate(() => ({
+      preview: getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--pv-display').trim(),
+      picker: document.querySelector('[data-adm-path="settings.theme.displayColor"][type="color"]').value,
+    }));
+    assert.equal(phase1Invalid.preview, '#123abc', 'an invalid edit preserves the last valid preview');
+    assert.equal(phase1Invalid.picker, '#123abc', 'an invalid edit preserves the last valid picker');
+    // C: a picker change updates the HEX field immediately.
+    await phase1Picker.fill('#abcdef');
+    assert.equal(await phase1Display.inputValue(), '#abcdef', 'a picker change updates the hex field immediately');
+    // F: an absent old-theme key resolves to the canonical default.
+    assert.equal(await page.evaluate(() => window.CrabbieAppearance.resolveColor({}, 'displayColor')), '#7a3d6e', 'a missing old theme key resolves to the canonical default');
+    // J: preview samples match public semantic ownership (accent price, muted nav, candy button).
+    const phase1PreviewMap = await page.evaluate(() => {
+      const q = (sel) => getComputedStyle(document.querySelector('#adminContent ' + sel));
+      const pv = (name) => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue(name).trim();
+      return {
+        accentSample: q('.apv-accent').color,
+        accentToken: pv('--pv-accent'),
+        navSample: q('.apv-nav').color,
+        navToken: pv('--pv-nav'),
+        mutedToken: pv('--pv-muted'),
+        btnBg: q('.apv-btn').backgroundImage,
+      };
+    });
+    const hexToRgb = (hex) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+    };
+    assert.equal(phase1PreviewMap.accentSample, hexToRgb(phase1PreviewMap.accentToken), 'the accent sample follows the accent token (price/highlight ownership)');
+    assert.equal(phase1PreviewMap.navSample, hexToRgb(phase1PreviewMap.navToken), 'the navigation sample follows its real muted owner');
+    assert.equal(phase1PreviewMap.navToken, phase1PreviewMap.mutedToken, 'the navigation sample is owned by muted, not accent');
+    assert.ok(!phase1PreviewMap.btnBg.includes(phase1PreviewMap.accentToken), 'the primary button keeps its candy gradient instead of an accent fill');
+    // G/H/I: authoritative reconciliation on the public site with sentinel colors.
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieSiteContent));
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#111111', accentColor: '#222222', pink: '#010203', lavender: '#040506' } });
+    });
+    const phase1Sentinel = await page.evaluate(() => ({
+      pink: getComputedStyle(document.body).getPropertyValue('--pink').trim(),
+      purple: getComputedStyle(document.body).getPropertyValue('--purple').trim(),
+      pinkInline: document.body.style.getPropertyValue('--pink'),
+      purpleInline: document.body.style.getPropertyValue('--purple'),
+      htmlPink: document.documentElement.style.getPropertyValue('--pink'),
+    }));
+    assert.equal(phase1Sentinel.pink, '#010203', 'CMS pink reaches the public body subtree primitive');
+    assert.equal(phase1Sentinel.purple, '#040506', 'CMS lavender reaches the public body subtree primitive');
+    assert.equal(phase1Sentinel.pinkInline, '#010203', 'pink is owned at the body scope');
+    assert.equal(phase1Sentinel.htmlPink, '', 'no stale html-level primitive override remains');
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { accentColor: '#333333' } });
+    });
+    const phase1Public = await page.evaluate(() => ({
+      displayInline: document.body.style.getPropertyValue('--text-display'),
+      accentInline: document.body.style.getPropertyValue('--text-accent'),
+      earlyGone: !document.getElementById('cmsAppearanceEarly'),
+    }));
+    assert.equal(phase1Public.displayInline, '', 'a missing key in theme B clears the stale theme A value');
+    assert.equal(phase1Public.accentInline, '#333333', 'the surviving theme B value stays applied');
+    assert.equal(phase1Public.earlyGone, true, 'stale early-boot appearance styles do not survive hydration');
+    // I: navigation normal/hover/active ownership produces the intended computed colors.
+    const phase1Nav = await page.evaluate(() => {
+      const css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent || '').join('\n');
+      const dive = document.createElement('div');
+      dive.innerHTML = '<nav class="nav-links"><a id="navProbe">x</a></nav><div class="mobile-menu"><a id="navProbeM">y</a></div>';
+      document.body.appendChild(dive);
+      const normal = getComputedStyle(dive.querySelector('#navProbe')).color;
+      const mobileNormal = getComputedStyle(dive.querySelector('#navProbeM')).color;
+      dive.querySelector('#navProbe').classList.add('active');
+      dive.querySelector('#navProbeM').classList.add('active');
+      const active = getComputedStyle(dive.querySelector('#navProbe')).color;
+      const mobileActive = getComputedStyle(dive.querySelector('#navProbeM')).color;
+      dive.remove();
+      return { normal, mobileNormal, active, mobileActive, hasMobileActive: css.includes('.mobile-menu a.active') };
+    });
+    assert.ok(phase1Nav.hasMobileActive, 'an explicit mobile active rule exists');
+    assert.equal(phase1Nav.active, 'rgb(255, 255, 255)', 'desktop active nav keeps the selected-state label');
+    assert.equal(phase1Nav.mobileActive, 'rgb(255, 255, 255)', 'mobile active nav keeps the selected-state label instead of the muted rule');
+    console.log('PASS appearance Phase 1 color ownership, preview truthfulness, and authoritative reconciliation (SDK fixture)');
+
     // ---- Settings roundtrip: admin edit -> DB -> reload -> public runtime ----
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -4285,9 +4388,11 @@ try {
       await page.locator('#adminTopSave').click();
       await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
     };
-    // Appearance: set the question-label colour, choose a background image, then Save.
+    // Appearance: set the question-label colour, pink primitive and display token, choose a background image, then Save.
     await page.locator('[data-adm-settings-group="Appearance"]').click();
     await page.locator('[data-adm-path="settings.theme.fieldLabelColor"][type="text"]').fill('#112244');
+    await page.locator('[data-adm-path="settings.theme.pink"][type="text"]').fill('#010203');
+    await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#0a0b0c');
     await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
     await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
@@ -4313,6 +4418,8 @@ try {
     const musicRow = savedRows.find((r) => r.key === 'music');
     assert.ok(themeRow && themeRow.value.backgroundImage && themeRow.value.backgroundImage.includes('bg.png'), 'theme.backgroundImage persists to the database');
     assert.equal(themeRow.value.fieldLabelColor, '#112244', 'theme.fieldLabelColor persists to the database');
+    assert.equal(themeRow.value.pink, '#010203', 'theme.pink persists to the database');
+    assert.equal(themeRow.value.displayColor, '#0a0b0c', 'theme.displayColor persists to the database');
     assert.equal(themeRow.value.backgroundSize, 'cover', 'theme.backgroundSize persists');
     assert.equal(typeof themeRow.value.backgroundOverlay, 'number', 'theme.backgroundOverlay persists');
     assert.equal(Array.isArray(themeRow.value.palettes), true, 'theme.palettes persists');
@@ -4339,11 +4446,15 @@ try {
       audioSrc: document.querySelector('audio') ? document.querySelector('audio').src : '',
       pets: document.querySelectorAll('#crabbiePetLayer .crabbie-pet').length,
       candy: document.querySelectorAll('#crabbieCandyLayer .crabbie-candy').length,
-      fieldLabel: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim()
+      fieldLabel: getComputedStyle(document.body).getPropertyValue('--text-field-label').trim(),
+      pink: getComputedStyle(document.body).getPropertyValue('--pink').trim(),
+      display: getComputedStyle(document.body).getPropertyValue('--text-display').trim()
     }));
     assert.ok(applied.snapshot && applied.snapshot.theme.backgroundImage.includes('bg.png'), 'the first-paint snapshot matches the saved theme');
     assert.ok(applied.bgStyle.includes('bg.png') && applied.beforeImage.includes('bg.png'), 'the persisted background is applied publicly after reload');
     assert.equal(applied.fieldLabel, '#112244', 'the saved question-label colour survives the reload');
+    assert.equal(applied.pink, '#010203', 'the saved pink primitive survives the reload');
+    assert.equal(applied.display, '#0a0b0c', 'the saved display token survives the reload');
     assert.equal(applied.music, 1, 'the public music control shows from saved settings');
     assert.ok(applied.audioSrc.includes('song.mp3'), 'the public audio src equals the saved URL');
     assert.equal(applied.pets >= 1, true, 'the saved pet setting spawns pets publicly');
