@@ -4243,7 +4243,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <div><h3>Prefer email?</h3><p>You can also send your commission request directly to:</p><div class="email-strong">crabbie.art@gmail.com</div></div>
           <div class="row">
             <a class="btn btn-purple" id="directEmail" href="mailto:crabbie.art@gmail.com">Open email</a>
-            <a class="btn btn-ghost" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
+            <a class="btn btn-ghost" id="directSocial" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
           </div>
         </div>
       </div>
@@ -4442,11 +4442,11 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <h2>Say a little hello.</h2>
           <p class="letter-note">Working hours: 03:00–14:00 UTC/GMT. I usually reply within 48 hours.</p>
           <div class="reply-badge"><span class="dot"></span> REPLY TIME · WITHIN 48 HOURS</div>
-          <div class="contact-rows">
+          <div class="contact-rows" id="contactRows">
             <div class="contact-row"><span class="ic">✉</span><div><div class="ck">Email</div><div class="cv">crabbie.art@gmail.com</div></div></div>
             <div class="contact-row"><span class="ic">✦</span><div><div class="ck">Twitter / X</div><div class="cv">@crbbie</div></div></div>
           </div>
-          <div class="contact-actions">
+          <div class="contact-actions" id="contactActions">
             <a class="btn btn-primary" href="mailto:crabbie.art@gmail.com">Email Crabbie</a>
             <a class="btn btn-purple" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
             <button class="btn btn-yellow" id="copyEmailBtn" type="button">Copy Email</button>
@@ -4576,7 +4576,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         <li><a href="#commissions" data-goto="commissions">Commissions</a></li>
         <li><a href="#about" data-goto="about">About</a></li>
       </ul></div>
-      <div class="foot"><h5>Contact</h5><ul>
+      <div class="foot"><h5>Contact</h5><ul id="footerContactList">
         <li><a id="footEmail" href="#contact" data-goto="contact">Email</a></li>
         <li><a id="footTwitter" href="#contact" data-goto="contact" target="_blank" rel="noopener noreferrer">Twitter / X</a></li>
         <li><a href="#commissions" data-goto="commissions">Request a commission</a></li>
@@ -7240,7 +7240,10 @@ seo: { title:'CRABBIE', description:'', socialImage:'' },
 footer: { footer:'a little candy shop of art' },
   interface: { uiCopy: UI_COPY.map(function(r){ return Object.assign({}, r); }) },
   portfolioThanks: { enabled: true, heading: 'Made with lovely people ♡', body: 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡' },
-  contact: { email:'crabbie.art@gmail.com', twitter:'https://x.com/crbbie' }
+  contact: { email:'crabbie.art@gmail.com', twitter:'https://x.com/crbbie', items:[
+{ id:'email', type:'email', label:'Email', value:'crabbie.art@gmail.com', url:'', icon:'✉', visible:true, showInFooter:true },
+{ id:'twitter', type:'link', label:'Twitter / X', value:'@crbbie', url:'https://x.com/crbbie', icon:'✦', visible:true, showInFooter:true }
+] }
 },
 navigation: [
 { id:'n1', title:'Home', url:'#home', published:true },
@@ -9259,9 +9262,39 @@ var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.setti
 return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
+function adminContactItems(){
+var settings = ADMIN_DRAFT.settings = ADMIN_DRAFT.settings || {};
+var contact = settings.contact = settings.contact || {};
+if(!Array.isArray(contact.items)){
+  var model = window.CrabbieSiteContentModel;
+  if(model && typeof model.contactItemsSettings === 'function') contact.items = model.contactItemsSettings(contact);
+  else {
+    contact.items = [];
+    if(contact.email) contact.items.push({ id:'email', type:'email', label:'Email', value:String(contact.email), url:'', icon:'✉', visible:true, showInFooter:true });
+    if(contact.twitter) contact.items.push({ id:'twitter', type:'link', label:'Twitter / X', value:'Twitter / X', url:String(contact.twitter), icon:'✦', visible:true, showInFooter:true });
+  }
+}
+return contact.items;
+}
 function renderAdminContact(){
-var base = 'settings.contact';
-return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2><div class="adm-section"><h4>Contact</h4><label class="adm-field"><span class="af-label">Email</span><input type="email" data-adm-path="' + base + '.email" value="' + esc(getByPath(ADMIN_DRAFT, base + '.email') || '') + '"></label><label class="adm-field" style="margin-top:10px;"><span class="af-label">Twitter</span><input type="text" data-adm-path="' + base + '.twitter" value="' + esc(getByPath(ADMIN_DRAFT, base + '.twitter') || '') + '"></label></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+var base = 'settings.contact.items';
+var items = adminContactItems();
+var typeOptions = [{value:'email',label:'Email'},{value:'link',label:'Link / social'},{value:'text',label:'Text only'}];
+var rows = items.map(function(item, i){
+  var path = base + '.' + i;
+  var title = (item.label || '').trim() || ('Contact ' + (i + 1));
+  return '<div class="adm-repeat" data-adm-contact-row="' + i + '"><div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(title) + '</span><span class="rr-actions">'
+    + '<button type="button" data-adm-contact-move="' + i + '" data-adm-contact-dir="up" aria-label="Move contact up">↑</button>'
+    + '<button type="button" data-adm-contact-move="' + i + '" data-adm-contact-dir="down" aria-label="Move contact down">↓</button>'
+    + '<button type="button" data-adm-contact-del="' + i + '" aria-label="Delete contact">✕</button></span></div>'
+    + '<div class="adm-row three">' + inputText('Name / label', path + '.label') + inputSelect('Type', path + '.type', typeOptions) + inputText('Icon', path + '.icon', { placeholder:'✦' }) + '</div>'
+    + '<div class="adm-row" style="margin-top:8px;">' + inputText('Display text', path + '.value', { hint:'What visitors see, e.g. @crabbie or hello@email.com' }) + inputText('Link URL', path + '.url', { hint:'Optional for text. Use https://… for social links.' }) + '</div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">' + inputCheck('Show on website', path + '.visible') + inputCheck('Show in footer', path + '.showInFooter') + '</div></div>';
+}).join('');
+return '<div class="adm-editor"><h2>Contact / Social</h2><p class="ae-sub">Build the Contact list shown on the public Contact page. Rename, reorder, hide or delete any row; footer visibility is controlled separately.</p>'
+  + '<div class="adm-section"><h4>Contact methods</h4><div data-adm-contact-list="1">' + (rows || '<p class="af-hint">No contact methods are visible. Add one below.</p>') + '</div>'
+  + '<button type="button" class="adm-btn-sm purple" data-adm-contact-add="1">+ Add contact</button></div>'
+  + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function uploadStatusHtml(){
@@ -10896,7 +10929,33 @@ var arr = getByPath(ADMIN_DRAFT, path); if(!Array.isArray(arr)) return;
 arr.splice(i, 1); markDirty(); renderAdmin('portfolio');
 });
 });
-$$('[data-adm-about-add]', adminContent).forEach(function(btn){
+$('[data-adm-contact-add]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var items = adminContactItems();
+items.push({ id:newId('contact'), type:'link', label:'New contact', value:'', url:'', icon:'✦', visible:true, showInFooter:true });
+markDirty('settings.contact.items'); renderAdmin('contact');
+});
+});
+$('[data-adm-contact-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var items = adminContactItems();
+var i = parseInt(btn.getAttribute('data-adm-contact-del'), 10);
+if(isNaN(i) || i < 0 || i >= items.length) return;
+items.splice(i, 1); markDirty('settings.contact.items'); renderAdmin('contact');
+});
+});
+$('[data-adm-contact-move]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+var items = adminContactItems();
+var i = parseInt(btn.getAttribute('data-adm-contact-move'), 10);
+var dir = btn.getAttribute('data-adm-contact-dir') === 'up' ? -1 : 1;
+var j = i + dir;
+if(isNaN(i) || i < 0 || j < 0 || i >= items.length || j >= items.length) return;
+var tmp = items[i]; items[i] = items[j]; items[j] = tmp;
+markDirty('settings.contact.items'); renderAdmin('contact');
+});
+});
+$('[data-adm-about-add]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var group = btn.getAttribute('data-adm-about-add');
 var page = ADMIN_DRAFT.pages && ADMIN_DRAFT.pages.about; if(!page) return;
@@ -13053,6 +13112,98 @@ function cmsText(group, key){
   var v = group[key];
   return typeof v === 'string' ? v.trim() : '';
 }
+function normalizedContactItems(contact){
+  var model = window.CrabbieSiteContentModel;
+  if(model && typeof model.contactItemsSettings === 'function') return model.contactItemsSettings(contact || {});
+  var group = contact && typeof contact === 'object' ? contact : {};
+  if(Array.isArray(group.items)) return group.items.map(function(item, i){
+    item = item && typeof item === 'object' ? item : {};
+    return { id:item.id || ('contact-' + (i + 1)), type:['email','link','text'].indexOf(item.type) !== -1 ? item.type : 'link', label:typeof item.label === 'string' ? item.label : 'Contact', value:typeof item.value === 'string' ? item.value : '', url:typeof item.url === 'string' ? item.url : '', icon:typeof item.icon === 'string' ? item.icon : '✦', visible:item.visible !== false, showInFooter:item.showInFooter !== false };
+  });
+  var rows = [];
+  if(group.email) rows.push({id:'email',type:'email',label:'Email',value:String(group.email),url:'',icon:'✉',visible:true,showInFooter:true});
+  if(group.twitter) rows.push({id:'twitter',type:'link',label:'Twitter / X',value:'Twitter / X',url:String(group.twitter),icon:'✦',visible:true,showInFooter:true});
+  return rows;
+}
+function contactItemHref(item){
+  if(!item || item.type === 'text') return '';
+  return safePublicUrl(item.url || item.value, false);
+}
+function contactLinkAttrs(href){
+  if(!href) return '';
+  if(href.charAt(0) === '#') return ' href="' + esc(href) + '" data-goto="' + esc(href.slice(1)) + '"';
+  if(/^https:\/\//i.test(href)) return ' href="' + esc(href) + '" target="_blank" rel="noopener noreferrer"';
+  return ' href="' + esc(href) + '"';
+}
+function applyCmsContact(contact){
+  var items = normalizedContactItems(contact || {});
+  var visible = items.filter(function(item){ return item.visible !== false && (String(item.label || '').trim() || String(item.value || '').trim() || String(item.url || '').trim()); });
+  var rowsRoot = document.getElementById('contactRows') || document.querySelector('[data-view="contact"] .contact-rows');
+  if(rowsRoot){
+    rowsRoot.innerHTML = visible.map(function(item){
+      var href = contactItemHref(item);
+      var label = String(item.label || '').trim() || 'Contact';
+      var value = String(item.value || item.url || '').trim();
+      var valueHtml = href ? '<a class="cv"' + contactLinkAttrs(href) + '>' + esc(value || label) + '</a>' : '<div class="cv">' + esc(value || label) + '</div>';
+      return '<div class="contact-row" data-cms-contact-id="' + esc(item.id || '') + '"><span class="ic">' + esc(item.icon || '✦') + '</span><div><div class="ck">' + esc(label) + '</div>' + valueHtml + '</div></div>';
+    }).join('');
+  }
+
+  var emailItem = visible.filter(function(item){ return item.type === 'email' && /^mailto:/i.test(contactItemHref(item)); })[0] || null;
+  var emailHref = emailItem ? contactItemHref(emailItem) : '';
+  var primaryEmail = emailHref ? emailHref.replace(/^mailto:/i, '') : '';
+  MAIL = primaryEmail;
+  var emailStrong = document.querySelector('.email-strong');
+  if(emailStrong) emailStrong.textContent = primaryEmail;
+  [briefEmailLink, directEmailLink].forEach(function(link){
+    if(!link) return;
+    if(emailHref){ link.href = emailHref; link.style.display = ''; }
+    else { link.removeAttribute('href'); link.style.display = 'none'; }
+  });
+
+  var socialItem = visible.filter(function(item){ return item.type === 'link' && !!contactItemHref(item); })[0] || null;
+  var directSocial = document.getElementById('directSocial');
+  if(directSocial){
+    if(socialItem){
+      var socialHref = contactItemHref(socialItem);
+      directSocial.setAttribute('href', socialHref);
+      directSocial.textContent = (socialItem.label || 'Social') + ' ↗';
+      directSocial.style.display = '';
+      if(/^https:\/\//i.test(socialHref)){ directSocial.target = '_blank'; directSocial.rel = 'noopener noreferrer'; }
+      else { directSocial.removeAttribute('target'); directSocial.removeAttribute('rel'); }
+    } else {
+      directSocial.removeAttribute('href'); directSocial.style.display = 'none';
+    }
+  }
+
+  var actionsRoot = document.getElementById('contactActions') || document.querySelector('[data-view="contact"] .contact-actions');
+  if(actionsRoot){
+    var actions = visible.map(function(item, i){
+      var href = contactItemHref(item); if(!href) return '';
+      var cls = i === 0 ? 'btn btn-primary' : 'btn btn-purple';
+      return '<a class="' + cls + '"' + contactLinkAttrs(href) + '>' + esc(item.label || item.value || 'Open') + '</a>';
+    }).join('');
+    if(primaryEmail) actions += '<button class="btn btn-yellow" id="copyEmailBtn" type="button">Copy Email</button>';
+    actionsRoot.innerHTML = actions;
+    var copy = document.getElementById('copyEmailBtn');
+    if(copy) copy.addEventListener('click', function(){
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(primaryEmail).then(function(){ toast('Email copied: ' + primaryEmail); }).catch(function(){ toast(primaryEmail); });
+      else toast(primaryEmail);
+    });
+  }
+
+  var footerRoot = document.getElementById('footerContactList');
+  if(footerRoot){
+    var contactLinks = visible.filter(function(item){ return item.showInFooter !== false; }).map(function(item){
+      var href = contactItemHref(item) || '#contact';
+      return '<li data-cms-footer-contact="' + esc(item.id || '') + '"><a' + contactLinkAttrs(href) + '>' + esc(item.label || item.value || 'Contact') + '</a></li>';
+    }).join('');
+    footerRoot.innerHTML = contactLinks
+      + '<li><a href="#commissions" data-goto="commissions">Request a commission</a></li>'
+      + '<li><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>';
+  }
+}
+
 function applyCmsSiteSettings(settings){
   if(!settings) return;
   try { window.__cmsPublicSettings = settings; } catch(_) {}
@@ -13106,53 +13257,7 @@ function applyCmsSiteSettings(settings){
   }
 
   if(settings.contact && typeof settings.contact === 'object'){
-    /* Present-with-empty clears public; a missing key leaves public alone. */
-    var contactHasEmail = Object.prototype.hasOwnProperty.call(settings.contact, 'email');
-    var contactEmail = contactHasEmail ? String(settings.contact.email == null ? '' : settings.contact.email).trim() : null;
-    if(contactHasEmail){
-      MAIL = contactEmail || '';
-      if(contactEmail){
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.href = 'mailto:' + contactEmail;
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = contactEmail;
-        });
-        var emailStrong = document.querySelector('.email-strong');
-        if(emailStrong) emailStrong.textContent = contactEmail;
-        if(directEmailLink) directEmailLink.href = 'mailto:' + contactEmail;
-        var footEmailSet = document.getElementById('footEmail');
-        if(footEmailSet){
-          footEmailSet.textContent = contactEmail;
-          footEmailSet.href = 'mailto:' + contactEmail;
-          footEmailSet.removeAttribute('data-goto');
-        }
-      } else {
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.removeAttribute('href');
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = '';
-        });
-        var emailStrongClear = document.querySelector('.email-strong');
-        if(emailStrongClear) emailStrongClear.textContent = '';
-        var footEmailClear = document.getElementById('footEmail');
-        if(footEmailClear){ footEmailClear.textContent = ''; footEmailClear.removeAttribute('href'); }
-      }
-    }
-    var contactHasTwitter = Object.prototype.hasOwnProperty.call(settings.contact, 'twitter');
-    var contactTwitter = contactHasTwitter ? String(settings.contact.twitter == null ? '' : settings.contact.twitter).trim() : null;
-    if(contactHasTwitter){
-      if(contactTwitter){
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.href = contactTwitter;
-        });
-        var footTwitterSet = document.getElementById('footTwitter');
-        if(footTwitterSet){ footTwitterSet.href = contactTwitter; footTwitterSet.removeAttribute('data-goto'); }
-      } else {
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.removeAttribute('href');
-        });
-        var footTwitterClear = document.getElementById('footTwitter');
-        if(footTwitterClear){ footTwitterClear.removeAttribute('href'); }
-      }
-    }
+    applyCmsContact(settings.contact);
   }
 
   /* Authoritative theme reconciliation (Phase 1 + 2A): the freshly hydrated
