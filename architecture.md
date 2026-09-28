@@ -276,6 +276,37 @@ Do not create server endpoints merely to mirror browser-safe public Supabase que
 
 A strict Content Security Policy is not currently enabled because inline scripts/styles and runtime CDN imports would need to be migrated first.
 
+## Appearance data flow (Core + Advanced text colors)
+
+Pure business/data rules live in `src/appearance-core.js` (`window.CrabbieAppearance`):
+HEX validation/normalization, canonical defaults, resolved values, palette
+snapshot/apply, cache validation, CSS-variable plans, and the single Advanced
+registry (`TEXT_OVERRIDE_GROUPS`, `TEXT_OVERRIDE_ROLES`, `CORE_SOURCE_LABELS`).
+Browser wiring/DOM logic lives in `crabbie-port26.html`, never in the core module.
+
+One consistent pipeline, Core and Advanced alike:
+
+```text
+Admin control → editing buffer → setTextOverride()/draft → resolver →
+preview → save → hydration → public component variable
+```
+
+- The Admin color-field controller is shared: the picker writes a valid
+  `#rrggbb` immediately; HEX text writes only when complete and valid.
+  Advanced paths (`settings.theme.textOverrides.<group>.<key>`) go through
+  `setTextOverride()` (canonical deletion/pruning), never raw `setByPath`.
+- Absent overrides render the live inherited value without persisting it.
+  In-place DOM refreshers (no full panel rerender) keep `<details>` state,
+  focus, caret, and editing buffers intact during normal editing.
+- `refreshAppearancePreview()` sets resolved `--text-*` core tokens plus
+  explicit Advanced component variables on the preview container, so preview
+  samples share the public `var(--component, var(--global))` chains.
+- Saves sanitize through `sanitizeThemeForWrite()` (valid leaves only);
+  hydration reconciles authoritatively (`planThemeVars()` + `planAdvancedVars()`):
+  explicit values are set on `body`, absent/invalid keys remove stale inline
+  overrides so CSS fallback inheritance resumes. With no `textOverrides` the
+  public computed behavior equals the pre-Advanced baseline.
+
 ## Known architectural debt that should not be opportunistically refactored
 
 - Large single SPA HTML file.
