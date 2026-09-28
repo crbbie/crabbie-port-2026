@@ -571,6 +571,7 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 /* Long emails/links wrap inside the narrow footer column. */
 .foot ul a{font-size:13.5px; font-weight:700; color:var(--berry-soft);padding:4px 0; transition:.25s; display:inline-block; cursor:pointer; max-width:100%; overflow-wrap:anywhere;}
 .foot ul a:hover{ color: var(--pink-hot); transform: translateX(4px);}
+.foot-contact-text{font-size:13.5px;font-weight:700;color:var(--berry-soft);padding:4px 0;display:inline-block;max-width:100%;overflow-wrap:anywhere;}
 .foot-bottom{border-top: 2px dashed rgba(255,92,154,.25);margin-top: 20px; padding-top: 22px;display:flex; justify-content:space-between; font-size:12px;color: var(--berry-faint); font-weight:700;}
 .admin-entry-link{color:var(--berry-faint);text-decoration:none;font-weight:800;transition:.2s;}
 .admin-entry-link:hover{color:var(--pink-hot);}
@@ -1023,6 +1024,8 @@ footer{padding: 44px 0 34px;background: linear-gradient(180deg, transparent 0%, 
 .contact-row .ck{font-family:var(--font-decorative); font-weight:600; font-size: 10.5px;letter-spacing:.14em; text-transform:uppercase; color: var(--berry-faint);}
 /* Wrap at natural points; only break an over-long token when there is no room. */
 .contact-row .cv{font-family:var(--font-body); font-weight:700; font-size: 16px; color: var(--berry);word-break: normal;overflow-wrap:anywhere;}
+.contact-row .cv a{color:inherit;text-decoration:none;}
+.contact-row .cv a:hover{color:var(--pink-hot);}
 .contact-actions{ display:flex; gap: 14px; justify-content:center; flex-wrap:wrap; }
 
 /* 404 / LOADING */
@@ -2084,6 +2087,11 @@ button.cl-item:focus-visible{ outline: 3px solid var(--purple-hot); outline-offs
 }
 @media (min-width: 1186px){ .adm-jumpbar{ display: none !important; } }
 .adm-pub-warning{ margin-top: 10px; background: var(--yellow-light); border: 1.5px solid var(--yellow-hot); color: #8a6200; border-radius: 14px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
+.adm-contact-items{display:flex;flex-direction:column;gap:12px;}
+.adm-contact-item{background:#fff;border:1.5px solid var(--pink-light);border-radius:14px;padding:12px;}
+.adm-contact-item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.adm-contact-item-title{font-family:var(--font-body);font-size:12px;font-weight:800;color:var(--berry);overflow-wrap:anywhere;}
+.adm-contact-flags{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;}
 .adm-media-preview{ position: relative; margin-top: 6px; width: 100%; max-width: 300px; }
 .adm-media-preview img{ display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
 .adm-media-preview audio{ display: block; width: 100%; border-radius: 12px; border: 1.5px solid var(--pink-light); background: #fff; }
@@ -4454,14 +4462,14 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <h2>Say a little hello.</h2>
           <p class="letter-note">Working hours: 03:00–14:00 UTC/GMT. I usually reply within 48 hours.</p>
           <div class="reply-badge"><span class="dot"></span> REPLY TIME · WITHIN 48 HOURS</div>
-          <div class="contact-rows">
+          <div class="contact-rows" id="contactRows">
             <div class="contact-row"><span class="ic">✉</span><div><div class="ck">Email</div><div class="cv">crabbie.art@gmail.com</div></div></div>
             <div class="contact-row"><span class="ic">✦</span><div><div class="ck">Twitter / X</div><div class="cv">@crbbie</div></div></div>
           </div>
-          <div class="contact-actions">
+          <div class="contact-actions" id="contactActions">
             <a class="btn btn-primary" href="mailto:crabbie.art@gmail.com">Email Crabbie</a>
             <a class="btn btn-purple" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
-            <button class="btn btn-yellow" id="copyEmailBtn" type="button">Copy Email</button>
+            <button class="btn btn-yellow" id="copyEmailBtn" data-contact-copy="email" type="button">Copy Email</button>
           </div>
         </div>
       </div>
@@ -4588,11 +4596,11 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         <li><a href="#commissions" data-goto="commissions">Commissions</a></li>
         <li><a href="#about" data-goto="about">About</a></li>
       </ul></div>
-      <div class="foot"><h5>Contact</h5><ul>
-        <li><a id="footEmail" href="#contact" data-goto="contact">Email</a></li>
-        <li><a id="footTwitter" href="#contact" data-goto="contact" target="_blank" rel="noopener noreferrer">Twitter / X</a></li>
-        <li><a href="#commissions" data-goto="commissions">Request a commission</a></li>
-        <li><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>
+      <div class="foot"><h5>Contact</h5><ul id="footContactList">
+        <li data-contact-default="1"><a id="footEmail" href="#contact" data-goto="contact">crabbie.art@gmail.com</a></li>
+        <li data-contact-default="1"><a id="footTwitter" href="#contact" data-goto="contact" target="_blank" rel="noopener noreferrer">Twitter / X</a></li>
+        <li data-contact-static="commission"><a href="#commissions" data-goto="commissions">Request a commission</a></li>
+        <li data-contact-static="terms"><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>
       </ul></div>
     </div>
     <div class="foot-bottom">
@@ -6043,6 +6051,84 @@ var briefEmailLink = document.getElementById('briefEmail');
 var briefEditBtn = document.getElementById('briefEdit');
 var directEmailLink = document.getElementById('directEmail');
 var MAIL = 'crabbie.art@gmail.com';
+function contactSafeHref(raw){
+  var href = String(raw == null ? '' : raw).trim();
+  if(!href) return '';
+  if(/^mailto:[^\s@]+@[^\s@]+$/i.test(href)) return href;
+  if(/^https?:\/\//i.test(href)) return href;
+  return '';
+}
+function contactItemsFromSettings(contact){
+  contact = contact && typeof contact === 'object' ? contact : {};
+  var source = Array.isArray(contact.items) ? contact.items : contactLegacyItems(contact);
+  return source.map(function(item, index){
+    item = item && typeof item === 'object' ? item : {};
+    return {
+      id:String(item.id || ('contact-' + index)),
+      label:String(item.label || '').trim(),
+      value:String(item.value || '').trim(),
+      url:String(item.url || '').trim(),
+      icon:String(item.icon || '✦').trim() || '✦',
+      footerLabel:String(item.footerLabel || '').trim(),
+      visible:item.visible !== false,
+      showButton:item.showButton !== false,
+      buttonLabel:String(item.buttonLabel || '').trim()
+    };
+  });
+}
+function contactMailFromItems(items, contact){
+  for(var i=0;i<items.length;i++){
+    var href = contactSafeHref(items[i].url);
+    if(href.toLowerCase().indexOf('mailto:') === 0) return href.slice(7);
+  }
+  return String((contact && contact.email) || '').trim();
+}
+function applyPublicContact(contact){
+  contact = contact && typeof contact === 'object' ? contact : {};
+  var items = contactItemsFromSettings(contact);
+  var visible = items.filter(function(item){ return item.visible && (item.label || item.value); });
+  MAIL = contactMailFromItems(items, contact) || '';
+  if(briefEmailLink) briefEmailLink.href = MAIL ? ('mailto:' + MAIL) : '';
+  if(directEmailLink) directEmailLink.href = MAIL ? ('mailto:' + MAIL) : '';
+  var emailStrong = document.querySelector('.email-strong');
+  if(emailStrong) emailStrong.textContent = MAIL;
+
+  var rowsHost = document.getElementById('contactRows');
+  if(rowsHost){
+    rowsHost.innerHTML = visible.map(function(item){
+      var href = contactSafeHref(item.url);
+      var value = item.value || item.label;
+      var valueHtml = href ? '<a href="' + esc(href) + '"' + (/^https?:/i.test(href) ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(value) + '</a>' : esc(value);
+      return '<div class="contact-row" data-contact-public-item="' + esc(item.id) + '"><span class="ic" aria-hidden="true">' + esc(item.icon) + '</span><div><div class="ck">' + esc(item.label || value) + '</div><div class="cv">' + valueHtml + '</div></div></div>';
+    }).join('');
+  }
+
+  var actionsHost = document.getElementById('contactActions');
+  if(actionsHost){
+    var buttons = visible.filter(function(item){ return item.showButton && !!contactSafeHref(item.url); }).map(function(item, index){
+      var href = contactSafeHref(item.url);
+      var cls = index % 2 ? 'btn btn-purple' : 'btn btn-primary';
+      var text = item.buttonLabel || item.label || 'Open';
+      return '<a class="' + cls + '" href="' + esc(href) + '"' + (/^https?:/i.test(href) ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(text) + '</a>';
+    }).join('');
+    if(MAIL) buttons += '<button class="btn btn-yellow" data-contact-copy="email" type="button">Copy Email</button>';
+    actionsHost.innerHTML = buttons;
+    actionsHost.style.display = buttons ? '' : 'none';
+  }
+
+  var footerHost = document.getElementById('footContactList');
+  if(footerHost){
+    var footerItems = visible.map(function(item){
+      var href = contactSafeHref(item.url);
+      var text = item.footerLabel || item.label || item.value;
+      if(!text) return '';
+      return '<li data-contact-footer-item="' + esc(item.id) + '">' + (href ? '<a href="' + esc(href) + '"' + (/^https?:/i.test(href) ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(text) + '</a>' : '<span class="foot-contact-text">' + esc(text) + '</span>') + '</li>';
+    }).join('');
+    footerHost.innerHTML = footerItems +
+      '<li data-contact-static="commission"><a href="#commissions" data-goto="commissions">Request a commission</a></li>' +
+      '<li data-contact-static="terms"><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>';
+  }
+}
 var TAB_LABELS = { emotes:'Emotes / Badges', panels:'Twitch Panels', alerts:'Animated Alerts', illustration:'Normal / Chibi Illustration' };
 var activeTab = 'illustration';
 
@@ -6369,8 +6455,10 @@ var panel = activePanel(); var first = panel ? panel.querySelector('input, texta
 if(first) first.focus(); else scrollToForm();
 });
 
-var copyBtn = document.getElementById('copyEmailBtn');
-if(copyBtn) copyBtn.addEventListener('click', function(){
+document.addEventListener('click', function(event){
+var copyBtn = event.target && event.target.closest ? event.target.closest('[data-contact-copy="email"]') : null;
+if(!copyBtn) return;
+if(!MAIL){ toast('Email is not available.'); return; }
 if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(MAIL).then(function(){ toast('Email copied: ' + MAIL); }).catch(function(){ toast(MAIL); });
 else toast(MAIL);
 });
@@ -7252,7 +7340,14 @@ seo: { title:'CRABBIE', description:'', socialImage:'' },
 footer: { footer:'a little candy shop of art' },
   interface: { uiCopy: UI_COPY.map(function(r){ return Object.assign({}, r); }) },
   portfolioThanks: { enabled: true, heading: 'Made with lovely people ♡', body: 'To everyone who shared their ideas and trusted me to bring them to life — thank you. ♡' },
-  contact: { email:'crabbie.art@gmail.com', twitter:'https://x.com/crbbie' }
+  contact: {
+    email:'crabbie.art@gmail.com',
+    twitter:'https://x.com/crbbie',
+    items:[
+      { id:'contact-email', label:'Email', value:'crabbie.art@gmail.com', url:'mailto:crabbie.art@gmail.com', icon:'✉', footerLabel:'crabbie.art@gmail.com', visible:true, showButton:true, buttonLabel:'Email Crabbie' },
+      { id:'contact-twitter', label:'Twitter / X', value:'@crbbie', url:'https://x.com/crbbie', icon:'✦', footerLabel:'Twitter / X', visible:true, showButton:true, buttonLabel:'Twitter / X DM' }
+    ]
+  }
 },
 navigation: [
 { id:'n1', title:'Home', url:'#home', published:true },
@@ -9271,9 +9366,41 @@ var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.setti
 return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
+function contactLegacyItems(contact){
+contact = contact && typeof contact === 'object' ? contact : {};
+var email = String(contact.email || '').trim();
+var twitter = String(contact.twitter || '').trim();
+var handle = twitter ? twitter.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/').pop() : '';
+if(handle && handle.charAt(0) !== '@') handle = '@' + handle;
+return [
+  { id:'contact-email', label:'Email', value:email, url:email ? ('mailto:' + email) : '', icon:'✉', footerLabel:email || 'Email', visible:!!email, showButton:true, buttonLabel:'Email Crabbie' },
+  { id:'contact-twitter', label:'Twitter / X', value:handle || twitter, url:twitter, icon:'✦', footerLabel:'Twitter / X', visible:!!twitter, showButton:true, buttonLabel:'Twitter / X DM' }
+];
+}
+function ensureAdminContactItems(){
+var settings = ADMIN_DRAFT.settings = ADMIN_DRAFT.settings || {};
+var contact = settings.contact = settings.contact || {};
+if(!Array.isArray(contact.items)) contact.items = contactLegacyItems(contact);
+return contact.items;
+}
 function renderAdminContact(){
-var base = 'settings.contact';
-return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2><div class="adm-section"><h4>Contact</h4><label class="adm-field"><span class="af-label">Email</span><input type="email" data-adm-path="' + base + '.email" value="' + esc(getByPath(ADMIN_DRAFT, base + '.email') || '') + '"></label><label class="adm-field" style="margin-top:10px;"><span class="af-label">Twitter</span><input type="text" data-adm-path="' + base + '.twitter" value="' + esc(getByPath(ADMIN_DRAFT, base + '.twitter') || '') + '"></label></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+var base = 'settings.contact.items';
+var items = ensureAdminContactItems();
+var rows = items.map(function(item, i){
+  var p = base + '.' + i;
+  var title = String(item.label || item.value || ('Contact ' + (i + 1)));
+  return '<div class="adm-contact-item" data-adm-contact-item="' + i + '">' +
+    '<div class="adm-contact-item-head"><span class="adm-contact-item-title">' + esc((i + 1) + '. ' + title) + '</span><button type="button" class="adm-btn-sm danger" data-adm-contact-del="' + i + '">Delete</button></div>' +
+    '<div class="adm-row">' + inputText('Name', p + '.label', { placeholder:'Email, Discord, Bluesky…' }) + inputText('Value', p + '.value', { placeholder:'@name, email, note…' }) + '</div>' +
+    '<div class="adm-row" style="margin-top:10px;">' + inputText('Link', p + '.url', { placeholder:'https://… or mailto:…' }) + inputText('Icon', p + '.icon', { placeholder:'✦' }) + '</div>' +
+    '<div class="adm-row" style="margin-top:10px;">' + inputText('Footer text', p + '.footerLabel', { placeholder:'Text shown in footer Contact' }) + inputText('Button text', p + '.buttonLabel', { placeholder:'Open / DM / Email…' }) + '</div>' +
+    '<div class="adm-contact-flags">' + inputCheck('Show on website', p + '.visible') + inputCheck('Show action button', p + '.showButton') + '</div>' +
+  '</div>';
+}).join('');
+if(!rows) rows = '<p class="af-hint">No contact items yet. Add one below.</p>';
+return '<div class="adm-editor"><h2>Contact / Social</h2><p class="ae-sub">Visible items appear on the public Contact page and in the footer Contact column. You can rename, hide or delete each item.</p>' +
+  '<div class="adm-section"><h4>Contact items</h4><div class="adm-contact-items">' + rows + '</div><button type="button" class="adm-btn-sm purple" data-adm-contact-add="1" style="margin-top:12px;">+ Add contact item</button></div>' +
+  '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function uploadStatusHtml(){
@@ -10183,6 +10310,26 @@ installChecklistDelegation();
 installAdminJumpDelegation();
 installTopbarHeightSync();
 if(!adminContent) return;
+if(module === 'contact'){
+  $('[data-adm-contact-add]', adminContent).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var items = ensureAdminContactItems();
+      items.push({ id:newId('contact'), label:'New contact', value:'', url:'', icon:'✦', footerLabel:'New contact', visible:true, showButton:true, buttonLabel:'Open' });
+      markDirty('settings.contact.items');
+      renderAdmin('contact');
+    });
+  });
+  $('[data-adm-contact-del]', adminContent).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var i = parseInt(btn.getAttribute('data-adm-contact-del'), 10);
+      var items = ensureAdminContactItems();
+      if(isNaN(i) || i < 0 || i >= items.length) return;
+      items.splice(i, 1);
+      markDirty('settings.contact.items');
+      renderAdmin('contact');
+    });
+  });
+}
 if(module === 'settings') refreshAppearancePreview();
 $$('[data-adm-appearance-reset]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
@@ -13148,53 +13295,7 @@ function applyCmsSiteSettings(settings){
   }
 
   if(settings.contact && typeof settings.contact === 'object'){
-    /* Present-with-empty clears public; a missing key leaves public alone. */
-    var contactHasEmail = Object.prototype.hasOwnProperty.call(settings.contact, 'email');
-    var contactEmail = contactHasEmail ? String(settings.contact.email == null ? '' : settings.contact.email).trim() : null;
-    if(contactHasEmail){
-      MAIL = contactEmail || '';
-      if(contactEmail){
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.href = 'mailto:' + contactEmail;
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = contactEmail;
-        });
-        var emailStrong = document.querySelector('.email-strong');
-        if(emailStrong) emailStrong.textContent = contactEmail;
-        if(directEmailLink) directEmailLink.href = 'mailto:' + contactEmail;
-        var footEmailSet = document.getElementById('footEmail');
-        if(footEmailSet){
-          footEmailSet.textContent = contactEmail;
-          footEmailSet.href = 'mailto:' + contactEmail;
-          footEmailSet.removeAttribute('data-goto');
-        }
-      } else {
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.removeAttribute('href');
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = '';
-        });
-        var emailStrongClear = document.querySelector('.email-strong');
-        if(emailStrongClear) emailStrongClear.textContent = '';
-        var footEmailClear = document.getElementById('footEmail');
-        if(footEmailClear){ footEmailClear.textContent = ''; footEmailClear.removeAttribute('href'); }
-      }
-    }
-    var contactHasTwitter = Object.prototype.hasOwnProperty.call(settings.contact, 'twitter');
-    var contactTwitter = contactHasTwitter ? String(settings.contact.twitter == null ? '' : settings.contact.twitter).trim() : null;
-    if(contactHasTwitter){
-      if(contactTwitter){
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.href = contactTwitter;
-        });
-        var footTwitterSet = document.getElementById('footTwitter');
-        if(footTwitterSet){ footTwitterSet.href = contactTwitter; footTwitterSet.removeAttribute('data-goto'); }
-      } else {
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.removeAttribute('href');
-        });
-        var footTwitterClear = document.getElementById('footTwitter');
-        if(footTwitterClear){ footTwitterClear.removeAttribute('href'); }
-      }
-    }
+    applyPublicContact(settings.contact);
   }
 
   /* Authoritative theme reconciliation (Phase 1 + 2A): the freshly hydrated
