@@ -1321,7 +1321,9 @@ body:not(.admin-mode) .btn-primary{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#ffe4ef 0%,#fbc0da 46%,#f793bf 100%);
-  color:#fff;
+  /* Solid-button label: explicit Advanced overrides recolor the label only;
+     gradients/shadows/artwork are never touched. */
+  color:var(--text-button-solid,#fff);
   text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:
     0 12px 24px -12px rgba(247,147,191,.42),
@@ -1336,7 +1338,7 @@ body:not(.admin-mode) .btn-purple{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
-  color:#fff;
+  color:var(--text-button-solid,#fff);
   text-shadow:0 1px 3px rgba(92,61,153,.45);
   box-shadow:
     0 12px 24px -12px rgba(195,141,252,.42),
@@ -1348,7 +1350,7 @@ body:not(.admin-mode) .btn-yellow{
   background:
     radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#f1e7ff 0%,#ddc0ff 46%,#c38dfc 100%);
-  color:#fff;
+  color:var(--text-button-solid,#fff);
 text-shadow:0 1px 3px rgba(92,61,153,.45);
   box-shadow:
     0 12px 24px -12px rgba(195,141,252,.42),
@@ -1361,15 +1363,15 @@ body:not(.admin-mode) .mobile-menu .mm-cta{
   background:
     radial-gradient(ellipse 45% 34% at 24% 82%,rgba(255,255,255,.70),transparent 65%),
     linear-gradient(180deg,#ffe4ef 0%,#fbc0da 48%,#f793bf 100%);
-  color:#fff;
+  color:var(--text-button-solid,#fff);
   text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:
     0 9px 18px -9px rgba(247,147,191,.42),
     inset 0 2px 1px rgba(255,255,255,.90),
     inset 0 -7px 12px -10px rgba(211,112,158,.22);
 }
-body:not(.admin-mode) .work-more{ color:#fff; text-shadow:0 1px 3px rgba(200,60,120,.55); }
-body:not(.admin-mode) .mobile-menu .mm-cta.active{ color:#fff; text-shadow:0 1px 3px rgba(200,60,120,.55); }
+body:not(.admin-mode) .work-more{ color:var(--text-button-solid,#fff); text-shadow:0 1px 3px rgba(200,60,120,.55); }
+body:not(.admin-mode) .mobile-menu .mm-cta.active{ color:var(--text-button-solid,#fff); text-shadow:0 1px 3px rgba(200,60,120,.55); }
 
 /* Hero typography: one focal display face, decorative accent, calm body copy.
    Colors collapse to the semantic tokens (display / decorative / body / muted). */
@@ -1420,34 +1422,20 @@ body:not(.admin-mode) .page-title,
 body:not(.admin-mode) .section-title,
 body:not(.admin-mode) .cta-inner h2,
 body:not(.admin-mode) .letter-body h2,
-body:not(.admin-mode) .work-title,
-body:not(.admin-mode) .item-name,
-body:not(.admin-mode) .comm-name,
-body:not(.admin-mode) .osd-name,
-body:not(.admin-mode) .foot-brand,
-body:not(.admin-mode) .blk-head h3,
 body:not(.admin-mode) .tos-sec h3,
 body:not(.admin-mode) .tos-sub,
 body:not(.admin-mode) .direct-card h3,
 body:not(.admin-mode) .exp-card h4,
 body:not(.admin-mode) .value-card h5,
-body:not(.admin-mode) .mini-name,
 body:not(.admin-mode) .panel h4,
 body:not(.admin-mode) .client-thanks-heading,
 body:not(.admin-mode) .empty h3{ color:var(--text-display); }
 
-body:not(.admin-mode) .comm-price,
-body:not(.admin-mode) .osd-price,
-body:not(.admin-mode) .mini-price,
 body:not(.admin-mode) .rule .rv,
 body:not(.admin-mode) .cta-tier .price,
 body:not(.admin-mode) .tos-closing .big,
 body:not(.admin-mode) .v404-num,
 body:not(.admin-mode) .client-thanks-name,
-body:not(.admin-mode) .pd-credit-strip a.pcs-name,
-body:not(.admin-mode) .public-lightbox-credits a.pcs-name,
-body:not(.admin-mode) .pd-credit-strip .pcs-heart,
-body:not(.admin-mode) .public-lightbox-credits .pcs-heart,
 body:not(.admin-mode) .page-title .hi{ color:var(--text-accent); }
 
 body:not(.admin-mode) .eyebrow,
@@ -1470,25 +1458,10 @@ body:not(.admin-mode) .hero-lede,
 body:not(.admin-mode) .page-sub,
 body:not(.admin-mode) .cta-inner p,
 body:not(.admin-mode) .cta-panel h4,
-body:not(.admin-mode) .nav-links a,
 body:not(.admin-mode) .lang span,
 body:not(.admin-mode) .lang button,
-body:not(.admin-mode) .mobile-menu a,
-body:not(.admin-mode) .foot ul a,
-body:not(.admin-mode) .foot-bottom,
 body:not(.admin-mode) .foot h5,
 body:not(.admin-mode) .admin-entry-link,
-body:not(.admin-mode) .work-cat,
-body:not(.admin-mode) .item-cat,
-body:not(.admin-mode) .item-status,
-body:not(.admin-mode) .item-tags span,
-body:not(.admin-mode) .comm-desc,
-body:not(.admin-mode) .comm-price small,
-body:not(.admin-mode) .comm-mini span,
-body:not(.admin-mode) .mini-note,
-body:not(.admin-mode) .osd-price small,
-body:not(.admin-mode) .osd-desc,
-body:not(.admin-mode) .osd-chips span,
 body:not(.admin-mode) .blk-body figcaption,
 body:not(.admin-mode) .art-caption,
 body:not(.admin-mode) .profile-inner,
@@ -1501,8 +1474,6 @@ body:not(.admin-mode) .rule .rd,
 body:not(.admin-mode) .tab-btn,
 body:not(.admin-mode) .choice span,
 body:not(.admin-mode) .direct-card p,
-body:not(.admin-mode) .field .hint,
-body:not(.admin-mode) .form-head .label-fixed,
 body:not(.admin-mode) .tos-nav h6,
 body:not(.admin-mode) .tos-nav a,
 body:not(.admin-mode) .tos-nav button,
@@ -1510,21 +1481,15 @@ body:not(.admin-mode) .tos-body p,
 body:not(.admin-mode) .tos-body ul li,
 body:not(.admin-mode) .tos-closing p,
 body:not(.admin-mode) .rule .rk,
-body:not(.admin-mode) .spec .k,
-body:not(.admin-mode) .pd-fact .k,
 body:not(.admin-mode) .contact-row .ck,
 body:not(.admin-mode) .refund-table th,
 body:not(.admin-mode) .back-link,
 body:not(.admin-mode) .pd-footnav .mid,
 body:not(.admin-mode) .client-thanks-body,
-body:not(.admin-mode) .pd-credit-strip .pcs-label,
-body:not(.admin-mode) .public-lightbox-credits .pcs-label,
 body:not(.admin-mode) .chip{ color:var(--text-muted); }
 
 body:not(.admin-mode) .cms,
 body:not(.admin-mode) .vlc-label,
-body:not(.admin-mode) .pd-fact .v,
-body:not(.admin-mode) .spec .v,
 body:not(.admin-mode) .panel,
 body:not(.admin-mode) .pd-credit-strip,
 body:not(.admin-mode) .public-lightbox-credits,
@@ -1537,23 +1502,11 @@ body:not(.admin-mode) .refund-table td,
 body:not(.admin-mode) .consent .consent-text,
 body:not(.admin-mode) .direct-card .email-strong,
 body:not(.admin-mode) .make-chip,
-body:not(.admin-mode) .btn-ghost,
 body:not(.admin-mode) .v404 p,
 body:not(.admin-mode) .contact-row .cv,
 body:not(.admin-mode) .acc-btn,
 body:not(.admin-mode) .toast,
-body:not(.admin-mode) .loading-text,
-body:not(.admin-mode) .field input[type="text"],
-body:not(.admin-mode) .field input[type="email"],
-body:not(.admin-mode) .field input[type="number"],
-body:not(.admin-mode) .field input[type="url"],
-body:not(.admin-mode) .field textarea,
-body:not(.admin-mode) .field select,
-body:not(.admin-mode) .search-box input{ color:var(--text-body); }
-
-/* Question / field labels: a distinct role so they scan apart from answers. */
-body:not(.admin-mode) .field label{ color:var(--text-field-label); }
-body:not(.admin-mode) .field label .req{ color:var(--text-accent); }
+body:not(.admin-mode) .loading-text{ color:var(--text-body); }
 
 /* Interactive states keep their emphasis; selected states stay legible on
    their coloured pills. */
@@ -1584,16 +1537,16 @@ body:not(.admin-mode) .lang span.on{ color:var(--text-body); }
    the generic muted rule, so these are body-scoped with higher specificity
    and placed after it). */
 body:not(.admin-mode) .nav-links a:hover,
-body:not(.admin-mode) .mobile-menu a:hover{ color:#F077B9; }
+body:not(.admin-mode) .mobile-menu a:hover{ color:var(--text-nav-hover,#F077B9); }
 body:not(.admin-mode) .nav-links a.active{
   background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
-  color:#fff;
+  color:var(--text-nav-active,#fff);
   text-shadow:0 1px 3px rgba(200,60,120,.55);
   box-shadow:inset 0 -3px 0 rgba(214,105,162,.17),inset 0 2px 0 rgba(255,255,255,.78);
 }
 body:not(.admin-mode) .mobile-menu a.active{
   background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);
-  color:#fff;
+  color:var(--text-nav-active,#fff);
   text-shadow:0 1px 3px rgba(200,60,120,.55);
 }
 body:not(.admin-mode) .chip.on,
@@ -1614,11 +1567,96 @@ body:not(.admin-mode) .foot ul a:hover{ color:var(--text-accent); }
    follows the accent so the typing colour is part of the appearance. */
 body:not(.admin-mode) .search-box input::placeholder,
 body:not(.admin-mode) .field input::placeholder,
-body:not(.admin-mode) .field textarea::placeholder{ color:var(--text-muted); opacity:1; }
+body:not(.admin-mode) .field textarea::placeholder{ color:var(--text-form-placeholder,var(--text-muted)); opacity:1; }
 body:not(.admin-mode) .search-box input,
 body:not(.admin-mode) .field input,
 body:not(.admin-mode) .field textarea,
 body:not(.admin-mode) .field select{ caret-color:var(--text-accent); }
+</style>
+
+<style id="advanced-text-tokens">
+/* Advanced section/component text colors (Batch 2A). One component variable
+   per role, owned ONLY here — never a second mapping in JS. Every rule uses
+   `var(--component, var(--global))` so an absent override inherits the live
+   global token (changing Display immediately moves inherited Card titles)
+   while an explicit override on <body> wins and ignores global changes.
+   With no textOverrides the computed colors equal the pre-2A baseline.
+   Variable names, fallbacks and storage paths are canonical in
+   src/appearance-core.js (TEXT_OVERRIDE_ROLES); this block only binds them
+   to the audited public selectors.
+   Selector ownership (each selector has exactly one Advanced owner):
+   - navigation: desktop + mobile normal/hover/active (mm-cta keeps its CTA state)
+   - cards: portfolio (.work-*) + asset (.item-*) cards only; commission cards
+     (.comm-*, .mini-*, .osd-*) belong to Commission roles
+   - detail: project-detail / free-asset-detail contexts only (.blk-head,
+     gallery title, blocks body, facts, credit strips + lightbox credits);
+     .page-title/About/Terms/Contact keep global semantics; .pcs-label stays
+     muted-global (meta label); strip containers + lightbox caption stay
+     body-global; .ad-cta h3 stays a brand variant
+   - commission: service cards, mini cards, other-service detail (.osd-*);
+     fee-table rows (.rule/.acc-line/.cta-tier) and thank-you names keep
+     global semantics
+   - forms: labels, inputs, placeholders, hints, required markers
+     (search shares the input role; selected chips/tabs/choices keep state colors)
+   - buttons: solid CTA labels (white state) + ghost labels only; selected
+     chips/tabs/choices, link pills, badges and icon buttons are untouched
+   - footer: brand, tagline/bottom body, footer links (.foot h5 column heads
+     stay muted-global as meta labels; link hover stays accent) */
+/* NAVIGATION — normal inherits muted (moved out of the global muted list). */
+body:not(.admin-mode) .nav-links a,
+body:not(.admin-mode) .mobile-menu a{ color:var(--text-nav-normal,var(--text-muted)); }
+/* CARDS — portfolio + asset cards (commission cards excluded). */
+body:not(.admin-mode) .work-title,
+body:not(.admin-mode) .item-name{ color:var(--text-card-title,var(--text-display)); }
+body:not(.admin-mode) .work-cat,
+body:not(.admin-mode) .item-cat{ color:var(--text-card-meta,var(--text-muted)); }
+body:not(.admin-mode) .item-tags span,
+body:not(.admin-mode) .item-status{ color:var(--text-card-taxonomy,var(--text-muted)); }
+/* DETAIL — project-detail / free-asset-detail contexts. */
+body:not(.admin-mode) .blk-head h3,
+body:not(.admin-mode) .ad-gallery-title{ color:var(--text-detail-heading,var(--text-display)); }
+body:not(.admin-mode) .blk-body{ color:var(--text-detail-body,var(--text-body)); }
+body:not(.admin-mode) .pd-fact .k,
+body:not(.admin-mode) .spec .k{ color:var(--text-detail-fact-label,var(--text-muted)); }
+body:not(.admin-mode) .pd-fact .v,
+body:not(.admin-mode) .spec .v{ color:var(--text-detail-fact-value,var(--text-body)); }
+body:not(.admin-mode) .pd-credit-strip a.pcs-name,
+body:not(.admin-mode) .public-lightbox-credits a.pcs-name,
+body:not(.admin-mode) .pd-credit-strip .pcs-heart,
+body:not(.admin-mode) .public-lightbox-credits .pcs-heart{ color:var(--text-detail-credit,var(--text-accent)); }
+/* COMMISSION — service cards, mini cards, other-service detail. */
+body:not(.admin-mode) .comm-name,
+body:not(.admin-mode) .osd-name,
+body:not(.admin-mode) .mini-name{ color:var(--text-commission-title,var(--text-display)); }
+body:not(.admin-mode) .comm-price,
+body:not(.admin-mode) .osd-price,
+body:not(.admin-mode) .mini-price{ color:var(--text-commission-price,var(--text-accent)); }
+body:not(.admin-mode) .comm-desc,
+body:not(.admin-mode) .comm-price small,
+body:not(.admin-mode) .comm-mini span,
+body:not(.admin-mode) .mini-note,
+body:not(.admin-mode) .osd-desc,
+body:not(.admin-mode) .osd-price small,
+body:not(.admin-mode) .osd-chips span{ color:var(--text-commission-secondary,var(--text-muted)); }
+/* FORMS — labels, inputs, placeholders (above), hints, required markers. */
+body:not(.admin-mode) .field label{ color:var(--text-form-label,var(--text-field-label)); }
+body:not(.admin-mode) .field label .req{ color:var(--text-form-required,var(--text-accent)); }
+body:not(.admin-mode) .field input[type="text"],
+body:not(.admin-mode) .field input[type="email"],
+body:not(.admin-mode) .field input[type="number"],
+body:not(.admin-mode) .field input[type="url"],
+body:not(.admin-mode) .field textarea,
+body:not(.admin-mode) .field select,
+body:not(.admin-mode) .search-box input{ color:var(--text-form-input,var(--text-body)); }
+body:not(.admin-mode) .field .hint,
+body:not(.admin-mode) .form-head .label-fixed{ color:var(--text-form-helper,var(--text-muted)); }
+/* BUTTONS — ghost label inherits body (moved out of the global body list). */
+body:not(.admin-mode) .btn-ghost{ color:var(--text-button-ghost,var(--text-body)); }
+/* FOOTER — brand/heading inherits display; body + links inherit muted. */
+body:not(.admin-mode) .foot-brand{ color:var(--text-footer-heading,var(--text-display)); }
+body:not(.admin-mode) .foot-tag,
+body:not(.admin-mode) .foot-bottom{ color:var(--text-footer-body,var(--text-muted)); }
+body:not(.admin-mode) .foot ul a{ color:var(--text-footer-link,var(--text-muted)); }
 </style>
 
 <style id="cms-multiline-contract">
@@ -3345,6 +3383,11 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
 .adm-music-preview audio{width:100%;max-width:420px;}
 </style>
 
+<!-- The pure Appearance registry/normalizer loads before the early bootstrap
+     so first paint reuses the same validation/default rules (no second
+     mapping that can drift). The inline bootstrap keeps a minimal fallback
+     if the script ever fails to load. -->
+<script src="/src/appearance-core.js"></script>
 <script id="appearance-early">
 /* Applies the last saved Appearance snapshot before first paint so the site
    background and text tokens never flash the defaults. The snapshot is written
@@ -3380,7 +3423,8 @@ try{
   var raw = localStorage.getItem('crabbie:appearance');
   if(raw){
     var parsed = JSON.parse(raw);
-    /* v1 cache compatibility: `{ v:1, theme:{...} }` or a bare theme. */
+    /* Cache compatibility: v1 `{ v:1, theme }`, v2 `{ v:2, theme }`
+       (v2 may carry validated `textOverrides`), or a bare theme. */
     if(parsed && typeof parsed === 'object'){
       theme = (parsed.theme && typeof parsed.theme === 'object') ? parsed.theme : parsed;
       if(theme && typeof theme === 'object' && ('v' in parsed) && !('theme' in parsed)) theme = {};
@@ -3393,16 +3437,22 @@ try{
   if(/^\/admin(\/|$)/.test(location.pathname) || /^#admin/.test(location.hash)) return;
 }catch(e){}
 try{
-  /* Same #RRGGBB rules as the shared helper (kept inline: this boot script
-     runs before /src/appearance-core.js loads). Invalid cached colors are
-     dropped so a corrupt snapshot can never paint. */
+  /* Shared validation via the pure core loaded just above (same rules as
+     runtime hydration — no second mapping). A minimal inline fallback keeps
+     first paint safe if that script ever fails to load. Invalid cached
+     colors — core or Advanced — are dropped so a corrupt snapshot can never
+     paint. */
+  var AC = window.CrabbieAppearance || null;
   var HEX6 = /^#[0-9a-fA-F]{6}$/;
-  var clean = function(v){ return (typeof v === 'string' && HEX6.test(v)) ? ('#' + v.slice(1).toLowerCase()) : null; };
+  var clean = AC ? AC.normalizeHex : function(v){ return (typeof v === 'string' && HEX6.test(v)) ? ('#' + v.slice(1).toLowerCase()) : null; };
   var norm = {};
   ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'].forEach(function(k){
     var n = clean(theme[k]);
     if(n) norm[k] = n;
   });
+  /* Advanced explicit overrides reuse the registry normalizer (v1 caches
+     simply have none; v2 may carry validated textOverrides). */
+  var normAdv = AC ? AC.normalizeTextOverrides(theme.textOverrides) : {};
   var root = document.documentElement;
   var fbTheme = { background: norm.background, backgroundImage: theme.backgroundImage };
   root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(fbTheme));
@@ -3416,6 +3466,12 @@ try{
   if(norm.pink) tokenCss += '--pink:' + norm.pink + ';';
   if(norm.lavender) tokenCss += '--purple:' + norm.lavender + ';';
   Object.keys(map).forEach(function(k){ if(norm[k]) tokenCss += map[k] + ':' + norm[k] + ';'; });
+  /* Only explicit Advanced overrides need early variables; absent roles keep
+     inheriting through the public CSS fallback chain. */
+  if(AC) AC.listTextOverrideRoles().forEach(function(role){
+    var g = normAdv[role.group];
+    if(g && g[role.key]) tokenCss += role.cssVar + ':' + g[role.key] + ';';
+  });
   if(tokenCss){
     var ts = document.createElement('style'); ts.id = 'cmsAppearanceEarly';
     ts.textContent = 'body:not(.admin-mode){' + tokenCss + '}';
@@ -4535,7 +4591,6 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,audio/*,application/pdf,application/zip,.zip">
 
-<script src="/src/appearance-core.js"></script>
 <script src="/src/portfolio-grid-core.js"></script>
 <script>
 (function(){
@@ -9367,6 +9422,14 @@ function sanitizeThemeForWrite(theme){
       if(n) out[k] = n;
       return;
     }
+    /* Advanced overrides: keep only valid normalized leaves; an emptied
+       group set is dropped so inherited state is never stored. Unknown keys
+       and background/media settings pass through untouched. */
+    if(A && k === 'textOverrides'){
+      var adv = A.normalizeTextOverrides(v);
+      if(Object.keys(adv).length) out[k] = adv;
+      return;
+    }
     out[k] = v;
   });
   return out;
@@ -9381,9 +9444,19 @@ return '<span class="adm-palette-swatches">' + keys.map(function(k){
 function currentPaletteColors(){
 var t = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
 var A = appearanceCore();
+/* Palette snapshots never store resolved inherited values: core colors use
+   only valid values and Advanced overrides snapshot explicit leaves only
+   (old palettes without textOverrides stay valid). */
+if(A && A.snapshotPaletteColors){
+  var snap = A.snapshotPaletteColors(t);
+  /* Keep swatch-stable core fallbacks for display (never persisted as
+     overrides — snapshotPaletteColors only returns valid core entries). */
+  PALETTE_KEYS.forEach(function(k){
+    if(snap[k] == null) snap[k] = appearanceResolve(t, k) || '';
+  });
+  return snap;
+}
 var colors = {};
-/* Save current palette uses only valid Appearance values (resolved against
-   canonical defaults so the swatch always matches the visible field). */
 PALETTE_KEYS.forEach(function(k){
   var raw = t[k];
   var n = A ? A.normalizeHex(raw) : null;
@@ -9806,13 +9879,22 @@ btn.addEventListener('click', function(){
   var list = (ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
   var preset = list.filter(function(p){ return p.id === id; })[0];
   if(!preset) return;
-  /* Apply never injects invalid colors: each entry is normalized first. */
+  /* Apply never injects invalid colors: each entry is normalized first.
+     A palette is the whole supported color configuration — explicit
+     Advanced overrides are REPLACED, and an old palette with no
+     textOverrides clears current overrides back to inheritance (never
+     leaves stale values from the previously active palette). */
   var AC = appearanceCore();
-  PALETTE_KEYS.forEach(function(k){
-    if(!preset.colors || preset.colors[k] == null) return;
-    var n = AC ? AC.normalizeHex(preset.colors[k]) : null;
-    if(n) setByPath(ADMIN_DRAFT, 'settings.theme.' + k, n);
-  });
+  if(AC && AC.applyPaletteColors){
+    var draftTheme = ADMIN_DRAFT.settings.theme = ADMIN_DRAFT.settings.theme || {};
+    AC.applyPaletteColors(draftTheme, (preset.colors && typeof preset.colors === 'object') ? preset.colors : {});
+  } else {
+    PALETTE_KEYS.forEach(function(k){
+      if(!preset.colors || preset.colors[k] == null) return;
+      var n = AC ? AC.normalizeHex(preset.colors[k]) : null;
+      if(n) setByPath(ADMIN_DRAFT, 'settings.theme.' + k, n);
+    });
+  }
   markDirty('settings.theme');
   renderAdmin('settings');
   toast('Palette applied: ' + (preset.name || 'Palette'));
@@ -12664,12 +12746,14 @@ function applyCmsSiteSettings(settings){
     }
   }
 
-  /* Authoritative theme reconciliation (Phase 1): the freshly hydrated theme
-     owns every Appearance variable. Valid explicit values are set; absent or
-     invalid keys remove the stale inline override so CSS/default resolution
-     takes over. Theme A -> partial Theme B -> empty theme never leaves old
-     colors stuck inline. CMS latest-request ownership and loading gates are
-     unchanged (this runs inside the normal apply path). */
+  /* Authoritative theme reconciliation (Phase 1 + 2A): the freshly hydrated
+     theme owns every Appearance variable — core tokens plus the 24 Advanced
+     component variables. Valid explicit values are set; absent or invalid
+     keys remove the stale inline override so CSS inheritance/default
+     resolution takes over (absent Advanced roles fall back through
+     `var(--component, var(--global))`). Theme A -> partial Theme B -> empty
+     theme never leaves old colors stuck inline. CMS latest-request ownership
+     and loading gates are unchanged (this runs inside the normal apply path). */
   var cmsTheme = settings.theme || null;
   (function reconcileTheme(theme){
     var themeBody = document.body.style;
@@ -12680,6 +12764,7 @@ function applyCmsSiteSettings(settings){
       return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? ('#' + v.slice(1).toLowerCase()) : null;
     };
     var plan = A ? A.planThemeVars(theme || {}) : null;
+    var advPlan = A ? A.planAdvancedVars(theme || {}) : null;
     var set = {}, remove = [];
     if(plan){ set = plan.set; remove = plan.remove; }
     else {
@@ -12688,6 +12773,12 @@ function applyCmsSiteSettings(settings){
         var n = clean(theme && theme[k]);
         if(n) set[fbMap[k]] = n; else remove.push(fbMap[k]);
       });
+    }
+    /* Only explicit Advanced overrides need inline variables; every other
+       role is removed so no first-paint stale color survives hydration. */
+    if(advPlan){
+      Object.keys(advPlan.set).forEach(function(v){ set[v] = advPlan.set[v]; });
+      advPlan.remove.forEach(function(v){ remove.push(v); });
     }
     /* Text tokens + pink/purple primitives live on <body> (the scope that
        owns the public palette; an html-level --pink/--purple would lose to
@@ -12712,7 +12803,8 @@ function applyCmsSiteSettings(settings){
   })(cmsTheme);
   /* The database is the source of truth: always reconcile the background and
      the first-paint cache, so a cleared/absent theme can never be masked by a
-     stale localStorage snapshot. Only valid colors are cached. */
+     stale localStorage snapshot. Only valid colors are cached; Advanced
+     override leaves are validated (v1 caches carry none, v2 may carry them). */
   applyCmsSiteBackground(cmsTheme);
   try{
     var cacheTheme = {};
@@ -12723,10 +12815,13 @@ function applyCmsSiteSettings(settings){
         if(AC && AC.COLOR_KEYS.indexOf(k) !== -1){
           var n = AC.normalizeHex(v);
           if(n) cacheTheme[k] = n;
+        } else if(AC && k === 'textOverrides'){
+          var adv = AC.normalizeTextOverrides(v);
+          if(Object.keys(adv).length) cacheTheme[k] = adv;
         } else { cacheTheme[k] = v; }
       });
     }
-    localStorage.setItem('crabbie:appearance', JSON.stringify({ v:1, theme: cacheTheme }));
+    localStorage.setItem('crabbie:appearance', JSON.stringify({ v:2, theme: cacheTheme }));
   }catch(e){}
 
   if(settings.motion){

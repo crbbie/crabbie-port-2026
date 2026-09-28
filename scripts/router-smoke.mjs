@@ -4366,6 +4366,248 @@ try {
     assert.equal(phase1Nav.mobileActive, 'rgb(255, 255, 255)', 'mobile active nav keeps the selected-state label instead of the muted rule');
     console.log('PASS appearance Phase 1 color ownership, preview truthfulness, and authoritative reconciliation (SDK fixture)');
 
+    // ---- Appearance Batch 2A: Advanced component tokens (engine only, no admin UI yet) ----
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieSiteContent));
+    // Seed two nav links (fixtures may leave navigation empty) and start from
+    // an empty theme: authoritative clear, so the baseline equals the pre-2A
+    // visuals (every component inherits its global owner).
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, [
+        { title: 'Portfolio', url: '#portfolio' },
+        { title: 'Commissions', url: '#commissions' },
+      ], { theme: {} });
+    });
+    await page.waitForSelector('#mainNav .nav-links a');
+    const colorOf = (sel, pseudo) => page.evaluate(([s, p]) => {
+      const el = document.querySelector(s);
+      return el ? getComputedStyle(el, p || null).color : null;
+    }, [sel, pseudo]);
+    // Baseline relationships: each component equals its documented global owner.
+    assert.equal(await colorOf('.foot-brand'), await colorOf('.hero h1'), 'baseline footer heading follows display');
+    assert.equal(await colorOf('.foot-tag'), await colorOf('.hero-lede'), 'baseline footer body follows muted');
+    assert.equal(await colorOf('#mainNav .nav-links a'), await colorOf('.foot-tag'), 'baseline nav normal follows muted');
+    assert.equal(await colorOf('.btn-primary'), 'rgb(255, 255, 255)', 'baseline solid button keeps the white state');
+    // Seed one portfolio card, one asset card and one project for the tour.
+    await page.evaluate(() => {
+      window.CrabbiePortfolio.apply([{ slug: 'adv-probe', title: 'Adv Probe', desc: 'Adv description', cat: 'Illustration', tags: ['adv'], thumbnail: '', cover: '', blocks: [{ type: 'text', sectionTitle: 'Adv Section', text: 'Adv body text' }], credits: 'Adv Credit', year: '2026' }]);
+      window.CrabbieAssets.apply([{ slug: 'adv-asset', title: 'Adv Asset', cat: 'Brushes', format: 'ZIP', availability: 'available', downloadUrl: '', tags: ['adv'], thumbnail: '', icon: 'x', description: 'Adv asset description', version: '1.0', date: '2026', credit: 'Adv credit', license: 'Adv license', update: 'Adv update' }]);
+    });
+    await page.goto(origin + '/#portfolio', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.waitForSelector('#pfGrid [data-project="adv-probe"] .work-title');
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-title'), await colorOf('.page-title'), 'baseline card title follows display');
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-cat'), await colorOf('.page-sub'), 'baseline card metadata follows muted');
+    await page.goto(origin + '/#free-assets', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await page.waitForSelector('.item[data-asset="adv-asset"] .item-name');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-name'), await colorOf('.page-title'), 'baseline asset title follows display');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-status'), await colorOf('.page-sub'), 'baseline asset status follows muted');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-tags span'), await colorOf('.page-sub'), 'baseline tag chips follow muted');
+    // Explicit sentinel overrides: one distinct color per role.
+    const advTheme = { theme: {
+      displayColor: '#111111', bodyColor: '#222222', mutedColor: '#333333', accentColor: '#444444', fieldLabelColor: '#555555',
+      textOverrides: {
+        navigation: { normal: '#a10101', hover: '#a20202', active: '#a30303' },
+        cards: { title: '#b10101', metadata: '#b20202', taxonomy: '#b30303' },
+        detail: { heading: '#c10101', body: '#c20202', factsLabel: '#c30303', factsValue: '#c40404', credits: '#c50505' },
+        commission: { title: '#d10101', price: '#d20202', secondary: '#d30303' },
+        forms: { input: '#e10101', placeholder: '#e20202', helper: '#e30303', required: '#e40404', label: '#e50505' },
+        buttons: { solid: '#f10101', ghost: '#f20202' },
+        footer: { heading: '#f30101', body: '#f30202', link: '#f30303' },
+      },
+    } };
+    await page.evaluate((t) => { window.CrabbieSiteContent.apply(null, null, t); }, advTheme);
+    // Home: navigation states, footer, solid buttons.
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    assert.equal(await colorOf('#mainNav .nav-links a:not(.active)'), hexToRgb('#a10101'), 'nav normal override reaches desktop links');
+    await page.hover('#mainNav .nav-links a:not(.active)');
+    assert.equal(await colorOf('#mainNav .nav-links a:not(.active)'), hexToRgb('#a20202'), 'nav hover override wins on hover');
+    const advNavActive = await page.evaluate(() => {
+      const dive = document.createElement('div');
+      dive.innerHTML = '<nav class="nav-links"><a id="advProbe">x</a></nav><div class="mobile-menu"><a id="advProbeM">y</a></div>';
+      document.body.appendChild(dive);
+      dive.querySelector('#advProbe').classList.add('active');
+      dive.querySelector('#advProbeM').classList.add('active');
+      const out = { d: getComputedStyle(dive.querySelector('#advProbe')).color, m: getComputedStyle(dive.querySelector('#advProbeM')).color };
+      dive.remove();
+      return out;
+    });
+    assert.equal(advNavActive.d, hexToRgb('#a30303'), 'nav active override reaches desktop selected state');
+    assert.equal(advNavActive.m, hexToRgb('#a30303'), 'nav active override reaches mobile selected state');
+    assert.equal(await colorOf('.foot-brand'), hexToRgb('#f30101'), 'footer heading override applies');
+    assert.equal(await colorOf('.foot-tag'), hexToRgb('#f30202'), 'footer body override applies');
+    assert.equal(await colorOf('.foot ul a'), hexToRgb('#f30303'), 'footer link override applies');
+    assert.equal(await colorOf('.btn-primary'), hexToRgb('#f10101'), 'solid button label override applies');
+    assert.equal(await colorOf('.nav-cta'), hexToRgb('#f10101'), 'nav CTA shares the solid button role');
+    // Portfolio: cards + search placeholder.
+    await page.goto(origin + '/#portfolio', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.waitForSelector('#pfGrid [data-project="adv-probe"] .work-title');
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-title'), hexToRgb('#b10101'), 'card title override applies');
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-cat'), hexToRgb('#b20202'), 'card metadata override applies');
+    await page.goto(origin + '/#free-assets', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-assets');
+    await page.waitForSelector('.item[data-asset="adv-asset"] .item-name');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-name'), hexToRgb('#b10101'), 'asset titles share the card title role');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-status'), hexToRgb('#b30303'), 'card taxonomy override applies');
+    assert.equal(await colorOf('.item[data-asset="adv-asset"] .item-tags span'), hexToRgb('#b30303'), 'tag chips share the taxonomy role');
+    const advPlaceholder = await page.evaluate(() => {
+      const el = document.querySelector('#pfSearch');
+      return el ? getComputedStyle(el, '::placeholder').color : null;
+    });
+    assert.equal(advPlaceholder, hexToRgb('#e20202'), 'placeholder override applies');
+    // Project detail: headings, body, facts, credits.
+    await page.evaluate(() => { location.hash = '#project/adv-probe'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    await page.waitForSelector('#pdBlocks .blk-head h3');
+    assert.equal(await colorOf('#pdBlocks .blk-head h3'), hexToRgb('#c10101'), 'detail heading override applies');
+    assert.equal(await colorOf('#pdBlocks .blk-body'), hexToRgb('#c20202'), 'detail body override applies');
+    assert.equal(await colorOf('.pd-fact .k'), hexToRgb('#c30303'), 'detail facts label override applies');
+    assert.equal(await colorOf('.pd-fact .v'), hexToRgb('#c40404'), 'detail facts value override applies');
+    assert.equal(await colorOf('#pdDesc'), hexToRgb('#333333'), 'the description stays page-sub semantics, not detail body');
+    // Credits: the strip only renders with resolved People, so rule application
+    // is proven on the real selector structure (same pattern as the nav probe).
+    const advCredits = await page.evaluate(() => {
+      const dive = document.createElement('div');
+      dive.innerHTML = '<div class="pd-credit-strip"><a class="pcs-name" href="https://example.test">x</a><span class="pcs-heart">h</span></div>';
+      document.body.appendChild(dive);
+      const out = { name: getComputedStyle(dive.querySelector('.pcs-name')).color, heart: getComputedStyle(dive.querySelector('.pcs-heart')).color };
+      dive.remove();
+      return out;
+    });
+    assert.equal(advCredits.name, hexToRgb('#c50505'), 'detail credits override reaches credit names');
+    assert.equal(advCredits.heart, hexToRgb('#c50505'), 'detail credits override reaches credit hearts');
+    // Asset detail: spec rows + purple solid button + ghost button on detail.
+    await page.evaluate(() => { location.hash = '#asset/adv-asset'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'free-asset-detail');
+    await page.waitForSelector('.spec .k');
+    assert.equal(await colorOf('.spec .k'), hexToRgb('#c30303'), 'asset facts label shares the detail role');
+    assert.equal(await colorOf('.spec .v'), hexToRgb('#c40404'), 'asset facts value shares the detail role');
+    // Commissions: titles, prices, secondary copy, forms.
+    // Static service cards hide without live services, so hydrate one matching
+    // record through the production refresh path (stable: no post-seed race).
+    await page.goto(origin + '/#commissions', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'commissions');
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.commission_services = [
+        { id: '00000000-0000-4000-8000-00000000ad01', slug: 'bust-up', title: 'Bust Up', description: 'Adv bust desc', price: '70', currency: 'USD', availability: 'open', form_slug: null, thumbnail_path: '', featured: false, published: true, sort_order: 0, details: {}, updated_at: '2026-01-01T00:00:00Z' },
+      ];
+      return import('./src/public-cms-refresh.js').then((m) => m.refreshPublicCms('commissions'));
+    });
+    await page.waitForFunction(() => {
+      const btn = document.querySelector('.comm-grid button[data-service-slug="bust-up"]');
+      const item = btn && btn.closest('.comm-item');
+      return item && item.style.display !== 'none';
+    });
+    // Form panels hide without live forms; presence + computed style still prove
+    // the role binding (same pattern as the suite's own token checks).
+    await page.waitForSelector('[data-view="commissions"] .field .hint', { state: 'attached' });
+    const advComm = await page.evaluate(() => {
+      const btn = document.querySelector('.comm-grid button[data-service-slug="bust-up"]');
+      const card = btn && btn.closest('.comm-card');
+      const q = (s) => { const el = card && card.querySelector(s); return el ? getComputedStyle(el).color : null; };
+      return { name: q('.comm-name'), price: q('.comm-price'), desc: q('.comm-desc') };
+    });
+    assert.equal(advComm.name, hexToRgb('#d10101'), 'commission title override applies');
+    assert.equal(advComm.price, hexToRgb('#d20202'), 'commission price override applies');
+    assert.equal(advComm.desc, hexToRgb('#d30303'), 'commission secondary override applies');
+    assert.equal(await colorOf('[data-view="commissions"] .field label'), hexToRgb('#e50505'), 'form label override applies');
+    assert.equal(await colorOf('[data-view="commissions"] .field label .req'), hexToRgb('#e40404'), 'required marker override applies');
+    assert.equal(await colorOf('[data-view="commissions"] .field input'), hexToRgb('#e10101'), 'form input override applies');
+    assert.equal(await colorOf('[data-view="commissions"] .field .hint'), hexToRgb('#e30303'), 'form helper override applies');
+    await page.evaluate(() => { location.hash = '#project/adv-probe'; });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'project-detail');
+    assert.equal(await colorOf('#pdPrev'), hexToRgb('#f20202'), 'ghost button override applies');
+    // Selectors that share a declaration prove joint ownership (same-role bindings).
+    const advCss = await page.evaluate(() => Array.from(document.querySelectorAll('style')).map((s) => s.textContent || '').join('\n'));
+    assert.ok(advCss.includes('.osd-name') && advCss.includes('--text-commission-title'), 'other-service titles share the commission title role');
+    assert.ok(advCss.includes('.mini-name') && advCss.includes('.mini-price') && advCss.includes('.osd-chips span'), 'mini cards and service chips share the commission roles');
+    assert.ok(advCss.includes('.public-lightbox-credits a.pcs-name') && advCss.includes('--text-detail-credit'), 'lightbox credits share the detail credits role');
+    assert.ok(advCss.includes('.ad-gallery-title') && advCss.includes('--text-detail-heading'), 'the gallery title shares the detail heading role');
+    // Inheritance flow: display moves an inherited card; explicit cards ignore it.
+    await page.goto(origin + '/#portfolio', { waitUntil: 'load' });
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'portfolio');
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#121212' } }); });
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-title'), hexToRgb('#121212'), 'an inherited card follows the global display change');
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#343434', textOverrides: { cards: { title: '#abcdef' } } } }); });
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-title'), hexToRgb('#abcdef'), 'an explicit card survives the global display change');
+    // Authoritative clearing: theme B without the leaf removes the stale inline variable.
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#565656' } }); });
+    const advCleared = await page.evaluate(() => ({
+      inline: document.body.style.getPropertyValue('--text-card-title'),
+      inlineGhost: document.body.style.getPropertyValue('--text-button-ghost'),
+    }));
+    assert.equal(advCleared.inline, '', 'a missing override leaf clears the stale component variable');
+    assert.equal(advCleared.inlineGhost, '', 'all 24 component variables clear together');
+    assert.equal(await colorOf('#pfGrid [data-project="adv-probe"] .work-title'), hexToRgb('#565656'), 'the cleared card returns to inheritance');
+    const advCache = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('crabbie:appearance')); } catch (e) { return null; } });
+    assert.ok(advCache && !advCache.theme.textOverrides, 'the cache carries no overrides once inherited');
+    // v1 cache compatibility: old snapshots still boot and invalid colors never paint.
+    // Fail site-settings hydration one-shot so the early-boot paint stays
+    // observable (no authoritative hydration overwrites it in this probe).
+    await page.addInitScript(() => {
+      try {
+        if (sessionStorage.getItem('adv-v1-probe') === '1') {
+          sessionStorage.removeItem('adv-v1-probe');
+          window.__routerFail = 'site_settings';
+        }
+      } catch (e) {}
+    });
+    await page.evaluate(() => {
+      try {
+        sessionStorage.setItem('adv-v1-probe', '1');
+        localStorage.setItem('crabbie:appearance', JSON.stringify({ v: 1, theme: { displayColor: 'bad', accentColor: '#445566' } }));
+      } catch (e) {}
+    });
+    // A real reload is required: same-document hash gotos never reboot, so only
+    // reload exercises the early-boot cache path.
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieSiteContent));
+    const advV1 = await page.evaluate(() => ({
+      early: (document.getElementById('cmsAppearanceEarly') || {}).textContent || '',
+      accent: getComputedStyle(document.body).getPropertyValue('--text-accent').trim(),
+      display: getComputedStyle(document.body).getPropertyValue('--text-display').trim(),
+    }));
+    assert.ok(advV1.early.includes('#445566'), 'the v1 cached accent boots before first paint');
+    assert.ok(!advV1.early.includes('bad'), 'an invalid cached color never reaches the early paint');
+    assert.equal(advV1.accent, '#445566', 'a valid v1 cached color still boots');
+    assert.notEqual(advV1.display, 'bad', 'an invalid cached display never paints');
+    // Admin shell isolation: overrides never restyle the admin UI.
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    const advAdminBefore = await page.evaluate(() => {
+      const el = document.querySelector('#adminLoginForm, #adminContent');
+      return el ? getComputedStyle(el).color : null;
+    });
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#999999', textOverrides: { cards: { title: '#888888' }, footer: { body: '#777777' } } } }); });
+    const advAdminAfter = await page.evaluate(() => {
+      const el = document.querySelector('#adminLoginForm, #adminContent');
+      return el ? getComputedStyle(el).color : null;
+    });
+    assert.equal(advAdminBefore, advAdminAfter, 'advanced overrides do not leak into the admin shell');
+    // All 24 registry variables must be bound by public-scoped rules (the roles
+    // live across style blocks: component block, nav states, placeholder, solids).
+    const advScoped = await page.evaluate(() => {
+      const roles = window.CrabbieAppearance.listTextOverrideRoles();
+      const css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent || '').join('\n');
+      const missing = roles.filter((r) => css.indexOf(r.cssVar) === -1).map((r) => r.cssVar);
+      const unscoped = roles.filter((r) => {
+        const at = css.indexOf(r.cssVar);
+        if (at === -1) return false;
+        const ruleStart = css.lastIndexOf('}', at) + 1;
+        const sel = css.slice(ruleStart, at).split('{')[0] || '';
+        return sel.indexOf('body:not(.admin-mode)') === -1;
+      }).map((r) => r.cssVar);
+      return { total: roles.length, missing, unscoped };
+    });
+    assert.equal(advScoped.total, 24, 'the registry holds all 24 roles');
+    assert.deepEqual(advScoped.missing, [], 'every advanced role owns a public rule');
+    assert.deepEqual(advScoped.unscoped, [], 'no advanced rule escapes the public scope');
+    console.log('PASS appearance Batch 2A advanced token engine, inheritance, and compatibility (SDK fixture)');
+
     // ---- Settings roundtrip: admin edit -> DB -> reload -> public runtime ----
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
@@ -4666,8 +4908,12 @@ try {
     assert.equal(thanksStatic.toggleHidden, true, 'motion controls hide when no marquee runs');
     assert.ok(thanksStatic.order.afterRules && thanksStatic.order.beforeForm, 'client thanks sits after Fees & add-ons and before the request form');
     // Semantic text tokens govern People UI (no raw berry text colors).
+    // Detail credit links live in the advanced token block (Batch 2A ownership)
+    // with an accent fallback, so both blocks count as token-governed.
     const tokenCheck = await page.evaluate(() => {
-      const css = document.getElementById('semantic-text-tokens').textContent;
+      const css = ['semantic-text-tokens', 'advanced-text-tokens']
+        .map((id) => (document.getElementById(id) || {}).textContent || '')
+        .join('\n');
       const probe = document.createElement('span');
       probe.style.color = 'var(--text-display)';
       document.getElementById('clientThanks').appendChild(probe);
