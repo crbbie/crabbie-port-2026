@@ -635,6 +635,24 @@ try {
       await page.locator('#admChecklist').waitFor({state: 'visible'});
       assert.match(await page.locator('#admChecklist h4').innerText(), /Content checklist/i);
     }
+
+    // Contact/Social is an ordered authorable list: add, rename, hide and delete.
+    await goAdmin('contact');
+    assert.equal(await page.locator('[data-adm-contact-row]').count(), 0, 'empty authoritative contact settings show no prototype rows');
+    await page.locator('[data-adm-contact-add]').click();
+    assert.equal(await page.locator('[data-adm-contact-row]').count(), 1);
+    await page.locator('[data-adm-path="settings.contact.items.0.label"]').fill('Bluesky');
+    await page.locator('[data-adm-path="settings.contact.items.0.value"]').fill('@crabbie');
+    await page.locator('[data-adm-path="settings.contact.items.0.url"]').fill('https://bsky.app/profile/example.com');
+    await page.locator('[data-adm-path="settings.contact.items.0.visible"]').uncheck();
+    assert.equal(await page.locator('[data-adm-path="settings.contact.items.0.label"]').inputValue(), 'Bluesky', 'contact label is editable');
+    assert.equal(await page.locator('[data-adm-path="settings.contact.items.0.visible"]').isChecked(), false, 'contact visibility is editable');
+    await page.locator('[data-adm-contact-add]').click();
+    assert.equal(await page.locator('[data-adm-contact-row]').count(), 2);
+    await page.locator('[data-adm-contact-del="1"]').click();
+    assert.equal(await page.locator('[data-adm-contact-row]').count(), 1, 'contact rows can be deleted');
+    assert.equal(await page.locator('[data-adm-path="settings.contact.items.0.label"]').inputValue(), 'Bluesky', 'remaining row survives structural rerender');
+
     await page.locator('[data-admin-lang="vi"]').click();
     assert.match(await page.locator('#admChecklist h4').innerText(), /Kiểm tra nội dung/i);
     await goAdmin('dashboard');
@@ -762,6 +780,23 @@ try {
     await page.locator('[data-view="about"] .about-hero').waitFor({state:'visible'});
     assert.equal(await page.locator('[data-view="about"] a[href="mailto:artist@example.test"]').count(), 1);
     assert.equal(await page.locator('[data-view="about"] a[href="https://example.test/"]').count(), 1);
+
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { contact: { items:[
+        {id:'studio',type:'email',label:'Studio mail',value:'studio@example.test',url:'',icon:'♡',visible:true,showInFooter:true},
+        {id:'bsky',type:'link',label:'Bluesky',value:'@crabbie',url:'https://bsky.app/profile/example.com',icon:'☁',visible:true,showInFooter:false},
+        {id:'discord',type:'text',label:'Discord',value:'hidden-handle',url:'',icon:'✦',visible:false,showInFooter:true}
+      ] } });
+      location.hash = '#contact';
+    });
+    await page.locator('[data-view="contact"].is-active').waitFor({state:'visible'});
+    assert.deepEqual(await page.$eval('#contactRows [data-cms-contact-id]', els => els.map(el => el.getAttribute('data-cms-contact-id'))), ['studio','bsky'], 'public Contact shows visible custom rows in authored order');
+    assert.deepEqual(await page.$eval('#contactRows .ck', els => els.map(el => el.textContent.trim())), ['Studio mail','Bluesky'], 'custom names replace hard-coded Email/Twitter labels');
+    assert.equal(await page.locator('#contactRows [data-cms-contact-id="discord"]').count(), 0, 'hidden contacts stay off the public page');
+    assert.deepEqual(await page.$eval('#footerContactList [data-cms-footer-contact]', els => els.map(el => el.getAttribute('data-cms-footer-contact'))), ['studio'], 'footer has its own per-item visibility');
+    assert.equal(await page.locator('#contactActions a[href="mailto:studio@example.test"]').count(), 1, 'email contact produces a safe public CTA');
+    assert.equal(await page.locator('#directEmail').getAttribute('href'), 'mailto:studio@example.test', 'primary custom email also feeds the commission direct-email CTA');
+    assert.equal(await page.locator('#directSocial').getAttribute('href'), 'https://bsky.app/profile/example.com', 'first visible custom social link replaces the legacy Twitter shortcut');
 
     await page.evaluate(() => {
       window.CrabbieCommissions.apply([
