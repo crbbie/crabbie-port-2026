@@ -1,5 +1,5 @@
 ﻿import assert from 'node:assert/strict';
-import { mapCmsPage, mapNavigationItem, mapSiteSettings, hasSettingsKey, settingsText, cmsBrandName, cmsSeoTitle, routeTitleFor, aboutPublicModel } from './site-content-core.js';
+import { mapCmsPage, mapNavigationItem, mapSiteSettings, hasSettingsKey, settingsText, cmsBrandName, cmsSeoTitle, routeTitleFor, aboutPublicModel, contactItemsSettings } from './site-content-core.js';
 
 const page = mapCmsPage({
   slug: 'about',
@@ -61,3 +61,24 @@ const aboutNoName = aboutPublicModel({ name: '', title: 'About', bio: '', conten
 assert.equal(aboutNoName.heading, 'About', 'the CMS title backs the heading without a name');
 
 console.log('Site content mapping tests passed.');
+
+
+// Contact/Social list: legacy upgrade, custom ordering/visibility, explicit empty.
+{
+  const legacy = contactItemsSettings({ email:'hello@example.com', twitter:'https://x.com/crbbie' });
+  assert.deepEqual(legacy.map((item) => item.type), ['email','link']);
+  assert.equal(legacy[0].value, 'hello@example.com');
+  assert.equal(legacy[1].label, 'Twitter / X');
+  assert.equal(legacy[1].value, '@crbbie');
+  assert.equal(legacy[1].url, 'https://x.com/crbbie');
+
+  const custom = contactItemsSettings({ items:[
+    { id:'bsky', type:'link', label:'Bluesky', value:'@crabbie', url:'https://bsky.app/profile/example.com', icon:'☁', visible:false, showInFooter:false },
+    { id:'note', type:'text', label:'Studio hours', value:'Weekdays', visible:true }
+  ]});
+  assert.deepEqual(custom.map((item) => item.id), ['bsky','note'], 'authored order stays authoritative');
+  assert.equal(custom[0].visible, false);
+  assert.equal(custom[0].showInFooter, false);
+  assert.equal(custom[1].type, 'text');
+  assert.equal(contactItemsSettings({ email:'legacy@example.com', items:[] }).length, 0, 'explicit empty list does not fall back to legacy fields');
+}
