@@ -2286,12 +2286,16 @@ details.adm-cleanup-group > summary:focus-visible{ outline:3px solid var(--purpl
 .adm-upload-status.done{color:#2e8a55;border-color:#bfe6cf;background:#f1fbf5;}
 .adm-upload-bar{position:relative;flex:1 1 90px;height:6px;border-radius:999px;background:var(--pink-soft);overflow:hidden;min-width:60px;}
 .adm-upload-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--pink),var(--pink-hot));transition:width .2s ease;}
-.adm-media-card{background:#fff; border: 2px solid var(--pink-light);border-radius: 16px; overflow:hidden;box-shadow: 0 5px 0 -3px var(--pink-light);}
+.adm-media-card{background:#fff; border: 2px solid var(--pink-light);border-radius: 16px; overflow:hidden;box-shadow: 0 5px 0 -3px var(--pink-light);transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;}
 .adm-media-thumb{position:relative; width:100%; aspect-ratio: 16/10;background: linear-gradient(160deg, var(--purple-light) 0%, #d9efff 100%);display:grid; place-items:center;font-family:var(--font-decorative); font-size:15px; color: var(--purple-hot);border-bottom: 2px solid var(--pink-light);overflow:hidden; min-width:0; min-height:0;}
-/* Intrinsic image dimensions must never resize the thumbnail box: the image
-   is removed from grid sizing and cropped, while icon/text fallbacks keep
-   their centered grid placement. */
-.adm-media-thumb > img{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover;}
+/* Media-library thumbnails are an inspection surface, not a decorative crop:
+   both the transformed source and the DOM image preserve the full artwork. */
+.adm-media-thumb > img{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; background:#fff;}
+.adm-media-card[aria-selected="true"],
+.adm-media-row[aria-selected="true"]{border-color:var(--pink-hot);background:linear-gradient(180deg,#fff 0%,var(--pink-soft) 100%);box-shadow:0 0 0 3px var(--pink-light),0 10px 20px -14px rgba(122,61,110,.65);}
+.adm-media-card[aria-selected="true"] .adm-media-thumb{border-bottom-color:var(--pink-hot);}
+.adm-media-selected-mark{position:absolute;top:8px;left:8px;z-index:4;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:var(--pink-hot);color:#fff;font-family:var(--font-body);font-size:10px;font-weight:800;line-height:1;box-shadow:0 2px 0 rgba(122,61,110,.18);}
+.adm-media-row-main .adm-media-selected-mark{position:static;margin-bottom:5px;}
 .adm-media-body{ padding: 10px 12px; }
 .adm-media-body .mb-title{font-family:var(--font-body); font-weight:700; font-size:12px; color: var(--berry);white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .adm-media-body .mb-meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap;margin-top:6px; font-size:10.5px; font-weight:700; color: var(--berry-faint);}
@@ -2567,7 +2571,7 @@ html.home-reveal-sequence.home-reveal-active footer{
 .adm-media-grid.view-list{display:block;}
 .adm-media-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border:2px solid var(--pink-light);border-radius:14px;background:#fff;margin-bottom:8px;flex-wrap:wrap;}
 .adm-media-row.selected{border-color:var(--berry);}
-.adm-media-row-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#fbeef5;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.adm-media-row-thumb{width:56px;height:56px;border-radius:10px;object-fit:contain;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;}
 .adm-media-row-main{flex:1 1 140px;min-width:0;}
 .adm-media-row .mb-actions{margin-left:auto;justify-content:flex-end;}
 .adm-media-pickbox{position:absolute;top:8px;right:8px;z-index:2;background:#fff;border-radius:8px;}
@@ -9305,12 +9309,12 @@ if(mediaPage.view === 'list'){
     ? '<img class="adm-media-row-thumb" src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" loading="lazy">'
     : '<span class="adm-media-row-thumb adm-media-row-icon" aria-hidden="true">' + esc(m.type === 'video' ? '▶' : (m.type === 'audio' ? '♪' : '📄')) + '</span>';
   return '<div class="adm-media-row" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (selected ? 'true' : 'false') + '">' + rowThumb +
-    '<div class="adm-media-row-main"><div class="mb-title">' + esc(m.title) + '</div><div class="mb-meta">' + esc(m.type) + ' · ' + esc(m.size || '') + '</div></div>' + actions + '</div>';
+    '<div class="adm-media-row-main">' + (selected ? '<span class="adm-media-selected-mark" aria-hidden="true">✓ Selected</span>' : '') + '<div class="mb-title">' + esc(m.title) + '</div><div class="mb-meta">' + esc(m.type) + ' · ' + esc(m.size || '') + '</div></div>' + actions + '</div>';
 }
 var cardThumb = (m.type === 'image' && src)
-  ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+  ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;" loading="lazy">'
   : esc(m.type === 'video' ? '▶' : (m.type === 'audio' ? '♪' : '📄'));
-return '<div class="adm-media-card" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (selected ? 'true' : 'false') + '"><div class="adm-media-thumb">' + cardThumb + '</div>' +
+return '<div class="adm-media-card" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (selected ? 'true' : 'false') + '"><div class="adm-media-thumb">' + (selected ? '<span class="adm-media-selected-mark" aria-hidden="true">✓ Selected</span>' : '') + cardThumb + '</div>' +
   '<div class="adm-media-body"><div class="mb-title" title="' + esc(m.title) + '">' + esc(m.title) + '</div>' +
   '<div class="adm-meta"><span class="adm-badge published">' + esc(m.type) + '</span><span>' + esc(m.size || '') + '</span></div>' + actions + '</div></div>';
 }
@@ -11585,7 +11589,7 @@ return rows.map(function(m){
   var src = m.thumbnailUrl || m.url;
   var isSelected = selected.indexOf(m.id) !== -1;
   var thumb = (m.type === 'image' && src)
-    ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" loading="lazy">'
+    ? '<img src="' + esc(src) + '" data-adm-thumb-original="' + esc(m.url || '') + '" alt="' + esc(m.alt || m.title) + '" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;" loading="lazy">'
     : esc(m.type === 'image' ? '🖼' : '▶');
   return '<div class="adm-media-card' + (isSelected ? ' selected' : '') + '" style="position:relative;" data-adm-media-card="' + esc(m.id) + '" role="option" aria-selected="' + (isSelected ? 'true' : 'false') + '">' +
     '<div class="adm-media-thumb">' + thumb + '</div>' +

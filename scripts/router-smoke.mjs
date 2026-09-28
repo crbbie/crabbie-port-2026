@@ -1874,9 +1874,9 @@ try {
     thumbProbe.forEach((box, index) => {
       assert.ok(Math.abs(box.height - box.expected) <= 2, 'thumbnail box ' + index + ' keeps the 16/10 ratio (' + box.height + 'px vs ' + box.expected.toFixed(1) + 'px)');
       assert.equal(box.imgPosition, 'absolute', 'thumbnail image ' + index + ' is removed from grid sizing');
-      assert.equal(box.imgFit, 'cover', 'thumbnail image ' + index + ' crops with cover');
+      assert.equal(box.imgFit, 'contain', 'thumbnail image ' + index + ' preserves the full artwork with contain');
     });
-    console.log('PASS media thumbnails keep a stable ratio for portrait, landscape, square, extreme and broken images (SDK fixture)');
+    console.log('PASS media thumbnails keep a stable ratio and preserve full artwork for portrait, landscape, square, extreme and broken images (SDK fixture)');
 
     // ---- Batch 5 Group 3: media query shape, one scoped server query ------
     await page.goto(origin + '/admin', {waitUntil: 'load'});
@@ -2324,10 +2324,17 @@ try {
     const ixStorageBeforeBulk = await page.evaluate(() => (window.__routerStorageWrites || []).length);
     const ixCardIds = await page.$$eval('#adminContent [data-adm-media-card]', (els) => els.map((el) => el.getAttribute('data-adm-media-card')));
     assert.equal(ixCardIds.length >= 3, true, 'the media page lists every loaded row');
+    assert.equal(await page.locator('#adminContent [data-adm-media-card="' + ixCardIds[0] + '"] .adm-media-thumb img').evaluate((img) => getComputedStyle(img).objectFit), 'contain', 'grid thumbnails preserve the full artwork');
     await page.locator('#adminContent [data-adm-media-card="' + ixCardIds[0] + '"]').click();
     await page.locator('#adminContent [data-adm-media-card="' + ixCardIds[1] + '"]').click();
     assert.equal(await page.locator('#adminContent [data-adm-bulk-count]').innerText(), '2 selected', 'selecting cards fills the bulk bar');
     assert.equal(await page.locator('#adminContent [data-adm-media-card][aria-selected="true"]').count(), 2, 'selected manager cards announce aria-selected');
+    assert.equal(await page.locator('#adminContent [data-adm-media-card][aria-selected="true"] .adm-media-selected-mark').count(), 2, 'selected grid cards show an explicit Selected marker');
+    await page.locator('#adminContent [data-adm-media-view="list"]').click();
+    assert.equal(await page.locator('#adminContent .adm-media-row[aria-selected="true"]').count(), 2, 'list view preserves the selected rows');
+    assert.equal(await page.locator('#adminContent .adm-media-row[aria-selected="true"] .adm-media-selected-mark').count(), 2, 'selected list rows keep an explicit Selected marker');
+    assert.equal(await page.locator('#adminContent .adm-media-row-thumb').first().evaluate((img) => getComputedStyle(img).objectFit), 'contain', 'list thumbnails preserve the full artwork');
+    await page.locator('#adminContent [data-adm-media-view="grid"]').click();
     await page.locator('#adminContent [data-adm-bulk-delete]').click();
     await page.waitForFunction(() => (window.__routerBulkCalls || []).length === 1);
     assert.deepEqual(await page.evaluate(() => window.__routerBulkCalls.map((call) => call.ids)), [[ixCardIds[0], ixCardIds[1]]], 'bulk delete hands every selected file to the per-file lifecycle');

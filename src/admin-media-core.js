@@ -72,7 +72,7 @@ export const THUMBNAIL_QUALITY = 70;
 export const THUMBNAIL_MIN_SOURCE_BYTES = 250 * 1024;
 
 /** Supabase Image Transformation options (same object, never a new file). */
-export const THUMBNAIL_TRANSFORM = Object.freeze({ width: THUMBNAIL_WIDTH, quality: THUMBNAIL_QUALITY, resize: 'cover' });
+export const THUMBNAIL_TRANSFORM = Object.freeze({ width: THUMBNAIL_WIDTH, quality: THUMBNAIL_QUALITY, resize: 'contain' });
 
 // Only still raster artwork is transformed. Animated GIF, SVG (vector), ICO,
 // PDF, video and audio always render/download their canonical original.
