@@ -3441,6 +3441,18 @@ summary .adm-btn-sm{flex:none;}
 .adm-appearance-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:16px;align-items:start;}
 .adm-appearance-controls{min-width:0;}
 .adm-appearance-preview-col{grid-column:2;grid-row:1 / span 2;position:sticky;top:calc(var(--adm-topbar-h) + 12px);}
+/* The desktop preview stays fully usable while the much taller Advanced editor
+   scrolls beside it. Keep preview movement inside this panel so focusing a
+   lower role never drags the editor/page away from the active control. */
+@media (min-width:1101px){
+  .adm-appearance-preview{
+    max-height:calc(100vh - var(--adm-topbar-h) - 24px);
+    max-height:calc(100dvh - var(--adm-topbar-h) - 24px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+  }
+}
 @media (max-width:1100px){
   .adm-appearance-grid{grid-template-columns:1fr;}
   .adm-appearance-preview-col{grid-column:auto;grid-row:auto;position:static;}
@@ -9739,7 +9751,7 @@ function inputAdvancedColor(group, key, base){
     '</div>' +
     '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>Use a valid #RRGGBB value.</span></div>' +
     '<span class="adm-adv-state" data-adm-adv-state>' + esc(state) + '</span>' +
-    '<div class="adm-adv-field-actions"><button type="button" class="adm-btn-sm" data-adm-adv-inherit="' + esc(group + '.' + key) + '" aria-label="Use inherited color for ' + esc(role.label) + '">Use inherited</button></div>' +
+    '<div class="adm-adv-field-actions"><button type="button" class="adm-btn-sm" data-adm-adv-inherit="' + esc(group + '.' + key) + '" data-adm-adv-focus="' + esc(group + '.' + key) + '" aria-label="Use inherited color for ' + esc(role.label) + '">Use inherited</button></div>' +
   '</div>';
 }
 function renderAdvancedAppearanceSection(base){
@@ -9860,6 +9872,33 @@ if(img){
   preview.style.backgroundPosition = 'center';
 }
 preview.style.backgroundColor = '#fff';
+}
+
+/* Keep the Advanced live preview aligned with the role currently being edited.
+   Desktop uses an internal preview scroll surface, so the page/editor stays put.
+   On the one-column layout we only keep the visual highlight: auto-scrolling
+   the page would pull the active field away from the author. */
+function focusAdvancedPreviewSample(key){
+var preview = adminContent ? adminContent.querySelector('[data-adm-appearance-preview="1"]') : null;
+if(!preview || !key) return;
+var matches = preview.querySelectorAll('[data-apv="' + key + '"]');
+preview.querySelectorAll('.apv-sample-hl').forEach(function(el){ el.classList.remove('apv-sample-hl'); });
+if(!matches.length) return;
+matches.forEach(function(el){ el.classList.add('apv-sample-hl'); });
+if(!window.matchMedia || !window.matchMedia('(min-width:1101px)').matches) return;
+if(preview.scrollHeight <= preview.clientHeight + 1) return;
+var target = matches[0];
+var pr = preview.getBoundingClientRect();
+var tr = target.getBoundingClientRect();
+var next = preview.scrollTop + (tr.top - pr.top) - ((preview.clientHeight - tr.height) / 2);
+var max = Math.max(0, preview.scrollHeight - preview.clientHeight);
+next = Math.max(0, Math.min(max, next));
+if(Math.abs(next - preview.scrollTop) < 1) return;
+try{
+  preview.scrollTo({ top: next, behavior: 'smooth' });
+}catch(e){
+  preview.scrollTop = next;
+}
 }
 
 function renderPetDialogueEditor(base){
@@ -10247,17 +10286,20 @@ btn.addEventListener('click', function(){
   refreshAppearancePreview();
 });
 });
-/* Cosmetic preview highlight: focusing an Advanced control lightly outlines
-   its preview sample(s). Ownership-free — pure visual aid. */
+/* Advanced preview follow-focus: the active role is outlined and, on desktop,
+   the preview panel scrolls itself to that exact sample without moving the
+   page/editor. Ownership-free — this is presentation only. */
 if(adminContent && adminContent.dataset.advHlWired !== '1'){
 adminContent.dataset.advHlWired = '1';
 adminContent.addEventListener('focusin', function(ev){
   var t = ev.target && ev.target.closest ? ev.target.closest('[data-adm-adv-focus]') : null;
-  adminContent.querySelectorAll('.apv-sample-hl').forEach(function(el){ el.classList.remove('apv-sample-hl'); });
-  if(!t) return;
+  if(!t){
+    adminContent.querySelectorAll('.apv-sample-hl').forEach(function(el){ el.classList.remove('apv-sample-hl'); });
+    return;
+  }
   var key = t.getAttribute('data-adm-adv-focus');
   if(!key) return;
-  adminContent.querySelectorAll('[data-apv="' + key + '"]').forEach(function(el){ el.classList.add('apv-sample-hl'); });
+  focusAdvancedPreviewSample(key);
 });
 adminContent.addEventListener('focusout', function(){
   setTimeout(function(){
