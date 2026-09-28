@@ -57,6 +57,11 @@ per-element editor.
   component variable + fallback chain as the public rule, so inherited samples
   follow Core edits and explicit samples hold. The solid button sample keeps
   the real candy surface — the Advanced role owns the label color only.
+- On desktop, Live Preview is a viewport-bounded internal scroll surface.
+  Focusing an Advanced color control (including Use inherited) automatically
+  scrolls that preview to the matching role sample and highlights it without
+  moving the page/editor. One-column layouts never auto-scroll the page away
+  from the active field.
 - Selected-state/fixed fallbacks (nav hover, nav active, solid button label)
   are states, not global tokens, and are labeled as such.
 - Intentional exclusions stay out of Advanced ownership: `.ad-cta h3`,
