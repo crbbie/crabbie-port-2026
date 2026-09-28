@@ -17,6 +17,51 @@ purpose, never by font size):
 
 Decorative type is an accent only. Reading text must stay in the body face.
 
+## Admin authoring type and colour contract
+
+Functional admin UI (shell, navigation, topbar controls, field labels, input and
+select values, helper text, buttons, statuses, lists, media metadata, dialogs,
+tables, functional headings) reads in ONE legible system stack
+(`--admin-font`: `system-ui, "Segoe UI", sans-serif`): body/controls 15–16px,
+labels ~14px weight 600, helpers ~13px, section headings 17–18px, page titles
+22–24px, and field labels are never upper-cased with heavy tracking. The
+semantic brand roles (`--font-display`, `--font-decorative`, `--font-body`) are
+re-mapped inside `body.admin-mode`; only the admin identity (`.admin-brand`) and
+the Appearance live preview — which deliberately mirrors the public site — keep
+the brand faces. Public typography and the brand font files are untouched.
+
+Admin colour is its own token set (`--admin-*`), independent of the public
+Appearance palette and never written by it: canvas `#F8F7FA`, surface `#FFFFFF`,
+sunken surface `#F3F1F6`, text `#302735`, secondary text `#665B6D`, control
+border `#918697`, divider `#E7E1EA`, primary `#8A3B67`, selected `#FCEAF3`,
+danger `#B42318`. Text and status colours keep WCAG AA contrast on their own
+surface (measured ratios live next to the tokens in the SPA); pastel tints are
+for canvas, selected state and surfaces — never for important text.
+
+Spacing follows one scale (4/8/12/16/24/32) and the form system owns the rhythm
+(`.adm-section > * + *`, `.adm-row + .adm-row`), so renderers do not add inline
+`margin-top` for field or section spacing. Contract: label→control 6–8px,
+control→helper 6px, field→field 16px, heading→content 16px, section→section
+32px, preview→actions 12px.
+
+Sections are a heading plus fields on a clean surface: no pink-box-in-pink-box
+and no decorative dashed borders (dashed outlines are reserved for real drop
+targets such as `.adm-dropzone-active`). Nested cards stay only for real
+entities (repeated blocks, download sources, selected media, gallery items).
+Form controls are one primitive: ~44px tall, white surface, visible border,
+clear focus ring, 15–16px text, vertical-resize textareas, real checkboxes (they
+commit on Save), and a distinct readonly presentation for generated data such as
+slugs. Every field helper/error is wired with `aria-describedby`.
+
+Buttons follow a hierarchy: PRIMARY (the single canonical Save, plus confirms),
+SECONDARY (choose / upload / retry / add), TERTIARY (`.adm-btn-sm.tertiary` for
+open/view and clearing a draft reference) and DANGER (`.adm-btn-sm.danger` for
+deleting records and real library objects). Clearing a draft reference is never
+presented as deleting a library object. Exactly one visible Save action exists
+(`#adminTopSave`); an editor footer left with nothing visible collapses
+(`.adm-editor-bar:not(:has(> :not([data-adm-save])))`) instead of leaving an
+empty divider band.
+
 ## Appearance tokens
 
 Admin > Appearance (stored under the existing `theme` site-settings key, no
@@ -323,7 +368,16 @@ Preserve these unless a focused responsive refactor deliberately consolidates th
 Important current behavior:
 
 - admin split/editor layouts collapse to one column around tablet widths;
-- admin rows become one column on small screens;
+- admin form rows split on the editor/section **container** width, not the
+  viewport (`@container` on `.adm-editor`, `.adm-section`, `.adm-modal-card`):
+  two columns need ~576px of usable width and three need ~872px, otherwise the
+  row stacks. This replaces the viewport-only rule that forced two ~160px
+  columns on phones; each stacked control keeps ≥240px at 390px and ≥200px at
+  320px with no horizontal overflow;
+- admin gutters are 24px desktop / 20px tablet (≤1185px) / 16px mobile (≤860px)
+  via `--adm-pad-x`;
+- the admin topbar keeps a 64px minimum (not a fixed height) so wrapped or
+  zoomed layouts are never clipped;
 - media grid reduces columns responsively (one card per row on phones);
 - media toolbar is grouped (upload + search / filters / view toggle) and stacks on narrow screens;
 - the media preview dialog owns its width and is the single scroll region (its head keeps a close button);
