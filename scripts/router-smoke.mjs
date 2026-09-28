@@ -537,7 +537,10 @@ try {
 
     for (const module of ['requests', 'media']) {
       await page.evaluate(module => { location.hash = '#admin/' + module; }, module);
-      await page.locator('#adminNav [data-admin-module="' + module + '"][aria-current="page"]').waitFor({state: 'visible'});
+      await page.waitForFunction(module => {
+        const nav = document.querySelector('#adminNav [data-admin-module="' + module + '"]');
+        return Boolean(nav && nav.getAttribute('aria-current') === 'page');
+      }, module);
       assert.equal(await page.locator('#adminRealShell').isVisible(), true);
       assert.equal(await page.locator('.view.is-active').count(), 1);
     }
