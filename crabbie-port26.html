@@ -11544,6 +11544,33 @@ else {
 }
 card.classList.toggle('is-cms-featured', !!record.featured);
 }
+function syncAssetTags(card, record){
+if(!card) return;
+var raw = record && Array.isArray(record.tags) ? record.tags : [];
+var tags = [];
+for(var i = 0; i < raw.length; i++){
+  if(raw[i] == null) continue;
+  var text = String(raw[i]).trim();
+  if(text) tags.push(text);
+}
+var box = card.querySelector(':scope > .item-tags');
+if(!tags.length){ if(box) box.remove(); return; }
+if(!box){
+  box = document.createElement('div');
+  box.className = 'item-tags';
+  var catEl = card.querySelector(':scope > .item-cat');
+  var statusEl = card.querySelector(':scope > .item-status');
+  if(catEl && catEl.nextSibling) card.insertBefore(box, catEl.nextSibling);
+  else if(statusEl) card.insertBefore(box, statusEl);
+  else card.appendChild(box);
+}
+box.textContent = '';
+for(var j = 0; j < tags.length; j++){
+  var chip = document.createElement('span');
+  chip.textContent = tags[j];
+  box.appendChild(chip);
+}
+}
 
 window.CrabbiePortfolio = {
 getPrototype: function(slug){ return clone(PROJECTS[slug] || {}); },
@@ -11711,6 +11738,7 @@ apply: function(records){
         '<div class="item-name">' + esc(record.title || record.slug) + '</div>' +
         '<div class="item-cat">' + esc(record.category || record.cat || 'Other') + '</div>' +
         '<div class="item-status">' + (assetHasPublicDownload(record) ? 'Available' : 'File not available yet') + '</div>';
+      syncAssetTags(card, record);
       assetGrid.appendChild(card);
     });
   }
@@ -11735,6 +11763,7 @@ apply: function(records){
     var st = card.querySelector('.item-status');
     if(st) st.textContent = assetHasPublicDownload(record) ? 'Available' : 'File not available yet';
     syncAssetBadge(card, record);
+    syncAssetTags(card, record);
     card.setAttribute('href', '#asset/' + encodeURIComponent(slug));
     card.setAttribute('data-search', ((record.title || '') + ' ' + (record.category || record.cat || '') + ' ' + (record.format || '') + ' ' + ((record.tags || []).join(' '))).toLowerCase());
     card.setAttribute('data-cat', assetCanonicalCat(record));
