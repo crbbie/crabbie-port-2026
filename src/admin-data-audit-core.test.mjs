@@ -177,9 +177,11 @@ import {
   const s = auditSettingsRecord({ contact: { email: 'not-an-email', twitter: '' }, branding: { logo: '' }, seo: { socialImage: '' } });
   assert.ok(s.warnings.includes('bad-contact-email'));
   assert.ok(s.warnings.includes('no-logo'));
-  assert.ok(s.missing.includes('contact.email') === false);
+  assert.ok(s.missing.includes('contact') === false);
   const s2 = auditSettingsRecord({ contact: { email: 'me@x.dev', twitter: 'https://x.com/c' }, branding: { logo: 'l', heroMedia: 'h' }, seo: { socialImage: 's' } });
   assert.equal(s2.status, 'complete');
+  const customContact = auditSettingsRecord({ contact: { items:[{id:'bsky',type:'link',label:'Bluesky',value:'@crabbie',url:'https://bsky.app/profile/example.com',visible:true}] }, branding:{logo:'l',heroMedia:'h'}, seo:{socialImage:'s'} });
+  assert.equal(customContact.missing.length, 0, 'a visible custom contact satisfies Contact settings without requiring Twitter or Email');
   const s3 = auditSettingsRecord({ contact: { email: 'me@x.dev', twitter: 'https://x.com/c' }, branding: { logo: 'l', heroMedia: 'h', title: '[SITE TITLE]' }, seo: { socialImage: 's' } });
   assert.ok(s3.placeholders.includes('branding.title'));
   assert.equal(s3.status, 'warning');
