@@ -4673,6 +4673,38 @@ try {
       await page.locator('[data-adm-adv-group="' + g + '"] > summary span').first().click();
     }
     assert.equal(await page.locator('[data-adm-adv-group][open]').count(), 4, 'groups open independently');
+    // Follow-focus: a lower Advanced role scrolls the desktop preview itself,
+    // keeping the editor/page at the current position.
+    const previewFollowStartY = await page.evaluate(() => {
+      const preview = document.querySelector('[data-adm-appearance-preview="1"]');
+      preview.scrollTop = 0;
+      const y = window.scrollY;
+      const input = document.querySelector('[data-adm-color-text="settings.theme.textOverrides.footer.link"]');
+      input.focus({ preventScroll: true });
+      return y;
+    });
+    await page.waitForFunction(() => {
+      const preview = document.querySelector('[data-adm-appearance-preview="1"]');
+      const target = document.querySelector('[data-apv="footer.link"]');
+      if(!preview || !target || preview.scrollTop <= 0) return false;
+      const pr = preview.getBoundingClientRect();
+      const tr = target.getBoundingClientRect();
+      return tr.top >= pr.top - 2 && tr.bottom <= pr.bottom + 2;
+    });
+    const previewFollow = await page.evaluate(() => {
+      const preview = document.querySelector('[data-adm-appearance-preview="1"]');
+      const target = document.querySelector('[data-apv="footer.link"]');
+      return {
+        scrollTop: preview.scrollTop,
+        overflowY: getComputedStyle(preview).overflowY,
+        highlighted: target.classList.contains('apv-sample-hl'),
+        pageY: window.scrollY,
+      };
+    });
+    assert.ok(previewFollow.scrollTop > 0, 'focusing a lower Advanced role moves the preview to its matching sample');
+    assert.ok(['auto', 'scroll'].includes(previewFollow.overflowY), 'desktop live preview owns its vertical scrolling');
+    assert.equal(previewFollow.highlighted, true, 'the followed preview sample remains highlighted');
+    assert.ok(Math.abs(previewFollow.pageY - previewFollowStartY) <= 2, 'following the preview does not move the editor page');
     // 7-8: inherited role shows the resolved color + truthful source label.
     const displayNow = await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue();
     assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), displayNow, 'an absent override renders the resolved inherited color');
