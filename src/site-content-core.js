@@ -45,6 +45,44 @@ export function settingsText(group, key) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+export const CONTACT_ITEM_TYPES = Object.freeze(['email', 'link', 'text']);
+
+function legacyTwitterDisplay(url) {
+  const match = String(url || '').match(/^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/([^/?#]+)/i);
+  return match ? '@' + match[1].replace(/^@/, '') : String(url || '');
+}
+
+/**
+ * Contact/Social settings are an ordered CMS list. An explicit `items: []`
+ * is authoritative. Legacy email/twitter settings are upgraded in memory only
+ * so existing production data keeps rendering.
+ */
+export function contactItemsSettings(contact = {}) {
+  const group = contact && typeof contact === 'object' && !Array.isArray(contact) ? contact : {};
+  const normalize = (raw, index) => {
+    const item = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const type = CONTACT_ITEM_TYPES.includes(item.type) ? item.type : 'link';
+    return {
+      id: typeof item.id === 'string' && item.id.trim() ? item.id.trim() : ('contact-' + (index + 1)),
+      type,
+      label: typeof item.label === 'string' ? item.label : (type === 'email' ? 'Email' : 'Contact'),
+      value: typeof item.value === 'string' ? item.value : '',
+      url: typeof item.url === 'string' ? item.url : '',
+      icon: typeof item.icon === 'string' ? item.icon : (type === 'email' ? '✉' : '✦'),
+      visible: item.visible !== false,
+      showInFooter: item.showInFooter !== false
+    };
+  };
+  if (Array.isArray(group.items)) return group.items.map(normalize);
+
+  const legacy = [];
+  const email = hasSettingsKey(group, 'email') ? String(group.email == null ? '' : group.email).trim() : '';
+  const twitter = hasSettingsKey(group, 'twitter') ? String(group.twitter == null ? '' : group.twitter).trim() : '';
+  if (email) legacy.push(normalize({ id:'email', type:'email', label:'Email', value:email, icon:'✉' }, legacy.length));
+  if (twitter) legacy.push(normalize({ id:'twitter', type:'link', label:'Twitter / X', value:legacyTwitterDisplay(twitter), url:twitter, icon:'✦' }, legacy.length));
+  return legacy;
+}
+
 export function cmsBrandName(settings) {
   const title = settings && settings.branding ? settingsText(settings.branding, 'title') : null;
   return title || 'CRABBIE';
