@@ -4679,8 +4679,8 @@ try {
       const preview = document.querySelector('[data-adm-appearance-preview="1"]');
       preview.scrollTop = 0;
       const y = window.scrollY;
-      const input = document.querySelector('[data-adm-color-text="settings.theme.textOverrides.footer.link"]');
-      input.focus({ preventScroll: true });
+      const picker = document.querySelector('[data-adm-color-picker="settings.theme.textOverrides.footer.link"]');
+      picker.focus({ preventScroll: true });
       return y;
     });
     await page.waitForFunction(() => {
