@@ -22,8 +22,47 @@ Decorative type is an accent only. Reading text must stay in the body face.
 Admin > Appearance (stored under the existing `theme` site-settings key, no
 schema change) exposes semantic typography color tokens — display, accent,
 body, decorative, muted, question/field-label — plus background, pink and
-lavender primitives and an optional website background image. Do not add
-per-element color settings.
+lavender primitives and an optional website background image.
+
+Core colors are global semantic roles. Advanced text colors are optional
+section/component overrides: 24 supported roles in seven groups
+(Navigation 3, Cards 3, Detail content 5, Commission 3, Forms 5, Buttons 2,
+Footer 3), stored as `theme.textOverrides`. There is no arbitrary
+per-element editor.
+
+- Absent override = inherit: the control renders the live resolved color
+  (global semantic color or documented state default such as the candy hover
+  default / selected-state white) while storage stays absent. Resolved values
+  are never materialized.
+- State reads `Inherited from X` (engine metadata: Display, Body, Muted,
+  Accent, Question label, or the state-default label) or `Custom`.
+- `Use inherited` deletes the explicit leaf (pruning empty groups and an
+  emptied `textOverrides`), never writing the resolved color back.
+- `Reset group` returns one group to inheritance; `Reset all Advanced`
+  deletes `theme.textOverrides`. Neither touches Core colors, background,
+  media, palettes, typography, motion, music, SEO, or unknown theme keys.
+- Live inheritance works before Save: Core edits move inherited Advanced
+  controls and preview samples immediately; explicit overrides ignore them.
+- Strict `#RRGGBB` everywhere (canonical lowercase persistence); partial and
+  invalid input stays in the editing buffer with `aria-invalid` plus a visible
+  message and never enters the draft, preview, palettes, cache, or save
+  payload. Picker and HEX sync immediately in both directions.
+- Palettes snapshot explicit overrides only; applying a palette replaces
+  Advanced wholesale, so an old palette without `textOverrides` clears current
+  overrides back to inheritance. Palette cards show an `N custom text colors`
+  indicator. Duplicates deep-clone nested overrides.
+- Cache stays v1/v2 compatible (`crabbie:appearance`); only valid override
+  leaves are kept.
+- The preview is truthful: one compact sample per Advanced role using the same
+  component variable + fallback chain as the public rule, so inherited samples
+  follow Core edits and explicit samples hold. The solid button sample keeps
+  the real candy surface — the Advanced role owns the label color only.
+- Selected-state/fixed fallbacks (nav hover, nav active, solid button label)
+  are states, not global tokens, and are labeled as such.
+- Intentional exclusions stay out of Advanced ownership: `.ad-cta h3`,
+  `.page-title .hi-p`, the foot-brand accent fragment, `.tos-disclosure-summary`,
+  selected chips/tabs/choices, link pills, viewer icon buttons, fee-table rows,
+  thank-you names, baked artwork, decorative gradients.
 
 - Colors apply through centralized CSS variables (`--text-*` declared on
   `body` so the active palette is respected).

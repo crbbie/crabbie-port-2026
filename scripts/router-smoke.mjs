@@ -4625,6 +4625,385 @@ try {
     assert.deepEqual(advScoped.unscoped, [], 'no advanced rule escapes the public scope');
     console.log('PASS appearance Batch 2A advanced token engine, inheritance, and compatibility (SDK fixture)');
 
+    // ---- Appearance Batch 2B: Advanced editor + honest live preview ----
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await page.evaluate(() => { window.__routerRows = window.__routerRows || {}; window.__routerRows.site_settings = []; });
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.waitForSelector('[data-adm-appearance-preview="1"]');
+    await page.waitForSelector('[data-adm-advanced-section]');
+    const advSection = page.locator('[data-adm-advanced-section]');
+    // 1-2: section exists, collapsed by default, secondary to Core.
+    assert.equal(await advSection.evaluate((el) => el.open), false, 'Advanced text colors is collapsed by default');
+    assert.ok((await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('Advanced text colors'), 'the section is labeled Advanced text colors');
+    assert.ok(!(await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('24 colors'), 'the label never sells 24 mandatory settings');
+    const coreIdx = await page.evaluate(() => {
+      const h = Array.from(document.querySelectorAll('#adminContent .adm-section h4')).map((el) => el.textContent);
+      return { typo: h.indexOf('Typography colors'), adv: document.querySelector('[data-adm-advanced-section]')
+        ? h.indexOf(document.querySelector('[data-adm-advanced-section]').closest('.adm-section').querySelector('h4')?.textContent) : -1 };
+    });
+    assert.ok(coreIdx.typo !== -1, 'Core colors stay on the page');
+    // 3-6: seven registry groups, 24 unique role controls, no duplicates.
+    assert.equal(await page.locator('[data-adm-adv-group]').count(), 7, 'seven Advanced groups exist');
+    assert.deepEqual(await page.evaluate(() => Array.from(document.querySelectorAll('[data-adm-adv-group]')).map((el) => el.getAttribute('data-adm-adv-group'))),
+      ['navigation', 'cards', 'detail', 'commission', 'forms', 'buttons', 'footer'], 'groups follow the registry order');
+    assert.equal(await page.locator('[data-adm-adv-field]').count(), 24, 'exactly 24 Advanced role controls exist');
+    assert.deepEqual(await page.evaluate(() => Array.from(document.querySelectorAll('[data-adm-adv-field]')).map((el) => el.getAttribute('data-adm-adv-field')).sort()),
+      await page.evaluate(() => window.CrabbieAppearance.listTextOverrideRoles().map((r) => r.group + '.' + r.key).sort()),
+      'every control is registry-owned, none handwritten');
+    assert.equal(await page.locator('[data-adm-adv-group="cards"] [data-adm-adv-field]').count(), 3, 'cards holds 3 roles');
+    assert.equal(await page.locator('[data-adm-adv-group="detail"] [data-adm-adv-field]').count(), 5, 'detail holds 5 roles');
+    assert.equal(await page.locator('[data-adm-adv-group="forms"] [data-adm-adv-field]').count(), 5, 'forms holds 5 roles');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"]').count(), 1, 'no duplicated Advanced control');
+    // Fields live inside collapsed disclosures: open the section + working groups first.
+    await page.locator('[data-adm-advanced-section] > summary .chev').click();
+    assert.equal(await advSection.evaluate((el) => el.open), true, 'the Advanced section opens on demand');
+    for (const g of ['navigation', 'cards', 'forms', 'footer']) {
+      await page.locator('[data-adm-adv-group="' + g + '"] > summary span').first().click();
+    }
+    assert.equal(await page.locator('[data-adm-adv-group][open]').count(), 4, 'groups open independently');
+    // 7-8: inherited role shows the resolved color + truthful source label.
+    const displayNow = await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue();
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), displayNow, 'an absent override renders the resolved inherited color');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Inherited from Display', 'inherited state names the Display source');
+    // 11-12: picker creates an explicit override immediately (HEX syncs too).
+    const advPicker = page.locator('[data-adm-color-picker="settings.theme.textOverrides.cards.title"]');
+    const advText = page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]');
+    await advPicker.fill('#123456');
+    assert.equal(await advText.inputValue(), '#123456', 'picker writes the HEX field immediately');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Custom', 'an explicit role reads Custom');
+    assert.ok((await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('1 custom'), 'the section summary counts the override');
+    // 13-19: representative second role (forms.label) through the same controller.
+    const labPicker = page.locator('[data-adm-color-picker="settings.theme.textOverrides.forms.label"]');
+    const labText = page.locator('[data-adm-color-text="settings.theme.textOverrides.forms.label"]');
+    await labPicker.fill('#112233');
+    assert.equal(await labText.inputValue(), '#112233', 'a second group picker syncs its HEX field');
+    await labText.fill('#445566');
+    assert.equal(await labPicker.inputValue(), '#445566', 'a valid typed HEX syncs the picker');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-form-label').trim()), '#445566', 'a valid edit reaches the preview before save');
+    await labText.fill('#12');
+    await page.waitForTimeout(80);
+    const labPartial = await page.evaluate(() => ({
+      picker: document.querySelector('[data-adm-color-picker="settings.theme.textOverrides.forms.label"]').value,
+      invalid: document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.label"]').getAttribute('aria-invalid'),
+      text: document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.label"]').value,
+      preview: getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-form-label').trim(),
+      focused: document.activeElement === document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.label"]'),
+      state: document.querySelector('[data-adm-adv-field="forms.label"] [data-adm-adv-state]').textContent,
+    }));
+    assert.equal(labPartial.text, '#12', 'partial typing stays visible in the buffer');
+    assert.equal(labPartial.picker, '#445566', 'partial typing never reaches the picker');
+    assert.equal(labPartial.preview, '#445566', 'partial typing never reaches the preview');
+    assert.equal(labPartial.invalid, 'true', 'partial typing flags aria-invalid');
+    assert.equal(labPartial.focused, true, 'caret/focus survives typing');
+    assert.equal(labPartial.state, 'Custom', 'a partial buffer does not flip explicit state');
+    await labText.fill('not-a-color');
+    await labText.blur();
+    await page.waitForTimeout(120);
+    assert.equal(await labPicker.inputValue(), '#445566', 'invalid input preserves the last valid picker');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-form-label').trim()), '#445566', 'invalid input preserves the last valid preview');
+    await labText.fill('#AABBCC');
+    await page.keyboard.press('Enter');
+    assert.equal(await labText.inputValue(), '#aabbcc', 'blur/Enter normalizes a valid value to canonical lowercase');
+    // 18: one logical write marks the theme dirty (single-flight save model intact).
+    assert.ok((await page.evaluate(() => document.getElementById('adminSaveStatus').className)).includes('dirty'), 'a valid Advanced edit marks the draft dirty');
+    // 20-22: live inheritance — inherited follows Display, explicit ignores, Use inherited restores.
+    await page.locator('[data-adm-adv-reset-all]').click();
+    await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#222222');
+    assert.equal(await advText.inputValue(), '#222222', 'an inherited Card title follows Display live');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Inherited from Display', 'inheritance source survives the Core change');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-apv="cards.title"]')).color), hexToRgb('#222222'), 'the preview Card title follows Display before save');
+    await advPicker.fill('#abcdef');
+    await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#333333');
+    assert.equal(await advText.inputValue(), '#abcdef', 'an explicit Card title ignores later Display changes');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-apv="cards.title"]')).color), hexToRgb('#abcdef'), 'the explicit preview holds its color');
+    await page.locator('[data-adm-adv-inherit="cards.title"]').click();
+    assert.equal(await advText.inputValue(), '#333333', 'Use inherited returns the live Display value');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Inherited from Display', 'Use inherited restores the inherited state');
+    // 23-25: fixed fallback — nav active absents to selected-state white.
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-apv="navigation.active"]')).color), 'rgb(255, 255, 255)', 'absent nav active inherits selected-state white');
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.navigation.active"]').fill('#a30303');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-apv="navigation.active"]')).color), hexToRgb('#a30303'), 'explicit nav active wins');
+    await page.locator('[data-adm-adv-inherit="navigation.active"]').click();
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-apv="navigation.active"]')).color), 'rgb(255, 255, 255)', 'Use inherited returns nav active to white');
+    // 26-27: Muted moves its inheritors only.
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.footer.body"]').fill('#555555');
+    await page.locator('[data-adm-path="settings.theme.mutedColor"][type="text"]').fill('#444444');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.metadata"]').inputValue(), '#444444', 'an inherited Muted role follows the Core change');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.footer.body"]').inputValue(), '#555555', 'an explicit Muted-derived override is preserved');
+    // 28-29: Reset group clears only that group.
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.forms.label"]').fill('#aabbcc');
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.cards.title"]').fill('#123456');
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.cards.metadata"]').fill('#654321');
+    await page.locator('[data-adm-adv-reset-group="cards"]').click();
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#333333', 'reset group returns Card title to inheritance');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.metadata"]').inputValue(), '#444444', 'reset group returns Card metadata to inheritance');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.forms.label"]').inputValue(), '#aabbcc', 'reset group preserves other Advanced groups');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.footer.body"]').inputValue(), '#555555', 'reset group preserves the footer override');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-adm-adv-group-count="cards"]').textContent), '', 'reset group clears the group count');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
+    assert.deepEqual(await page.evaluate(() => {
+      const rows = window.__routerRows.site_settings || [];
+      const row = rows.filter((r) => r.key === 'theme')[0];
+      return row ? row.value.textOverrides : null;
+    }), { forms: { label: '#aabbcc' }, footer: { body: '#555555' } }, 'reset group prunes the emptied group in the save payload');
+    // 30-34: Reset all removes textOverrides, keeps everything else.
+    await page.locator('[data-adm-path="settings.theme.backgroundSize"]').selectOption('repeat');
+    await page.locator('[data-adm-adv-reset-all]').click();
+    assert.equal(await page.locator('[data-adm-adv-field="forms.label"] [data-adm-adv-state]').innerText(), 'Inherited from Question label', 'every role returns to inheritance');
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Inherited from Display', 'reset all clears explicit state everywhere');
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#333333', 'reset all restores live inheritance in controls');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-card-title').trim()), '', 'reset all clears the preview override');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#333333', 'Core values remain untouched');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundSize"]').inputValue(), 'repeat', 'background settings remain untouched');
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'reset all leaves the empty palette list alone');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
+    const resetAllSaved = await page.evaluate(() => {
+      const rows = window.__routerRows.site_settings || [];
+      const row = rows.filter((r) => r.key === 'theme')[0];
+      return row ? JSON.parse(JSON.stringify(row.value)) : null;
+    });
+    assert.ok(resetAllSaved && !('textOverrides' in resetAllSaved), 'reset all saves with no textOverrides key');
+    assert.equal(resetAllSaved.displayColor, '#333333', 'the save keeps Core values');
+    assert.equal(resetAllSaved.backgroundSize, 'repeat', 'the save keeps background settings');
+    assert.ok(Array.isArray(resetAllSaved.palettes), 'the save keeps the palettes key');
+    // 35-40: palettes — counts, roundtrip, apply, old-palette clearing, duplicate isolation.
+    await page.locator('[data-adm-palette-name="1"]').fill('Probe zero');
+    await page.locator('[data-adm-palette-save]').click();
+    await page.waitForSelector('[data-adm-palette-card]');
+    assert.ok((await page.locator('.adm-palette-adv-count').first().innerText()).includes('0 custom text colors'), 'an old-style palette shows zero custom text colors');
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.cards.title"]').fill('#123456');
+    await page.locator('[data-adm-palette-name="1"]').fill('Probe adv');
+    await page.locator('[data-adm-palette-save]').click();
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 2, 'both palettes are saved');
+    assert.ok((await page.locator('.adm-palette-adv-count').nth(1).innerText()).includes('1 custom text color'), 'a palette with overrides shows its Advanced count');
+    await page.locator('[data-adm-palette-apply]').first().click();
+    assert.equal(await page.locator('[data-adm-adv-field="cards.title"] [data-adm-adv-state]').innerText(), 'Inherited from Display', 'applying an old palette clears Advanced back to inheritance');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-card-title').trim()), '', 'applying an old palette clears the preview override');
+    await page.locator('[data-adm-palette-apply]').nth(1).click();
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#123456', 'applying a palette restores controls immediately');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-card-title').trim()), '#123456', 'applying a palette restores the preview immediately');
+    await page.locator('[data-adm-palette-card]').nth(1).locator('[data-adm-palette-dup]').click();
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('[data-adm-palette-card]').count(), 3, 'duplicate adds a card without sharing nested overrides');
+    assert.ok((await page.locator('.adm-palette-adv-count').nth(2).innerText()).includes('1 custom text color'), 'the duplicate carries the nested overrides');
+    await page.locator('[data-adm-palette-card]').nth(2).locator('[data-adm-palette-apply]').click();
+    assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#123456', 'the duplicate round-trips its explicit override');
+    // 41-42: save payload — explicit persists, inherited never materializes.
+    await page.locator('[data-adm-color-picker="settings.theme.textOverrides.cards.title"]').fill('#789abc');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
+    const savedTheme = await page.evaluate(() => {
+      const rows = window.__routerRows.site_settings || [];
+      const row = rows.filter((r) => r.key === 'theme')[0];
+      return row ? JSON.parse(JSON.stringify(row.value)) : null;
+    });
+    assert.equal(savedTheme && savedTheme.textOverrides && savedTheme.textOverrides.cards.title, '#789abc', 'an explicit override survives Save to the database JSON');
+    await page.locator('[data-adm-adv-inherit="cards.title"]').click();
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('#adminTopSave').click();
+    await page.waitForFunction(() => (window.__routerWrites || []).some((w) => w.table === 'site_settings'));
+    const savedTheme2 = await page.evaluate(() => {
+      const rows = window.__routerRows.site_settings || [];
+      const row = rows.filter((r) => r.key === 'theme')[0];
+      return row ? JSON.parse(JSON.stringify(row.value)) : null;
+    });
+    assert.ok(savedTheme2 && !savedTheme2.textOverrides, 'an inherited role saves with no explicit leaf');
+    // 43-45 + 53-54: public computed style + cache distinction via the production apply path.
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieSiteContent));
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#565656', textOverrides: { cards: { title: '#789abc' } } } }); });
+    const pubExplicit = await page.evaluate(() => {
+      const dive = document.createElement('div');
+      dive.innerHTML = '<div class="page-title" id="tBase">x</div><div class="work-title" id="tOwned">y</div>';
+      document.body.appendChild(dive);
+      const out = { inline: document.body.style.getPropertyValue('--text-card-title'), owned: getComputedStyle(dive.querySelector('#tOwned')).color, base: getComputedStyle(dive.querySelector('#tBase')).color };
+      dive.remove();
+      return out;
+    });
+    assert.equal(pubExplicit.inline, '#789abc', 'the saved override reaches the public inline variable');
+    assert.equal(pubExplicit.owned, hexToRgb('#789abc'), 'the saved override recolors its owned selector');
+    assert.notEqual(pubExplicit.base, hexToRgb('#789abc'), 'unowned selectors keep their baseline');
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { displayColor: '#565656' } }); });
+    const pubCleared = await page.evaluate(() => ({
+      inline: document.body.style.getPropertyValue('--text-card-title'),
+      cache: (() => { try { return JSON.parse(localStorage.getItem('crabbie:appearance')); } catch (e) { return null; } })(),
+    }));
+    assert.equal(pubCleared.inline, '', 'clearing then saving removes the stale public inline variable');
+    assert.ok(pubCleared.cache && !pubCleared.cache.theme.textOverrides, 'the cache preserves the explicit/inherited distinction');
+    // 46-55: preview sentinel sweep — every sample matches its Advanced role.
+    await page.goto(origin + '/admin', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+    await loginAdmin();
+    await page.waitForFunction(() => window.CrabbieAdminCrud.getAdminLoadState() === 'ready');
+    await goAdmin('settings');
+    await page.locator('[data-adm-settings-group="Appearance"]').click();
+    await page.waitForSelector('[data-adm-appearance-preview="1"]');
+    await page.waitForSelector('[data-adm-advanced-section]');
+    await page.locator('[data-adm-advanced-section] > summary .chev').click();
+    await page.locator('[data-adm-adv-group="forms"] > summary span').first().click();
+    await page.evaluate(() => {
+      const pairs = [['navigation', 'normal', '#a10101'], ['navigation', 'hover', '#a20202'], ['navigation', 'active', '#a30303'],
+        ['cards', 'title', '#b10101'], ['cards', 'metadata', '#b20202'], ['cards', 'taxonomy', '#b30303'],
+        ['detail', 'heading', '#c10101'], ['detail', 'body', '#c20202'], ['detail', 'factsLabel', '#c30303'], ['detail', 'factsValue', '#c40404'], ['detail', 'credits', '#c50505'],
+        ['commission', 'title', '#d10101'], ['commission', 'price', '#d20202'], ['commission', 'secondary', '#d30303'],
+        ['forms', 'input', '#e10101'], ['forms', 'placeholder', '#e20202'], ['forms', 'helper', '#e30303'], ['forms', 'required', '#e40404'], ['forms', 'label', '#e50505'],
+        ['buttons', 'solid', '#f10101'], ['buttons', 'ghost', '#f20202'],
+        ['footer', 'heading', '#f30101'], ['footer', 'body', '#f30202'], ['footer', 'link', '#f30303']];
+      // Drive the real picker controller for every role (same path as user input).
+      pairs.forEach(([g, k, hex]) => {
+        const path = 'settings.theme.textOverrides.' + g + '.' + k;
+        const picker = document.querySelector('[data-adm-color-picker="' + path + '"]');
+        picker.value = hex;
+        picker.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    });
+    await page.waitForTimeout(150);
+    const pvSweep = await page.evaluate(() => {
+      const css = (sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).color : null; };
+      return {
+        navN: css('[data-apv="navigation.normal"]'), navH: css('[data-apv="navigation.hover"]'), navA: css('[data-apv="navigation.active"]'),
+        cardT: css('[data-apv="cards.title"]'), cardM: css('[data-apv="cards.metadata"]'), cardX: css('[data-apv="cards.taxonomy"]'),
+        detH: css('[data-apv="detail.heading"]'), detB: css('[data-apv="detail.body"]'),
+        factL: css('[data-apv="detail.factsLabel"]'), factV: css('[data-apv="detail.factsValue"]'), cred: css('[data-apv="detail.credits"]'),
+        comT: css('[data-apv="commission.title"]'), comP: css('[data-apv="commission.price"]'), comS: css('[data-apv="commission.secondary"]'),
+        formL: css('[data-apv="forms.label"]'), formR: css('[data-apv="forms.required"]'),
+        formI: css('[data-apv="forms.input"]'), formH: css('[data-apv="forms.helper"]'),
+        btnS: css('[data-apv="buttons.solid"]'), btnG: css('[data-apv="buttons.ghost"]'),
+        footH: css('[data-apv="footer.heading"]'), footB: css('[data-apv="footer.body"]'), footL: css('[data-apv="footer.link"]'),
+        placeholder: (() => { const el = document.querySelector('[data-apv="forms.input"]'); return el ? getComputedStyle(el, '::placeholder').color : null; })(),
+        solidBg: css('[data-apv="buttons.solid"]') && getComputedStyle(document.querySelector('[data-apv="buttons.solid"]')).backgroundImage,
+      };
+    });
+    assert.equal(pvSweep.navN, hexToRgb('#a10101'), 'navigation preview matches its normal role');
+    assert.equal(pvSweep.navH, hexToRgb('#a20202'), 'navigation preview matches its hover role');
+    assert.equal(pvSweep.navA, hexToRgb('#a30303'), 'navigation preview matches its active role');
+    assert.equal(pvSweep.cardT, hexToRgb('#b10101'), 'card preview matches the title role');
+    assert.equal(pvSweep.cardM, hexToRgb('#b20202'), 'card preview matches the metadata role');
+    assert.equal(pvSweep.cardX, hexToRgb('#b30303'), 'card preview matches the taxonomy role');
+    assert.equal(pvSweep.detH, hexToRgb('#c10101'), 'detail preview matches the heading role');
+    assert.equal(pvSweep.detB, hexToRgb('#c20202'), 'detail preview matches the body role');
+    assert.equal(pvSweep.factL, hexToRgb('#c30303'), 'detail preview matches the facts-label role');
+    assert.equal(pvSweep.factV, hexToRgb('#c40404'), 'detail preview matches the facts-value role');
+    assert.equal(pvSweep.cred, hexToRgb('#c50505'), 'detail preview matches the credits role');
+    assert.equal(pvSweep.comT, hexToRgb('#d10101'), 'commission preview matches the title role');
+    assert.equal(pvSweep.comP, hexToRgb('#d20202'), 'commission preview matches the price role');
+    assert.equal(pvSweep.comS, hexToRgb('#d30303'), 'commission preview matches the secondary role');
+    assert.equal(pvSweep.formL, hexToRgb('#e50505'), 'form preview matches the label role');
+    assert.equal(pvSweep.formR, hexToRgb('#e40404'), 'form preview matches the required role');
+    assert.equal(pvSweep.formI, hexToRgb('#e10101'), 'form preview matches the input role');
+    assert.equal(pvSweep.placeholder, hexToRgb('#e20202'), 'form preview matches the placeholder role');
+    assert.equal(pvSweep.formH, hexToRgb('#e30303'), 'form preview matches the helper role');
+    assert.equal(pvSweep.btnS, hexToRgb('#f10101'), 'the solid button sample matches its label role');
+    assert.ok(pvSweep.solidBg.includes('linear-gradient'), 'the solid button keeps the candy surface (label-only ownership)');
+    assert.equal(pvSweep.btnG, hexToRgb('#f20202'), 'the ghost button sample matches its label role');
+    assert.equal(pvSweep.footH, hexToRgb('#f30101'), 'footer preview matches the heading role');
+    assert.equal(pvSweep.footB, hexToRgb('#f30202'), 'footer preview matches the body role');
+    assert.equal(pvSweep.footL, hexToRgb('#f30303'), 'footer preview matches the link role');
+    // 56-64: responsive + accessibility on the real editor.
+    await page.locator('[data-adm-adv-reset-all]').click();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(150);
+    assert.ok(await advSection.isVisible(), 'desktop Appearance remains usable');
+    for (const w of [1024, 768, 390]) {
+      await page.setViewportSize({ width: w, height: 844 });
+      await page.waitForTimeout(150);
+      const overflow = await page.evaluate(() => { const c = document.getElementById('adminContent'); return c ? c.scrollWidth - c.clientWidth : 0; });
+      assert.ok(overflow <= 2, 'no horizontal overflow at ' + w + 'px (got ' + overflow + ')');
+    }
+    const inheritBox = await page.locator('[data-adm-adv-inherit="forms.input"]').boundingBox();
+    assert.ok(inheritBox && inheritBox.height >= 20 && inheritBox.width >= 60, 'Use inherited remains tappable on phones');
+    await page.locator('[data-adm-color-text="settings.theme.textOverrides.forms.input"]').fill('bad');
+    const msgBox = await page.evaluate(() => {
+      const field = document.querySelector('[data-adm-adv-field="forms.input"]');
+      const msg = field ? field.querySelector('[data-adm-color-error]') : null;
+      if (!msg) return null;
+      const r = msg.getBoundingClientRect();
+      return { x: r.x, width: r.width, vw: window.innerWidth };
+    });
+    assert.ok(msgBox && msgBox.x >= 0 && msgBox.x + msgBox.width <= msgBox.vw + 2, 'the validation message does not clip on phones');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(120);
+    // Keyboard: Enter on the top summary toggles Advanced without forcing groups open.
+    await page.evaluate(() => { document.querySelectorAll('[data-adm-adv-group]').forEach((d) => { d.open = false; }); });
+    await page.locator('[data-adm-advanced-section] > summary').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    assert.equal(await advSection.evaluate((el) => el.open), false, 'group summary keyboard operation works');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    assert.equal(await advSection.evaluate((el) => el.open), true, 'the section reopens from the keyboard');
+    assert.equal(await page.locator('[data-adm-adv-group][open]').count(), 0, 'opening Advanced does not force all groups open');
+    // Editing buffer + open groups survive an unrelated Core edit (no rerender).
+    await page.locator('[data-adm-adv-group="forms"] > summary span').first().click();
+    await page.locator('[data-adm-color-text="settings.theme.textOverrides.forms.helper"]').fill('#1');
+    const bufDuring = await page.evaluate(() => ({
+      v: document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.helper"]').value,
+      focused: document.activeElement === document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.helper"]'),
+    }));
+    assert.equal(bufDuring.v, '#1', 'partial input stays in the editing buffer while typing');
+    assert.equal(bufDuring.focused, true, 'focus stays in the field while typing');
+    // A Core edit must not rerender, blur, or clobber the active buffer.
+    await page.evaluate(() => {
+      const picker = document.querySelector('[data-adm-color-picker="settings.theme.displayColor"]');
+      picker.value = '#0a0b0c';
+      picker.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const bufAfter = await page.evaluate(() => ({
+      v: document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.helper"]').value,
+      focused: document.activeElement === document.querySelector('[data-adm-color-text="settings.theme.textOverrides.forms.helper"]'),
+      groupOpen: document.querySelector('[data-adm-adv-group="forms"]').open,
+      displayText: document.querySelector('[data-adm-path="settings.theme.displayColor"][type="text"]').value,
+    }));
+    assert.equal(bufAfter.groupOpen, true, 'a Core edit does not collapse the open group');
+    assert.equal(bufAfter.v, '#1', 'a Core edit does not reset the active editing buffer');
+    assert.equal(bufAfter.focused, true, 'a Core edit does not steal focus');
+    assert.equal(bufAfter.displayText, '#0a0b0c', 'the Core edit itself still applies');
+    // Public regression recheck: no overrides → baseline relations; one sentinel → owned only.
+    await page.goto(origin + '/#home', { waitUntil: 'load' });
+    await page.waitForFunction(() => Boolean(window.CrabbieSiteContent));
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    await page.waitForSelector('.hero h1');
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, [
+        { title: 'Portfolio', url: '#portfolio' },
+        { title: 'Commissions', url: '#commissions' },
+      ], { theme: {} });
+    });
+    await page.waitForSelector('#mainNav .nav-links a');
+    const baseCheck = await page.evaluate(() => ({
+      foot: getComputedStyle(document.querySelector('.foot-brand')).color,
+      hero: getComputedStyle(document.querySelector('.hero h1')).color,
+      nav: getComputedStyle(document.querySelector('#mainNav .nav-links a')).color,
+      footTag: getComputedStyle(document.querySelector('.foot-tag')).color,
+    }));
+    assert.equal(baseCheck.foot, baseCheck.hero, 'no-override baseline: footer heading follows display');
+    assert.equal(baseCheck.nav, baseCheck.footTag, 'no-override baseline: nav normal follows muted');
+    await page.evaluate(() => { window.CrabbieSiteContent.apply(null, null, { theme: { textOverrides: { cards: { title: '#d00101' } } } }); });
+    const ownedCheck = await page.evaluate(() => {
+      const dive = document.createElement('div');
+      dive.innerHTML = '<div class="work-title" id="oT">x</div><div class="page-title" id="oB">y</div>';
+      document.body.appendChild(dive);
+      const out = { owned: getComputedStyle(dive.querySelector('#oT')).color, base: getComputedStyle(dive.querySelector('#oB')).color };
+      dive.remove();
+      return out;
+    });
+    assert.equal(ownedCheck.owned, hexToRgb('#d00101'), 'a sentinel override recolors only its owned selector');
+    assert.notEqual(ownedCheck.base, hexToRgb('#d00101'), 'unrelated selectors keep the baseline');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    console.log('PASS appearance Batch 2B advanced editor, inheritance, preview, palettes and responsive behavior (SDK fixture)');
+
+
     // ---- Settings roundtrip: admin edit -> DB -> reload -> public runtime ----
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));

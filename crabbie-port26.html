@@ -3360,6 +3360,68 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
   font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:999px;
   color:var(--pv-nav,var(--text-muted));
 }
+/* Phase 2B extended preview: one compact sample per Advanced role. Each sample
+   uses the SAME component var + fallback chain as its public rule (see
+   #advanced-text-tokens), so the preview is truthful by construction. The
+   preview element receives resolved --text-* core vars plus explicit
+   --text-* component vars (see refreshAppearancePreview), so inherited roles
+   follow Core edits live while explicit roles ignore them. */
+.apv-sec{margin-top:12px;border-top:1.5px dashed var(--pink-light);padding-top:10px;}
+.apv-sec-title{display:block;font-family:var(--font-decorative);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;}
+.apv-navrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.apv-nav-n{font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--text-nav-normal,var(--text-muted));}
+.apv-nav-h{font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--text-nav-hover,#F077B9);}
+.apv-nav-a{font-family:var(--font-body);font-weight:700;font-size:12.5px;padding:4px 12px;border-radius:999px;background:linear-gradient(180deg,#ffddea 0%,#f7a7d1 100%);color:var(--text-nav-active,#fff);}
+.apv-card-t{font-family:var(--font-display);font-size:19px;color:var(--text-card-title,var(--text-display));}
+.apv-card-m{font-family:var(--font-body);font-size:12.5px;color:var(--text-card-meta,var(--text-muted));}
+.apv-card-x{font-family:var(--font-body);font-size:12px;font-weight:700;color:var(--text-card-taxonomy,var(--text-muted));}
+.apv-det-h{font-family:var(--font-display);font-size:18px;color:var(--text-detail-heading,var(--text-display));}
+.apv-det-b{font-family:var(--font-body);font-size:13.5px;color:var(--text-detail-body,var(--text-body));}
+.apv-fact{display:flex;gap:8px;font-family:var(--font-body);font-size:12.5px;}
+.apv-fact .k{color:var(--text-detail-fact-label,var(--text-muted));font-weight:700;}
+.apv-fact .v{color:var(--text-detail-fact-value,var(--text-body));}
+.apv-det-c{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--text-detail-credit,var(--text-accent));}
+.apv-com-t{font-family:var(--font-display);font-size:19px;color:var(--text-commission-title,var(--text-display));}
+.apv-com-p{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text-commission-price,var(--text-accent));}
+.apv-com-s{font-family:var(--font-body);font-size:12.5px;color:var(--text-commission-secondary,var(--text-muted));}
+.apv-form-q{font-family:var(--font-decorative);font-size:13px;font-weight:600;color:var(--text-form-label,var(--text-field-label));}
+.apv-form-q .req{color:var(--text-form-required,var(--text-accent));}
+.apv-form-in{width:100%;max-width:230px;padding:6px 10px;border-radius:10px;border:1.5px solid var(--pink-light);background:#fff;font-family:var(--font-body);font-size:13px;color:var(--text-form-input,var(--text-body));}
+.apv-form-in::placeholder{color:var(--text-form-placeholder,var(--text-muted));opacity:1;}
+.apv-form-h{font-family:var(--font-body);font-size:12px;color:var(--text-form-helper,var(--text-muted));}
+.apv-btn-solid{font-family:var(--font-body);font-weight:700;font-size:13px;padding:8px 18px;border-radius:999px;background:radial-gradient(ellipse 42% 32% at 24% 84%,rgba(255,255,255,.70),transparent 65%),linear-gradient(180deg,#ffe4ef 0%,#fbc0da 46%,#f793bf 100%);color:var(--text-button-solid,#fff);text-shadow:0 1px 3px rgba(200,60,120,.55);}
+.apv-btn-ghost{font-family:var(--font-body);font-weight:700;font-size:13px;padding:8px 18px;border-radius:999px;border:2px solid var(--pink-light);background:#fff;color:var(--text-button-ghost,var(--text-body));}
+.apv-foot-b{font-family:var(--font-display);font-size:17px;color:var(--text-footer-heading,var(--text-display));}
+.apv-foot-t{font-family:var(--font-body);font-size:12.5px;color:var(--text-footer-body,var(--text-muted));}
+.apv-foot-l{font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--text-footer-link,var(--text-muted));text-decoration:underline;}
+.apv-sample-hl{outline:2px solid var(--pink-hot);outline-offset:2px;border-radius:6px;}
+/* Phase 2B Advanced editor: secondary to Core, collapsed by default. */
+.adm-adv-section{border:2px dashed var(--pink-light);border-radius:16px;padding:0;background:#fff;}
+.adm-adv-section > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:12px 14px;font-family:var(--font-body);font-weight:800;font-size:13.5px;color:var(--berry);}
+.adm-adv-section > summary::-webkit-details-marker{display:none;}
+.adm-adv-section > summary .chev{margin-left:auto;font-size:12px;color:var(--pink-hot);}
+.adm-adv-count{font-weight:700;font-size:12px;color:var(--pink-hot);}
+.adm-adv-body{padding:0 14px 14px;}
+.adm-adv-group{border:1.5px solid var(--pink-light);border-radius:12px;margin-top:10px;background:#fff;}
+.adm-adv-group > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:10px 12px;font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--berry);}
+.adm-adv-group > summary::-webkit-details-marker{display:none;}
+.adm-adv-group > summary .chev{margin-left:auto;font-size:11px;color:var(--pink-hot);}
+.adm-adv-group-body{padding:0 12px 12px;}
+.adm-adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.adm-adv-field{border:1.5px solid var(--pink-light);border-radius:12px;padding:10px;min-width:0;background:#fffdfd;}
+.adm-adv-field .af-label{display:block;font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--berry);margin-bottom:6px;}
+.adm-adv-picker-row{display:flex;gap:8px;align-items:center;min-width:0;}
+.adm-adv-picker-row input[type="color"]{width:40px;height:32px;padding:0;border:1.5px solid var(--pink-light);border-radius:8px;background:#fff;flex:none;}
+.adm-adv-picker-row input[type="text"]{flex:1 1 auto;min-width:0;padding:6px 10px;border-radius:10px;border:1.5px solid var(--pink-light);background:#fff;font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--berry);outline:none;}
+.adm-adv-picker-row input[type="text"][aria-invalid="true"]{border-color:#b3261e;}
+.adm-adv-state{display:block;font-family:var(--font-body);font-size:11.5px;color:var(--text-muted);margin-top:6px;}
+.adm-adv-field-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.adm-adv-group-head-actions{margin-left:8px;}
+summary .adm-btn-sm{flex:none;}
+.adm-palette-adv-count{display:inline-block;font-family:var(--font-body);font-size:11.5px;font-weight:700;color:var(--pink-hot);}
+@media (max-width:720px){
+  .adm-adv-grid{grid-template-columns:1fr;}
+}
 /* Saved palette cards: a swatch strip plus inline name/actions. */
 .adm-palette-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px;}
 .adm-palette-card{border:2px solid var(--pink-light);border-radius:16px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;}
@@ -7227,7 +7289,11 @@ structuralScopes: {},
 draftRevision: 0,
 selection: initialAdminSelection(ADMIN_DATA),
 subtab: { portfolio:'items', people:'items', assets:'items', commissions:'items', settings:'settings' },
-settingsGroup: 'Branding'
+settingsGroup: 'Branding',
+/* Phase 2B: Advanced editor disclosure state survives panel re-renders so an
+   unrelated control never collapses the author's open groups. */
+advOpen: false,
+advGroups: {}
 };
 
 function getByPath(obj, path){
@@ -7268,9 +7334,18 @@ function applyPathToControl(el, path){
      it. Invalid stored values also fall back to the resolved default. */
   if(el && el.hasAttribute && el.hasAttribute('data-adm-color-pair')){
     var key = appearanceColorKey(path);
+    var advRole = key ? null : appearanceAdvRoleForPath(path);
     var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
     var fb = (key && APPEARANCE_COLOR_DEFAULTS[key]) || '#000000';
     var A = appearanceCore();
+    /* Advanced fields never render blank: an absent override shows the live
+       inherited value (same color the preview/public site resolves) while
+       storage stays absent. */
+    if(advRole){
+      var info = A && A.resolveTextRole ? A.resolveTextRole(theme, advRole.group, advRole.key) : null;
+      el.value = (info && info.value) || fb;
+      return;
+    }
     var n = A ? A.normalizeHex(v) : null;
     if(!n && v != null && v !== '' && A) { var r = appearanceResolve(theme, key); el.value = r || fb; return; }
     if(v == null || v === '' || !n){ el.value = (key ? (appearanceResolve(theme, key) || fb) : fb); return; }
@@ -7897,6 +7972,24 @@ function appearanceColorKey(path){
   var m = String(path || '').match(/\.theme\.([A-Za-z]+)$/);
   return m ? m[1] : null;
 }
+/* Phase 2B: resolve an Advanced storage path (settings.theme.textOverrides.<group>.<key>)
+   to its Batch 2A registry role. Returns null for core paths. The registry is
+   the single source of truth — no second role list lives here. */
+function appearanceAdvRoleForPath(path){
+  var m = String(path || '').match(/\.theme\.textOverrides\.([A-Za-z]+)\.([A-Za-z]+)$/);
+  if(!m) return null;
+  var A = appearanceCore();
+  if(!A || !A.getTextOverrideRole) return null;
+  return A.getTextOverrideRole(m[1], m[2]);
+}
+function appearanceAdvResolved(path){
+  var role = appearanceAdvRoleForPath(path);
+  if(!role) return null;
+  var A = appearanceCore();
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  if(A && A.resolveTextRole) return A.resolveTextRole(theme, role.group, role.key);
+  return null;
+}
 function inputColor(label, path, opts){
 opts = opts || {};
 var key = appearanceColorKey(path);
@@ -7925,13 +8018,129 @@ function writeColorField(path, pairId, hex, pickerEl, textEl){
   var A = appearanceCore();
   var n = A ? A.normalizeHex(hex) : null;
   if(!n) return false;
-  setByPath(ADMIN_DRAFT, path, n);
+  /* Advanced storage paths go through the canonical Batch 2A deletion/
+     normalization behavior (setTextOverride), never raw setByPath. */
+  var advRole = appearanceAdvRoleForPath(path);
+  if(advRole){
+    var theme = ADMIN_DRAFT.settings.theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+    A.setTextOverride(theme, advRole.group, advRole.key, n);
+  } else {
+    setByPath(ADMIN_DRAFT, path, n);
+  }
   if(pickerEl && pickerEl.value !== n) pickerEl.value = n;
   if(textEl && document.activeElement !== textEl && textEl.value !== n) textEl.value = n;
   setColorFieldInvalid(pairId, false);
   markDirty(path);
+  if(advRole){
+    refreshAdvancedFieldState(advRole.group, advRole.key);
+    updateAdvancedSummaries();
+  } else {
+    /* A Core change moves every role that inherits from it (registry-driven,
+       explicit overrides untouched, focused editing buffers preserved). */
+    refreshInheritedAdvancedFields(appearanceColorKey(path));
+  }
   refreshAppearancePreview();
   return true;
+}
+/* Phase 2B in-place Advanced refreshers: no full panel rerender, so open
+   <details>, focus, caret and editing buffers survive normal editing. */
+function advFieldEl(group, key){
+  if(!adminContent) return null;
+  return adminContent.querySelector('[data-adm-adv-field="' + group + '.' + key + '"]');
+}
+function advStateText(group, key){
+  var A = appearanceCore();
+  if(!A || !A.resolveTextRole || !A.inheritanceLabel) return '';
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  var info = A.resolveTextRole(theme, group, key);
+  if(info.explicit) return 'Custom';
+  var label = A.inheritanceLabel(info);
+  return 'Inherited from ' + label;
+}
+function refreshAdvancedFieldState(group, key){
+  var field = advFieldEl(group, key);
+  if(!field) return;
+  var state = field.querySelector('[data-adm-adv-state]');
+  if(state) state.textContent = advStateText(group, key);
+}
+function refreshAdvancedFieldValue(group, key){
+  var field = advFieldEl(group, key);
+  if(!field) return;
+  var A = appearanceCore();
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  var info = A && A.resolveTextRole ? A.resolveTextRole(theme, group, key) : null;
+  if(!info || !info.value) return;
+  var picker = field.querySelector('[data-adm-color-picker]');
+  var text = field.querySelector('[data-adm-color-text]');
+  if(picker && picker.value !== info.value) picker.value = info.value;
+  /* Never clobber the focused HEX buffer mid-typing. */
+  if(text && document.activeElement !== text && text.value !== info.value) text.value = info.value;
+  refreshAdvancedFieldState(group, key);
+}
+function refreshInheritedAdvancedFields(coreKey){
+  if(!coreKey || !adminContent) return;
+  var A = appearanceCore();
+  if(!A || !A.listTextOverrideRoles) return;
+  A.listTextOverrideRoles().forEach(function(role){
+    if(!role.fallback || role.fallback.kind !== 'core' || role.fallback.key !== coreKey) return;
+    var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+    var info = A.resolveTextRole(theme, role.group, role.key);
+    if(info.explicit) return;
+    refreshAdvancedFieldValue(role.group, role.key);
+  });
+  updateAdvancedSummaries();
+}
+function refreshAllAdvancedFields(){
+  var A = appearanceCore();
+  if(!A || !A.listTextOverrideRoles) return;
+  A.listTextOverrideRoles().forEach(function(role){
+    var field = advFieldEl(role.group, role.key);
+    if(!field) return;
+    var text = field.querySelector('[data-adm-color-text]');
+    var focused = text && document.activeElement === text;
+    var pairId = field.getAttribute('data-adm-color-field');
+    /* Preserve an in-progress invalid/partial buffer on the focused field;
+       only resync it when its buffer is currently valid or empty. */
+    if(focused && text){
+      var bn = A.normalizeHex(text.value);
+      if(!bn && String(text.value).trim() !== ''){ refreshAdvancedFieldState(role.group, role.key); return; }
+    }
+    refreshAdvancedFieldValue(role.group, role.key);
+    if(pairId && text){
+      var stillInvalid = !A.normalizeHex(text.value) && String(text.value).trim() !== '' && document.activeElement === text;
+      setColorFieldInvalid(pairId, stillInvalid);
+    }
+  });
+  updateAdvancedSummaries();
+}
+function advGroupCount(group){
+  var A = appearanceCore();
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  if(!A || !A.normalizeTextOverrides) return 0;
+  var clean = A.normalizeTextOverrides(theme.textOverrides);
+  var g = clean[group];
+  return g ? Object.keys(g).length : 0;
+}
+function advTotalCount(){
+  var A = appearanceCore();
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  if(!A || !A.countExplicitOverrides) return 0;
+  return A.countExplicitOverrides(theme);
+}
+function updateAdvancedSummaries(){
+  if(!adminContent) return;
+  var total = advTotalCount();
+  var top = adminContent.querySelector('[data-adm-adv-count]');
+  if(top) top.textContent = total > 0 ? (' · ' + total + ' custom') : '';
+  var A = appearanceCore();
+  var groups = (A && A.TEXT_OVERRIDE_GROUPS) || [];
+  groups.forEach(function(g){
+    var el = adminContent.querySelector('[data-adm-adv-group-count="' + g.id + '"]');
+    if(el){
+      var c = advGroupCount(g.id);
+      el.textContent = c > 0 ? (' · ' + c + ' custom') : '';
+    }
+  });
 }
 /* Content-health helpers (audit engine lives in src/admin-data-audit-core.js) */
 function fieldLabel(key){
@@ -9391,7 +9600,10 @@ return isNaN(n) ? 0.55 : Math.max(0, Math.min(0.9, n));
 function appearancePreviewHtml(){
 /* Truthful 1:1 miniature: heading, real accent owners (price + credit link),
    reading paragraph, decorative label, helper text, real form label with a
-   required marker, real navigation normal state, and the real candy button. */
+   required marker, real navigation normal state, and the real candy button —
+   plus one compact sample per Advanced role using the SAME component
+   var/fallback chains as the public rules, so Core edits move inherited
+   samples live and explicit overrides hold. */
 return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance-preview" data-adm-appearance-preview="1">' +
   '<span class="apv-label">Decorative label</span>' +
   '<div class="apv-heading">Sweet little heading</div>' +
@@ -9401,6 +9613,13 @@ return '<div class="adm-section"><h4>Live preview</h4><div class="adm-appearance
   '<p class="apv-muted">Secondary / muted helper text.</p>' +
   '<p class="apv-credit">♥ Credit name</p>' +
   '<div class="apv-actions"><span class="apv-btn">Button sample</span><span class="apv-nav">Navigation</span></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Navigation</span><div class="apv-navrow"><span class="apv-nav-n" data-apv="navigation.normal">Normal</span><span class="apv-nav-h" data-apv="navigation.hover">Hover</span><span class="apv-nav-a" data-apv="navigation.active">Active</span></div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Cards</span><div class="apv-card-t" data-apv="cards.title">Card title</div><div class="apv-card-m" data-apv="cards.metadata">Card metadata · 2026</div><div class="apv-card-x" data-apv="cards.taxonomy">Tag / status</div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Detail content</span><div class="apv-det-h" data-apv="detail.heading">Section heading</div><div class="apv-det-b" data-apv="detail.body">Detail body copy stays calm.</div><div class="apv-fact"><span class="k" data-apv="detail.factsLabel">Format</span><span class="v" data-apv="detail.factsValue">PNG + PSD</span></div><div class="apv-det-c" data-apv="detail.credits">♥ Credit name</div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Commission</span><div class="apv-com-t" data-apv="commission.title">Bust Up</div><div class="apv-com-p" data-apv="commission.price">$70</div><div class="apv-com-s" data-apv="commission.secondary">Sweet anime-style bust-up.</div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Forms</span><div class="apv-form-q" data-apv="forms.label">Your name <span class="req" data-apv="forms.required">*</span></div><input class="apv-form-in" data-apv="forms.input" value="Crabbie" placeholder="you@example.com" aria-label="Preview input" readonly><div class="apv-form-h" data-apv="forms.helper">Helper text stays muted.</div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Buttons</span><div class="apv-navrow"><span class="apv-btn-solid" data-apv="buttons.solid">Order now</span><span class="apv-btn-ghost" data-apv="buttons.ghost">See details</span></div></div>' +
+  '<div class="apv-sec"><span class="apv-sec-title">Footer</span><div class="apv-foot-b" data-apv="footer.heading">Crabbie</div><div class="apv-foot-t" data-apv="footer.body">Sweet art, made with care.</div><a class="apv-foot-l" data-apv="footer.link" href="#" onclick="return false;">Commissions</a></div>' +
   '</div></div>';
 }
 /* Saved palettes: a preset is the whole colour group, stored in the theme
@@ -9466,9 +9685,17 @@ return colors;
 }
 function renderPaletteSection(){
 var palettes = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme && ADMIN_DRAFT.settings.theme.palettes) || [];
+var AC = appearanceCore();
 var cards = palettes.map(function(p){
+  /* Truthful Advanced indicator: counts explicit overrides only (old palettes
+     show zero). No per-role swatches — Core swatches stay readable. */
+  var advCount = 0;
+  if(AC && AC.countExplicitOverrides && p.colors && typeof p.colors === 'object'){
+    try{ advCount = AC.countExplicitOverrides({ textOverrides: p.colors.textOverrides }); }catch(e){ advCount = 0; }
+  }
   return '<div class="adm-palette-card" data-adm-palette-card="' + esc(p.id) + '">' +
     paletteSwatchHtml(p.colors) +
+    '<span class="adm-palette-adv-count">' + esc(String(advCount)) + ' custom text color' + (advCount === 1 ? '' : 's') + '</span>' +
     '<input type="text" class="adm-palette-name" data-adm-palette-rename="' + esc(p.id) + '" value="' + esc(p.name || 'Palette') + '" aria-label="Palette name">' +
     '<div class="adm-palette-actions">' +
       '<button type="button" class="adm-btn-sm primary" data-adm-palette-apply="' + esc(p.id) + '">Apply</button>' +
@@ -9483,6 +9710,62 @@ return '<div class="adm-section"><h4>Saved palettes</h4>' +
   '</div>' +
   (palettes.length ? '<div class="adm-palette-list">' + cards + '</div>' : '<p class="af-hint">No saved palettes yet. Save the current colours to reuse them later.</p>') +
 '</div>';
+}
+/* Phase 2B Advanced text colors editor: generated from the Batch 2A registry
+   (TEXT_OVERRIDE_GROUPS / TEXT_OVERRIDE_ROLES). No role/group/var/path list
+   is duplicated here — labels and storage paths come from the engine. Absent
+   overrides render the live inherited value without persisting it; the state
+   line reads "Inherited from X" (engine metadata) or "Custom". */
+function inputAdvancedColor(group, key, base){
+  var A = appearanceCore();
+  var role = A && A.getTextOverrideRole ? A.getTextOverrideRole(group, key) : null;
+  if(!role) return '';
+  var path = base + '.theme.textOverrides.' + group + '.' + key;
+  var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  var info = A && A.resolveTextRole ? A.resolveTextRole(theme, group, key) : null;
+  var shown = (info && info.value) || '#000000';
+  var state = info ? ((info.explicit ? 'Custom' : ('Inherited from ' + (A.inheritanceLabel(info) || '')))) : '';
+  var pairId = 'adv-' + group + '-' + key;
+  return '<div class="adm-adv-field" data-adm-adv-field="' + esc(group + '.' + key) + '">' +
+    '<div class="adm-field" data-adm-color-field="' + esc(pairId) + '" style="margin:0;border:0;padding:0;">' +
+    '<span class="af-label" id="advlab-' + esc(group + '-' + key) + '">' + esc(role.label) + '</span>' +
+    '<div class="adm-adv-picker-row">' +
+    '<input type="color" data-adm-path="' + esc(path) + '" data-adm-color-picker="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(shown) + '" aria-labelledby="advlab-' + esc(group + '-' + key) + '" data-adm-adv-focus="' + esc(group + '.' + key) + '">' +
+    '<input type="text" data-adm-path="' + esc(path) + '" data-adm-color-text="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(shown) + '" spellcheck="false" autocomplete="off" inputmode="text" aria-labelledby="advlab-' + esc(group + '-' + key) + '" aria-invalid="false" data-adm-adv-focus="' + esc(group + '.' + key) + '">' +
+    '</div>' +
+    '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>Use a valid #RRGGBB value.</span></div>' +
+    '<span class="adm-adv-state" data-adm-adv-state>' + esc(state) + '</span>' +
+    '<div class="adm-adv-field-actions"><button type="button" class="adm-btn-sm" data-adm-adv-inherit="' + esc(group + '.' + key) + '" aria-label="Use inherited color for ' + esc(role.label) + '">Use inherited</button></div>' +
+  '</div>';
+}
+function renderAdvancedAppearanceSection(base){
+  var A = appearanceCore();
+  var groups = (A && A.TEXT_OVERRIDE_GROUPS) || [];
+  var roles = (A && A.listTextOverrideRoles) ? A.listTextOverrideRoles() : [];
+  var total = advTotalCount();
+  var countHtml = total > 0 ? (' · ' + total + ' custom') : '';
+  var openTop = ADMIN_UI.advOpen ? ' open' : '';
+  var groupsHtml = groups.map(function(g){
+    var list = roles.filter(function(r){ return r.group === g.id; });
+    if(!list.length) return '';
+    var c = advGroupCount(g.id);
+    var gCount = c > 0 ? (' · ' + c + ' custom') : '';
+    var open = ADMIN_UI.advGroups && ADMIN_UI.advGroups[g.id] ? ' open' : '';
+    var fields = list.map(function(r){ return inputAdvancedColor(r.group, r.key, base); }).join('');
+    return '<details class="adm-adv-group" data-adm-adv-group="' + esc(g.id) + '"' + open + '>' +
+      '<summary><span>' + esc(g.label) + '<span class="adm-adv-count" data-adm-adv-group-count="' + esc(g.id) + '">' + esc(gCount) + '</span></span>' +
+      '<span class="adm-adv-group-head-actions"><button type="button" class="adm-btn-sm" data-adm-adv-reset-group="' + esc(g.id) + '" aria-label="Reset ' + esc(g.label) + ' group to inherited">Reset group</button></span>' +
+      '<span class="chev" aria-hidden="true">▾</span></summary>' +
+      '<div class="adm-adv-group-body"><div class="adm-adv-grid">' + fields + '</div></div>' +
+    '</details>';
+  }).join('');
+  return '<div class="adm-section"><details class="adm-adv-section" data-adm-advanced-section="1"' + openTop + '>' +
+    '<summary><span>Advanced text colors<span class="adm-adv-count" data-adm-adv-count>' + esc(countHtml) + '</span></span><span class="chev" aria-hidden="true">▾</span></summary>' +
+    '<div class="adm-adv-body">' +
+    '<p class="af-hint">Optional overrides for specific sections. Absent roles inherit their live source color — nothing is stored until you pick a custom value.</p>' +
+    groupsHtml +
+    '<div style="margin-top:10px;"><button type="button" class="adm-btn-sm" data-adm-adv-reset-all="1">Reset all Advanced</button></div>' +
+    '</div></details></div>';
 }
 function renderAppearanceBody(base){
 var d = APPEARANCE_COLOR_DEFAULTS;
@@ -9506,6 +9789,7 @@ var controls = '<div class="adm-appearance-controls">' +
       '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">Reset to default</button></div>' +
     '</div>' +
   '</div>' +
+  renderAdvancedAppearanceSection(base) +
 '</div>';
 var background = '<div class="adm-section"><h4>Website background</h4>' +
     '<div class="adm-row three">' +
@@ -9527,6 +9811,7 @@ function refreshAppearancePreview(){
 var preview = adminContent ? adminContent.querySelector('[data-adm-appearance-preview="1"]') : null;
 if(!preview) return;
 var t = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+var A = appearanceCore();
 /* Resolved canonical values only: invalid stored entries never reach the
    preview, and absent keys show the same default the public site resolves. */
 preview.style.setProperty('--pv-display', appearanceResolve(t, 'displayColor'));
@@ -9538,6 +9823,22 @@ preview.style.setProperty('--pv-field', appearanceResolve(t, 'fieldLabelColor'))
 /* Navigation shows its real semantic owner (muted normal state), never a
    faked accent relationship. */
 preview.style.setProperty('--pv-nav', appearanceResolve(t, 'mutedColor'));
+/* Phase 2B: the preview container also receives the SHARED semantic tokens
+   plus the explicit Advanced component variables, so preview samples use the
+   same var/fallback chains as the public rules. Inherited roles resolve
+   through the preview-scoped core tokens (Core edits move them live);
+   explicit overrides are set inline and ignore Core changes. Absent roles
+   are removed so no stale inline value survives. */
+if(A && A.TEXT_VAR_MAP){
+  Object.keys(A.TEXT_VAR_MAP).forEach(function(k){
+    preview.style.setProperty(A.TEXT_VAR_MAP[k], appearanceResolve(t, k));
+  });
+  if(A.planAdvancedVars){
+    var advPlan = A.planAdvancedVars(t);
+    Object.keys(advPlan.set).forEach(function(v){ preview.style.setProperty(v, advPlan.set[v]); });
+    advPlan.remove.forEach(function(v){ preview.style.removeProperty(v); });
+  }
+}
 var img = t.backgroundImage;
 if(img){
   var overlay = appearanceOverlayValue();
@@ -9858,8 +10159,110 @@ btn.addEventListener('click', function(){
     setColorFieldInvalid(pairId, false);
   });
   refreshAppearancePreview();
+  /* Core reset also moves inherited Advanced roles back to the defaults. */
+  refreshInheritedAdvancedFields('displayColor');
+  refreshInheritedAdvancedFields('accentColor');
+  refreshInheritedAdvancedFields('bodyColor');
+  refreshInheritedAdvancedFields('decorativeColor');
+  refreshInheritedAdvancedFields('mutedColor');
+  refreshInheritedAdvancedFields('fieldLabelColor');
 });
 });
+/* Phase 2B Advanced editor wiring: disclosure persistence, Use inherited,
+   Reset group, Reset all Advanced, and cosmetic preview highlighting. */
+$$('[data-adm-advanced-section]', adminContent).forEach(function(details){
+if(details.dataset.advWired === '1') return;
+details.dataset.advWired = '1';
+details.addEventListener('toggle', function(){
+  ADMIN_UI.advOpen = !!details.open;
+});
+});
+$$('[data-adm-adv-group]', adminContent).forEach(function(details){
+if(details.dataset.advWired === '1') return;
+details.dataset.advWired = '1';
+details.addEventListener('toggle', function(){
+  ADMIN_UI.advGroups = ADMIN_UI.advGroups || {};
+  ADMIN_UI.advGroups[details.getAttribute('data-adm-adv-group')] = !!details.open;
+});
+});
+$$('[data-adm-adv-inherit]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var parts = String(btn.getAttribute('data-adm-adv-inherit') || '').split('.');
+  if(parts.length !== 2) return;
+  var AC = appearanceCore();
+  if(!AC || !AC.setTextOverride || !AC.resolveTextRole) return;
+  var theme = ADMIN_DRAFT.settings.theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  /* Canonical deletion: remove the leaf, prune empty groups/textOverrides,
+     never write the inherited color back into storage. */
+  AC.setTextOverride(theme, parts[0], parts[1], null);
+  refreshAdvancedFieldValue(parts[0], parts[1]);
+  var field = advFieldEl(parts[0], parts[1]);
+  if(field){
+    var pairId = field.getAttribute('data-adm-color-field');
+    if(pairId) setColorFieldInvalid(pairId, false);
+  }
+  updateAdvancedSummaries();
+  markDirty('settings.theme.textOverrides.' + parts[0] + '.' + parts[1]);
+  refreshAppearancePreview();
+});
+});
+$$('[data-adm-adv-reset-group]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(ev){
+  /* The button lives inside <summary>: keep the group open on reset. */
+  if(ev && ev.preventDefault) ev.preventDefault();
+  var group = btn.getAttribute('data-adm-adv-reset-group');
+  if(!group) return;
+  var AC = appearanceCore();
+  var theme = ADMIN_DRAFT.settings.theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  if(theme.textOverrides && theme.textOverrides[group]) delete theme.textOverrides[group];
+  if(theme.textOverrides && Object.keys(theme.textOverrides).length === 0) delete theme.textOverrides;
+  if(AC && AC.listTextOverrideRoles){
+    AC.listTextOverrideRoles().forEach(function(role){
+      if(role.group !== group) return;
+      refreshAdvancedFieldValue(role.group, role.key);
+      var field = advFieldEl(role.group, role.key);
+      if(field){
+        var pairId = field.getAttribute('data-adm-color-field');
+        if(pairId) setColorFieldInvalid(pairId, false);
+      }
+    });
+  }
+  updateAdvancedSummaries();
+  markDirty('settings.theme.textOverrides.' + group);
+  refreshAppearancePreview();
+});
+});
+$$('[data-adm-adv-reset-all]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  /* Deletes theme.textOverrides only — Core, background, media, palettes,
+     typography, motion, music, SEO and unknown theme keys are untouched. */
+  var theme = ADMIN_DRAFT.settings.theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+  if(theme.textOverrides) delete theme.textOverrides;
+  refreshAllAdvancedFields();
+  markDirty('settings.theme.textOverrides');
+  refreshAppearancePreview();
+});
+});
+/* Cosmetic preview highlight: focusing an Advanced control lightly outlines
+   its preview sample(s). Ownership-free — pure visual aid. */
+if(adminContent && adminContent.dataset.advHlWired !== '1'){
+adminContent.dataset.advHlWired = '1';
+adminContent.addEventListener('focusin', function(ev){
+  var t = ev.target && ev.target.closest ? ev.target.closest('[data-adm-adv-focus]') : null;
+  adminContent.querySelectorAll('.apv-sample-hl').forEach(function(el){ el.classList.remove('apv-sample-hl'); });
+  if(!t) return;
+  var key = t.getAttribute('data-adm-adv-focus');
+  if(!key) return;
+  adminContent.querySelectorAll('[data-apv="' + key + '"]').forEach(function(el){ el.classList.add('apv-sample-hl'); });
+});
+adminContent.addEventListener('focusout', function(){
+  setTimeout(function(){
+    var active = document.activeElement;
+    if(active && active.closest && active.closest('[data-adm-adv-focus]')) return;
+    adminContent.querySelectorAll('.apv-sample-hl').forEach(function(el){ el.classList.remove('apv-sample-hl'); });
+  }, 0);
+});
+}
 /* Saved palettes: save / apply / duplicate / rename / delete. */
 $$('[data-adm-palette-save]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
@@ -10150,10 +10553,12 @@ var commitText = function(){
     writeColorField(path, pairId, n, picker, text);
   } else {
     /* Do not silently convert invalid values: restore last valid/resolved
-       display value, keep draft untouched. */
+       display value, keep draft untouched. Advanced paths restore the live
+       inherited value (storage stays absent). */
     var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
     var key = appearanceColorKey(path);
-    var shown = appearanceResolve(theme, key) || (APPEARANCE_COLOR_DEFAULTS[key] || '');
+    var advInfo = key ? null : appearanceAdvResolved(path);
+    var shown = advInfo ? advInfo.value : (appearanceResolve(theme, key) || (APPEARANCE_COLOR_DEFAULTS[key] || ''));
     if(shown && text.value !== shown) text.value = shown;
     var cur = getByPath(ADMIN_DRAFT, path);
     var curValid = A ? A.normalizeHex(cur) : null;
