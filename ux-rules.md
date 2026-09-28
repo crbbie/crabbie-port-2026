@@ -20,21 +20,52 @@ Decorative type is an accent only. Reading text must stay in the body face.
 ## Appearance tokens
 
 Admin > Appearance (stored under the existing `theme` site-settings key, no
-schema change) exposes only semantic typography color tokens — display, accent,
-body, decorative, muted — plus an optional website background image. Do not add
+schema change) exposes semantic typography color tokens — display, accent,
+body, decorative, muted, question/field-label — plus background, pink and
+lavender primitives and an optional website background image. Do not add
 per-element color settings.
 
 - Colors apply through centralized CSS variables (`--text-*` declared on
   `body` so the active palette is respected).
+- Color inputs accept strict `#RRGGBB` only. The picker writes immediately;
+  HEX text writes only when complete and valid — partial values (`#`, `#f`,
+  `#ff8a`) and invalid values stay in the visible editing buffer with an
+  accessible invalid state and never enter the draft, preview, palettes,
+  cache, or save payload. Blur/Enter normalizes valid values to lowercase
+  `#rrggbb` without silently converting invalid ones.
+- An absent theme key renders its resolved canonical default (the same color
+  the live preview and public site show) without persisting it.
+- The freshly hydrated theme is authoritative: valid explicit values are set
+  on `body`, while absent/invalid keys remove the stale inline override so
+  CSS/default resolution takes over. Theme A → partial Theme B → empty theme
+  never leaves old colors stuck. Stale early-boot appearance styles are
+  removed on hydration.
+- CMS Pink owns the public `--pink` primitive and CMS Lavender owns `--purple`,
+  both at the `body` scope that holds the public palette. They recolor
+  primitive-driven accents (nav rings, pills, badges, card accents) — not
+  baked PNG/SVG artwork or hard-coded gradient stops. The admin shell keeps
+  its own palette.
+- Navigation states are explicit: normal follows the muted token, hover keeps
+  the fixed candy default (`#F077B9`, a state — not a CMS token), and active
+  is a white label on the pink gradient pill on both desktop and mobile
+  (body-scoped so the generic muted rule never overwrites the selected state).
+- The admin live preview is a truthful 1:1 miniature: heading, real accent
+  owners (price/highlight, required marker, credit link), reading paragraph,
+  decorative label, helper text, real form label, muted-owned navigation
+  sample, and the real candy-gradient primary button with its white label
+  (never an accent fill or a faked accent navigation).
+- Reset restores every canonical default in `src/appearance-core.js` while
+  preserving background/media settings and unknown theme keys.
 - The background image applies through `body::before` with a readability
   overlay; with no image the default pastel gradient/pattern is preserved.
-- The admin panel must show a live preview (heading, body, decorative label,
-  button/nav) that reflects unsaved changes, and a per-token reset.
+  With no image the overscroll fallback is plain white; with an image it
+  follows the palette background.
 - Media previews are resolved by file kind (image/audio/video/file), never by the
   storage path. Audio renders a player and has its own error message; it must
   never be shown as a broken image. Structural settings (`theme`, `motion`,
   `music`, `typography`) are merged with defaults at save time so a partial
-  database row is never written back incomplete.
+  database row is never written back incomplete; invalid theme colors are
+  dropped at the save gate while background/media/unknown keys pass through.
 - The public stacking model is: background (`body::before`) → decorative
   artwork (`#crabbieDecoLayer`) → falling candy → content → pet → nav/music/modals.
   The public `body` stays transparent so the fixed background and candy layers
@@ -47,11 +78,15 @@ per-element color settings.
   visible and fixed with no parallax or float. Admin mode hides it and
   `prefers-reduced-motion` stops all motion. It must never add
   horizontal overflow or cover interactive content.
-- Saved palettes store the whole colour group in `theme.palettes`; Apply updates
-  every colour field and the live preview immediately, and the normal Save
-  persists the theme key. Swatches must make each palette recognisable at a glance.
-- The last applied appearance is cached in `localStorage` (`crabbie:appearance`)
-  and re-applied before first paint so the loading/home transition background
+- Saved palettes store the whole colour group in `theme.palettes`; Save uses
+  only valid values, Apply never injects invalid colors, Duplicate never
+  shares mutable nested structures, and the normal Save persists the theme
+  key. Swatches render resolved values so each palette is recognisable at a
+  glance.
+- The last applied appearance is cached in `localStorage` (`crabbie:appearance`,
+  v1 shape `{ v:1, theme }`, old caches stay compatible) with only valid
+  colors kept, and re-applied before first paint through the same
+  normalization/default rules so the loading/home transition background
   matches the site instead of flashing the default.
 
 ## Motion, music and the desktop pet

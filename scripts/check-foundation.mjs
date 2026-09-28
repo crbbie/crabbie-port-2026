@@ -20,6 +20,17 @@ for (const [, body] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
 // one and load before the inline composition wiring (no race, no flash).
 const planner = await readFile('src/portfolio-grid-core.js', 'utf8');
 new Script(planner, { filename: 'src/portfolio-grid-core.js' });
+// Appearance canonical rules are a synchronous classic script too: admin
+// controls, preview, and public hydration share one defaults/validation
+// source instead of independent copies.
+const appearanceCore = await readFile('src/appearance-core.js', 'utf8');
+new Script(appearanceCore, { filename: 'src/appearance-core.js' });
+if (!html.includes('<script src="/src/appearance-core.js">')) {
+  throw new Error('Appearance core script tag missing.');
+}
+if (html.indexOf('<script src="/src/appearance-core.js">') > html.indexOf('<script src="/src/portfolio-grid-core.js">')) {
+  throw new Error('Appearance core must load before the portfolio planner.');
+}
 if (!html.includes('<script src="/src/portfolio-grid-core.js">')) {
   throw new Error('Portfolio planner script tag missing.');
 }
