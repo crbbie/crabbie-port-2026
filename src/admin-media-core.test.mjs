@@ -120,7 +120,7 @@ import {
   assert.equal(item.url, 'https://cdn/uploads/9_art.png', 'the canonical original URL is unchanged');
   assert.equal(item.thumbnailUrl, 'https://cdn/render/uploads/9_art.png?width=480');
   assert.equal(item.size, '4.0 MB');
-  assert.equal(THUMBNAIL_TRANSFORM.resize, 'cover');
+  assert.equal(THUMBNAIL_TRANSFORM.resize, 'contain', 'media thumbnails preserve the full artwork instead of cropping it');
 }
 
 // 8. Thumbnail strategy: still raster only, original everywhere else
