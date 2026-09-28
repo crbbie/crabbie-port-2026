@@ -1,3 +1,5 @@
+import { contactLinksSettings } from './site-content-core.js';
+
 /**
  * admin-data-audit-core.js
  * Pure content-completeness auditing for the Admin CMS.
@@ -170,11 +172,13 @@ export function auditPageRecord(page = {}, kind, ctx = {}) {
   throw new Error('Unknown page kind: ' + kind);
 }
 
+/* Contact is an authored, ordered list (settings.contact.links) with the legacy
+ * email/twitter pair kept as a read-compatible fallback: a site that only uses
+ * custom links is still a site that has a contact method. */
 function pageContactLinks(page = {}, ctx = {}) {
   const contact = ctx.settings && ctx.settings.contact ? ctx.settings.contact : {};
   return {
-    email: contact.email || '',
-    twitter: contact.twitter || '',
+    configured: contactLinksSettings(contact).some((link) => !isBlank(link.label) || !isBlank(link.value)),
     links: Array.isArray(page.links) ? page.links : []
   };
 }
@@ -185,7 +189,7 @@ function auditAboutPage(page, ctx) {
   const warnings = [];
   const contact = pageContactLinks(page, ctx);
   if (isBlank(page.profileImage)) warnings.push('no-profile-image');
-  if (isBlank(contact.email) && isBlank(contact.twitter) && contact.links.length === 0) {
+  if (!contact.configured && contact.links.length === 0) {
     warnings.push('no-contact-link');
   }
   if (!isBlank(page.content) && EMAIL_RE.test(page.content) && !new RegExp('mailto:', 'i').test(page.content)) {
@@ -228,7 +232,7 @@ function auditTermsPage(page, ctx) {
     });
   }
   const contact = pageContactLinks({}, ctx);
-  if (isBlank(contact.email) && isBlank(contact.twitter) && !EMAIL_RE.test(content)) {
+  if (!contact.configured && !EMAIL_RE.test(content)) {
     warnings.push('no-contact-method');
   }
   if (content && EMAIL_RE.test(content) && !/mailto:/i.test(content)) {
@@ -247,9 +251,28 @@ function auditTermsPage(page, ctx) {
 export function auditSettingsRecord(settings = {}) {
   const warnings = [];
   const contact = settings.contact || {};
-  if (isBlank(contact.email)) warnings.push('no-contact-email');
-  else if (!EMAIL_RE.test(String(contact.email))) warnings.push('bad-contact-email');
-  if (isBlank(contact.twitter)) warnings.push('no-contact-twitter');
+  const links = contactLinksSettings(contact);
+  const authored = Array.isArray(contact.links);
+  if (!authored) {
+    /* Legacy keys stay first-class until the authored list is saved, so an
+       existing account keeps its original warnings and required field. */
+    if (isBlank(contact.email)) warnings.push('no-contact-email');
+    else if (!EMAIL_RE.test(String(contact.email))) warnings.push('bad-contact-email');
+    if (isBlank(contact.twitter)) warnings.push('no-contact-twitter');
+  } else {
+    /* E-mail is no longer a required field: only a malformed e-mail value in the
+       authored list is flagged. An empty list means there is no way to be
+       contacted, which the shared 'no-contact-method' warning reports. */
+    const brokenEmail = links.some((link) => {
+      const value = String(link.value || '').trim();
+      if (!value) return false;
+      if (/^mailto:/i.test(value)) return !EMAIL_RE.test(value.replace(/^mailto:/i, ''));
+      return value.indexOf('@') !== -1 && !/^https?:\/\//i.test(value) && !EMAIL_RE.test(value);
+    });
+    if (brokenEmail) warnings.push('bad-contact-email');
+  }
+  const methods = links.filter((link) => !isBlank(link.value));
+  if (!methods.length) warnings.push('no-contact-method');
   const branding = settings.branding || {};
   if (isBlank(branding.logo)) warnings.push('no-logo');
   if (isBlank(branding.heroMedia)) warnings.push('no-hero-media');
@@ -258,7 +281,7 @@ export function auditSettingsRecord(settings = {}) {
   return finalize({
     status: 'complete',
     required: ['contact.email'],
-    missing: isBlank(contact.email) ? ['contact.email'] : [],
+    missing: methods.length ? [] : ['contact.email'],
     placeholders: scanFields(settings, ['branding.title', 'branding.tagline', 'branding.intro', 'seo.title', 'seo.description']),
     warnings,
     critical: []

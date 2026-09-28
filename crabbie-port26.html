@@ -2348,6 +2348,9 @@ details.adm-cleanup-group > summary:focus-visible{ outline:3px solid var(--purpl
 .adm-repeat-head .rr-actions{display:flex; gap:2px;}
 .adm-repeat-head .rr-actions button{width:20px; height:20px; border-radius:50%; border:none; cursor:pointer; background:var(--pink-soft); color:var(--pink-hot); font-size:10px; font-weight:900; display:grid; place-items:center;}
 .adm-repeat-head .rr-actions button:hover{background:var(--pink-hot); color:#fff;}
+/* Contact links: an unsafe value (javascript:, http:, malformed) is never
+   published, so its row says so inline instead of silently dropping the link. */
+.adm-contact-warn{margin-top:6px; font-size:10.5px; font-weight:800; color:var(--pink-hot); padding-left:2px;}
 
 .adm-media-item{background:#fff; border:2px solid var(--blue-light); border-radius:14px; padding:10px 12px; margin-bottom:8px; display:grid; grid-template-columns: 70px 1fr; gap:12px; align-items:start;}
 .adm-media-item .mi-thumb{aspect-ratio:1/1; background: linear-gradient(160deg, var(--purple-light), #d9efff); border-radius:10px; display:grid; place-items:center; font-size:20px; color:var(--purple-hot); border:2px solid #fff; box-shadow:0 0 0 1.5px var(--purple-light);}
@@ -3277,6 +3280,7 @@ body.admin-mode{font-size:15px;line-height:1.65;letter-spacing:.014em;}
 .adm-advanced > summary{font-size:13px;}
 .adm-translate-badge{font-size:11px;}
 .adm-repeat-head .rr-label{font-size:13px;}
+.adm-contact-warn{font-size:11.5px;line-height:1.5;}
 .adm-ui-copy-row .uc-key{font-size:12px;}
 .adm-ui-copy-row input,.adm-ui-copy-row textarea{font-size:12.5px;line-height:1.5;}
 
@@ -4255,7 +4259,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <div><h3>Prefer email?</h3><p>You can also send your commission request directly to:</p><div class="email-strong">crabbie.art@gmail.com</div></div>
           <div class="row">
             <a class="btn btn-purple" id="directEmail" href="mailto:crabbie.art@gmail.com">Open email</a>
-            <a class="btn btn-ghost" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
+            <a class="btn btn-ghost" id="directSocial" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
           </div>
         </div>
       </div>
@@ -4454,13 +4458,13 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
           <h2>Say a little hello.</h2>
           <p class="letter-note">Working hours: 03:00–14:00 UTC/GMT. I usually reply within 48 hours.</p>
           <div class="reply-badge"><span class="dot"></span> REPLY TIME · WITHIN 48 HOURS</div>
-          <div class="contact-rows">
-            <div class="contact-row"><span class="ic">✉</span><div><div class="ck">Email</div><div class="cv">crabbie.art@gmail.com</div></div></div>
-            <div class="contact-row"><span class="ic">✦</span><div><div class="ck">Twitter / X</div><div class="cv">@crbbie</div></div></div>
+          <div class="contact-rows" id="publicContactRows">
+            <div class="contact-row cms-contact-row"><span class="ic">✉</span><div><div class="ck">Email</div><div class="cv">crabbie.art@gmail.com</div></div></div>
+            <div class="contact-row cms-contact-row"><span class="ic">✦</span><div><div class="ck">Twitter / X</div><div class="cv">@crbbie</div></div></div>
           </div>
-          <div class="contact-actions">
-            <a class="btn btn-primary" href="mailto:crabbie.art@gmail.com">Email Crabbie</a>
-            <a class="btn btn-purple" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
+          <div class="contact-actions" id="publicContactActions">
+            <a class="btn btn-primary cms-contact-action" href="mailto:crabbie.art@gmail.com">Email Crabbie</a>
+            <a class="btn btn-purple cms-contact-action" href="https://x.com/crbbie" target="_blank" rel="noopener">Twitter / X DM</a>
             <button class="btn btn-yellow" id="copyEmailBtn" type="button">Copy Email</button>
           </div>
         </div>
@@ -4588,11 +4592,11 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         <li><a href="#commissions" data-goto="commissions">Commissions</a></li>
         <li><a href="#about" data-goto="about">About</a></li>
       </ul></div>
-      <div class="foot"><h5>Contact</h5><ul>
-        <li><a id="footEmail" href="#contact" data-goto="contact">Email</a></li>
-        <li><a id="footTwitter" href="#contact" data-goto="contact" target="_blank" rel="noopener noreferrer">Twitter / X</a></li>
-        <li><a href="#commissions" data-goto="commissions">Request a commission</a></li>
-        <li><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>
+      <div class="foot"><h5>Contact</h5><ul id="footContactList">
+        <li class="cms-contact-link"><a id="footEmail" href="#contact" data-goto="contact">Email</a></li>
+        <li class="cms-contact-link"><a id="footTwitter" href="#contact" data-goto="contact" target="_blank" rel="noopener noreferrer">Twitter / X</a></li>
+        <li data-foot-fixed="commission"><a href="#commissions" data-goto="commissions">Request a commission</a></li>
+        <li data-foot-fixed="terms"><a href="#terms" data-goto="terms" class="foot-utility">Terms of Service</a></li>
       </ul></div>
     </div>
     <div class="foot-bottom">
@@ -4884,8 +4888,11 @@ function visibleCmsValue(value){
 function safePublicUrl(value, media){
   var raw = visibleCmsValue(value);
   if(!raw) return '';
+  /* An explicit mailto: must win over the bare-address rule below: without this
+     order "mailto:name@host" matches the address pattern and would be prefixed
+     twice (mailto:mailto:name@host). */
+  if(!media && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return 'mailto:' + raw.slice(7);
   if(!media && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return 'mailto:' + raw;
-  if(!media && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return raw;
   if(!media && /^#[a-z0-9/_-]+$/i.test(raw)) return raw;
   if(/^https:\/\//i.test(raw)){
     try { var url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password ? url.href : ''; } catch(e){ return ''; }
@@ -6242,6 +6249,9 @@ return lines.join('\n');
 }
 function mailtoFor(text){
 var subject = 'Commission inquiry — ' + (selectedService || TAB_LABELS[activeTab] || 'Commission');
+/* No configured contact e-mail means no mailto: the copy of the brief stays
+   available in the panel instead of producing a broken "mailto:?subject=". */
+if(!MAIL) return '';
 return 'mailto:' + MAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
 }
 function hideBrief(){ if(briefResult) briefResult.hidden = true; }
@@ -6252,8 +6262,9 @@ var note = briefResult.querySelector('.brief-note');
 if(note) note.textContent = 'Your commission request was saved. A copy of your brief is below.';
 briefResult.hidden = false;
 var href = mailtoFor(text);
-if(briefEmailLink) briefEmailLink.href = href;
-if(directEmailLink) directEmailLink.href = href;
+if(briefEmailLink){ if(href) briefEmailLink.href = href; else briefEmailLink.removeAttribute('href'); }
+if(directEmailLink){ if(href) directEmailLink.href = href; else directEmailLink.removeAttribute('href'); }
+if(briefEmailLink) briefEmailLink.style.display = href ? '' : 'none';
 smoothScrollTo(briefResult);
 }
 function setFormState(state){
@@ -9271,9 +9282,112 @@ var termsAudit = A ? A.auditPageRecord(p, 'terms', { settings: ADMIN_DRAFT.setti
 return '<div class="adm-editor"><h2>' + esc(p.title) + '</h2>' + checklistPanel(termsAudit) + '<div class="adm-section"><h4>Page</h4>' + inputText(tAdmin('label.title'), base + '.title') + inputTextarea('Content', base + '.content', { minHeight:420 }) + '</div>' + '<div class="adm-section"><h4>' + esc(tAdmin('label.publishing')) + '</h4><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">' + inputCheck(tAdmin('label.published'), base + '.published') + '</div></div>' + '<div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="pages.terms">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
+/* Contact/Social links: the pure normalizer lives in src/site-content-core.js
+   (window.CrabbieSiteContentModel) so the Admin editor, the public site and the
+   data-health audit read one shape. The inline mirror below is the pre-module
+   fallback with the same contract: an authored `links` array is authoritative,
+   legacy email/twitter stay read-compatible. */
+function contactLinksFromSettings(contact){
+var model = (typeof window !== 'undefined' && window.CrabbieSiteContentModel) || null;
+if(model && typeof model.contactLinksSettings === 'function') return model.contactLinksSettings(contact);
+var src = contact && Array.isArray(contact.links) ? contact.links : null;
+if(src){
+  return src.map(function(link, i){
+    link = link && typeof link === 'object' ? link : {};
+    return {
+      id: String(link.id || ('contact-' + i)),
+      label: String(link.label == null ? '' : link.label),
+      value: String(link.value == null ? (link.url == null ? '' : link.url) : link.value),
+      visible: link.visible !== false
+    };
+  });
+}
+var legacy = [];
+if(contact && Object.prototype.hasOwnProperty.call(contact, 'email')){
+  var email = String(contact.email == null ? '' : contact.email).trim();
+  if(email) legacy.push({ id:'contact-email', label:'Email', value:email, visible:true });
+}
+if(contact && Object.prototype.hasOwnProperty.call(contact, 'twitter')){
+  var twitter = String(contact.twitter == null ? '' : contact.twitter).trim();
+  if(twitter) legacy.push({ id:'contact-twitter', label:'Twitter / X', value:twitter, visible:true });
+}
+return legacy;
+}
+function ensureAdminContactLinks(){
+ADMIN_DRAFT.settings = ADMIN_DRAFT.settings || {};
+ADMIN_DRAFT.settings.contact = ADMIN_DRAFT.settings.contact || {};
+var contact = ADMIN_DRAFT.settings.contact;
+if(!Array.isArray(contact.links)) contact.links = contactLinksFromSettings(contact);
+return contact.links;
+}
+function contactHref(value){
+var raw = String(value == null ? '' : value).trim();
+return raw ? safePublicUrl(raw, false) : '';
+}
+/* A published link needs a name and a safe target. The label falls back to the
+   value so an authored link is never silently dropped, and contactHref() rejects
+   every unsafe value (javascript:, http:, data:) before it can reach the DOM. */
+function contactDisplayLabel(link){
+var label = String((link && link.label) || '').trim();
+return label || String((link && link.value) || '').trim();
+}
+function contactIsUnsafeValue(value){
+var raw = String(value == null ? '' : value).trim();
+return !!raw && !contactHref(raw);
+}
+/* Admin feedback: the same rule the public renderer enforces, stated inline. */
+function contactValueWarningText(){
+return currentAdminLang === 'vi'
+  ? 'Giá trị này không được xuất bản: chỉ nhận https://, mailto: hoặc địa chỉ email.'
+  : 'This value is never published: only https://, mailto: or an email address is accepted.';
+}
+function refreshContactValueWarning(input, value){
+var row = input && input.closest ? input.closest('[data-adm-contact-row]') : null;
+if(!row) return;
+var unsafe = contactIsUnsafeValue(value);
+var warn = row.querySelector('[data-adm-contact-value-warning]');
+if(unsafe && !warn){
+  warn = document.createElement('p');
+  warn.className = 'af-hint adm-contact-warn';
+  warn.setAttribute('data-adm-contact-value-warning', '1');
+  row.appendChild(warn);
+}
+if(!warn) return;
+if(unsafe) warn.textContent = contactValueWarningText();
+else if(warn.parentNode) warn.parentNode.removeChild(warn);
+}
+function contactEmailValue(links){
+for(var i = 0; i < links.length; i++){
+  var href = contactHref(links[i] && links[i].value);
+  if(/^mailto:/i.test(href)) return href.replace(/^mailto:/i, '');
+}
+return '';
+}
 function renderAdminContact(){
 var base = 'settings.contact';
-return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2><div class="adm-section"><h4>Contact</h4><label class="adm-field"><span class="af-label">Email</span><input type="email" data-adm-path="' + base + '.email" value="' + esc(getByPath(ADMIN_DRAFT, base + '.email') || '') + '"></label><label class="adm-field" style="margin-top:10px;"><span class="af-label">Twitter</span><input type="text" data-adm-path="' + base + '.twitter" value="' + esc(getByPath(ADMIN_DRAFT, base + '.twitter') || '') + '"></label></div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
+var links = ensureAdminContactLinks();
+var vi = currentAdminLang === 'vi';
+var rows = links.map(function(link, i){
+  var label = contactDisplayLabel(link) || (vi ? 'Liên kết chưa đặt tên' : 'Untitled link');
+  return '<div class="adm-repeat" data-adm-contact-row="' + i + '">' +
+    '<div class="adm-repeat-head"><span class="rr-num">' + (i + 1) + '</span><span class="rr-label">' + esc(label) + '</span><span class="rr-actions">' +
+      '<button type="button" data-adm-contact-move="' + i + '" data-adm-contact-dir="up" aria-label="' + (vi ? 'Đưa lên' : 'Move up') + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+      '<button type="button" data-adm-contact-move="' + i + '" data-adm-contact-dir="down" aria-label="' + (vi ? 'Đưa xuống' : 'Move down') + '"' + (i === links.length - 1 ? ' disabled' : '') + '>↓</button>' +
+      '<button type="button" data-adm-contact-del="' + i + '" aria-label="' + (vi ? 'Xóa liên kết' : 'Delete link') + '">✕</button>' +
+    '</span></div>' +
+    '<div class="adm-row"><label class="adm-field"><span class="af-label">' + (vi ? 'Tên hiển thị' : 'Display name') + '</span><input type="text" data-adm-path="' + base + '.links.' + i + '.label" value="' + esc(link.label || '') + '" placeholder="' + (vi ? 'Ví dụ: Instagram' : 'Example: Instagram') + '"></label>' +
+    '<label class="adm-field"><span class="af-label">' + (vi ? 'Email hoặc URL' : 'Email or URL') + '</span><input type="text" data-adm-path="' + base + '.links.' + i + '.value" value="' + esc(link.value || '') + '" placeholder="https://… / name@example.com"></label></div>' +
+    '<div style="margin-top:9px;">' + inputCheck(vi ? 'Hiện ở Contact công khai' : 'Show in public Contact', base + '.links.' + i + '.visible') + '</div>' +
+    (contactIsUnsafeValue(link.value) ? '<p class="af-hint adm-contact-warn" data-adm-contact-value-warning="1">' + esc(contactValueWarningText()) + '</p>' : '') +
+  '</div>';
+}).join('');
+return '<div class="adm-editor adm-editor-narrow"><h2>Contact / Social</h2>' +
+  '<p class="ae-sub">' + (vi ? 'Tùy chỉnh tên, liên kết, thứ tự và ẩn/hiện. Danh sách này đồng bộ với Contact trên website và cột Contact ở footer.' : 'Customize names, links, order and visibility. This list powers the public Contact page and the footer Contact column.') + '</p>' +
+  '<div class="adm-section"><h4>' + (vi ? 'Liên kết liên hệ' : 'Contact links') + '</h4>' +
+    (rows || '<p class="af-hint">' + (vi ? 'Chưa có liên kết nào. Thêm một mục để hiển thị ở website.' : 'No contact links yet. Add one to show it on the website.') + '</p>') +
+    '<button type="button" class="adm-btn-sm purple" data-adm-contact-add="1">+ ' + (vi ? 'Thêm liên kết' : 'Add contact link') + '</button>' +
+    '<p class="af-hint" style="margin-top:8px;">' + (vi ? 'Email đầu tiên trong danh sách cũng được dùng cho nút email trực tiếp ở phần Commission. Mục bị ẩn vẫn có thể làm email liên hệ nội bộ.' : 'The first email in this list is also used by the direct-email controls in Commission. A hidden item can still serve as the operational email.') + '</p>' +
+  '</div><div class="adm-editor-bar"><button type="button" class="adm-btn-sm primary" data-adm-save="settings">' + esc(tAdmin('btn.save')) + '</button></div></div>';
 }
 
 function uploadStatusHtml(){
@@ -10644,6 +10758,9 @@ if(path === 'settings.music.volume'){
   var musicHint = adminContent.querySelector('[data-adm-music-volume-value="1"]');
   if(musicHint) musicHint.textContent = readControlValue(el) + '%';
 }
+/* Contact links state the safety rule while typing: an unsafe value is never
+   published, so the row says so instead of only failing after a re-render. */
+if(/^settings\.contact\.links\.\d+\.value$/.test(path)) refreshContactValueWarning(el, v);
 });
 el.addEventListener('change', function(){
 if(el.type === 'color') return;
@@ -10936,6 +11053,36 @@ var path = btn.getAttribute('data-adm-link-del');
 var i = parseInt(btn.getAttribute('data-adm-link-i'), 10);
 var arr = getByPath(ADMIN_DRAFT, path); if(!Array.isArray(arr)) return;
 arr.splice(i, 1); markDirty(); renderAdmin('portfolio');
+});
+});
+$$('[data-adm-contact-add]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var links = ensureAdminContactLinks();
+  links.push({ id:newId('contact'), label:'New link', value:'', visible:true });
+  markDirty('settings.contact.links');
+  renderAdmin('contact');
+});
+});
+$$('[data-adm-contact-del]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var links = ensureAdminContactLinks();
+  var i = parseInt(btn.getAttribute('data-adm-contact-del'), 10);
+  if(isNaN(i) || i < 0 || i >= links.length) return;
+  links.splice(i, 1);
+  markDirty('settings.contact.links');
+  renderAdmin('contact');
+});
+});
+$$('[data-adm-contact-move]', adminContent).forEach(function(btn){
+btn.addEventListener('click', function(){
+  var links = ensureAdminContactLinks();
+  var i = parseInt(btn.getAttribute('data-adm-contact-move'), 10);
+  var dir = btn.getAttribute('data-adm-contact-dir');
+  var j = dir === 'up' ? i - 1 : i + 1;
+  if(isNaN(i) || j < 0 || i < 0 || i >= links.length || j >= links.length) return;
+  var tmp = links[i]; links[i] = links[j]; links[j] = tmp;
+  markDirty('settings.contact.links');
+  renderAdmin('contact');
 });
 });
 $$('[data-adm-about-add]', adminContent).forEach(function(btn){
@@ -13148,51 +13295,86 @@ function applyCmsSiteSettings(settings){
   }
 
   if(settings.contact && typeof settings.contact === 'object'){
-    /* Present-with-empty clears public; a missing key leaves public alone. */
-    var contactHasEmail = Object.prototype.hasOwnProperty.call(settings.contact, 'email');
-    var contactEmail = contactHasEmail ? String(settings.contact.email == null ? '' : settings.contact.email).trim() : null;
-    if(contactHasEmail){
-      MAIL = contactEmail || '';
-      if(contactEmail){
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.href = 'mailto:' + contactEmail;
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = contactEmail;
-        });
-        var emailStrong = document.querySelector('.email-strong');
-        if(emailStrong) emailStrong.textContent = contactEmail;
-        if(directEmailLink) directEmailLink.href = 'mailto:' + contactEmail;
-        var footEmailSet = document.getElementById('footEmail');
-        if(footEmailSet){
-          footEmailSet.textContent = contactEmail;
-          footEmailSet.href = 'mailto:' + contactEmail;
-          footEmailSet.removeAttribute('data-goto');
-        }
-      } else {
-        document.querySelectorAll('a[href^="mailto:"]').forEach(function(a){
-          a.removeAttribute('href');
-          if(a.id !== 'briefEmail' && a.id !== 'directEmail') a.textContent = '';
-        });
-        var emailStrongClear = document.querySelector('.email-strong');
-        if(emailStrongClear) emailStrongClear.textContent = '';
-        var footEmailClear = document.getElementById('footEmail');
-        if(footEmailClear){ footEmailClear.textContent = ''; footEmailClear.removeAttribute('href'); }
-      }
+    /* The links array is authoritative when present; legacy email/twitter stay
+       as a read-compatible fallback so existing settings need no migration. */
+    var contactLinks = contactLinksFromSettings(settings.contact);
+    var hasContactLinks = Array.isArray(settings.contact.links);
+    var primaryEmail = contactEmailValue(contactLinks);
+    if(!hasContactLinks && !primaryEmail && Object.prototype.hasOwnProperty.call(settings.contact, 'email')){
+      primaryEmail = String(settings.contact.email == null ? '' : settings.contact.email).trim();
     }
-    var contactHasTwitter = Object.prototype.hasOwnProperty.call(settings.contact, 'twitter');
-    var contactTwitter = contactHasTwitter ? String(settings.contact.twitter == null ? '' : settings.contact.twitter).trim() : null;
-    if(contactHasTwitter){
-      if(contactTwitter){
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.href = contactTwitter;
-        });
-        var footTwitterSet = document.getElementById('footTwitter');
-        if(footTwitterSet){ footTwitterSet.href = contactTwitter; footTwitterSet.removeAttribute('data-goto'); }
+    MAIL = primaryEmail || '';
+    var emailStrong = document.querySelector('.email-strong');
+    if(emailStrong){ emailStrong.textContent = primaryEmail || ''; emailStrong.style.display = primaryEmail ? '' : 'none'; }
+    if(briefEmailLink){
+      if(primaryEmail) briefEmailLink.href = 'mailto:' + primaryEmail;
+      else briefEmailLink.removeAttribute('href');
+    }
+    if(directEmailLink){
+      if(primaryEmail) directEmailLink.href = 'mailto:' + primaryEmail;
+      else directEmailLink.removeAttribute('href');
+      directEmailLink.style.display = primaryEmail ? '' : 'none';
+    }
+    var copyEmail = document.getElementById('copyEmailBtn');
+    if(copyEmail) copyEmail.style.display = primaryEmail ? '' : 'none';
+
+    /* A visible link renders when it has a display name (falling back to its
+       value) and a safe target; hidden items and unsafe values never publish. */
+    var visibleContactLinks = contactLinks.filter(function(link){
+      return link.visible !== false && contactDisplayLabel(link) && contactHref(link.value);
+    });
+
+    var footList = document.getElementById('footContactList');
+    if(footList){
+      Array.prototype.slice.call(footList.querySelectorAll('.cms-contact-link')).forEach(function(li){ li.remove(); });
+      var footAnchor = footList.querySelector('[data-foot-fixed="commission"]');
+      var emailIdUsed = false, twitterIdUsed = false;
+      visibleContactLinks.forEach(function(link){
+        var href = contactHref(link.value); if(!href) return;
+        var li = document.createElement('li'); li.className = 'cms-contact-link'; li.setAttribute('data-cms-contact-id', link.id || '');
+        var a = document.createElement('a'); a.textContent = contactDisplayLabel(link); a.href = href;
+        if(/^https:\/\//i.test(href)){ a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+        if(!emailIdUsed && /^mailto:/i.test(href)){ a.id = 'footEmail'; emailIdUsed = true; }
+        if(!twitterIdUsed && /https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\//i.test(href)){ a.id = 'footTwitter'; twitterIdUsed = true; }
+        li.appendChild(a); footList.insertBefore(li, footAnchor || null);
+      });
+    }
+
+    var contactRowsHost = document.getElementById('publicContactRows');
+    if(contactRowsHost){
+      contactRowsHost.innerHTML = '';
+      visibleContactLinks.forEach(function(link){
+        var href = contactHref(link.value); if(!href) return;
+        var row = document.createElement('div'); row.className = 'contact-row cms-contact-row';
+        var icon = document.createElement('span'); icon.className = 'ic'; icon.textContent = /^mailto:/i.test(href) ? '✉' : '✦';
+        var body = document.createElement('div');
+        var key = document.createElement('div'); key.className = 'ck'; key.textContent = contactDisplayLabel(link);
+        var value = document.createElement('div'); value.className = 'cv'; value.textContent = /^mailto:/i.test(href) ? href.replace(/^mailto:/i, '') : String(link.value || '');
+        body.appendChild(key); body.appendChild(value); row.appendChild(icon); row.appendChild(body); contactRowsHost.appendChild(row);
+      });
+      contactRowsHost.style.display = visibleContactLinks.length ? '' : 'none';
+    }
+
+    var actionHost = document.getElementById('publicContactActions');
+    if(actionHost){
+      Array.prototype.slice.call(actionHost.querySelectorAll('.cms-contact-action')).forEach(function(node){ node.remove(); });
+      visibleContactLinks.forEach(function(link, i){
+        var href = contactHref(link.value); if(!href) return;
+        var a = document.createElement('a'); a.className = 'btn ' + (i % 2 ? 'btn-purple' : 'btn-primary') + ' cms-contact-action'; a.textContent = contactDisplayLabel(link); a.href = href;
+        if(/^https:\/\//i.test(href)){ a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+        actionHost.insertBefore(a, copyEmail || null);
+      });
+    }
+
+    var directSocial = document.getElementById('directSocial');
+    if(directSocial){
+      var social = visibleContactLinks.find(function(link){ return /^https:\/\//i.test(contactHref(link.value)); });
+      if(social){
+        directSocial.textContent = contactDisplayLabel(social);
+        directSocial.href = contactHref(social.value);
+        directSocial.style.display = '';
       } else {
-        document.querySelectorAll('a[href*="x.com"], a[href*="twitter.com"]').forEach(function(a){
-          a.removeAttribute('href');
-        });
-        var footTwitterClear = document.getElementById('footTwitter');
-        if(footTwitterClear){ footTwitterClear.removeAttribute('href'); }
+        directSocial.style.display = 'none';
       }
     }
   }

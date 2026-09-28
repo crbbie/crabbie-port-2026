@@ -136,6 +136,7 @@ This is a hard architecture invariant.
 - Zero-row guarded updates are treated as stale/conflict, not success.
 - Local persisted baselines advance only after confirmed database success.
 - Settings use per-key baselines.
+- `settings.contact.links` is the authoritative Contact/Social list (ordered items with `label`, `value`, `visible`); legacy `settings.contact.email` / `settings.contact.twitter` stay a read-compatible fallback in the same JSON key, so no data migration is required. An unsafe value (`javascript:`, `http:`, `data:`, relative) is never rendered publicly.
 - A single-flight owner prevents overlapping admin save transactions.
 - Auth refresh/background events must not rehydrate over unsaved work.
 - Mutation stays disabled until one complete authoritative hydration succeeds.

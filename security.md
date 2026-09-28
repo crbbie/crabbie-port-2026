@@ -78,6 +78,13 @@ Project/People relation writes go only through the narrow admin-only RPCs
 arbitrary-table writes. Person profile URLs accept `https://` only, render
 as `target=_blank rel="noopener noreferrer"`, and fall back to plain text.
 
+Contact / Social links (`settings.contact.links`) are built with
+`createElement` + `textContent`, never `innerHTML`, and a value must resolve
+to a safe `https://`, `mailto:`/email or `#anchor` target: `javascript:`,
+`http:`, `data:` and relative values are dropped before they can reach the
+DOM, even when an admin stored them. An unsafe value is flagged inline in the
+Admin editor instead of being published silently.
+
 ## Media privacy limitation
 
 The `media` bucket is public.
