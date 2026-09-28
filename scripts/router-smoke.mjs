@@ -513,6 +513,23 @@ try {
       }
     }
     assert.equal(await page.evaluate(() => window.__routerLoginCalls), 3, 'Each submit must have exactly one listener');
+
+    // Admin "Preview website" is an external-style escape hatch: it must open
+    // the public root in a new tab and leave the current admin route untouched.
+    const adminPreview = page.locator('.admin-foot a').filter({has: page.locator('[data-t="nav.preview"]')});
+    assert.equal(await adminPreview.getAttribute('href'), '/');
+    assert.equal(await adminPreview.getAttribute('target'), '_blank');
+    assert.equal(await adminPreview.getAttribute('rel'), 'noopener noreferrer');
+    assert.equal(await adminPreview.getAttribute('data-goto'), null);
+    const popupPromise = page.waitForEvent('popup');
+    await adminPreview.click();
+    const publicPreview = await popupPromise;
+    await publicPreview.waitForLoadState('load');
+    await publicPreview.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
+    assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'admin');
+    await publicPreview.close();
+    console.log('PASS admin Preview website opens public root in a new tab without leaving admin');
+
     for (const module of ['requests', 'media']) {
       await page.evaluate(module => { location.hash = '#admin/' + module; }, module);
       await page.locator('#adminNav [data-admin-module="' + module + '"][aria-current="page"]').waitFor({state: 'visible'});
