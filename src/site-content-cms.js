@@ -1,5 +1,5 @@
 import { supabase, isConfigured } from './supabase-client.js';
-import { mapCmsPage, mapNavigationItem, mapSiteSettings, aboutPublicModel, cmsBrandName, cmsSeoTitle, routeTitleFor, hasSettingsKey, settingsText } from './site-content-core.js';
+import { mapCmsPage, mapNavigationItem, mapSiteSettings, aboutPublicModel, cmsBrandName, cmsSeoTitle, routeTitleFor, hasSettingsKey, settingsText, contactItemsSettings } from './site-content-core.js';
 
 if (typeof window !== 'undefined') {
   window.CrabbieSiteContentModel = {
@@ -8,7 +8,8 @@ if (typeof window !== 'undefined') {
     cmsSeoTitle,
     routeTitleFor,
     hasSettingsKey,
-    settingsText
+    settingsText,
+    contactItemsSettings
   };
 }
 
