@@ -1,3 +1,4 @@
+import { contactItemsSettings } from './site-content-core.js';
 /**
  * admin-data-audit-core.js
  * Pure content-completeness auditing for the Admin CMS.
@@ -172,9 +173,10 @@ export function auditPageRecord(page = {}, kind, ctx = {}) {
 
 function pageContactLinks(page = {}, ctx = {}) {
   const contact = ctx.settings && ctx.settings.contact ? ctx.settings.contact : {};
+  const visibleItems = contactItemsSettings(contact).filter((item) => item.visible !== false);
   return {
-    email: contact.email || '',
-    twitter: contact.twitter || '',
+    configured: visibleItems.some((item) => !isBlank(item.label) || !isBlank(item.value) || !isBlank(item.url)),
+    email: visibleItems.filter((item) => item.type === 'email').map((item) => item.value || item.url || '').find((value) => !isBlank(value)) || '',
     links: Array.isArray(page.links) ? page.links : []
   };
 }
@@ -185,7 +187,7 @@ function auditAboutPage(page, ctx) {
   const warnings = [];
   const contact = pageContactLinks(page, ctx);
   if (isBlank(page.profileImage)) warnings.push('no-profile-image');
-  if (isBlank(contact.email) && isBlank(contact.twitter) && contact.links.length === 0) {
+  if (!contact.configured && contact.links.length === 0) {
     warnings.push('no-contact-link');
   }
   if (!isBlank(page.content) && EMAIL_RE.test(page.content) && !new RegExp('mailto:', 'i').test(page.content)) {
@@ -228,7 +230,7 @@ function auditTermsPage(page, ctx) {
     });
   }
   const contact = pageContactLinks({}, ctx);
-  if (isBlank(contact.email) && isBlank(contact.twitter) && !EMAIL_RE.test(content)) {
+  if (!contact.configured && !EMAIL_RE.test(content)) {
     warnings.push('no-contact-method');
   }
   if (content && EMAIL_RE.test(content) && !/mailto:/i.test(content)) {
@@ -247,9 +249,14 @@ function auditTermsPage(page, ctx) {
 export function auditSettingsRecord(settings = {}) {
   const warnings = [];
   const contact = settings.contact || {};
-  if (isBlank(contact.email)) warnings.push('no-contact-email');
-  else if (!EMAIL_RE.test(String(contact.email))) warnings.push('bad-contact-email');
-  if (isBlank(contact.twitter)) warnings.push('no-contact-twitter');
+  const visibleContacts = contactItemsSettings(contact).filter((item) => item.visible !== false);
+  const emailItems = visibleContacts.filter((item) => item.type === 'email');
+  const badEmail = emailItems.some((item) => {
+    const value = String(item.value || item.url || '').replace(/^mailto:/i, '').trim();
+    return value && !EMAIL_RE.test(value);
+  });
+  if (!visibleContacts.length) warnings.push('no-contact-method');
+  if (badEmail) warnings.push('bad-contact-email');
   const branding = settings.branding || {};
   if (isBlank(branding.logo)) warnings.push('no-logo');
   if (isBlank(branding.heroMedia)) warnings.push('no-hero-media');
@@ -257,8 +264,8 @@ export function auditSettingsRecord(settings = {}) {
   if (isBlank(seo.socialImage)) warnings.push('no-seo-image');
   return finalize({
     status: 'complete',
-    required: ['contact.email'],
-    missing: isBlank(contact.email) ? ['contact.email'] : [],
+    required: ['contact'],
+    missing: visibleContacts.length ? [] : ['contact'],
     placeholders: scanFields(settings, ['branding.title', 'branding.tagline', 'branding.intro', 'seo.title', 'seo.description']),
     warnings,
     critical: []
