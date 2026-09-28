@@ -528,6 +528,11 @@ try {
     await publicPreview.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'home');
     assert.equal(await page.evaluate(() => document.querySelector('.view.is-active')?.dataset.view), 'admin');
     await publicPreview.close();
+    // A popup can temporarily own browser focus. Restore the Admin tab before
+    // the next hash-route assertions so WebKit/Chromium do not defer a
+    // background document's hashchange during the smoke run.
+    await page.bringToFront();
+    await page.waitForFunction(() => document.querySelector('.view.is-active')?.dataset.view === 'admin');
     console.log('PASS admin Preview website opens public root in a new tab without leaving admin');
 
     for (const module of ['requests', 'media']) {
