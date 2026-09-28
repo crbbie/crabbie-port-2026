@@ -775,6 +775,27 @@ try {
     assert.equal(await page.locator('.comm-card .comm-thumb img').first().getAttribute('src'), 'https://example.test/normal.png');
     assert.equal(await page.locator('#miniServicesGrid [data-other-service="static-emote"] .mini-icon img').getAttribute('src'), 'https://example.test/mini.png');
     console.log('PASS public CMS card/detail rendering, safe blocks, asset download, About links, Commission thumbnails (SDK fixture)');
+
+    // Contact/Social settings are a CMS-managed list: rename, hide and delete
+    // semantics flow to both the Contact view and the footer without unsafe hrefs.
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, {contact:{items:[
+        {id:'email-x',label:'Work Email',value:'hello@example.test',url:'mailto:hello@example.test',icon:'✉',footerLabel:'Email me',visible:true,showButton:true,buttonLabel:'Send email'},
+        {id:'sky-x',label:'Bluesky',value:'@crabbie.test',url:'https://bsky.app/profile/crabbie.test',icon:'☁',footerLabel:'Bluesky',visible:true,showButton:true,buttonLabel:'Open Bluesky'},
+        {id:'hidden-x',label:'Hidden network',value:'secret',url:'https://example.test/hidden',icon:'★',footerLabel:'Hidden',visible:false,showButton:true,buttonLabel:'Hidden'},
+        {id:'unsafe-x',label:'Text only',value:'No unsafe link',url:'javascript:alert(1)',icon:'♡',footerLabel:'Text only',visible:true,showButton:true,buttonLabel:'Unsafe'}
+      ]}});
+    });
+    assert.equal(await page.locator('#contactRows [data-contact-public-item]').count(), 3, 'only visible contact items render on the Contact page');
+    assert.equal(await page.locator('#contactRows').getByText('Bluesky', {exact:true}).count(), 1, 'custom contact names render');
+    assert.equal(await page.locator('#contactRows').getByText('Hidden network', {exact:true}).count(), 0, 'hidden contact items stay hidden');
+    assert.equal(await page.locator('#contactActions a').count(), 2, 'only safe linked items become action links');
+    assert.equal(await page.locator('#contactActions [data-contact-copy="email"]').count(), 1, 'custom email keeps the copy action');
+    assert.equal(await page.locator('#footContactList [data-contact-footer-item]').count(), 3, 'visible contact items render in the footer Contact column');
+    assert.equal(await page.locator('#footContactList').getByText('Email me', {exact:true}).count(), 1, 'footer text is independently customizable');
+    assert.equal(await page.locator('#footContactList a[href^="javascript:"]').count(), 0, 'unsafe contact URLs are never emitted as links');
+    assert.equal(await page.locator('#footContactList [data-contact-static]').count(), 2, 'commission and terms footer links remain intact');
+    console.log('PASS custom Contact/Social items render, hide and sanitize across Contact + footer');
     // The saved row must still exist so the editor save is an UPDATE of it.
     await page.evaluate(() => {
       window.__routerWrites = [];
