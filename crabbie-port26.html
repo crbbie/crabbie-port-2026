@@ -10063,7 +10063,7 @@ if(bgMode === 'solid'){
     '<p class="af-hint">' + (vi ? 'Khi xóa ảnh nền, hệ thống tự chuyển sang Màu trơn để website vẫn có nền rõ ràng.' : 'Clearing the background image automatically switches to Solid color so the site always has an explicit fallback.') + '</p>';
 } else {
   bgDetails = '<p class="af-hint" style="margin-top:10px;">' +
-    (vi ? 'Giữ nguyên nền pastel mặc định hiện tại của website.' : 'Keeps the current built-in pastel website background unchanged.') +
+    (vi ? 'Giữ nguyên nền mặc định hiện tại của website.' : 'Keeps the current built-in website background unchanged.') +
   '</p>';
 }
 var background = '<div class="adm-section"><h4>' + (vi ? 'Nền website' : 'Website background') + '</h4>' +
@@ -10119,8 +10119,8 @@ preview.style.backgroundPosition = '';
 preview.style.backgroundColor = bg.solid || '#fffafc';
 
 if(bg.effectiveMode === 'default'){
-  preview.style.backgroundColor = '#fdeadd';
-  preview.style.backgroundImage = (A && A.DEFAULT_BACKGROUND_IMAGE) || 'linear-gradient(180deg,#fdeadd 0%,#ffd1f7 68%,#edd1ff 100%)';
+  preview.style.backgroundColor = '#fff';
+  preview.style.backgroundImage = (A && A.DEFAULT_BACKGROUND_IMAGE) || '';
   preview.style.backgroundRepeat = 'no-repeat';
   preview.style.backgroundPosition = 'center';
 } else if(bg.effectiveMode === 'gradient'){
