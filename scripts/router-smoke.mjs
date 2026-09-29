@@ -578,6 +578,16 @@ try {
       groups: ['Tổng quan', 'Nội dung', 'Hộp thư', 'Trang', 'Tài nguyên'],
       save: 'Lưu thay đổi'
     }, 'the VI locale localizes every shell label including aria copy');
+    /* Language switching re-renders the active Admin panel. Assert the Save
+       control only after the existing readiness/save-flight gate has settled;
+       this waits for real UI readiness without changing production behavior. */
+    await page.waitForFunction(() => {
+      const btn = document.getElementById('adminTopSave');
+      const ready = window.CrabbieAdminCrud && window.CrabbieAdminCrud.getAdminLoadState &&
+        window.CrabbieAdminCrud.getAdminLoadState() === 'ready';
+      const idle = !(window.CrabbieAdminSaveFlight && window.CrabbieAdminSaveFlight.active);
+      return Boolean(btn && ready && idle && !btn.disabled);
+    });
     assert.equal(await page.evaluate(() => document.getElementById('adminTopSave').disabled), false, 'the localized Save control keeps its enabled state');
 
     // Admin "Preview website" is an external-style escape hatch: it must open
@@ -3567,16 +3577,30 @@ try {
     assert.equal(appearanceApplied.heroColor, 'rgb(18, 52, 86)', 'the hero heading follows the display token');
     assert.match(appearanceApplied.bg, /bg\.jpg/, 'the website background image is applied');
     assert.match(appearanceApplied.bg, /rgba\(255,255,255,0\.4\)/, 'the background overlay opacity is applied');
-    // Clearing the image restores the default pastel background; removing the
-    // tokens restores the palette defaults so later passes are unaffected.
+    // Explicit solid and gradient modes render through the same shared engine.
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { backgroundMode: 'solid', background: '#123456' } });
+    });
+    let authoredBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.match(authoredBg, /background:#123456 !important/, 'solid background mode publishes the authored color');
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: {
+        backgroundMode: 'gradient', backgroundGradientStart: '#112233',
+        backgroundGradientEnd: '#aabbcc', backgroundGradientAngle: 45
+      } });
+    });
+    authoredBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.match(authoredBg, /linear-gradient\(45deg,#112233 0%,#aabbcc 100%\)/, 'gradient background mode publishes both colors and angle');
+    // Legacy no-mode + no-image remains the original site default; removing
+    // semantic tokens restores the palette defaults so later passes are unaffected.
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, { theme: { backgroundImage: '' } });
       ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted', '--text-field-label']
         .forEach((key) => document.body.style.removeProperty(key));
     });
     const clearedBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
-    assert.equal(clearedBg.trim(), '', 'clearing the background image removes the override style');
-    console.log('PASS appearance color tokens and website background image apply and clear (SDK fixture)');
+    assert.equal(clearedBg.trim(), '', 'legacy empty background settings restore the built-in pastel background');
+    console.log('PASS appearance color tokens plus image, solid and gradient backgrounds apply correctly (SDK fixture)');
 
     // ---- Motion runtime: falling candy + desktop pet (SDK fixture) ----
     assert.ok(await page.evaluate(() => { try { return Boolean(localStorage.getItem('crabbie:appearance')); } catch (e) { return false; } }), 'the appearance snapshot is cached for the next first paint');
@@ -4527,8 +4551,48 @@ try {
     await page.waitForSelector('[data-adm-appearance-preview="1"]');
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"]').count(), 2, 'each role token exposes a color picker + hex input');
     assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
-    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
+    const bgModeControl = page.locator('[data-adm-path="settings.theme.backgroundMode"]');
+    assert.equal(await bgModeControl.count(), 1, 'Appearance exposes one background mode selector');
+    assert.equal(await bgModeControl.inputValue(), 'default', 'legacy empty settings resolve to the explicit Default mode');
+    const defaultPreview = await page.evaluate(() => {
+      const el = document.querySelector('[data-adm-appearance-preview="1"]');
+      const cs = getComputedStyle(el);
+      return { color: cs.backgroundColor, image: cs.backgroundImage };
+    });
+    assert.equal(defaultPreview.color, 'rgb(255, 255, 255)', 'Default mode preview matches the current public fallback color');
+    assert.equal(defaultPreview.image, 'none', 'Default mode preview does not invent a gradient');
+    await bgModeControl.selectOption('solid');
+    await page.waitForSelector('[data-adm-path="settings.theme.background"][type="text"]');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 0, 'solid mode hides image-only controls');
+    await page.locator('[data-adm-path="settings.theme.background"][type="text"]').fill('#123456');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).backgroundColor), 'rgb(18, 52, 86)', 'solid background updates Live Preview before save');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('gradient');
+    await page.waitForSelector('[data-adm-path="settings.theme.backgroundGradientStart"][type="text"]');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientEnd"]').count(), 2, 'gradient mode exposes start/end picker + HEX pairs');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientAngle"]').count(), 1, 'gradient mode exposes an angle control');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientAngle"]').inputValue(), '180', 'unstored gradient angle renders its canonical default without persisting it');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-mediabrowse="settings.theme.backgroundImage"]');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'image mode uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundOverlay"]').inputValue(), '0.55', 'unstored image overlay renders its canonical default without persisting it');
+    // Picking a background image keeps Image mode; clearing it falls back to Solid.
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = [
+        { id: '00000000-0000-4000-8000-000000000911', bucket_id: 'media', storage_path: 'uploads/clear-bg.png', original_name: 'clear-bg.png', mime_type: 'image/png', size_bytes: 1024, alt_text: 'bg', created_at: '2026-01-01T00:00:00Z', deletion_status: 'active', deleted_at: null, deletion_error: null }
+      ];
+    });
+    await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
+    await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-media-preview="settings.theme.backgroundImage"] img')));
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'image', 'choosing a background image keeps Image mode');
+    await page.locator('[data-adm-mediaclear="settings.theme.backgroundImage"]').click();
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'solid', 'clearing the background image falls back to Solid mode');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 0, 'clearing the image hides image-only controls');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.background"][type="text"]').count(), 1, 'the Solid fallback color stays editable after clearing');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('default');
     // Mobile admin: short controls keep two columns without horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(150);
@@ -4557,7 +4621,7 @@ try {
     await page.locator('[data-adm-palette-del]').click();
     await page.waitForTimeout(150);
     assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'a palette can be deleted');
-    console.log('PASS admin Appearance exposes role tokens, a live preview, the background media picker and saved palettes (SDK fixture)');
+    console.log('PASS admin Appearance exposes role tokens, background modes, truthful live preview and saved palettes (SDK fixture)');
 
     // ---- Appearance Phase 1: validated color fields, truthful preview, authoritative theme ----
     const phase1Display = page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]');
@@ -4920,12 +4984,11 @@ try {
     assert.equal(await advSection.evaluate((el) => el.open), false, 'Advanced text colors is collapsed by default');
     assert.ok((await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('Advanced text colors'), 'the section is labeled Advanced text colors');
     assert.ok(!(await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('24 colors'), 'the label never sells 24 mandatory settings');
-    const coreIdx = await page.evaluate(() => {
-      const h = Array.from(document.querySelectorAll('#adminContent .adm-section h4')).map((el) => el.textContent);
-      return { typo: h.indexOf('Typography colors'), adv: document.querySelector('[data-adm-advanced-section]')
-        ? h.indexOf(document.querySelector('[data-adm-advanced-section]').closest('.adm-section').querySelector('h4')?.textContent) : -1 };
-    });
-    assert.ok(coreIdx.typo !== -1, 'Core colors stay on the page');
+    assert.equal(
+      await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').count(),
+      1,
+      'Core colors stay on the page'
+    );
     // 3-6: seven registry groups, 24 unique role controls, no duplicates.
     assert.equal(await page.locator('[data-adm-adv-group]').count(), 7, 'seven Advanced groups exist');
     assert.deepEqual(await page.evaluate(() => Array.from(document.querySelectorAll('[data-adm-adv-group]')).map((el) => el.getAttribute('data-adm-adv-group'))),
@@ -5065,6 +5128,10 @@ try {
       return row ? row.value.textOverrides : null;
     }), { forms: { label: '#aabbcc' }, footer: { body: '#555555' } }, 'reset group prunes the emptied group in the save payload');
     // 30-34: Reset all removes textOverrides, keeps everything else.
+    // Background controls are mode-specific now, so author an Image setting
+    // explicitly before proving Advanced reset leaves it alone.
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-path="settings.theme.backgroundSize"]');
     await page.locator('[data-adm-path="settings.theme.backgroundSize"]').selectOption('repeat');
     await page.locator('[data-adm-adv-reset-all]').click();
     assert.equal(await page.locator('[data-adm-adv-field="forms.label"] [data-adm-adv-state]').innerText(), 'Inherited from Question label', 'every role returns to inheritance');
@@ -5072,6 +5139,7 @@ try {
     assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#333333', 'reset all restores live inheritance in controls');
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-card-title').trim()), '', 'reset all clears the preview override');
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#333333', 'Core values remain untouched');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'image', 'background mode remains untouched');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundSize"]').inputValue(), 'repeat', 'background settings remain untouched');
     assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'reset all leaves the empty palette list alone');
     await page.evaluate(() => { window.__routerWrites = []; });
@@ -5342,6 +5410,8 @@ try {
     await page.locator('[data-adm-path="settings.theme.fieldLabelColor"][type="text"]').fill('#112244');
     await page.locator('[data-adm-path="settings.theme.pink"][type="text"]').fill('#010203');
     await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#0a0b0c');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-mediabrowse="settings.theme.backgroundImage"]');
     await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
     await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
@@ -5366,6 +5436,7 @@ try {
     const motionRow = savedRows.find((r) => r.key === 'motion');
     const musicRow = savedRows.find((r) => r.key === 'music');
     assert.ok(themeRow && themeRow.value.backgroundImage && themeRow.value.backgroundImage.includes('bg.png'), 'theme.backgroundImage persists to the database');
+    assert.equal(themeRow.value.backgroundMode, 'image', 'theme.backgroundMode persists with the selected image');
     assert.equal(themeRow.value.fieldLabelColor, '#112244', 'theme.fieldLabelColor persists to the database');
     assert.equal(themeRow.value.pink, '#010203', 'theme.pink persists to the database');
     assert.equal(themeRow.value.displayColor, '#0a0b0c', 'theme.displayColor persists to the database');

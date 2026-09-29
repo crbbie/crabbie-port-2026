@@ -21,8 +21,30 @@ Decorative type is an accent only. Reading text must stay in the body face.
 
 Admin > Appearance (stored under the existing `theme` site-settings key, no
 schema change) exposes semantic typography color tokens — display, accent,
-body, decorative, muted, question/field-label — plus background, pink and
-lavender primitives and an optional website background image.
+body, decorative, muted, question/field-label — plus pink/lavender primitives
+and one explicit website-background mode.
+
+Website background authoring has four mutually exclusive modes:
+`default`, `solid`, `gradient`, and `image`.
+
+- Legacy themes remain valid without migration: an existing
+  `backgroundImage` with no mode resolves to `image`; no image and no mode
+  resolves to `default`, preserving the current built-in public fallback unchanged.
+- `solid` uses the canonical `theme.background` color.
+- `gradient` owns two strict HEX values
+  (`backgroundGradientStart` / `backgroundGradientEnd`) plus a 0–360°
+  angle. Live Preview and the public site use the same resolver.
+- `image` keeps the existing size, position and white-overlay controls; the
+  background color remains the overscroll/base fallback behind the image.
+- Choosing or uploading a background image switches the mode to `image`.
+  Clearing that image switches the mode to `solid` rather than silently
+  falling back to white.
+- The early cached first paint, hydrated public runtime and Admin Live Preview
+  share the same background resolver, so Save/reload never changes the
+  interpretation of a mode.
+- The decoration artwork layer is independent and remains above the authored
+  website background; background controls do not alter CMS content or
+  decoration assets.
 
 Core colors are global semantic roles. Advanced text colors are optional
 section/component overrides: 24 supported roles in seven groups
@@ -50,7 +72,9 @@ per-element editor.
 - Palettes snapshot explicit overrides only; applying a palette replaces
   Advanced wholesale, so an old palette without `textOverrides` clears current
   overrides back to inheritance. Palette cards show an `N custom text colors`
-  indicator. Duplicates deep-clone nested overrides.
+  indicator. Duplicates deep-clone nested overrides. The two background
+  gradient colors are background-specific validated colors, not Core palette
+  entries: palettes never snapshot or apply them, and old palettes stay valid.
 - Cache stays v1/v2 compatible (`crabbie:appearance`); only valid override
   leaves are kept.
 - The preview is truthful: one compact sample per Advanced role using the same

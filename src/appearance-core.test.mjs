@@ -34,9 +34,55 @@ const resolved = A.resolvedTheme({});
 assert.equal(resolved.displayColor, '#7a3d6e', 'resolved theme fills defaults');
 assert.equal(resolved.pink, '#f6a3cf', 'resolved theme fills pink default');
 
+assert.equal(A.defaultFor('backgroundGradientStart'), '#fdeadd', 'gradient start default matches current public background');
+assert.equal(A.defaultFor('backgroundGradientEnd'), '#edd1ff', 'gradient end default matches current public background');
+
+// --- background modes: backward-compatible default/image + solid/gradient ---
+assert.equal(A.resolveBackgroundMode({}), 'default', 'old settings without image keep the built-in site background');
+assert.equal(A.resolveBackgroundMode({ backgroundImage: 'https://x/bg.jpg' }), 'image', 'old image settings resolve to image mode without migration');
+assert.equal(A.resolveBackgroundMode({ backgroundMode: 'GRADIENT' }), 'gradient', 'background mode normalizes case');
+assert.equal(A.normalizeBackgroundModeValue('nope'), null, 'unknown background mode is rejected');
+assert.equal(A.normalizeBackgroundAngle('999'), 360, 'gradient angle clamps high values');
+assert.equal(A.normalizeBackgroundAngle('-20'), 0, 'gradient angle clamps low values');
+
+let bg = A.resolveBackground({ backgroundMode:'solid', background:'#ABCDEF' });
+assert.equal(bg.effectiveMode, 'solid', 'solid mode resolves directly');
+assert.equal(bg.solid, '#abcdef', 'solid color normalizes');
+assert.match(A.buildBackgroundCss({ backgroundMode:'solid', background:'#ABCDEF' }), /background:#abcdef !important/, 'solid mode builds public CSS');
+
+bg = A.resolveBackground({ backgroundMode:'gradient', backgroundGradientStart:'#112233', backgroundGradientEnd:'#AABBCC', backgroundGradientAngle:45 });
+assert.equal(bg.gradientStart, '#112233', 'gradient start resolves');
+assert.equal(bg.gradientEnd, '#aabbcc', 'gradient end resolves');
+assert.equal(bg.gradientAngle, 45, 'gradient angle resolves');
+assert.match(A.buildBackgroundCss({ backgroundMode:'gradient', backgroundGradientStart:'#112233', backgroundGradientEnd:'#AABBCC', backgroundGradientAngle:45 }), /linear-gradient\(45deg,#112233 0%,#aabbcc 100%\)/, 'gradient mode builds public CSS');
+
+bg = A.resolveBackground({ backgroundMode:'image', background:'#445566', backgroundImage:'' });
+assert.equal(bg.effectiveMode, 'solid', 'image mode without an image safely falls back to solid');
+assert.equal(A.backgroundFallbackColor({ backgroundMode:'gradient', backgroundGradientStart:'#123456' }), '#123456', 'overscroll fallback uses gradient start');
+assert.equal(A.buildBackgroundCss({}), '', 'default mode leaves the existing decorative public background untouched');
+assert.equal(A.DEFAULT_BACKGROUND_IMAGE, '', 'default preview does not invent an authored gradient');
+
+
 // --- palette normalization / clone isolation ---
 const pal = A.normalizePaletteColors({ displayColor: '#112233', accentColor: 'bad', pink: '#ABCDEF' });
 assert.deepEqual(pal, { displayColor: '#112233', pink: '#abcdef' }, 'palettes keep only valid normalized colors');
+assert.deepEqual(
+  A.normalizePaletteColors({ displayColor: '#112233', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' }),
+  { displayColor: '#112233' },
+  'background gradient fields are background-specific and never enter a palette',
+);
+assert.deepEqual(
+  A.snapshotPaletteColors({ displayColor: '#112233', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' }),
+  { displayColor: '#112233' },
+  'palette snapshots never capture the background gradient',
+);
+const gradDraft = { displayColor: '#222222', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' };
+A.applyPaletteColors(gradDraft, { displayColor: '#333333', backgroundGradientStart: '#444444' });
+assert.deepEqual(
+  gradDraft,
+  { displayColor: '#333333', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' },
+  'applying a palette leaves background gradients untouched (old palettes stay valid)',
+);
 const src = { displayColor: '#112233', nested: { a: 1 } };
 const dup = A.clonePaletteColors(src);
 dup.nested.a = 2;

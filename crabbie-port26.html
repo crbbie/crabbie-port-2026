@@ -3477,27 +3477,47 @@ summary .adm-btn-sm{flex:none;}
 (function(){
 'use strict';
 window.__crabbieBgFallback = function(theme){
-  /* When a photo is set the visible background is the lightened image, so the
-     html/body overscroll band uses the palette background; otherwise the plain
-     white fallback keeps the native overscroll band in sync with the loading
-     background. */
-  if(theme && theme.backgroundImage) return theme.background || '#fffafc';
-  return '#fff';
+  var A = window.CrabbieAppearance || null;
+  if(A && typeof A.backgroundFallbackColor === 'function') return A.backgroundFallbackColor(theme);
+  var mode = theme && typeof theme.backgroundMode === 'string' ? theme.backgroundMode.toLowerCase() : '';
+  if(!mode) mode = theme && theme.backgroundImage ? 'image' : 'default';
+  if(mode === 'default') return '#fff';
+  if(mode === 'gradient') return (theme && theme.backgroundGradientStart) || '#fdeadd';
+  return (theme && theme.background) || '#fffafc';
 };
 window.__crabbieBuildBgCss = function(theme){
-  if(!theme || !theme.backgroundImage) return '';
-  var safe = String(theme.backgroundImage).replace(/[\\")]/g, function(c){ return '\\' + c; });
-  var size = theme.backgroundSize === 'original' ? 'auto' : (theme.backgroundSize === 'repeat' ? 'auto' : 'cover');
+  var A = window.CrabbieAppearance || null;
+  if(A && typeof A.buildBackgroundCss === 'function') return A.buildBackgroundCss(theme);
+  theme = theme && typeof theme === 'object' ? theme : {};
+  var mode = typeof theme.backgroundMode === 'string' ? theme.backgroundMode.toLowerCase() : '';
+  if(!mode) mode = theme.backgroundImage ? 'image' : 'default';
+  if(mode === 'default') return '';
+  if(mode === 'solid' || (mode === 'image' && !theme.backgroundImage)){
+    var solid = /^#[0-9a-fA-F]{6}$/.test(String(theme.background || '')) ? theme.background : '#fffafc';
+    return 'body:not(.admin-mode)::before{background:' + solid + ' !important;}';
+  }
+  if(mode === 'gradient'){
+    var gs = /^#[0-9a-fA-F]{6}$/.test(String(theme.backgroundGradientStart || '')) ? theme.backgroundGradientStart : '#fdeadd';
+    var ge = /^#[0-9a-fA-F]{6}$/.test(String(theme.backgroundGradientEnd || '')) ? theme.backgroundGradientEnd : '#edd1ff';
+    var ga = Number(theme.backgroundGradientAngle);
+    if(!isFinite(ga)) ga = 180;
+    ga = Math.max(0, Math.min(360, Math.round(ga)));
+    return 'body:not(.admin-mode)::before{background:linear-gradient(' + ga + 'deg,' + gs + ' 0%,' + ge + ' 100%) !important;}';
+  }
+  var safe = String(theme.backgroundImage || '').replace(/[\\")]/g, function(ch){ return '\\' + ch; });
+  var size = theme.backgroundSize === 'original' || theme.backgroundSize === 'repeat' ? 'auto' : 'cover';
   var repeat = theme.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat';
   var pos = theme.backgroundPosition || 'center';
-  var overlay = theme.backgroundOverlay == null ? 0.55 : Math.max(0, Math.min(1, Number(theme.backgroundOverlay)));
-  if(isNaN(overlay)) overlay = 0.55;
+  var overlay = theme.backgroundOverlay == null ? 0.55 : Number(theme.backgroundOverlay);
+  if(!isFinite(overlay)) overlay = 0.55;
+  overlay = Math.max(0, Math.min(0.9, overlay));
+  var base = /^#[0-9a-fA-F]{6}$/.test(String(theme.background || '')) ? theme.background : '#fffafc';
   return 'body:not(.admin-mode)::before{' +
     'background-image:linear-gradient(rgba(255,255,255,' + overlay + '),rgba(255,255,255,' + overlay + ')),url("' + safe + '") !important;' +
     'background-size:auto,' + size + ' !important;' +
     'background-position:center,' + pos + ' !important;' +
     'background-repeat:no-repeat,' + repeat + ' !important;' +
-    'background-color:var(--cms-bg-color,#fff) !important;' +
+    'background-color:' + base + ' !important;' +
     '}';
 };
 var theme = null;
@@ -3536,8 +3556,7 @@ try{
      simply have none; v2 may carry validated textOverrides). */
   var normAdv = AC ? AC.normalizeTextOverrides(theme.textOverrides) : {};
   var root = document.documentElement;
-  var fbTheme = { background: norm.background, backgroundImage: theme.backgroundImage };
-  root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(fbTheme));
+  root.style.setProperty('--cms-bg-color', window.__crabbieBgFallback(theme));
   var map = { displayColor:'--text-display', accentColor:'--text-accent', bodyColor:'--text-body', decorativeColor:'--text-decorative', mutedColor:'--text-muted', fieldLabelColor:'--text-field-label' };
   var tokenCss = '';
   /* Pink/Lavender primitives are owned at the body scope that actually holds
@@ -7139,8 +7158,10 @@ var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','SE
    Canonical values live in src/appearance-core.js; these aliases keep existing
    references working without a second independent defaults table. */
 var APPEARANCE_COLOR_DEFAULTS = (window.CrabbieAppearance && window.CrabbieAppearance.APPEARANCE_DEFAULTS) || { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
-/* The full colour group a saved palette captures (one preset = one theme). */
-var PALETTE_KEYS = (window.CrabbieAppearance && window.CrabbieAppearance.COLOR_KEYS) || ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
+/* The Core colour group a saved palette captures (one preset = one theme).
+   Background gradient fields are background-specific and excluded: a palette
+   preset must never silently own them. */
+var PALETTE_KEYS = (window.CrabbieAppearance && (window.CrabbieAppearance.PALETTE_COLOR_KEYS || window.CrabbieAppearance.COLOR_KEYS)) || ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
 function appearanceCore(){ return window.CrabbieAppearance || null; }
 function appearanceResolve(theme, key){
   var A = appearanceCore();
@@ -7406,6 +7427,22 @@ function setByPath(obj, path, value){
 function readControlValue(el){ if(!el) return undefined; if(el.type === 'checkbox') return !!el.checked; if(el.type === 'radio') return el.checked ? el.value : undefined; if(el.type === 'number' || el.type === 'range'){ var n = parseFloat(el.value); return isNaN(n) ? '' : n; } return el.value; }
 function applyPathToControl(el, path){
   var v = getByPath(ADMIN_DRAFT, path);
+  /* Background controls may intentionally have no stored leaf yet. Render
+     their canonical resolved value without materializing defaults into the
+     draft/database; authored changes still persist through the normal input
+     controller below. */
+  if(path === 'settings.theme.backgroundMode'){
+    el.value = appearanceBackgroundModeValue();
+    return;
+  }
+  if(path === 'settings.theme.backgroundGradientAngle'){
+    el.value = String(appearanceGradientAngleValue());
+    return;
+  }
+  if(path === 'settings.theme.backgroundOverlay'){
+    el.value = String(appearanceOverlayValue());
+    return;
+  }
   /* Color pairs never render blank for an absent key: they show the resolved
      canonical default (the same color Live Preview shows) without persisting
      it. Invalid stored values also fall back to the resolved default. */
@@ -8029,7 +8066,7 @@ return '<label class="adm-field"' + full + '><span class="af-label">' + esc(labe
 }
 function inputSelect(label, path, options, opts){
 opts = opts || {};
-var v = getByPath(ADMIN_DRAFT, path);
+var v = Object.prototype.hasOwnProperty.call(opts, 'value') ? opts.value : getByPath(ADMIN_DRAFT, path);
 var optsHtml = options.map(function(o){ var val = typeof o === 'string' ? o : o.value; var txt = typeof o === 'string' ? o : o.label; return '<option value="' + esc(val) + '"' + (val === v ? ' selected' : '') + '>' + esc(txt) + '</option>'; }).join('');
 return '<label class="adm-field"><span class="af-label">' + esc(label) + '</span><select data-adm-path="' + esc(path) + '">' + optsHtml + '</select></label>';
 }
@@ -9775,6 +9812,20 @@ var v = getByPath(ADMIN_DRAFT, 'settings.theme.backgroundOverlay');
 var n = (v == null || v === '') ? 0.55 : Number(v);
 return isNaN(n) ? 0.55 : Math.max(0, Math.min(0.9, n));
 }
+function appearanceBackgroundModeValue(){
+var theme = (ADMIN_DRAFT.settings && ADMIN_DRAFT.settings.theme) || {};
+var A = appearanceCore();
+if(A && A.resolveBackgroundMode) return A.resolveBackgroundMode(theme);
+return theme.backgroundImage ? 'image' : 'default';
+}
+function appearanceGradientAngleValue(){
+var v = getByPath(ADMIN_DRAFT, 'settings.theme.backgroundGradientAngle');
+var A = appearanceCore();
+if(A && A.normalizeBackgroundAngle) return A.normalizeBackgroundAngle(v);
+var n = Number(v);
+if(!isFinite(n)) n = 180;
+return Math.max(0, Math.min(360, Math.round(n)));
+}
 function appearancePreviewHtml(){
 /* Truthful 1:1 miniature: heading, real accent owners (price + credit link),
    reading paragraph, decorative label, helper text, real form label with a
@@ -9814,6 +9865,15 @@ function sanitizeThemeForWrite(theme){
   Object.keys(theme).forEach(function(k){
     var v = theme[k];
     if(k === 'palettes'){ out[k] = v; return; }
+    if(A && k === 'backgroundMode'){
+      var mode = A.normalizeBackgroundModeValue ? A.normalizeBackgroundModeValue(v) : null;
+      if(mode) out[k] = mode;
+      return;
+    }
+    if(A && k === 'backgroundGradientAngle'){
+      out[k] = A.normalizeBackgroundAngle ? A.normalizeBackgroundAngle(v) : 180;
+      return;
+    }
     if(A && A.COLOR_KEYS.indexOf(k) !== -1){
       var n = A.normalizeHex(v);
       if(n) out[k] = n;
@@ -9948,10 +10008,17 @@ function renderAdvancedAppearanceSection(base){
 function renderAppearanceBody(base){
 var d = APPEARANCE_COLOR_DEFAULTS;
 var overlay = appearanceOverlayValue();
+var bgMode = appearanceBackgroundModeValue();
+var bgAngle = appearanceGradientAngleValue();
+var vi = currentAdminLang === 'vi';
 /* Controls on the left, live preview alongside (desktop), saved palettes in
-   their own block below the grid. */
+   their own block below the grid. Background has an explicit mode so deleting
+   an image can fall back to a user-authored color instead of a hidden default. */
 var controls = '<div class="adm-appearance-controls">' +
-  '<div class="adm-section"><h4>Palette</h4><div class="adm-row three">' + inputColor('Background', base + '.theme.background') + inputColor('Pink', base + '.theme.pink') + inputColor('Lavender', base + '.theme.lavender') + '</div></div>' +
+  '<div class="adm-section"><h4>Palette</h4><div class="adm-row">' +
+    inputColor('Pink', base + '.theme.pink') +
+    inputColor('Lavender', base + '.theme.lavender') +
+  '</div></div>' +
   '<div class="adm-section"><h4>Typography colors</h4>' +
     '<div class="adm-row three">' +
       inputColor('Display / Heading', base + '.theme.displayColor', { default:d.displayColor }) +
@@ -9964,21 +10031,62 @@ var controls = '<div class="adm-appearance-controls">' +
       inputColor(currentAdminLang === 'vi' ? 'Màu câu hỏi / nhãn trường' : 'Question / field label', base + '.theme.fieldLabelColor', { default:d.fieldLabelColor }) +
     '</div>' +
     '<div class="adm-row">' +
-      '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">Reset to default</button></div>' +
+      '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">' + 'Reset to default' + '</button></div>' +
     '</div>' +
   '</div>' +
   renderAdvancedAppearanceSection(base) +
 '</div>';
-var background = '<div class="adm-section"><h4>Website background</h4>' +
-    '<div class="adm-row three">' +
-      mediaField('Background image', base + '.theme.backgroundImage') +
-      inputSelect('Background size', base + '.theme.backgroundSize', [{ value:'cover', label:'Cover' },{ value:'original', label:'Original' },{ value:'repeat', label:'Repeat / tile' }]) +
-      inputSelect('Position', base + '.theme.backgroundPosition', [{ value:'center', label:'Center' },{ value:'top', label:'Top' },{ value:'bottom', label:'Bottom' },{ value:'left', label:'Left' },{ value:'right', label:'Right' }]) +
+
+var modeSelect = inputSelect(
+  vi ? 'Kiểu nền' : 'Background type',
+  base + '.theme.backgroundMode',
+  [
+    { value:'default', label:vi ? 'Nền mặc định của website' : 'Site default' },
+    { value:'solid', label:vi ? 'Màu trơn' : 'Solid color' },
+    { value:'gradient', label:'Gradient' },
+    { value:'image', label:vi ? 'Ảnh nền' : 'Image' }
+  ],
+  { value:bgMode }
+);
+var bgDetails = '';
+if(bgMode === 'solid'){
+  bgDetails =
+    '<div class="adm-row one" style="margin-top:10px;">' +
+      inputColor(vi ? 'Màu nền' : 'Background color', base + '.theme.background', { default:d.background }) +
     '</div>' +
-    '<div class="adm-row">' +
-      '<div class="adm-field"><span class="af-label">Overlay opacity</span><input type="range" min="0" max="0.9" step="0.05" data-adm-path="' + base + '.theme.backgroundOverlay" value="' + esc(overlay) + '"><span class="af-hint" data-adm-bg-overlay-value="1">' + Math.round(overlay * 100) + '%</span></div>' +
+    '<p class="af-hint">' + (vi ? 'Dùng một màu duy nhất cho toàn bộ nền website.' : 'Uses one color across the full website background.') + '</p>';
+} else if(bgMode === 'gradient'){
+  bgDetails =
+    '<div class="adm-row" style="margin-top:10px;">' +
+      inputColor(vi ? 'Màu bắt đầu' : 'Gradient start', base + '.theme.backgroundGradientStart', { default:d.backgroundGradientStart }) +
+      inputColor(vi ? 'Màu kết thúc' : 'Gradient end', base + '.theme.backgroundGradientEnd', { default:d.backgroundGradientEnd }) +
     '</div>' +
-    '<p class="af-hint">Leave the image empty to use the plain white background. The overlay keeps text readable over photos.</p>' +
+    '<div class="adm-row" style="margin-top:10px;">' +
+      '<div class="adm-field"><span class="af-label">' + (vi ? 'Góc gradient' : 'Gradient angle') + '</span>' +
+      '<input type="range" min="0" max="360" step="1" data-adm-path="' + base + '.theme.backgroundGradientAngle" value="' + esc(bgAngle) + '">' +
+      '<span class="af-hint" data-adm-bg-gradient-angle-value="1">' + esc(bgAngle) + '°</span></div>' +
+    '</div>' +
+    '<p class="af-hint">' + (vi ? 'Chọn hai màu và hướng chuyển màu. Live Preview cập nhật ngay.' : 'Choose two colors and the gradient direction. Live Preview updates immediately.') + '</p>';
+} else if(bgMode === 'image'){
+  bgDetails =
+    '<div class="adm-row three" style="margin-top:10px;">' +
+      mediaField(vi ? 'Ảnh nền' : 'Background image', base + '.theme.backgroundImage') +
+      inputSelect(vi ? 'Kích thước ảnh' : 'Background size', base + '.theme.backgroundSize', [{ value:'cover', label:'Cover' },{ value:'original', label:'Original' },{ value:'repeat', label:vi ? 'Lặp / tile' : 'Repeat / tile' }]) +
+      inputSelect(vi ? 'Vị trí' : 'Position', base + '.theme.backgroundPosition', [{ value:'center', label:vi ? 'Giữa' : 'Center' },{ value:'top', label:vi ? 'Trên' : 'Top' },{ value:'bottom', label:vi ? 'Dưới' : 'Bottom' },{ value:'left', label:vi ? 'Trái' : 'Left' },{ value:'right', label:vi ? 'Phải' : 'Right' }]) +
+    '</div>' +
+    '<div class="adm-row" style="margin-top:10px;">' +
+      inputColor(vi ? 'Màu nền phía sau ảnh' : 'Base color behind image', base + '.theme.background', { default:d.background }) +
+      '<div class="adm-field"><span class="af-label">' + (vi ? 'Độ phủ trắng' : 'Overlay opacity') + '</span><input type="range" min="0" max="0.9" step="0.05" data-adm-path="' + base + '.theme.backgroundOverlay" value="' + esc(overlay) + '"><span class="af-hint" data-adm-bg-overlay-value="1">' + Math.round(overlay * 100) + '%</span></div>' +
+    '</div>' +
+    '<p class="af-hint">' + (vi ? 'Khi xóa ảnh nền, hệ thống tự chuyển sang Màu trơn để website vẫn có nền rõ ràng.' : 'Clearing the background image automatically switches to Solid color so the site always has an explicit fallback.') + '</p>';
+} else {
+  bgDetails = '<p class="af-hint" style="margin-top:10px;">' +
+    (vi ? 'Giữ nguyên nền mặc định hiện tại của website.' : 'Keeps the current built-in website background unchanged.') +
+  '</p>';
+}
+var background = '<div class="adm-section"><h4>' + (vi ? 'Nền website' : 'Website background') + '</h4>' +
+    '<div class="adm-row one">' + modeSelect + '</div>' +
+    bgDetails +
   '</div>';
 return '<div class="adm-appearance-grid">' + controls +
   '<div class="adm-appearance-preview-col">' + appearancePreviewHtml() + '</div>' +
@@ -9998,15 +10106,7 @@ preview.style.setProperty('--pv-body', appearanceResolve(t, 'bodyColor'));
 preview.style.setProperty('--pv-decorative', appearanceResolve(t, 'decorativeColor'));
 preview.style.setProperty('--pv-muted', appearanceResolve(t, 'mutedColor'));
 preview.style.setProperty('--pv-field', appearanceResolve(t, 'fieldLabelColor'));
-/* Navigation shows its real semantic owner (muted normal state), never a
-   faked accent relationship. */
 preview.style.setProperty('--pv-nav', appearanceResolve(t, 'mutedColor'));
-/* Phase 2B: the preview container also receives the SHARED semantic tokens
-   plus the explicit Advanced component variables, so preview samples use the
-   same var/fallback chains as the public rules. Inherited roles resolve
-   through the preview-scoped core tokens (Core edits move them live);
-   explicit overrides are set inline and ignore Core changes. Absent roles
-   are removed so no stale inline value survives. */
 if(A && A.TEXT_VAR_MAP){
   Object.keys(A.TEXT_VAR_MAP).forEach(function(k){
     preview.style.setProperty(A.TEXT_VAR_MAP[k], appearanceResolve(t, k));
@@ -10017,23 +10117,42 @@ if(A && A.TEXT_VAR_MAP){
     advPlan.remove.forEach(function(v){ preview.style.removeProperty(v); });
   }
 }
-var img = t.backgroundImage;
-if(img){
-  var overlay = appearanceOverlayValue();
-  var size = t.backgroundSize === 'original' ? 'auto' : (t.backgroundSize === 'repeat' ? 'auto' : 'cover');
-  var repeat = t.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat';
-  var position = t.backgroundPosition || 'center';
-  preview.style.backgroundImage = 'linear-gradient(rgba(255,255,255,' + overlay + '),rgba(255,255,255,' + overlay + ')),url("' + String(img).replace(/"/g, '%22') + '")';
-  preview.style.backgroundSize = 'auto, ' + size;
-  preview.style.backgroundRepeat = 'no-repeat, ' + repeat;
-  preview.style.backgroundPosition = 'center, ' + position;
-} else {
-  preview.style.backgroundImage = '';
+
+var bg = A && A.resolveBackground ? A.resolveBackground(t) : {
+  effectiveMode: t.backgroundImage ? 'image' : 'default',
+  solid: appearanceResolve(t, 'background') || '#fffafc',
+  gradientStart: appearanceResolve(t, 'backgroundGradientStart') || '#fdeadd',
+  gradientEnd: appearanceResolve(t, 'backgroundGradientEnd') || '#edd1ff',
+  gradientAngle: appearanceGradientAngleValue(),
+  image: t.backgroundImage || '',
+  overlay: appearanceOverlayValue(),
+  imageSize: t.backgroundSize === 'original' || t.backgroundSize === 'repeat' ? 'auto' : 'cover',
+  repeat: t.backgroundSize === 'repeat' ? 'repeat' : 'no-repeat',
+  position: t.backgroundPosition || 'center'
+};
+preview.style.backgroundImage = '';
+preview.style.backgroundSize = '';
+preview.style.backgroundRepeat = '';
+preview.style.backgroundPosition = '';
+preview.style.backgroundColor = bg.solid || '#fffafc';
+
+if(bg.effectiveMode === 'default'){
+  preview.style.backgroundColor = '#fff';
+  preview.style.backgroundImage = (A && A.DEFAULT_BACKGROUND_IMAGE) || '';
+  preview.style.backgroundRepeat = 'no-repeat';
+  preview.style.backgroundPosition = 'center';
+} else if(bg.effectiveMode === 'gradient'){
+  preview.style.backgroundColor = bg.gradientStart;
+  preview.style.backgroundImage = 'linear-gradient(' + bg.gradientAngle + 'deg,' + bg.gradientStart + ' 0%,' + bg.gradientEnd + ' 100%)';
   preview.style.backgroundSize = 'cover';
   preview.style.backgroundRepeat = 'no-repeat';
   preview.style.backgroundPosition = 'center';
+} else if(bg.effectiveMode === 'image' && bg.image){
+  preview.style.backgroundImage = 'linear-gradient(rgba(255,255,255,' + bg.overlay + '),rgba(255,255,255,' + bg.overlay + ')),url("' + String(bg.image).replace(/"/g, '%22') + '")';
+  preview.style.backgroundSize = 'auto, ' + bg.imageSize;
+  preview.style.backgroundRepeat = 'no-repeat, ' + bg.repeat;
+  preview.style.backgroundPosition = 'center, ' + bg.position;
 }
-preview.style.backgroundColor = '#fff';
 }
 
 /* Keep the Advanced live preview aligned with the role currently being edited.
@@ -10348,7 +10467,7 @@ if(!adminContent) return;
 if(module === 'settings') refreshAppearancePreview();
 $$('[data-adm-appearance-reset]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
-  /* Reset restores every canonical documented default (all 9 color keys);
+  /* Reset restores every canonical documented color default;
      background/media settings and unknown theme keys are preserved. */
   var d = (appearanceCore() || {}).APPEARANCE_DEFAULTS || APPEARANCE_COLOR_DEFAULTS;
   PALETTE_KEYS.forEach(function(key){
@@ -10802,6 +10921,10 @@ if(path === 'settings.theme.backgroundOverlay'){
   var overlayHint = adminContent.querySelector('[data-adm-bg-overlay-value="1"]');
   if(overlayHint) overlayHint.textContent = Math.round(appearanceOverlayValue() * 100) + '%';
 }
+if(path === 'settings.theme.backgroundGradientAngle'){
+  var angleHint = adminContent.querySelector('[data-adm-bg-gradient-angle-value="1"]');
+  if(angleHint) angleHint.textContent = appearanceGradientAngleValue() + '°';
+}
 if(path === 'settings.music.volume'){
   var musicHint = adminContent.querySelector('[data-adm-music-volume-value="1"]');
   if(musicHint) musicHint.textContent = readControlValue(el) + '%';
@@ -10856,12 +10979,14 @@ markDirty(path);
 refreshAuditPanels(module);
 if(path.indexOf('settings.theme.') === 0) refreshAppearancePreview();
 /* A field-type change swaps the option editor: re-render from the draft. */
-if(/\.type$/.test(path) || /\.cardMode$/.test(path) || path === 'settings.music.enabled' || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
+if(/\.type$/.test(path) || /\.cardMode$/.test(path) || path === 'settings.music.enabled' || path === 'settings.theme.backgroundMode' || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
 });
 });
 $$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var paths = [btn.getAttribute('data-adm-mediaclear')].concat((btn.getAttribute('data-adm-mediaclear-extra') || '').split(' ').filter(Boolean));
+var clearsBackground = paths.indexOf('settings.theme.backgroundImage') !== -1;
+var backgroundWasImage = clearsBackground && appearanceBackgroundModeValue() === 'image';
 paths.forEach(function(path){
 if(!path) return;
 setByPath(ADMIN_DRAFT, path, '');
@@ -10870,6 +10995,14 @@ if(input) input.value = '';
 refreshMediaPreviewByPath(path);
 markDirty(path);
 });
+if(clearsBackground){
+  if(backgroundWasImage){
+    setByPath(ADMIN_DRAFT, 'settings.theme.backgroundMode', 'solid');
+    markDirty('settings.theme.backgroundMode');
+  }
+  refreshAppearancePreview();
+  if(module === 'settings'){ renderAdmin(module); return; }
+}
 refreshAuditPanels(module);
 });
 });
@@ -11728,6 +11861,10 @@ async function runMediaUpload(file, context){
       if(/^assets\.[^.]+\.gallery$/.test(context.path)) throw new Error('Uploaded file is incompatible with this field.');
       setByPath(ADMIN_DRAFT, context.path, newMedia.url);
       markDirty(context.path);
+      if(context.path === 'settings.theme.backgroundImage'){
+        setByPath(ADMIN_DRAFT, 'settings.theme.backgroundMode', 'image');
+        markDirty('settings.theme.backgroundMode');
+      }
       /* Choosing audio implies intent to use it: turn Music on so the author
          only has to Save. The file is in the library, not yet on the site. */
       if(context.path === 'settings.music.url' && !getByPath(ADMIN_DRAFT, 'settings.music.enabled')){
@@ -12130,6 +12267,10 @@ if(multiple){
 adminMediaReplaceTarget = null;
 assetGalleryReplaceTarget = null;
 markDirty(activeMediaTarget);
+if(activeMediaTarget === 'settings.theme.backgroundImage'){
+  setByPath(ADMIN_DRAFT, 'settings.theme.backgroundMode', 'image');
+  markDirty('settings.theme.backgroundMode');
+}
 /* Picking audio implies intent to use it: turn Music on so Save is enough. */
 if(activeMediaTarget === 'settings.music.url' && !getByPath(ADMIN_DRAFT, 'settings.music.enabled')){
   setByPath(ADMIN_DRAFT, 'settings.music.enabled', true);
