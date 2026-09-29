@@ -4957,12 +4957,11 @@ try {
     assert.equal(await advSection.evaluate((el) => el.open), false, 'Advanced text colors is collapsed by default');
     assert.ok((await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('Advanced text colors'), 'the section is labeled Advanced text colors');
     assert.ok(!(await advSection.evaluate((el) => el.querySelector('summary').textContent)).includes('24 colors'), 'the label never sells 24 mandatory settings');
-    const coreIdx = await page.evaluate(() => {
-      const h = Array.from(document.querySelectorAll('#adminContent .adm-section h4')).map((el) => el.textContent);
-      return { typo: h.indexOf('Typography colors'), adv: document.querySelector('[data-adm-advanced-section]')
-        ? h.indexOf(document.querySelector('[data-adm-advanced-section]').closest('.adm-section').querySelector('h4')?.textContent) : -1 };
-    });
-    assert.ok(coreIdx.typo !== -1, 'Core colors stay on the page');
+    assert.equal(
+      await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').count(),
+      1,
+      'Core colors stay on the page'
+    );
     // 3-6: seven registry groups, 24 unique role controls, no duplicates.
     assert.equal(await page.locator('[data-adm-adv-group]').count(), 7, 'seven Advanced groups exist');
     assert.deepEqual(await page.evaluate(() => Array.from(document.querySelectorAll('[data-adm-adv-group]')).map((el) => el.getAttribute('data-adm-adv-group'))),
