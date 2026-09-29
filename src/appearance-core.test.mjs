@@ -60,6 +60,7 @@ bg = A.resolveBackground({ backgroundMode:'image', background:'#445566', backgro
 assert.equal(bg.effectiveMode, 'solid', 'image mode without an image safely falls back to solid');
 assert.equal(A.backgroundFallbackColor({ backgroundMode:'gradient', backgroundGradientStart:'#123456' }), '#123456', 'overscroll fallback uses gradient start');
 assert.equal(A.buildBackgroundCss({}), '', 'default mode leaves the existing decorative public background untouched');
+assert.equal(A.DEFAULT_BACKGROUND_IMAGE, '', 'default preview does not invent an authored gradient');
 
 
 // --- palette normalization / clone isolation ---
