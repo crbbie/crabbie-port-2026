@@ -5101,6 +5101,10 @@ try {
       return row ? row.value.textOverrides : null;
     }), { forms: { label: '#aabbcc' }, footer: { body: '#555555' } }, 'reset group prunes the emptied group in the save payload');
     // 30-34: Reset all removes textOverrides, keeps everything else.
+    // Background controls are mode-specific now, so author an Image setting
+    // explicitly before proving Advanced reset leaves it alone.
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-path="settings.theme.backgroundSize"]');
     await page.locator('[data-adm-path="settings.theme.backgroundSize"]').selectOption('repeat');
     await page.locator('[data-adm-adv-reset-all]').click();
     assert.equal(await page.locator('[data-adm-adv-field="forms.label"] [data-adm-adv-state]').innerText(), 'Inherited from Question label', 'every role returns to inheritance');
@@ -5108,6 +5112,7 @@ try {
     assert.equal(await page.locator('[data-adm-color-text="settings.theme.textOverrides.cards.title"]').inputValue(), '#333333', 'reset all restores live inheritance in controls');
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).getPropertyValue('--text-card-title').trim()), '', 'reset all clears the preview override');
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').inputValue(), '#333333', 'Core values remain untouched');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'image', 'background mode remains untouched');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundSize"]').inputValue(), 'repeat', 'background settings remain untouched');
     assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'reset all leaves the empty palette list alone');
     await page.evaluate(() => { window.__routerWrites = []; });
