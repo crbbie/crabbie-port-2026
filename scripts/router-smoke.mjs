@@ -983,6 +983,31 @@ try {
     assert.ok(adminType.sectionSize >= 16.5 && adminType.sectionSize <= 18.5, 'section headings land on 17–18px (got ' + adminType.sectionSize + ')');
     assert.ok(adminType.topbarTitleSize >= 21 && adminType.topbarTitleSize <= 24.5, 'page titles land on 22–24px (got ' + adminType.topbarTitleSize + ')');
     assert.ok(/DFVN/.test(adminType.brandFamily), 'the admin identity keeps the brand display face (got ' + adminType.brandFamily + ')');
+    /* Batch 1.1 identity pass: the admin primary tier is the only candy-styled
+       control, and it is scoped to the admin boundary (body.admin-mode). */
+    const adminPrimary = await page.evaluate(() => {
+      const el = (selector) => document.querySelector(selector);
+      const css = (selector, prop) => { const target = el(selector); return target ? getComputedStyle(target)[prop] : ''; };
+      const hasContentPrimary = Boolean(el('#adminContent .adm-btn-sm.primary'));
+      return {
+        hasContentPrimary,
+        saveGradient: css('#adminTopSave', 'backgroundImage'),
+        saveBorder: css('#adminTopSave', 'borderTopColor'),
+        saveRadius: css('#adminTopSave', 'borderRadius'),
+        saveColor: css('#adminTopSave', 'color'),
+        contentGradient: css('#adminContent .adm-btn-sm.primary', 'backgroundImage'),
+        contentBorder: css('#adminContent .adm-btn-sm.primary', 'borderTopColor'),
+        contentRadius: css('#adminContent .adm-btn-sm.primary', 'borderRadius')
+      };
+    });
+    assert.match(adminPrimary.saveGradient, /linear-gradient\(rgb\(156, 74, 118\) 0%, rgb\(138, 59, 103\)/, 'the admin Save carries the admin berry candy gradient');
+    assert.equal(adminPrimary.saveBorder, 'rgb(115, 49, 79)', 'the admin Save keeps its deep berry edge');
+    assert.equal(adminPrimary.saveRadius, '14px', 'the admin Save keeps the candy radius');
+    assert.equal(adminPrimary.saveColor, 'rgb(255, 255, 255)', 'the admin Save keeps white label text on berry');
+    assert.ok(adminPrimary.hasContentPrimary, 'an admin primary action exists in the editor content');
+    assert.match(adminPrimary.contentGradient, /linear-gradient\(rgb\(156, 74, 118\) 0%, rgb\(138, 59, 103\)/, 'admin primary buttons carry the admin berry candy gradient');
+    assert.equal(adminPrimary.contentBorder, 'rgb(115, 49, 79)', 'admin primary buttons keep the deep berry edge');
+    assert.equal(adminPrimary.contentRadius, '12px', 'admin primary buttons keep the admin radius');
     /* Accessibility + overflow guards added with the foundation layer. */
     const foundationA11y = await page.evaluate(() => {
       const field = document.querySelector('#adminContent .adm-field');
@@ -4011,6 +4036,72 @@ try {
     await page.waitForFunction(() => location.hash === '#project/normal-b');
     assert.equal(await page.evaluate(() => location.hash), '#project/normal-b', 'detail prev/next skips image cards');
     console.log('PASS image cards lightbox without navigating and galleries zoom uncropped (SDK fixture)');
+
+    // ---- Admin visual foundation scope: public components keep their own styling ----
+    /* `.adm-btn-sm` is shared between the admin UI and the public lightbox Retry /
+       Close buttons, so the admin visual foundation must be scoped to the admin
+       boundary (`body.admin-mode`). This runs on a public view (no admin mode) and
+       pins the public lightbox to its own pre-batch-1 look: the public buttons must
+       never pick up the admin berry/candy primary treatment. */
+    const publicScope = await page.evaluate(() => {
+      const el = (selector) => document.querySelector(selector);
+      const css = (selector, prop) => { const target = el(selector); return target ? getComputedStyle(target)[prop] : ''; };
+      /* The public stack lists system fallbacks after its brand face, so only the
+         LEADING family identifies the owner of the type. */
+      const leading = (family) => String(family || '').split(',')[0].replace(/["']/g, '').trim();
+      const retry = el('#publicLightboxRetry');
+      const close = el('#publicLightboxErrorClose');
+      return {
+        adminMode: document.body.classList.contains('admin-mode'),
+        retryExists: Boolean(retry),
+        closeExists: Boolean(close),
+        retryDisabled: retry ? retry.disabled : null,
+        closeDisabled: close ? close.disabled : null,
+        retryName: retry ? (retry.getAttribute('aria-label') || retry.textContent.trim()) : '',
+        retryGradient: css('#publicLightboxRetry', 'backgroundImage'),
+        retryBorderWidth: css('#publicLightboxRetry', 'borderTopWidth'),
+        retryBorderColor: css('#publicLightboxRetry', 'borderTopColor'),
+        retryRadius: css('#publicLightboxRetry', 'borderRadius'),
+        retryPadding: css('#publicLightboxRetry', 'padding'),
+        retryFontSize: css('#publicLightboxRetry', 'fontSize'),
+        retryLeadFamily: leading(css('#publicLightboxRetry', 'fontFamily')),
+        retryFamily: css('#publicLightboxRetry', 'fontFamily'),
+        closeBorderWidth: css('#publicLightboxErrorClose', 'borderTopWidth'),
+        closeBorderColor: css('#publicLightboxErrorClose', 'borderTopColor'),
+        closeColor: css('#publicLightboxErrorClose', 'color'),
+        closeShadow: css('#publicLightboxErrorClose', 'boxShadow'),
+        closePadding: css('#publicLightboxErrorClose', 'padding'),
+        closeLeadFamily: leading(css('#publicLightboxErrorClose', 'fontFamily')),
+        closeFamily: css('#publicLightboxErrorClose', 'fontFamily'),
+        closeFontSize: css('#publicLightboxErrorClose', 'fontSize'),
+        lightboxOwnsDialog: Boolean(el('.public-lightbox') && el('#publicLightboxError'))
+      };
+    });
+    assert.equal(publicScope.adminMode, false, 'the public lightbox is measured outside admin mode');
+    assert.ok(publicScope.retryExists && publicScope.closeExists, 'the public lightbox Retry and Close controls still render');
+    assert.equal(publicScope.retryDisabled, false, 'the public lightbox Retry stays an enabled control');
+    assert.equal(publicScope.closeDisabled, false, 'the public lightbox Close stays an enabled control');
+    assert.equal(publicScope.retryName, 'Retry', 'the public lightbox Retry keeps its accessible name');
+    assert.ok(publicScope.lightboxOwnsDialog, 'the public lightbox error surface and its controls still exist in public DOM');
+    /* Public look: 2px white ring, 8px 14px rhythm, 12px radius and the public candy
+       gradient — and none of the admin berry/candy values. */
+    assert.match(publicScope.retryGradient, /^linear-gradient\(/, 'the public lightbox Retry keeps a public candy gradient');
+    assert.ok(!/156, 74, 118|138, 59, 103/.test(publicScope.retryGradient), 'the public lightbox Retry never uses the admin berry gradient (got ' + publicScope.retryGradient + ')');
+    assert.equal(publicScope.retryBorderWidth, '2px', 'the public lightbox Retry keeps its public 2px ring');
+    assert.equal(publicScope.retryBorderColor, 'rgb(255, 255, 255)', 'the public lightbox Retry keeps its white public ring');
+    assert.equal(publicScope.retryRadius, '12px', 'the public lightbox Retry keeps its public radius');
+    assert.equal(publicScope.retryPadding, '8px 14px', 'the public lightbox Retry keeps its public rhythm');
+    assert.notEqual(publicScope.retryBorderColor, 'rgb(115, 49, 79)', 'the public lightbox Retry never uses the admin deep berry edge');
+    assert.ok(!/^(system-ui|Segoe UI)$/i.test(publicScope.retryLeadFamily), 'the public lightbox Retry never leads with the admin system stack (got ' + publicScope.retryFamily + ')');
+    assert.equal(publicScope.closeBorderWidth, '2px', 'the public lightbox Close keeps its public 2px ring');
+    assert.notEqual(publicScope.closeBorderColor, 'rgb(145, 134, 151)', 'the public lightbox Close never uses the admin control border');
+    assert.notEqual(publicScope.closeColor, 'rgb(48, 39, 53)', 'the public lightbox Close never uses the admin text colour');
+    assert.equal(publicScope.closeShadow, 'none', 'the public lightbox Close never uses the admin control shadow');
+    assert.equal(publicScope.closePadding, '8px 14px', 'the public lightbox Close keeps its public rhythm');
+    assert.ok(!/^(system-ui|Segoe UI)$/i.test(publicScope.closeLeadFamily), 'the public lightbox Close never leads with the admin system stack (got ' + publicScope.closeFamily + ')');
+    assert.equal(publicScope.retryFontSize, '12.5px', 'the public lightbox Retry keeps its public label size (never the 13px admin control size)');
+    assert.equal(publicScope.closeFontSize, '12.5px', 'the public lightbox Close keeps its public label size (never the 13px admin control size)');
+    console.log('PASS admin visual foundation is scoped to body.admin-mode and public lightbox controls keep their own styling (SDK fixture)');
 
     // ---- Asset preview galleries + shared viewer collections ----
     await page.evaluate(() => {

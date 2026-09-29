@@ -55,6 +55,19 @@ by `scripts/admin-ux-screenshots.mjs --measure` and documented next to the token
 in the SPA; the candy border is decorative (1.5:1) and is never the sole boundary
 of a control — no pastel text anywhere.
 
+SCOPE: every rule in the admin visual foundation block
+(`<style id="admin-foundation-styles">`) is scoped to the admin boundary
+`body.admin-mode` — the inverse of the `body:not(.admin-mode)` rules that own
+public-only styling — and the block declares no `:root` tokens (admin layout
+tokens such as `--adm-pad-x` are declared on `body.admin-mode` inside their media
+queries). Some admin class names are deliberately shared with public components
+(the public lightbox Retry/Close buttons use `.adm-btn-sm`), so an unscoped admin
+rule silently restyles the public site; `npm run check:foundation` fails when any
+selector in that block is unscoped or when a `:root` rule appears, and
+`npm run test:router` pins both sides of the boundary (admin primary tier keeps
+the admin candy values; the public lightbox controls keep their own public look
+and never resolve to the admin stack, colours or rhythm).
+
 Spacing follows one scale (4/8/12/16/24/32) and the form system owns the rhythm
 (`.adm-section > * + *`, `.adm-row + .adm-row`), so renderers do not add inline
 `margin-top` for field or section spacing. Contract: label→control 6–8px,

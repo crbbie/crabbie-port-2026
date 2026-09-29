@@ -3525,13 +3525,24 @@ summary .adm-btn-sm{flex:none;}
 
 <style id="admin-foundation-styles">
 /* ============================================================
-   ADMIN AUTHORING UX — BATCH 1 FOUNDATION
+   ADMIN AUTHORING UX — BATCH 1 FOUNDATION (+ BATCH 1.1 IDENTITY PASS)
    One functional typography stack, the admin colour tokens, the
    4/8/12/16/24/32 spacing contract and shared form/layout primitives for every
-   existing editor. Presentation only: no data shape, save scope, media
-   contract, route or public-rendering change lives in this block.
-   Selectors reuse the existing .adm-* / .admin-* hooks (no new markup
-   contract) and this block loads last, so it owns the cascade.
+   existing editor, plus the controlled Crabbie identity layer on top.
+   Presentation only: no data shape, save scope, media contract, route or
+   public-rendering change lives in this block. Selectors reuse the existing
+   .adm-* / .admin-* hooks (no new markup contract) and this block loads last, so
+   it owns the cascade.
+
+   SCOPE: every rule below is scoped to the admin boundary `body.admin-mode`,
+   because some of these class names are ALSO used by public components — the
+   public lightbox Retry/Close buttons carry `.adm-btn-sm`, so an unscoped admin
+   rule would restyle the public site (this was a real leak in an earlier draft).
+   `body.admin-mode` is the inverse of the `body:not(.admin-mode)` rules that own
+   public-only styling, and it covers the login shell, the admin shell and the
+   admin dialogs. Never add an unscoped rule or a `:root` declaration here:
+   `npm run check:foundation` fails if you do, and `npm run test:router` pins the
+   admin and public sides of the boundary.
    ============================================================ */
 
 /* --- 1. Hybrid type stack ------------------------------------------------
@@ -3552,7 +3563,7 @@ body.admin-mode{
   font-family: var(--admin-font);
   color: var(--admin-text);
 }
-.admin-brand{
+body.admin-mode .admin-brand{
   --font-display: var(--font-display-public);
   --font-decorative: var(--font-decorative-public);
 }
@@ -3562,9 +3573,9 @@ body.admin-mode .adm-appearance-preview{
   --font-decorative: var(--font-decorative-public);
 }
 /* Identity typography — brand face, single 400 weight, never on a control. */
-.admin-brand .ab-name{ color: var(--admin-primary); }
-.admin-brand .ab-name small{ font-family: var(--admin-font); font-weight: 600; font-size: 10px; letter-spacing: .12em; color: var(--admin-text-lavender); }
-.admin-topbar .at-eyebrow{
+body.admin-mode .admin-brand .ab-name{ color: var(--admin-primary); }
+body.admin-mode .admin-brand .ab-name small{ font-family: var(--admin-font); font-weight: 600; font-size: 10px; letter-spacing: .12em; color: var(--admin-text-lavender); }
+body.admin-mode .admin-topbar .at-eyebrow{
   font-family: var(--admin-decorative-font);
   font-weight: 400;
   font-size: 12.5px;
@@ -3573,7 +3584,7 @@ body.admin-mode .adm-appearance-preview{
   text-transform: uppercase;
   color: var(--admin-primary);
 }
-.admin-topbar h1{
+body.admin-mode .admin-topbar h1{
   font-family: var(--admin-brand-font);
   font-weight: 400;
   font-size: 24px;
@@ -3581,7 +3592,7 @@ body.admin-mode .adm-appearance-preview{
   letter-spacing: .014em;
   color: var(--admin-primary);
 }
-.adm-editor h2{
+body.admin-mode .adm-editor h2{
   font-family: var(--admin-brand-font);
   font-weight: 400;
   font-size: 22px;
@@ -3589,7 +3600,7 @@ body.admin-mode .adm-appearance-preview{
   letter-spacing: .014em;
   color: var(--admin-primary);
 }
-.adm-section h4{
+body.admin-mode .adm-section h4{
   display: flex;
   align-items: center;
   gap: var(--admin-space-2);
@@ -3603,7 +3614,7 @@ body.admin-mode .adm-appearance-preview{
   margin-bottom: var(--admin-space-4);
 }
 /* Tiny candy marker: the authored-looking accent that replaces decorative boxes. */
-.adm-section h4::before{
+body.admin-mode .adm-section h4::before{
   content: "";
   width: 8px;
   height: 8px;
@@ -3614,137 +3625,137 @@ body.admin-mode .adm-appearance-preview{
 }
 
 /* --- 2. Shell: Crabbie canvas, candy navigation, compact topbar --------- */
-.admin-shell{ background: var(--admin-canvas); }
-.admin-sidebar{ background: var(--admin-surface); border-right: 1px solid var(--admin-divider); padding: 16px 12px 14px; gap: 12px; }
+body.admin-mode .admin-shell{ background: var(--admin-canvas); }
+body.admin-mode .admin-sidebar{ background: var(--admin-surface); border-right: 1px solid var(--admin-divider); padding: 16px 12px 14px; gap: 12px; }
 /* Identity block: the one surface in the shell where pastel decoration is the point. */
-.admin-brand{ padding: 12px; border: 1px solid var(--admin-candy-border); border-radius: 16px; background: linear-gradient(135deg, var(--admin-surface-blush) 0%, var(--admin-surface-lavender) 100%); box-shadow: var(--admin-candy-lip); }
-.admin-nav .an-group{ font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--admin-text-lavender); padding: 16px 12px 4px; }
-.admin-nav button{ font-weight: 600; font-size: 14px; min-height: 40px; padding: 10px 12px; border-radius: 12px; color: var(--admin-text-secondary); }
-.admin-nav button .an-ico{ color: var(--admin-text-lavender); }
-.admin-nav button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
+body.admin-mode .admin-brand{ padding: 12px; border: 1px solid var(--admin-candy-border); border-radius: 16px; background: linear-gradient(135deg, var(--admin-surface-blush) 0%, var(--admin-surface-lavender) 100%); box-shadow: var(--admin-candy-lip); }
+body.admin-mode .admin-nav .an-group{ font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--admin-text-lavender); padding: 16px 12px 4px; }
+body.admin-mode .admin-nav button{ font-weight: 600; font-size: 14px; min-height: 40px; padding: 10px 12px; border-radius: 12px; color: var(--admin-text-secondary); }
+body.admin-mode .admin-nav button .an-ico{ color: var(--admin-text-lavender); }
+body.admin-mode .admin-nav button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
 /* Selected navigation is the loudest Crabbie moment in the shell: soft pink fill,
    berry text, a candy ring and a little depth. Still ~7:1 text contrast. */
-.admin-nav button[aria-current="page"]{
+body.admin-mode .admin-nav button[aria-current="page"]{
   background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%);
   color: var(--admin-primary);
   font-weight: 700;
   box-shadow: inset 0 0 0 1px var(--admin-candy-border), inset 0 1px 0 rgba(255, 255, 255, .85), var(--admin-candy-shadow);
 }
-.admin-nav button[aria-current="page"] .an-ico{ color: var(--admin-primary); }
-.admin-nav button .an-count{ font-size: 11px; font-weight: 700; background: var(--admin-surface-sunken); color: var(--admin-text-secondary); }
-.admin-nav button[aria-current="page"] .an-count{ background: var(--admin-primary); color: #fff; }
-.admin-foot{ border-top: 1px solid var(--admin-divider); }
-.admin-foot a, .admin-foot button{ font-size: 13.5px; color: var(--admin-text-secondary); border-radius: 10px; }
-.admin-foot a:hover, .admin-foot button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
-.admin-nav button:focus-visible, .admin-foot a:focus-visible, .admin-foot button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .admin-nav button[aria-current="page"] .an-ico{ color: var(--admin-primary); }
+body.admin-mode .admin-nav button .an-count{ font-size: 11px; font-weight: 700; background: var(--admin-surface-sunken); color: var(--admin-text-secondary); }
+body.admin-mode .admin-nav button[aria-current="page"] .an-count{ background: var(--admin-primary); color: #fff; }
+body.admin-mode .admin-foot{ border-top: 1px solid var(--admin-divider); }
+body.admin-mode .admin-foot a, body.admin-mode .admin-foot button{ font-size: 13.5px; color: var(--admin-text-secondary); border-radius: 10px; }
+body.admin-mode .admin-foot a:hover, body.admin-mode .admin-foot button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
+body.admin-mode .admin-nav button:focus-visible, body.admin-mode .admin-foot a:focus-visible, body.admin-mode .admin-foot button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 /* ~64–72px desktop. Never a fixed height: JS still measures the real, possibly
    wrapped height into --adm-topbar-h so sticky offsets keep working. */
-.admin-topbar{
+body.admin-mode .admin-topbar{
   padding: 6px var(--adm-pad-x);
   min-height: 64px;
   border-bottom: 1px solid var(--admin-candy-border);
   background: linear-gradient(180deg, #ffffff 0%, var(--admin-surface-blush) 100%);
 }
-.admin-topbar .at-desc{ margin-top: 0; font-weight: 400; font-size: 13px; line-height: 1.35; color: var(--admin-text-secondary); }
-.admin-topbar .at-right{ font-weight: 600; font-size: 13px; color: var(--admin-text-secondary); }
+body.admin-mode .admin-topbar .at-desc{ margin-top: 0; font-weight: 400; font-size: 13px; line-height: 1.35; color: var(--admin-text-secondary); }
+body.admin-mode .admin-topbar .at-right{ font-weight: 600; font-size: 13px; color: var(--admin-text-secondary); }
 /* Burger: the same candy language as the selected navigation, kept to a compact
    control height so the tablet/mobile topbar footprint does not grow. */
-.adm-burger{ width: 44px; height: 40px; border-radius: 12px; background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border: 1px solid var(--admin-primary); box-shadow: var(--admin-candy-lip); }
-.adm-burger span{ width: 16px; height: 2px; border-radius: 2px; background: var(--admin-primary); }
-.admin-save-status{ font-size: 12px; font-weight: 700; letter-spacing: 0; padding: 6px 12px; }
-.admin-save-status.saved{ background: #e9f4ee; color: #2c6a4d; }
-.admin-save-status.dirty{ background: #fff4dd; color: #7a5200; }
-.admin-save-status.saving{ background: #efeaf9; color: #4b3a7a; }
-.admin-save-status.error{ background: var(--admin-danger-soft); color: var(--admin-danger); }
-.adm-lang{ font-size: 12px; font-weight: 700; background: var(--admin-surface-sunken); border-color: var(--admin-divider); }
-.adm-lang button{ color: var(--admin-text-secondary); }
-.adm-lang button.on{ color: var(--admin-text); box-shadow: 0 2px 0 rgba(48, 39, 53, .18); }
-.adm-lang button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-burger{ width: 44px; height: 40px; border-radius: 12px; background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border: 1px solid var(--admin-primary); box-shadow: var(--admin-candy-lip); }
+body.admin-mode .adm-burger span{ width: 16px; height: 2px; border-radius: 2px; background: var(--admin-primary); }
+body.admin-mode .admin-save-status{ font-size: 12px; font-weight: 700; letter-spacing: 0; padding: 6px 12px; }
+body.admin-mode .admin-save-status.saved{ background: #e9f4ee; color: #2c6a4d; }
+body.admin-mode .admin-save-status.dirty{ background: #fff4dd; color: #7a5200; }
+body.admin-mode .admin-save-status.saving{ background: #efeaf9; color: #4b3a7a; }
+body.admin-mode .admin-save-status.error{ background: var(--admin-danger-soft); color: var(--admin-danger); }
+body.admin-mode .adm-lang{ font-size: 12px; font-weight: 700; background: var(--admin-surface-sunken); border-color: var(--admin-divider); }
+body.admin-mode .adm-lang button{ color: var(--admin-text-secondary); }
+body.admin-mode .adm-lang button.on{ color: var(--admin-text); box-shadow: 0 2px 0 rgba(48, 39, 53, .18); }
+body.admin-mode .adm-lang button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 
 /* --- 3. Editor, sections and the spacing contract -----------------------
    label→control 6px · control→helper 6px · field→field 16px ·
    heading→content 16px · section→section 32px · related controls 12–16px ·
    preview→actions 12px. */
-.adm-editor{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 18px; padding: 24px; box-shadow: var(--admin-candy-lip), 0 18px 34px -30px rgba(48, 39, 53, .55); }
-.adm-editor h2{ margin-bottom: 4px; }
+body.admin-mode .adm-editor{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 18px; padding: 24px; box-shadow: var(--admin-candy-lip), 0 18px 34px -30px rgba(48, 39, 53, .55); }
+body.admin-mode .adm-editor h2{ margin-bottom: 4px; }
 /* Canvas wash: a very low-contrast blush/lavender light so the admin canvas is
    warm instead of sterile. No layout, spacing or contrast change. */
-.admin-content{
+body.admin-mode .admin-content{
   background-image:
     radial-gradient(760px 380px at 6% -4%, rgba(255, 214, 234, .42) 0%, rgba(255, 214, 234, 0) 62%),
     radial-gradient(620px 320px at 98% 2%, rgba(226, 213, 255, .36) 0%, rgba(226, 213, 255, 0) 60%);
   background-repeat: no-repeat;
 }
-.adm-editor .ae-sub{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); margin-bottom: 24px; }
+body.admin-mode .adm-editor .ae-sub{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); margin-bottom: 24px; }
 /* Sections stay a heading plus fields on a clean surface: no box-in-box and no
    decorative dashed border (dashed outlines belong to real drop targets such as
    .adm-dropzone-active). Hierarchy comes from the brand heading and the marker
    declared in §1 instead of another container. */
-.adm-section{ background: transparent; border: 0; border-radius: 0; padding: 0; margin-bottom: var(--admin-space-6); }
-.adm-section + .adm-section{ border-top: 1px solid var(--admin-divider); padding-top: var(--admin-space-6); }
-.adm-section:last-child{ margin-bottom: 0; }
+body.admin-mode .adm-section{ background: transparent; border: 0; border-radius: 0; padding: 0; margin-bottom: var(--admin-space-6); }
+body.admin-mode .adm-section + .adm-section{ border-top: 1px solid var(--admin-divider); padding-top: var(--admin-space-6); }
+body.admin-mode .adm-section:last-child{ margin-bottom: 0; }
 /* One rhythm owner for stacked form content: renderers no longer carry inline
    margin-top on rows, fields or wrapper divs. */
-.adm-section > * + *,
-.adm-block-body > * + *,
-.adm-qblock-body > * + *,
-.adm-advanced-body > * + *{ margin-top: var(--admin-space-4); }
-.adm-section > .adm-note,
-.adm-section > .adm-checklist,
-.adm-section > .adm-rule-box,
-.adm-block-body > .adm-note,
-.adm-qblock-body > .adm-note{ margin-bottom: 0; }
+body.admin-mode .adm-section > * + *,
+body.admin-mode .adm-block-body > * + *,
+body.admin-mode .adm-qblock-body > * + *,
+body.admin-mode .adm-advanced-body > * + *{ margin-top: var(--admin-space-4); }
+body.admin-mode .adm-section > .adm-note,
+body.admin-mode .adm-section > .adm-checklist,
+body.admin-mode .adm-section > .adm-rule-box,
+body.admin-mode .adm-block-body > .adm-note,
+body.admin-mode .adm-qblock-body > .adm-note{ margin-bottom: 0; }
 
 /* --- 4. Form grid foundation --------------------------------------------
    A row splits only while its container can give every column ~280px of usable
    width: two columns need ~576px, three need ~872px. The container is the
    editor/section, not the viewport, so a workspace narrowed by the sidebar and
    the record list collapses to one readable column. */
-.adm-editor, .adm-section, .adm-modal-card{ container-type: inline-size; }
-.adm-row{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--admin-space-4); align-items: start; }
-.adm-row + .adm-row{ margin-top: var(--admin-space-4); }
-.adm-row.one{ grid-template-columns: minmax(0, 1fr); }
-.adm-row.three{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.adm-row.title-slug{ grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
-.adm-row.pair{ grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+body.admin-mode .adm-editor, body.admin-mode .adm-section, body.admin-mode .adm-modal-card{ container-type: inline-size; }
+body.admin-mode .adm-row{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--admin-space-4); align-items: start; }
+body.admin-mode .adm-row + .adm-row{ margin-top: var(--admin-space-4); }
+body.admin-mode .adm-row.one{ grid-template-columns: minmax(0, 1fr); }
+body.admin-mode .adm-row.three{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+body.admin-mode .adm-row.title-slug{ grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+body.admin-mode .adm-row.pair{ grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
 @container (max-width: 880px){
-  .adm-row.three{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.admin-mode .adm-row.three{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Colour pairs are compound controls (swatch + hex) that read fine two-up, so
    they stay paired while the container still gives both ~250px. */
 @container (min-width: 500px) and (max-width: 880px){
-  .adm-row:has(.adm-field[data-adm-color-field]){ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.admin-mode .adm-row:has(.adm-field[data-adm-color-field]){ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 600px){
-  .adm-row, .adm-row.one, .adm-row.three, .adm-row.title-slug, .adm-row.pair{ grid-template-columns: minmax(0, 1fr); }
+  body.admin-mode .adm-row, body.admin-mode .adm-row.one, body.admin-mode .adm-row.three, body.admin-mode .adm-row.title-slug, body.admin-mode .adm-row.pair{ grid-template-columns: minmax(0, 1fr); }
 }
 
 /* --- 5. Fields: one control primitive ----------------------------------- */
-.adm-field{ gap: 6px; }
-.adm-field .af-label{ font-weight: 600; font-size: 14px; line-height: 1.35; letter-spacing: 0; color: var(--admin-text); overflow-wrap: anywhere; }
-.adm-field .af-label .af-req{ color: var(--admin-danger); }
-.af-hint{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); overflow-wrap: anywhere; }
-.adm-field .af-hint{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); }
-.adm-field input[type="text"],
-.adm-field input[type="email"],
-.adm-field input[type="number"],
-.adm-field input[type="url"],
-.adm-field input[type="date"],
-.adm-field input[type="search"],
-.adm-field textarea,
-.adm-field select,
-.adm-list-toolbar input,
-.adm-list-filters input,
-.adm-list-filters select,
-.adm-req-toolbar input[type="search"],
-.adm-req-toolbar select,
-.adm-media-toolbar input[type="search"],
-.adm-media-toolbar input[type="date"],
-.adm-media-toolbar select,
-.adm-ui-copy-row input,
-.adm-ui-copy-row textarea,
-.adm-palette-name,
-.adm-adv-picker-row input[type="text"]{
+body.admin-mode .adm-field{ gap: 6px; }
+body.admin-mode .adm-field .af-label{ font-weight: 600; font-size: 14px; line-height: 1.35; letter-spacing: 0; color: var(--admin-text); overflow-wrap: anywhere; }
+body.admin-mode .adm-field .af-label .af-req{ color: var(--admin-danger); }
+body.admin-mode .af-hint{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); overflow-wrap: anywhere; }
+body.admin-mode .adm-field .af-hint{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); }
+body.admin-mode .adm-field input[type="text"],
+body.admin-mode .adm-field input[type="email"],
+body.admin-mode .adm-field input[type="number"],
+body.admin-mode .adm-field input[type="url"],
+body.admin-mode .adm-field input[type="date"],
+body.admin-mode .adm-field input[type="search"],
+body.admin-mode .adm-field textarea,
+body.admin-mode .adm-field select,
+body.admin-mode .adm-list-toolbar input,
+body.admin-mode .adm-list-filters input,
+body.admin-mode .adm-list-filters select,
+body.admin-mode .adm-req-toolbar input[type="search"],
+body.admin-mode .adm-req-toolbar select,
+body.admin-mode .adm-media-toolbar input[type="search"],
+body.admin-mode .adm-media-toolbar input[type="date"],
+body.admin-mode .adm-media-toolbar select,
+body.admin-mode .adm-ui-copy-row input,
+body.admin-mode .adm-ui-copy-row textarea,
+body.admin-mode .adm-palette-name,
+body.admin-mode .adm-adv-picker-row input[type="text"]{
   min-height: var(--admin-control-h);
   padding: 10px 12px;
   border: 1px solid var(--admin-control-border);
@@ -3756,56 +3767,56 @@ body.admin-mode .adm-appearance-preview{
   line-height: 1.45;
   box-shadow: none;
 }
-.adm-field input:focus,
-.adm-field textarea:focus,
-.adm-field select:focus,
-.adm-list-toolbar input:focus,
-.adm-list-filters input:focus,
-.adm-list-filters select:focus,
-.adm-req-toolbar input:focus,
-.adm-req-toolbar select:focus,
-.adm-media-toolbar input:focus,
-.adm-media-toolbar select:focus,
-.adm-ui-copy-row input:focus,
-.adm-ui-copy-row textarea:focus,
-.adm-palette-name:focus,
-.adm-adv-picker-row input:focus{
+body.admin-mode .adm-field input:focus,
+body.admin-mode .adm-field textarea:focus,
+body.admin-mode .adm-field select:focus,
+body.admin-mode .adm-list-toolbar input:focus,
+body.admin-mode .adm-list-filters input:focus,
+body.admin-mode .adm-list-filters select:focus,
+body.admin-mode .adm-req-toolbar input:focus,
+body.admin-mode .adm-req-toolbar select:focus,
+body.admin-mode .adm-media-toolbar input:focus,
+body.admin-mode .adm-media-toolbar select:focus,
+body.admin-mode .adm-ui-copy-row input:focus,
+body.admin-mode .adm-ui-copy-row textarea:focus,
+body.admin-mode .adm-palette-name:focus,
+body.admin-mode .adm-adv-picker-row input:focus{
   border-color: var(--admin-primary);
   box-shadow: var(--admin-focus);
   outline: none;
 }
-.adm-field textarea{ min-height: 92px; resize: vertical; }
+body.admin-mode .adm-field textarea{ min-height: 92px; resize: vertical; }
 /* Readonly values (auto slug, derived data) read as reference, not as a field
    the author is expected to type into. */
-.adm-field input[readonly], .adm-field input[aria-readonly="true"]{ background: var(--admin-surface-sunken); border-color: var(--admin-divider); color: var(--admin-text-secondary); cursor: default; }
-.adm-field input[type="color"]{ width: 48px; height: var(--admin-control-h); padding: 3px; border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); background: var(--admin-surface); }
-.adm-field input[type="range"]{ min-height: 24px; accent-color: var(--admin-primary); }
+body.admin-mode .adm-field input[readonly], body.admin-mode .adm-field input[aria-readonly="true"]{ background: var(--admin-surface-sunken); border-color: var(--admin-divider); color: var(--admin-text-secondary); cursor: default; }
+body.admin-mode .adm-field input[type="color"]{ width: 48px; height: var(--admin-control-h); padding: 3px; border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); background: var(--admin-surface); }
+body.admin-mode .adm-field input[type="range"]{ min-height: 24px; accent-color: var(--admin-primary); }
 /* Colour pairs are ONE compound control: label on top, then swatch + HEX on the
    same row so "label · [swatch] [#HEX]" reads as a single unit instead of two
    disconnected blocks. They only wrap when the container is genuinely too
    narrow. Layout only — buffer/live-preview/inheritance/reset are untouched. */
-.adm-field[data-adm-color-field]{
+body.admin-mode .adm-field[data-adm-color-field]{
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
   column-gap: var(--admin-space-2);
 }
-.adm-field[data-adm-color-field] > .af-label{ flex: 0 0 100%; }
-.adm-field[data-adm-color-field] > .af-hint{ flex: 0 0 100%; }
-.adm-field[data-adm-color-field] > input[type="text"]{ flex: 1 1 120px; min-width: 0; }
-.adm-field[data-adm-color-field] > input[type="color"]{ flex: none; width: 52px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55); }
-.adm-field[data-adm-color-field] > .adm-adv-picker-row{ flex: 1 1 100%; }
+body.admin-mode .adm-field[data-adm-color-field] > .af-label{ flex: 0 0 100%; }
+body.admin-mode .adm-field[data-adm-color-field] > .af-hint{ flex: 0 0 100%; }
+body.admin-mode .adm-field[data-adm-color-field] > input[type="text"]{ flex: 1 1 120px; min-width: 0; }
+body.admin-mode .adm-field[data-adm-color-field] > input[type="color"]{ flex: none; width: 52px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55); }
+body.admin-mode .adm-field[data-adm-color-field] > .adm-adv-picker-row{ flex: 1 1 100%; }
 /* Checkboxes stay checkboxes: they commit on Save. */
-.adm-check{ font-size: 14.5px; font-weight: 500; color: var(--admin-text); gap: 10px; min-height: 44px; }
-.adm-check input{ width: 18px; height: 18px; flex: none; accent-color: var(--admin-primary); }
-.adm-media-preview{ margin-top: var(--admin-space-2); }
-.adm-media-actions{ margin-top: var(--admin-space-3); gap: var(--admin-space-2); }
-.adm-media-preview img, .adm-media-preview audio, .adm-media-preview video{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
-.adm-upload-status{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); font-weight: 500; color: var(--admin-text); background: var(--admin-surface); }
-.adm-upload-status.field-status{ font-size: 13px; }
-.adm-upload-status.done{ color: #2c6a4d; border-color: #bfe0cd; background: #e9f4ee; }
-.adm-upload-status.failed{ color: var(--admin-danger); border-color: #e7b4b0; background: var(--admin-danger-soft); }
+body.admin-mode .adm-check{ font-size: 14.5px; font-weight: 500; color: var(--admin-text); gap: 10px; min-height: 44px; }
+body.admin-mode .adm-check input{ width: 18px; height: 18px; flex: none; accent-color: var(--admin-primary); }
+body.admin-mode .adm-media-preview{ margin-top: var(--admin-space-2); }
+body.admin-mode .adm-media-actions{ margin-top: var(--admin-space-3); gap: var(--admin-space-2); }
+body.admin-mode .adm-media-preview img, body.admin-mode .adm-media-preview audio, body.admin-mode .adm-media-preview video{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
+body.admin-mode .adm-upload-status{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); font-weight: 500; color: var(--admin-text); background: var(--admin-surface); }
+body.admin-mode .adm-upload-status.field-status{ font-size: 13px; }
+body.admin-mode .adm-upload-status.done{ color: #2c6a4d; border-color: #bfe0cd; background: #e9f4ee; }
+body.admin-mode .adm-upload-status.failed{ color: var(--admin-danger); border-color: #e7b4b0; background: var(--admin-danger-soft); }
 
 /* --- 6. Button hierarchy -------------------------------------------------
    PRIMARY (Save · confirms) · SECONDARY (choose/upload/retry/add) ·
@@ -3814,135 +3825,135 @@ body.admin-mode .adm-appearance-preview{
    prepared primitive for the semantic media controls that land in a later
    batch. Candy depth is reserved for the primary tier — every other tier stays
    a calm functional control with readable text. */
-.adm-btn-sm{ font-weight: 600; font-size: 13px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--admin-control-border); border-radius: 12px; background: var(--admin-surface); color: var(--admin-text); box-shadow: 0 1px 0 rgba(48, 39, 53, .05); }
-.adm-btn-sm:hover{ background: var(--admin-surface-blush); border-color: var(--admin-primary); color: var(--admin-primary); box-shadow: var(--admin-candy-shadow); }
+body.admin-mode .adm-btn-sm{ font-weight: 600; font-size: 13px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--admin-control-border); border-radius: 12px; background: var(--admin-surface); color: var(--admin-text); box-shadow: 0 1px 0 rgba(48, 39, 53, .05); }
+body.admin-mode .adm-btn-sm:hover{ background: var(--admin-surface-blush); border-color: var(--admin-primary); color: var(--admin-primary); box-shadow: var(--admin-candy-shadow); }
 /* Primary: berry candy — restrained highlight + a soft bottom lip, no cartoon. */
-.adm-btn-sm.primary{ background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 62%); border-color: var(--admin-primary-strong); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 2px 0 rgba(115, 49, 79, .3); }
-.adm-btn-sm.primary:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); color: #fff; }
+body.admin-mode .adm-btn-sm.primary{ background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 62%); border-color: var(--admin-primary-strong); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 2px 0 rgba(115, 49, 79, .3); }
+body.admin-mode .adm-btn-sm.primary:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); color: #fff; }
 /* Secondary "add" tier: soft candy fill with a berry edge, so it reads as a
    real control (boundary 7.2:1) instead of another white outline. */
-.adm-btn-sm.purple{ background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border-color: var(--admin-primary); color: var(--admin-primary); }
-.adm-btn-sm.purple:hover{ background: linear-gradient(180deg, #fbe8f4 0%, #f8dcee 100%); border-color: var(--admin-primary-strong); color: var(--admin-primary-strong); }
-.adm-btn-sm.danger{ background: var(--admin-danger-soft); border-color: #e7b4b0; color: var(--admin-danger); }
-.adm-btn-sm.danger:hover{ background: #fbdcd9; border-color: var(--admin-danger); color: var(--admin-danger); }
-.adm-btn-sm.tertiary{ background: none; border-color: transparent; color: var(--admin-primary); padding-left: 8px; padding-right: 8px; }
-.adm-btn-sm.tertiary:hover{ background: var(--admin-primary-soft); border-color: transparent; color: var(--admin-primary); text-decoration: underline; }
-.adm-btn-sm:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
-.adm-btn-sm[disabled], .adm-btn-sm[aria-disabled="true"]{ opacity: .45; cursor: not-allowed; }
-.admin-topbar .at-save{ font-weight: 700; font-size: 14px; padding: 10px 20px; min-height: var(--admin-control-h); border: 1px solid var(--admin-primary-strong); border-radius: 14px; background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 64%); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 2px 0 rgba(115, 49, 79, .38); }
-.admin-topbar .at-save:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); transform: none; }
-.admin-topbar .at-save[disabled]{ opacity: .5; }
-.admin-topbar .at-save:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
-.adm-record .ar-actions button:focus-visible,
-.adm-block-head .ab-actions button:focus-visible,
-.adm-qblock-head .qb-actions button:focus-visible,
-.adm-repeat-head .rr-actions button:focus-visible,
-.adm-media-item .mi-actions button:focus-visible,
-.adm-preview-close:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-btn-sm.purple{ background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border-color: var(--admin-primary); color: var(--admin-primary); }
+body.admin-mode .adm-btn-sm.purple:hover{ background: linear-gradient(180deg, #fbe8f4 0%, #f8dcee 100%); border-color: var(--admin-primary-strong); color: var(--admin-primary-strong); }
+body.admin-mode .adm-btn-sm.danger{ background: var(--admin-danger-soft); border-color: #e7b4b0; color: var(--admin-danger); }
+body.admin-mode .adm-btn-sm.danger:hover{ background: #fbdcd9; border-color: var(--admin-danger); color: var(--admin-danger); }
+body.admin-mode .adm-btn-sm.tertiary{ background: none; border-color: transparent; color: var(--admin-primary); padding-left: 8px; padding-right: 8px; }
+body.admin-mode .adm-btn-sm.tertiary:hover{ background: var(--admin-primary-soft); border-color: transparent; color: var(--admin-primary); text-decoration: underline; }
+body.admin-mode .adm-btn-sm:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-btn-sm[disabled], body.admin-mode .adm-btn-sm[aria-disabled="true"]{ opacity: .45; cursor: not-allowed; }
+body.admin-mode .admin-topbar .at-save{ font-weight: 700; font-size: 14px; padding: 10px 20px; min-height: var(--admin-control-h); border: 1px solid var(--admin-primary-strong); border-radius: 14px; background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 64%); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 2px 0 rgba(115, 49, 79, .38); }
+body.admin-mode .admin-topbar .at-save:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); transform: none; }
+body.admin-mode .admin-topbar .at-save[disabled]{ opacity: .5; }
+body.admin-mode .admin-topbar .at-save:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-record .ar-actions button:focus-visible,
+body.admin-mode .adm-block-head .ab-actions button:focus-visible,
+body.admin-mode .adm-qblock-head .qb-actions button:focus-visible,
+body.admin-mode .adm-repeat-head .rr-actions button:focus-visible,
+body.admin-mode .adm-media-item .mi-actions button:focus-visible,
+body.admin-mode .adm-preview-close:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 
 /* --- 7. Surfaces, records, statuses ------------------------------------- */
-.adm-list, .adm-panel, .adm-stat{ background: var(--admin-surface); border: 1px solid var(--admin-divider); box-shadow: none; }
-.adm-list{ border-radius: 16px; padding: 12px; box-shadow: var(--admin-candy-lip); }
-.adm-panel{ border-radius: 16px; padding: 18px 20px; }
-.adm-stat{ border-radius: 16px; padding: 14px 16px; }
-.adm-panel-welcome{ background: var(--admin-primary-soft); border-color: transparent; }
-.adm-panel h3{ font-weight: 700; font-size: 15px; line-height: 1.3; letter-spacing: 0; color: var(--admin-text); }
-.adm-panel .ap-row{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); font-size: 14px; font-weight: 600; color: var(--admin-text); }
-.adm-panel .ap-row.health .ap-value{ font-size: 12.5px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-panel-welcome .aw-intro{ font-size: 14px; font-weight: 400; color: var(--admin-text-secondary); }
-.ap-count{ background: var(--admin-primary-soft); color: var(--admin-primary); font-size: 12px; }
-.adm-stat .as-k{ font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--admin-text-secondary); }
-.adm-stat .as-v{ font-size: 26px; font-weight: 700; color: var(--admin-text); }
-.adm-stat:nth-child(1) .as-v{ color: var(--admin-primary); }
-.adm-stat:nth-child(2) .as-v{ color: #5b3fa8; }
-.adm-stat:nth-child(3) .as-v{ color: #1f5f96; }
-.adm-stat:nth-child(4) .as-v{ color: #7a5200; }
-.adm-stat .as-sub{ font-size: 12px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-quick-actions button{ border: 1px solid var(--admin-divider); border-radius: 12px; font-size: 13.5px; font-weight: 600; color: var(--admin-text); }
-.adm-quick-actions button:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); color: var(--admin-primary); }
-.adm-record{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 12px; padding: 10px 12px; }
-.adm-record:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); }
-.adm-record[aria-selected="true"]{ background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%); border-color: var(--admin-primary); box-shadow: inset 0 0 0 1px var(--admin-candy-border), var(--admin-candy-shadow); }
-.adm-record .ar-title, .adm-record-two .ar-title{ font-weight: 600; font-size: 14px; line-height: 1.4; color: var(--admin-text); }
-.adm-badge{ font-weight: 700; font-size: 11px; letter-spacing: .02em; text-transform: none; padding: 3px 8px; border-radius: 6px; color: #fff; }
-.adm-badge.published{ background: #2a6fae; }
-.adm-badge.draft{ background: #6f6273; }
-.adm-badge.featured, .adm-badge.health-warning, .adm-badge.vi-manual{ background: #8a5a00; color: #fff; }
-.adm-badge.vi-pending, .adm-badge.health-placeholder{ background: #5b3fa8; }
-.adm-badge.vi-updated, .adm-badge.health-complete{ background: #2c6a4d; }
-.adm-badge.placeholder{ background: var(--admin-primary); }
-.adm-badge.health-incomplete{ background: var(--admin-danger); }
-.adm-checklist{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; padding: 12px 14px; }
-.adm-checklist h4{ font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--admin-text); }
-.cl-item{ font-size: 13.5px; font-weight: 500; color: var(--admin-text); }
-.cl-item.ok{ color: #2c6a4d; }
-.cl-item.miss, .cl-item.crit{ color: var(--admin-danger); }
-.cl-item.warn{ color: #7a5200; }
-.cl-summary{ font-size: 13.5px; font-weight: 700; color: var(--admin-text); }
+body.admin-mode .adm-list, body.admin-mode .adm-panel, body.admin-mode .adm-stat{ background: var(--admin-surface); border: 1px solid var(--admin-divider); box-shadow: none; }
+body.admin-mode .adm-list{ border-radius: 16px; padding: 12px; box-shadow: var(--admin-candy-lip); }
+body.admin-mode .adm-panel{ border-radius: 16px; padding: 18px 20px; }
+body.admin-mode .adm-stat{ border-radius: 16px; padding: 14px 16px; }
+body.admin-mode .adm-panel-welcome{ background: var(--admin-primary-soft); border-color: transparent; }
+body.admin-mode .adm-panel h3{ font-weight: 700; font-size: 15px; line-height: 1.3; letter-spacing: 0; color: var(--admin-text); }
+body.admin-mode .adm-panel .ap-row{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); font-size: 14px; font-weight: 600; color: var(--admin-text); }
+body.admin-mode .adm-panel .ap-row.health .ap-value{ font-size: 12.5px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-panel-welcome .aw-intro{ font-size: 14px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .ap-count{ background: var(--admin-primary-soft); color: var(--admin-primary); font-size: 12px; }
+body.admin-mode .adm-stat .as-k{ font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--admin-text-secondary); }
+body.admin-mode .adm-stat .as-v{ font-size: 26px; font-weight: 700; color: var(--admin-text); }
+body.admin-mode .adm-stat:nth-child(1) .as-v{ color: var(--admin-primary); }
+body.admin-mode .adm-stat:nth-child(2) .as-v{ color: #5b3fa8; }
+body.admin-mode .adm-stat:nth-child(3) .as-v{ color: #1f5f96; }
+body.admin-mode .adm-stat:nth-child(4) .as-v{ color: #7a5200; }
+body.admin-mode .adm-stat .as-sub{ font-size: 12px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-quick-actions button{ border: 1px solid var(--admin-divider); border-radius: 12px; font-size: 13.5px; font-weight: 600; color: var(--admin-text); }
+body.admin-mode .adm-quick-actions button:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); color: var(--admin-primary); }
+body.admin-mode .adm-record{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 12px; padding: 10px 12px; }
+body.admin-mode .adm-record:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); }
+body.admin-mode .adm-record[aria-selected="true"]{ background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%); border-color: var(--admin-primary); box-shadow: inset 0 0 0 1px var(--admin-candy-border), var(--admin-candy-shadow); }
+body.admin-mode .adm-record .ar-title, body.admin-mode .adm-record-two .ar-title{ font-weight: 600; font-size: 14px; line-height: 1.4; color: var(--admin-text); }
+body.admin-mode .adm-badge{ font-weight: 700; font-size: 11px; letter-spacing: .02em; text-transform: none; padding: 3px 8px; border-radius: 6px; color: #fff; }
+body.admin-mode .adm-badge.published{ background: #2a6fae; }
+body.admin-mode .adm-badge.draft{ background: #6f6273; }
+body.admin-mode .adm-badge.featured, body.admin-mode .adm-badge.health-warning, body.admin-mode .adm-badge.vi-manual{ background: #8a5a00; color: #fff; }
+body.admin-mode .adm-badge.vi-pending, body.admin-mode .adm-badge.health-placeholder{ background: #5b3fa8; }
+body.admin-mode .adm-badge.vi-updated, body.admin-mode .adm-badge.health-complete{ background: #2c6a4d; }
+body.admin-mode .adm-badge.placeholder{ background: var(--admin-primary); }
+body.admin-mode .adm-badge.health-incomplete{ background: var(--admin-danger); }
+body.admin-mode .adm-checklist{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; padding: 12px 14px; }
+body.admin-mode .adm-checklist h4{ font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--admin-text); }
+body.admin-mode .cl-item{ font-size: 13.5px; font-weight: 500; color: var(--admin-text); }
+body.admin-mode .cl-item.ok{ color: #2c6a4d; }
+body.admin-mode .cl-item.miss, body.admin-mode .cl-item.crit{ color: var(--admin-danger); }
+body.admin-mode .cl-item.warn{ color: #7a5200; }
+body.admin-mode .cl-summary{ font-size: 13.5px; font-weight: 700; color: var(--admin-text); }
 
 /* --- 8. Entity cards, requests, statuses --------------------------------
    Nested cards stay only where they represent a real entity (repeated block,
    download source, selected media, gallery item). */
-.adm-block, .adm-qblock, .adm-repeat, .adm-media-item, .adm-media-card, .adm-media-row{ background: var(--admin-surface); border: 1px solid var(--admin-divider); box-shadow: none; }
-.adm-block, .adm-qblock{ border-radius: 12px; padding: 12px 14px; }
-.adm-repeat{ border-radius: 12px; padding: 12px; }
-.adm-media-item, .adm-media-card, .adm-media-row{ border-radius: 12px; }
-.adm-block-add{ border-top: 1px solid var(--admin-divider); }
-.adm-advanced{ border-top: 1px solid var(--admin-divider); }
-.adm-block-head .ab-num, .adm-qblock-head .qb-num, .adm-repeat-head .rr-num{ color: var(--admin-text); background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); box-shadow: none; font-weight: 700; }
-.adm-block-head .ab-type, .adm-qblock-head .qb-title, .adm-repeat-head .rr-label{ font-weight: 600; font-size: 13.5px; color: var(--admin-text); }
-.adm-block-head .ab-preview{ font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-qblock-head .qb-type{ font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--admin-text-secondary); background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); }
-.adm-rule-box{ background: #fff8e5; border: 1px solid #e8c97a; border-radius: 10px; font-size: 13px; font-weight: 500; color: var(--admin-text); }
-.adm-rule-box b{ color: var(--admin-danger); }
-.adm-note{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-pub-warning{ background: #fff8e5; border: 1px solid #e8c97a; border-radius: 10px; font-size: 13px; font-weight: 500; color: #7a5200; }
-.adm-email-panel{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; }
-.adm-email-panel[data-state="failed"]{ background: var(--admin-danger-soft); border-color: #e7b4b0; }
-.adm-email-panel[data-state="pending"]{ background: #fff8e5; border-color: #e8c97a; }
-.adm-email-panel[data-state="sent"]{ background: #e9f4ee; border-color: #bfe0cd; }
-.adm-email-panel h4{ font-weight: 700; font-size: 14px; color: var(--admin-text); }
-.adm-email-panel p{ font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-answer .aa-label{ font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--admin-text-secondary); }
-.adm-req-row{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
-.adm-req-row[aria-selected="true"]{ background: var(--admin-primary-soft); border-color: var(--admin-primary); box-shadow: none; }
-.adm-req-row .rr-name{ font-weight: 600; font-size: 14px; color: var(--admin-text); }
-.adm-req-row .rr-meta{ font-size: 12.5px; font-weight: 400; color: var(--admin-text-secondary); }
-.adm-req-row .rr-status{ font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: none; padding: 3px 8px; border-radius: 6px; color: #2a6fae; background: #e7f3fb; }
-.adm-req-row .rr-status.reviewing, .adm-req-row .rr-status.completed{ color: #5b3fa8; background: #f1ecfa; }
-.adm-req-row .rr-status.contacted{ color: #7a5200; background: #fff8e5; }
-.adm-req-row .rr-status.accepted{ color: #2c6a4d; background: #e9f4ee; }
-.adm-req-row .rr-status.declined{ color: var(--admin-danger); background: var(--admin-danger-soft); }
-.adm-req-acts.danger{ border-left: 1px solid var(--admin-divider); }
-.adm-check-all{ font-size: 13.5px; font-weight: 500; color: var(--admin-text); }
-.adm-pagination{ font-size: 12.5px; font-weight: 500; color: var(--admin-text-secondary); }
-.adm-scan-badge{ font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: none; }
-.adm-scan-badge.complete{ background: #e9f4ee; color: #2c6a4d; }
-.adm-scan-badge.incomplete{ background: var(--admin-danger-soft); color: var(--admin-danger); }
-.adm-cleanup-stat{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 10px; }
-.adm-cleanup-stat .cs-num{ font-weight: 700; font-size: 17px; color: var(--admin-text); }
-details.adm-cleanup-group{ background: transparent; border: 1px solid var(--admin-divider); border-radius: 12px; padding: 14px 16px; }
-details.adm-cleanup-group > summary{ font-size: 13.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--admin-text); }
+body.admin-mode .adm-block, body.admin-mode .adm-qblock, body.admin-mode .adm-repeat, body.admin-mode .adm-media-item, body.admin-mode .adm-media-card, body.admin-mode .adm-media-row{ background: var(--admin-surface); border: 1px solid var(--admin-divider); box-shadow: none; }
+body.admin-mode .adm-block, body.admin-mode .adm-qblock{ border-radius: 12px; padding: 12px 14px; }
+body.admin-mode .adm-repeat{ border-radius: 12px; padding: 12px; }
+body.admin-mode .adm-media-item, body.admin-mode .adm-media-card, body.admin-mode .adm-media-row{ border-radius: 12px; }
+body.admin-mode .adm-block-add{ border-top: 1px solid var(--admin-divider); }
+body.admin-mode .adm-advanced{ border-top: 1px solid var(--admin-divider); }
+body.admin-mode .adm-block-head .ab-num, body.admin-mode .adm-qblock-head .qb-num, body.admin-mode .adm-repeat-head .rr-num{ color: var(--admin-text); background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); box-shadow: none; font-weight: 700; }
+body.admin-mode .adm-block-head .ab-type, body.admin-mode .adm-qblock-head .qb-title, body.admin-mode .adm-repeat-head .rr-label{ font-weight: 600; font-size: 13.5px; color: var(--admin-text); }
+body.admin-mode .adm-block-head .ab-preview{ font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-qblock-head .qb-type{ font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--admin-text-secondary); background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); }
+body.admin-mode .adm-rule-box{ background: #fff8e5; border: 1px solid #e8c97a; border-radius: 10px; font-size: 13px; font-weight: 500; color: var(--admin-text); }
+body.admin-mode .adm-rule-box b{ color: var(--admin-danger); }
+body.admin-mode .adm-note{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-pub-warning{ background: #fff8e5; border: 1px solid #e8c97a; border-radius: 10px; font-size: 13px; font-weight: 500; color: #7a5200; }
+body.admin-mode .adm-email-panel{ background: var(--admin-surface-sunken); border: 1px solid var(--admin-divider); border-radius: 12px; }
+body.admin-mode .adm-email-panel[data-state="failed"]{ background: var(--admin-danger-soft); border-color: #e7b4b0; }
+body.admin-mode .adm-email-panel[data-state="pending"]{ background: #fff8e5; border-color: #e8c97a; }
+body.admin-mode .adm-email-panel[data-state="sent"]{ background: #e9f4ee; border-color: #bfe0cd; }
+body.admin-mode .adm-email-panel h4{ font-weight: 700; font-size: 14px; color: var(--admin-text); }
+body.admin-mode .adm-email-panel p{ font-size: 13px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-answer .aa-label{ font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--admin-text-secondary); }
+body.admin-mode .adm-req-row{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
+body.admin-mode .adm-req-row[aria-selected="true"]{ background: var(--admin-primary-soft); border-color: var(--admin-primary); box-shadow: none; }
+body.admin-mode .adm-req-row .rr-name{ font-weight: 600; font-size: 14px; color: var(--admin-text); }
+body.admin-mode .adm-req-row .rr-meta{ font-size: 12.5px; font-weight: 400; color: var(--admin-text-secondary); }
+body.admin-mode .adm-req-row .rr-status{ font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: none; padding: 3px 8px; border-radius: 6px; color: #2a6fae; background: #e7f3fb; }
+body.admin-mode .adm-req-row .rr-status.reviewing, body.admin-mode .adm-req-row .rr-status.completed{ color: #5b3fa8; background: #f1ecfa; }
+body.admin-mode .adm-req-row .rr-status.contacted{ color: #7a5200; background: #fff8e5; }
+body.admin-mode .adm-req-row .rr-status.accepted{ color: #2c6a4d; background: #e9f4ee; }
+body.admin-mode .adm-req-row .rr-status.declined{ color: var(--admin-danger); background: var(--admin-danger-soft); }
+body.admin-mode .adm-req-acts.danger{ border-left: 1px solid var(--admin-divider); }
+body.admin-mode .adm-check-all{ font-size: 13.5px; font-weight: 500; color: var(--admin-text); }
+body.admin-mode .adm-pagination{ font-size: 12.5px; font-weight: 500; color: var(--admin-text-secondary); }
+body.admin-mode .adm-scan-badge{ font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: none; }
+body.admin-mode .adm-scan-badge.complete{ background: #e9f4ee; color: #2c6a4d; }
+body.admin-mode .adm-scan-badge.incomplete{ background: var(--admin-danger-soft); color: var(--admin-danger); }
+body.admin-mode .adm-cleanup-stat{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 10px; }
+body.admin-mode .adm-cleanup-stat .cs-num{ font-weight: 700; font-size: 17px; color: var(--admin-text); }
+body.admin-mode details.adm-cleanup-group{ background: transparent; border: 1px solid var(--admin-divider); border-radius: 12px; padding: 14px 16px; }
+body.admin-mode details.adm-cleanup-group > summary{ font-size: 13.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--admin-text); }
 
 /* --- 9. Media metadata, tabs, dialogs, appearance editor ---------------- */
-.adm-media-thumb{ background: var(--admin-surface-sunken); border-bottom: 1px solid var(--admin-divider); color: var(--admin-text-secondary); }
-.mb-title, .adm-media-body .mb-title, .adm-media-row-main .mb-title{ font-size: 13.5px; font-weight: 600; color: var(--admin-text); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.adm-media-body .mb-meta, .adm-meta{ font-size: 12px; font-weight: 400; color: var(--admin-text-secondary); overflow-wrap: anywhere; }
-.adm-media-selected-mark{ font-size: 11px; font-weight: 700; background: var(--admin-primary); }
-.adm-view-toggle button[aria-pressed="true"]{ background: var(--admin-primary); color: #fff; }
-.adm-bulk-bar{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
+body.admin-mode .adm-media-thumb{ background: var(--admin-surface-sunken); border-bottom: 1px solid var(--admin-divider); color: var(--admin-text-secondary); }
+body.admin-mode .mb-title, body.admin-mode .adm-media-body .mb-title, body.admin-mode .adm-media-row-main .mb-title{ font-size: 13.5px; font-weight: 600; color: var(--admin-text); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+body.admin-mode .adm-media-body .mb-meta, body.admin-mode .adm-meta{ font-size: 12px; font-weight: 400; color: var(--admin-text-secondary); overflow-wrap: anywhere; }
+body.admin-mode .adm-media-selected-mark{ font-size: 11px; font-weight: 700; background: var(--admin-primary); }
+body.admin-mode .adm-view-toggle button[aria-pressed="true"]{ background: var(--admin-primary); color: #fff; }
+body.admin-mode .adm-bulk-bar{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
 /* Tabs and the settings sub-nav are ONE segmented candy track: the track owns the
    boundary, the unselected chip keeps a soft candy edge and readable text
    (secondary on blush 6.2:1), and the selected chip is a soft pink surface with a
    berry ring — a clear ≥7:1 selected state instead of an outlined corporate pill. */
-.adm-tabs, .adm-settings-subnav{
+body.admin-mode .adm-tabs, body.admin-mode .adm-settings-subnav{
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--admin-candy-border);
   border-radius: 16px;
   background: var(--admin-surface-blush);
 }
-.adm-tab, .adm-settings-subnav button{
+body.admin-mode .adm-tab, body.admin-mode .adm-settings-subnav button{
   font-size: 13.5px;
   font-weight: 600;
   border: 1px solid var(--admin-candy-border);
@@ -3950,67 +3961,67 @@ details.adm-cleanup-group > summary{ font-size: 13.5px; font-weight: 700; letter
   background: var(--admin-surface);
   color: var(--admin-text-secondary);
 }
-.adm-tab:hover, .adm-settings-subnav button:hover{ background: var(--admin-surface-lavender); border-color: var(--admin-primary); color: var(--admin-primary); }
-.adm-tab[aria-pressed="true"], .adm-settings-subnav button[aria-pressed="true"]{
+body.admin-mode .adm-tab:hover, body.admin-mode .adm-settings-subnav button:hover{ background: var(--admin-surface-lavender); border-color: var(--admin-primary); color: var(--admin-primary); }
+body.admin-mode .adm-tab[aria-pressed="true"], body.admin-mode .adm-settings-subnav button[aria-pressed="true"]{
   background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%);
   border-color: var(--admin-primary);
   color: var(--admin-primary);
   font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), var(--admin-candy-shadow);
 }
-.adm-tab:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
-.adm-settings-subnav button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
-.adm-ui-copy-row{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
-.adm-ui-copy-row .uc-key{ font-size: 12.5px; font-weight: 600; color: var(--admin-text-secondary); }
-.adm-translate-badge{ font-size: 11.5px; font-weight: 700; letter-spacing: .02em; background: var(--admin-surface-sunken); color: var(--admin-primary); }
-.adm-advanced > summary{ font-size: 13.5px; font-weight: 600; color: var(--admin-primary); }
-.adm-contact-warn{ font-size: 13px; font-weight: 500; color: var(--admin-danger); }
-.adm-music-preview audio{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
-.adm-panel-state{ font-weight: 500; color: var(--admin-text-secondary); }
-.adm-panel-state.error{ color: var(--admin-danger); }
-.adm-palette-card{ border: 1px solid var(--admin-divider); border-radius: 12px; }
-.adm-adv-section{ border: 1px solid var(--admin-divider); border-radius: 12px; }
-.adm-adv-section > summary{ font-size: 13.5px; font-weight: 700; color: var(--admin-text); }
-.adm-adv-count{ font-size: 12px; color: var(--admin-primary); }
-.adm-adv-group{ border: 1px solid var(--admin-divider); border-radius: 10px; }
-.adm-adv-group > summary{ font-size: 13px; font-weight: 600; color: var(--admin-text); }
-.adm-adv-field{ border: 1px solid var(--admin-divider); border-radius: 10px; background: var(--admin-surface); }
-.adm-adv-field .af-label{ font-size: 13px; font-weight: 600; color: var(--admin-text); }
-.adm-adv-state{ font-size: 12.5px; color: var(--admin-text-secondary); }
-.adm-adv-picker-row input[type="color"]{ width: 44px; height: var(--admin-control-h); border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); }
-.adm-modal::before{ background: rgba(48, 39, 53, .45); }
-.adm-modal-card{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 16px; box-shadow: 0 24px 60px -28px rgba(48, 39, 53, .55); }
-.adm-modal-card h3{ font-weight: 700; font-size: 18px; letter-spacing: 0; color: var(--admin-text); }
-.adm-modal-card .am-sub{ font-size: 13.5px; font-weight: 400; line-height: 1.55; color: var(--admin-text-secondary); }
-.adm-preview-row{ font-size: 13.5px; color: var(--admin-text); }
-.adm-preview-close{ border: 1px solid var(--admin-control-border); color: var(--admin-text); }
+body.admin-mode .adm-tab:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-settings-subnav button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
+body.admin-mode .adm-ui-copy-row{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
+body.admin-mode .adm-ui-copy-row .uc-key{ font-size: 12.5px; font-weight: 600; color: var(--admin-text-secondary); }
+body.admin-mode .adm-translate-badge{ font-size: 11.5px; font-weight: 700; letter-spacing: .02em; background: var(--admin-surface-sunken); color: var(--admin-primary); }
+body.admin-mode .adm-advanced > summary{ font-size: 13.5px; font-weight: 600; color: var(--admin-primary); }
+body.admin-mode .adm-contact-warn{ font-size: 13px; font-weight: 500; color: var(--admin-danger); }
+body.admin-mode .adm-music-preview audio{ border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
+body.admin-mode .adm-panel-state{ font-weight: 500; color: var(--admin-text-secondary); }
+body.admin-mode .adm-panel-state.error{ color: var(--admin-danger); }
+body.admin-mode .adm-palette-card{ border: 1px solid var(--admin-divider); border-radius: 12px; }
+body.admin-mode .adm-adv-section{ border: 1px solid var(--admin-divider); border-radius: 12px; }
+body.admin-mode .adm-adv-section > summary{ font-size: 13.5px; font-weight: 700; color: var(--admin-text); }
+body.admin-mode .adm-adv-count{ font-size: 12px; color: var(--admin-primary); }
+body.admin-mode .adm-adv-group{ border: 1px solid var(--admin-divider); border-radius: 10px; }
+body.admin-mode .adm-adv-group > summary{ font-size: 13px; font-weight: 600; color: var(--admin-text); }
+body.admin-mode .adm-adv-field{ border: 1px solid var(--admin-divider); border-radius: 10px; background: var(--admin-surface); }
+body.admin-mode .adm-adv-field .af-label{ font-size: 13px; font-weight: 600; color: var(--admin-text); }
+body.admin-mode .adm-adv-state{ font-size: 12.5px; color: var(--admin-text-secondary); }
+body.admin-mode .adm-adv-picker-row input[type="color"]{ width: 44px; height: var(--admin-control-h); border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); }
+body.admin-mode .adm-modal::before{ background: rgba(48, 39, 53, .45); }
+body.admin-mode .adm-modal-card{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 16px; box-shadow: 0 24px 60px -28px rgba(48, 39, 53, .55); }
+body.admin-mode .adm-modal-card h3{ font-weight: 700; font-size: 18px; letter-spacing: 0; color: var(--admin-text); }
+body.admin-mode .adm-modal-card .am-sub{ font-size: 13.5px; font-weight: 400; line-height: 1.55; color: var(--admin-text-secondary); }
+body.admin-mode .adm-preview-row{ font-size: 13.5px; color: var(--admin-text); }
+body.admin-mode .adm-preview-close{ border: 1px solid var(--admin-control-border); color: var(--admin-text); }
 
 /* --- 10. Editor footer, sticky behaviour, responsive --------------------
    The canonical top Save stays the single visible save action. An editor
    footer that now holds no visible action collapses instead of leaving an
    empty divider band; every action that is still rendered stays reachable. */
-.adm-editor-bar{ padding-top: var(--admin-space-4); margin-top: var(--admin-space-6); border-top: 1px solid var(--admin-divider); gap: 10px; }
-.adm-editor-bar:not(:has(> :not([data-adm-save]))){ display: none; }
+body.admin-mode .adm-editor-bar{ padding-top: var(--admin-space-4); margin-top: var(--admin-space-6); border-top: 1px solid var(--admin-divider); gap: 10px; }
+body.admin-mode .adm-editor-bar:not(:has(> :not([data-adm-save]))){ display: none; }
 /* A focused control is never hidden behind the sticky topbar. */
-.admin-content [data-adm-path], .adm-field, .adm-section{ scroll-margin-top: calc(var(--adm-topbar-h) + 16px); }
+body.admin-mode .admin-content [data-adm-path], body.admin-mode .adm-field, body.admin-mode .adm-section{ scroll-margin-top: calc(var(--adm-topbar-h) + 16px); }
 /* Gutters: desktop 24 / tablet 20 / mobile 16. */
-@media (max-width: 1185px){ :root{ --adm-pad-x: 20px; } }
-@media (max-width: 860px){ :root{ --adm-pad-x: 16px; } .admin-topbar{ padding: 10px var(--adm-pad-x); } }
+@media (max-width: 1185px){ body.admin-mode{ --adm-pad-x: 20px; } }
+@media (max-width: 860px){ body.admin-mode{ --adm-pad-x: 16px; } body.admin-mode .admin-topbar{ padding: 10px var(--adm-pad-x); } }
 @media (max-width: 720px){
-  .adm-editor{ padding: 16px 14px 20px; }
-  .adm-editor .ae-sub{ margin-bottom: var(--admin-space-4); }
-  .adm-section{ margin-bottom: var(--admin-space-5); }
-  .adm-section + .adm-section{ padding-top: var(--admin-space-5); }
+  body.admin-mode .adm-editor{ padding: 16px 14px 20px; }
+  body.admin-mode .adm-editor .ae-sub{ margin-bottom: var(--admin-space-4); }
+  body.admin-mode .adm-section{ margin-bottom: var(--admin-space-5); }
+  body.admin-mode .adm-section + .adm-section{ padding-top: var(--admin-space-5); }
 }
 /* Touch: real 44px targets and 16px editable text (no iOS focus zoom). */
 @media (pointer: coarse){
-  .adm-btn-sm, .adm-tab, .adm-settings-subnav button{ min-height: 44px; }
-  .adm-field input[type="text"], .adm-field input[type="email"], .adm-field input[type="number"],
-  .adm-field input[type="url"], .adm-field input[type="date"], .adm-field input[type="search"],
-  .adm-field textarea, .adm-field select,
-  .adm-list-toolbar input, .adm-req-toolbar input[type="search"], .adm-req-toolbar select{ font-size: 16px; }
-  .adm-record .ar-actions button, .adm-block-head .ab-actions button,
-  .adm-qblock-head .qb-actions button, .adm-repeat-head .rr-actions button{ width: 32px; height: 32px; }
+  body.admin-mode .adm-btn-sm, body.admin-mode .adm-tab, body.admin-mode .adm-settings-subnav button{ min-height: 44px; }
+  body.admin-mode .adm-field input[type="text"], body.admin-mode .adm-field input[type="email"], body.admin-mode .adm-field input[type="number"],
+  body.admin-mode .adm-field input[type="url"], body.admin-mode .adm-field input[type="date"], body.admin-mode .adm-field input[type="search"],
+  body.admin-mode .adm-field textarea, body.admin-mode .adm-field select,
+  body.admin-mode .adm-list-toolbar input, body.admin-mode .adm-req-toolbar input[type="search"], body.admin-mode .adm-req-toolbar select{ font-size: 16px; }
+  body.admin-mode .adm-record .ar-actions button, body.admin-mode .adm-block-head .ab-actions button,
+  body.admin-mode .adm-qblock-head .qb-actions button, body.admin-mode .adm-repeat-head .rr-actions button{ width: 32px; height: 32px; }
 }
 </style>
 
