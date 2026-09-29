@@ -10964,7 +10964,7 @@ if(path.indexOf('settings.theme.') === 0) refreshAppearancePreview();
 if(/\.type$/.test(path) || /\.cardMode$/.test(path) || path === 'settings.music.enabled' || path === 'settings.theme.backgroundMode' || (el.type === 'checkbox' && (path.indexOf('viOverride') !== -1))) renderAdmin(module);
 });
 });
-$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
+$$('[data-adm-mediaclear]', adminContent).forEach(function(btn){
 btn.addEventListener('click', function(){
 var paths = [btn.getAttribute('data-adm-mediaclear')].concat((btn.getAttribute('data-adm-mediaclear-extra') || '').split(' ').filter(Boolean));
 var clearsBackground = paths.indexOf('settings.theme.backgroundImage') !== -1;
