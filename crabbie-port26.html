@@ -189,22 +189,43 @@ window.scrollTo(0, 0);
      JS keeps this in sync with the real (possibly wrapped) topbar height. */
   --adm-topbar-h: 68px;
 
-  /* ADMIN AUTHORING UX (Batch 1) — admin-only tokens, independent of the public
-     Appearance palette. Contrast (WCAG AA, computed): text on canvas 12.2:1,
-     text-secondary on canvas 5.2:1, white on primary 7.2:1, primary on selected
-     7.4:1, danger on danger-soft 6.2:1, control-border on surface 3.4:1
-     (non-text UI minimum 3:1). */
+  /* ADMIN AUTHORING UX (Batch 1 foundation + Batch 1.1 identity pass) — admin-only
+     tokens, independent of the public Appearance palette. Two families:
+     · FUNCTIONAL (calm, high contrast, never pastel text): text, secondary text,
+       control border, divider, danger, sunken surface.
+     · IDENTITY (Crabbie candy): blush/lavender surfaces, candy border, berry
+       accent, soft pink selected state, candy highlight + depth shadow.
+     Contrast (WCAG AA, computed, see scripts/admin-ux-screenshots.mjs --measure):
+     text on canvas 13.1:1, text-secondary on canvas 5.9:1, text on blush surface
+     13.3:1, text-secondary on blush surface 5.9:1, white on primary 7.2:1 (berry
+     gradient top stop 5.8:1, hover 9.2:1), primary on selected 6.3:1, primary on
+     canvas 6.6:1, danger on danger-soft 5.8:1, control border on surface 3.5:1
+     (non-text UI minimum 3:1). Candy border on surface is 1.5:1 on purpose —
+     decoration only, never the sole boundary of a control. Pastel tints are for
+     canvas, surfaces, selected state and decoration only — never reading text. */
   --admin-font: system-ui, 'Segoe UI', sans-serif;
-  --admin-canvas: #f8f7fa;
+  /* Crabbie identity faces: hierarchy only (brand block, page title, editor
+     title, major section headings, eyebrow, selected navigation). Editable data,
+     values, URLs, filenames, helpers and statuses never use them. */
+  --admin-brand-font: var(--font-display-public);
+  --admin-decorative-font: var(--font-decorative-public);
+  --admin-canvas: #f9f3f7;
   --admin-surface: #ffffff;
-  --admin-surface-sunken: #f3f1f6;
+  --admin-surface-sunken: #f4f1f7;
+  --admin-surface-blush: #fdf4f9;
+  --admin-surface-lavender: #f4f0fc;
   --admin-text: #302735;
   --admin-text-secondary: #665b6d;
+  --admin-text-lavender: #6b5b8f;
   --admin-control-border: #918697;
-  --admin-divider: #e7e1ea;
+  --admin-divider: #ece4ea;
   --admin-primary: #8a3b67;
   --admin-primary-strong: #73314f;
   --admin-primary-soft: #fceaf3;
+  --admin-primary-deep: #9c4a76;
+  --admin-candy-border: #edc9db;
+  --admin-candy-shadow: 0 2px 0 rgba(138, 59, 103, .16);
+  --admin-candy-lip: 0 2px 0 rgba(138, 59, 103, .06);
   --admin-danger: #b42318;
   --admin-danger-soft: #fdeceb;
   --admin-focus: 0 0 0 3px rgba(138, 59, 103, .22);
@@ -3513,11 +3534,17 @@ summary .adm-btn-sm{flex:none;}
    contract) and this block loads last, so it owns the cascade.
    ============================================================ */
 
-/* --- 1. Functional type stack -------------------------------------------
-   The semantic brand roles stay declared on :root; inside the admin shell they
-   resolve to one legible system stack so labels, values, helpers, statuses and
-   lists are all readable. The admin identity and the Appearance live preview
-   (a deliberate mirror of the public site) opt back into the brand faces. */
+/* --- 1. Hybrid type stack ------------------------------------------------
+   FUNCTIONAL role: the semantic brand roles resolve to one legible system stack
+   inside the admin shell, so labels, values, helpers, statuses, lists, metadata,
+   error copy, buttons and long copy all read calmly.
+   IDENTITY role (--admin-brand-font / --admin-decorative-font): the brand display
+   and decorative faces return ONLY where they create hierarchy and never carry
+   data the author must read — admin identity, page title, editor title, major
+   section heading, eyebrow and the selected navigation accent. The Appearance
+   live preview opts back into the public faces because it mirrors the public
+   site on purpose. Both brand faces are verified against the full Vietnamese
+   diacritic set (a-z, ă â đ ê ô ơ ư and every tone mark). */
 body.admin-mode{
   --font-display: var(--admin-font);
   --font-decorative: var(--admin-font);
@@ -3534,28 +3561,96 @@ body.admin-mode .adm-appearance-preview{
   --font-body: var(--font-body-public);
   --font-decorative: var(--font-decorative-public);
 }
+/* Identity typography — brand face, single 400 weight, never on a control. */
+.admin-brand .ab-name{ color: var(--admin-primary); }
+.admin-brand .ab-name small{ font-family: var(--admin-font); font-weight: 600; font-size: 10px; letter-spacing: .12em; color: var(--admin-text-lavender); }
+.admin-topbar .at-eyebrow{
+  font-family: var(--admin-decorative-font);
+  font-weight: 400;
+  font-size: 12.5px;
+  line-height: 1.15;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--admin-primary);
+}
+.admin-topbar h1{
+  font-family: var(--admin-brand-font);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: .014em;
+  color: var(--admin-primary);
+}
+.adm-editor h2{
+  font-family: var(--admin-brand-font);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: .014em;
+  color: var(--admin-primary);
+}
+.adm-section h4{
+  display: flex;
+  align-items: center;
+  gap: var(--admin-space-2);
+  font-family: var(--admin-brand-font);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.24;
+  letter-spacing: .014em;
+  text-transform: none;
+  color: var(--admin-primary);
+  margin-bottom: var(--admin-space-4);
+}
+/* Tiny candy marker: the authored-looking accent that replaces decorative boxes. */
+.adm-section h4::before{
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 25%, #ffd8ec 0%, var(--admin-primary) 78%);
+  box-shadow: 0 1px 0 rgba(138, 59, 103, .3);
+}
 
-/* --- 2. Shell: canvas, flat dividers, compact topbar -------------------- */
+/* --- 2. Shell: Crabbie canvas, candy navigation, compact topbar --------- */
 .admin-shell{ background: var(--admin-canvas); }
 .admin-sidebar{ background: var(--admin-surface); border-right: 1px solid var(--admin-divider); padding: 16px 12px 14px; gap: 12px; }
-.admin-brand{ padding: 4px 8px 12px; border-bottom: 1px solid var(--admin-divider); }
-.admin-nav .an-group{ font-weight: 700; font-size: 11px; letter-spacing: .06em; color: var(--admin-text-secondary); padding: 14px 12px 4px; }
-.admin-nav button{ font-weight: 600; font-size: 14px; min-height: 40px; padding: 10px 12px; border-radius: 10px; color: var(--admin-text-secondary); }
-.admin-nav button:hover{ background: var(--admin-surface-sunken); color: var(--admin-text); }
-.admin-nav button[aria-current="page"]{ background: var(--admin-primary-soft); color: var(--admin-primary); box-shadow: inset 0 0 0 1px rgba(138, 59, 103, .18); }
+/* Identity block: the one surface in the shell where pastel decoration is the point. */
+.admin-brand{ padding: 12px; border: 1px solid var(--admin-candy-border); border-radius: 16px; background: linear-gradient(135deg, var(--admin-surface-blush) 0%, var(--admin-surface-lavender) 100%); box-shadow: var(--admin-candy-lip); }
+.admin-nav .an-group{ font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--admin-text-lavender); padding: 16px 12px 4px; }
+.admin-nav button{ font-weight: 600; font-size: 14px; min-height: 40px; padding: 10px 12px; border-radius: 12px; color: var(--admin-text-secondary); }
+.admin-nav button .an-ico{ color: var(--admin-text-lavender); }
+.admin-nav button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
+/* Selected navigation is the loudest Crabbie moment in the shell: soft pink fill,
+   berry text, a candy ring and a little depth. Still ~7:1 text contrast. */
+.admin-nav button[aria-current="page"]{
+  background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%);
+  color: var(--admin-primary);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--admin-candy-border), inset 0 1px 0 rgba(255, 255, 255, .85), var(--admin-candy-shadow);
+}
+.admin-nav button[aria-current="page"] .an-ico{ color: var(--admin-primary); }
 .admin-nav button .an-count{ font-size: 11px; font-weight: 700; background: var(--admin-surface-sunken); color: var(--admin-text-secondary); }
 .admin-nav button[aria-current="page"] .an-count{ background: var(--admin-primary); color: #fff; }
 .admin-foot{ border-top: 1px solid var(--admin-divider); }
 .admin-foot a, .admin-foot button{ font-size: 13.5px; color: var(--admin-text-secondary); border-radius: 10px; }
-.admin-foot a:hover, .admin-foot button:hover{ background: var(--admin-surface-sunken); color: var(--admin-text); }
+.admin-foot a:hover, .admin-foot button:hover{ background: var(--admin-surface-blush); color: var(--admin-primary); }
 .admin-nav button:focus-visible, .admin-foot a:focus-visible, .admin-foot button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 /* ~64–72px desktop. Never a fixed height: JS still measures the real, possibly
    wrapped height into --adm-topbar-h so sticky offsets keep working. */
-.admin-topbar{ padding: 6px var(--adm-pad-x); min-height: 64px; border-bottom: 1px solid var(--admin-divider); }
-.admin-topbar .at-eyebrow{ font-weight: 600; font-size: 11px; line-height: 1.2; letter-spacing: .06em; color: var(--admin-text-secondary); }
-.admin-topbar h1{ font-weight: 700; font-size: 22px; line-height: 1.15; letter-spacing: 0; color: var(--admin-text); }
+.admin-topbar{
+  padding: 6px var(--adm-pad-x);
+  min-height: 64px;
+  border-bottom: 1px solid var(--admin-candy-border);
+  background: linear-gradient(180deg, #ffffff 0%, var(--admin-surface-blush) 100%);
+}
 .admin-topbar .at-desc{ margin-top: 0; font-weight: 400; font-size: 13px; line-height: 1.35; color: var(--admin-text-secondary); }
 .admin-topbar .at-right{ font-weight: 600; font-size: 13px; color: var(--admin-text-secondary); }
+/* Burger: the same candy language as the selected navigation, kept to a compact
+   control height so the tablet/mobile topbar footprint does not grow. */
+.adm-burger{ width: 44px; height: 40px; border-radius: 12px; background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border: 1px solid var(--admin-primary); box-shadow: var(--admin-candy-lip); }
+.adm-burger span{ width: 16px; height: 2px; border-radius: 2px; background: var(--admin-primary); }
 .admin-save-status{ font-size: 12px; font-weight: 700; letter-spacing: 0; padding: 6px 12px; }
 .admin-save-status.saved{ background: #e9f4ee; color: #2c6a4d; }
 .admin-save-status.dirty{ background: #fff4dd; color: #7a5200; }
@@ -3570,15 +3665,24 @@ body.admin-mode .adm-appearance-preview{
    label→control 6px · control→helper 6px · field→field 16px ·
    heading→content 16px · section→section 32px · related controls 12–16px ·
    preview→actions 12px. */
-.adm-editor{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 16px; padding: 24px; box-shadow: 0 1px 2px rgba(48, 39, 53, .06); }
-.adm-editor h2{ font-weight: 700; font-size: 20px; line-height: 1.25; letter-spacing: 0; color: var(--admin-text); margin-bottom: 4px; }
+.adm-editor{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 18px; padding: 24px; box-shadow: var(--admin-candy-lip), 0 18px 34px -30px rgba(48, 39, 53, .55); }
+.adm-editor h2{ margin-bottom: 4px; }
+/* Canvas wash: a very low-contrast blush/lavender light so the admin canvas is
+   warm instead of sterile. No layout, spacing or contrast change. */
+.admin-content{
+  background-image:
+    radial-gradient(760px 380px at 6% -4%, rgba(255, 214, 234, .42) 0%, rgba(255, 214, 234, 0) 62%),
+    radial-gradient(620px 320px at 98% 2%, rgba(226, 213, 255, .36) 0%, rgba(226, 213, 255, 0) 60%);
+  background-repeat: no-repeat;
+}
 .adm-editor .ae-sub{ font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--admin-text-secondary); margin-bottom: 24px; }
-/* Sections are a heading plus fields on a clean surface. Nested boxes and
-   decorative dashed borders are reserved for real drop targets. */
+/* Sections stay a heading plus fields on a clean surface: no box-in-box and no
+   decorative dashed border (dashed outlines belong to real drop targets such as
+   .adm-dropzone-active). Hierarchy comes from the brand heading and the marker
+   declared in §1 instead of another container. */
 .adm-section{ background: transparent; border: 0; border-radius: 0; padding: 0; margin-bottom: var(--admin-space-6); }
 .adm-section + .adm-section{ border-top: 1px solid var(--admin-divider); padding-top: var(--admin-space-6); }
 .adm-section:last-child{ margin-bottom: 0; }
-.adm-section h4{ font-weight: 700; font-size: 17px; line-height: 1.3; letter-spacing: 0; text-transform: none; color: var(--admin-text); margin-bottom: var(--admin-space-4); }
 /* One rhythm owner for stacked form content: renderers no longer carry inline
    margin-top on rows, fields or wrapper divs. */
 .adm-section > * + *,
@@ -3676,6 +3780,22 @@ body.admin-mode .adm-appearance-preview{
 .adm-field input[readonly], .adm-field input[aria-readonly="true"]{ background: var(--admin-surface-sunken); border-color: var(--admin-divider); color: var(--admin-text-secondary); cursor: default; }
 .adm-field input[type="color"]{ width: 48px; height: var(--admin-control-h); padding: 3px; border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); background: var(--admin-surface); }
 .adm-field input[type="range"]{ min-height: 24px; accent-color: var(--admin-primary); }
+/* Colour pairs are ONE compound control: label on top, then swatch + HEX on the
+   same row so "label · [swatch] [#HEX]" reads as a single unit instead of two
+   disconnected blocks. They only wrap when the container is genuinely too
+   narrow. Layout only — buffer/live-preview/inheritance/reset are untouched. */
+.adm-field[data-adm-color-field]{
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--admin-space-2);
+}
+.adm-field[data-adm-color-field] > .af-label{ flex: 0 0 100%; }
+.adm-field[data-adm-color-field] > .af-hint{ flex: 0 0 100%; }
+.adm-field[data-adm-color-field] > input[type="text"]{ flex: 1 1 120px; min-width: 0; }
+.adm-field[data-adm-color-field] > input[type="color"]{ flex: none; width: 52px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55); }
+.adm-field[data-adm-color-field] > .adm-adv-picker-row{ flex: 1 1 100%; }
 /* Checkboxes stay checkboxes: they commit on Save. */
 .adm-check{ font-size: 14.5px; font-weight: 500; color: var(--admin-text); gap: 10px; min-height: 44px; }
 .adm-check input{ width: 18px; height: 18px; flex: none; accent-color: var(--admin-primary); }
@@ -3692,21 +3812,25 @@ body.admin-mode .adm-appearance-preview{
    TERTIARY (open/view, unlink a draft reference) · DANGER (delete a record or
    a real library object). Markup keeps its existing classes; `.tertiary` is the
    prepared primitive for the semantic media controls that land in a later
-   batch. */
-.adm-btn-sm{ font-weight: 600; font-size: 13px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--admin-control-border); border-radius: var(--admin-radius); background: var(--admin-surface); color: var(--admin-text); box-shadow: none; }
-.adm-btn-sm:hover{ background: var(--admin-surface-sunken); border-color: var(--admin-text); color: var(--admin-text); }
-.adm-btn-sm.primary{ background: var(--admin-primary); border-color: var(--admin-primary); color: #fff; }
-.adm-btn-sm.primary:hover{ background: var(--admin-primary-strong); border-color: var(--admin-primary-strong); color: #fff; }
-.adm-btn-sm.purple{ background: var(--admin-surface); border-color: var(--admin-control-border); color: var(--admin-primary); }
-.adm-btn-sm.purple:hover{ background: var(--admin-primary-soft); border-color: var(--admin-primary); color: var(--admin-primary); }
+   batch. Candy depth is reserved for the primary tier — every other tier stays
+   a calm functional control with readable text. */
+.adm-btn-sm{ font-weight: 600; font-size: 13px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--admin-control-border); border-radius: 12px; background: var(--admin-surface); color: var(--admin-text); box-shadow: 0 1px 0 rgba(48, 39, 53, .05); }
+.adm-btn-sm:hover{ background: var(--admin-surface-blush); border-color: var(--admin-primary); color: var(--admin-primary); box-shadow: var(--admin-candy-shadow); }
+/* Primary: berry candy — restrained highlight + a soft bottom lip, no cartoon. */
+.adm-btn-sm.primary{ background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 62%); border-color: var(--admin-primary-strong); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 2px 0 rgba(115, 49, 79, .3); }
+.adm-btn-sm.primary:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); color: #fff; }
+/* Secondary "add" tier: soft candy fill with a berry edge, so it reads as a
+   real control (boundary 7.2:1) instead of another white outline. */
+.adm-btn-sm.purple{ background: linear-gradient(180deg, #fdf3f9 0%, #fbe8f4 100%); border-color: var(--admin-primary); color: var(--admin-primary); }
+.adm-btn-sm.purple:hover{ background: linear-gradient(180deg, #fbe8f4 0%, #f8dcee 100%); border-color: var(--admin-primary-strong); color: var(--admin-primary-strong); }
 .adm-btn-sm.danger{ background: var(--admin-danger-soft); border-color: #e7b4b0; color: var(--admin-danger); }
 .adm-btn-sm.danger:hover{ background: #fbdcd9; border-color: var(--admin-danger); color: var(--admin-danger); }
 .adm-btn-sm.tertiary{ background: none; border-color: transparent; color: var(--admin-primary); padding-left: 8px; padding-right: 8px; }
 .adm-btn-sm.tertiary:hover{ background: var(--admin-primary-soft); border-color: transparent; color: var(--admin-primary); text-decoration: underline; }
 .adm-btn-sm:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 .adm-btn-sm[disabled], .adm-btn-sm[aria-disabled="true"]{ opacity: .45; cursor: not-allowed; }
-.admin-topbar .at-save{ font-weight: 700; font-size: 14px; padding: 10px 20px; min-height: var(--admin-control-h); border: 1px solid var(--admin-primary); border-radius: var(--admin-radius); background: var(--admin-primary); color: #fff; box-shadow: none; }
-.admin-topbar .at-save:hover{ background: var(--admin-primary-strong); border-color: var(--admin-primary-strong); transform: none; }
+.admin-topbar .at-save{ font-weight: 700; font-size: 14px; padding: 10px 20px; min-height: var(--admin-control-h); border: 1px solid var(--admin-primary-strong); border-radius: 14px; background: linear-gradient(180deg, var(--admin-primary-deep) 0%, var(--admin-primary) 64%); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 2px 0 rgba(115, 49, 79, .38); }
+.admin-topbar .at-save:hover{ background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-primary-strong) 100%); border-color: var(--admin-primary-strong); transform: none; }
 .admin-topbar .at-save[disabled]{ opacity: .5; }
 .admin-topbar .at-save:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 .adm-record .ar-actions button:focus-visible,
@@ -3718,7 +3842,7 @@ body.admin-mode .adm-appearance-preview{
 
 /* --- 7. Surfaces, records, statuses ------------------------------------- */
 .adm-list, .adm-panel, .adm-stat{ background: var(--admin-surface); border: 1px solid var(--admin-divider); box-shadow: none; }
-.adm-list{ border-radius: 16px; padding: 12px; }
+.adm-list{ border-radius: 16px; padding: 12px; box-shadow: var(--admin-candy-lip); }
 .adm-panel{ border-radius: 16px; padding: 18px 20px; }
 .adm-stat{ border-radius: 16px; padding: 14px 16px; }
 .adm-panel-welcome{ background: var(--admin-primary-soft); border-color: transparent; }
@@ -3735,10 +3859,10 @@ body.admin-mode .adm-appearance-preview{
 .adm-stat:nth-child(4) .as-v{ color: #7a5200; }
 .adm-stat .as-sub{ font-size: 12px; font-weight: 400; color: var(--admin-text-secondary); }
 .adm-quick-actions button{ border: 1px solid var(--admin-divider); border-radius: 12px; font-size: 13.5px; font-weight: 600; color: var(--admin-text); }
-.adm-quick-actions button:hover{ background: var(--admin-surface-sunken); border-color: var(--admin-control-border); color: var(--admin-text); }
-.adm-record{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); padding: 10px 12px; }
-.adm-record:hover{ background: var(--admin-surface-sunken); }
-.adm-record[aria-selected="true"]{ background: var(--admin-primary-soft); border-color: var(--admin-primary); box-shadow: inset 0 0 0 1px rgba(138, 59, 103, .18); }
+.adm-quick-actions button:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); color: var(--admin-primary); }
+.adm-record{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: 12px; padding: 10px 12px; }
+.adm-record:hover{ background: var(--admin-surface-blush); border-color: var(--admin-candy-border); }
+.adm-record[aria-selected="true"]{ background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%); border-color: var(--admin-primary); box-shadow: inset 0 0 0 1px var(--admin-candy-border), var(--admin-candy-shadow); }
 .adm-record .ar-title, .adm-record-two .ar-title{ font-weight: 600; font-size: 14px; line-height: 1.4; color: var(--admin-text); }
 .adm-badge{ font-weight: 700; font-size: 11px; letter-spacing: .02em; text-transform: none; padding: 3px 8px; border-radius: 6px; color: #fff; }
 .adm-badge.published{ background: #2a6fae; }
@@ -3807,11 +3931,34 @@ details.adm-cleanup-group > summary{ font-size: 13.5px; font-weight: 700; letter
 .adm-media-selected-mark{ font-size: 11px; font-weight: 700; background: var(--admin-primary); }
 .adm-view-toggle button[aria-pressed="true"]{ background: var(--admin-primary); color: #fff; }
 .adm-bulk-bar{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
-.adm-tab{ font-size: 13.5px; font-weight: 600; border: 1px solid var(--admin-control-border); color: var(--admin-text-secondary); }
-.adm-tab[aria-pressed="true"]{ background: var(--admin-primary); border-color: var(--admin-primary); color: #fff; box-shadow: none; }
+/* Tabs and the settings sub-nav are ONE segmented candy track: the track owns the
+   boundary, the unselected chip keeps a soft candy edge and readable text
+   (secondary on blush 6.2:1), and the selected chip is a soft pink surface with a
+   berry ring — a clear ≥7:1 selected state instead of an outlined corporate pill. */
+.adm-tabs, .adm-settings-subnav{
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--admin-candy-border);
+  border-radius: 16px;
+  background: var(--admin-surface-blush);
+}
+.adm-tab, .adm-settings-subnav button{
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid var(--admin-candy-border);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-text-secondary);
+}
+.adm-tab:hover, .adm-settings-subnav button:hover{ background: var(--admin-surface-lavender); border-color: var(--admin-primary); color: var(--admin-primary); }
+.adm-tab[aria-pressed="true"], .adm-settings-subnav button[aria-pressed="true"]{
+  background: linear-gradient(180deg, #fdeaf4 0%, var(--admin-primary-soft) 100%);
+  border-color: var(--admin-primary);
+  color: var(--admin-primary);
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), var(--admin-candy-shadow);
+}
 .adm-tab:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
-.adm-settings-subnav button{ font-size: 13.5px; font-weight: 600; border: 1px solid var(--admin-control-border); color: var(--admin-text-secondary); }
-.adm-settings-subnav button[aria-pressed="true"]{ background: var(--admin-primary); border-color: var(--admin-primary); color: #fff; box-shadow: none; }
 .adm-settings-subnav button:focus-visible{ outline: 3px solid var(--admin-primary); outline-offset: 2px; }
 .adm-ui-copy-row{ background: var(--admin-surface); border: 1px solid var(--admin-divider); border-radius: var(--admin-radius); }
 .adm-ui-copy-row .uc-key{ font-size: 12.5px; font-weight: 600; color: var(--admin-text-secondary); }

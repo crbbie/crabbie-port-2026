@@ -19,24 +19,41 @@ Decorative type is an accent only. Reading text must stay in the body face.
 
 ## Admin authoring type and colour contract
 
-Functional admin UI (shell, navigation, topbar controls, field labels, input and
-select values, helper text, buttons, statuses, lists, media metadata, dialogs,
-tables, functional headings) reads in ONE legible system stack
-(`--admin-font`: `system-ui, "Segoe UI", sans-serif`): body/controls 15–16px,
-labels ~14px weight 600, helpers ~13px, section headings 17–18px, page titles
-22–24px, and field labels are never upper-cased with heavy tracking. The
-semantic brand roles (`--font-display`, `--font-decorative`, `--font-body`) are
-re-mapped inside `body.admin-mode`; only the admin identity (`.admin-brand`) and
-the Appearance live preview — which deliberately mirrors the public site — keep
-the brand faces. Public typography and the brand font files are untouched.
+The admin uses a HYBRID type system with two explicit roles.
+
+FUNCTIONAL role — `--admin-font` (`system-ui, "Segoe UI", sans-serif`): shell,
+topbar controls, field labels, input/select/textarea values, helper and error
+text, statuses, buttons, lists, records, tables, media metadata, filenames, URLs,
+dialogs and long functional copy. Body/controls 15–16px, labels ~14px weight 600,
+helpers ~13px, and field labels are never upper-cased with heavy tracking.
+
+IDENTITY role — `--admin-brand-font` / `--admin-decorative-font` (`DFVN
+Starshines` / `iCiel Be Cool`, captured from the public families before the admin
+stack re-maps the semantic roles): admin brand block, page title, editor title,
+major section heading, topbar eyebrow and the selected navigation accent. The
+rule is: decorate what tells the author WHERE THEY ARE, never what they must
+READ. Editable data, values, URLs, filenames, helpers, warnings and long copy
+never use a brand face. Both brand faces are verified against the full Vietnamese
+diacritic set (including ă â đ ê ô ơ ư and every tone mark) — re-check
+`document.fonts.check()` coverage before changing a face. The Appearance live
+preview keeps the public faces because it mirrors the public site on purpose.
 
 Admin colour is its own token set (`--admin-*`), independent of the public
-Appearance palette and never written by it: canvas `#F8F7FA`, surface `#FFFFFF`,
-sunken surface `#F3F1F6`, text `#302735`, secondary text `#665B6D`, control
-border `#918697`, divider `#E7E1EA`, primary `#8A3B67`, selected `#FCEAF3`,
-danger `#B42318`. Text and status colours keep WCAG AA contrast on their own
-surface (measured ratios live next to the tokens in the SPA); pastel tints are
-for canvas, selected state and surfaces — never for important text.
+Appearance palette and never written by it, split into two families:
+
+- FUNCTIONAL: canvas, surface, sunken surface, text `#302735`, secondary text
+  `#665B6D`, control border `#918697`, divider, danger `#B42318`.
+- IDENTITY (candy): blush surface `#FDF4F9`, lavender surface `#F4F0FC`, candy
+  border `#EDC9DB`, berry primary `#8A3B67` (deep `#9C4A76` for gradients),
+  selected `#FCEAF3`, lavender label text `#6B5B8F`, candy shadow/lip.
+
+Candy is used only for: the admin identity block, the selected navigation and
+selected record/tab state, the primary Save and the prepared secondary "add"
+tier, the topbar wash, the canvas wash and the section marker. Everything the
+author has to read stays neutral and high contrast. Measured ratios are asserted
+by `scripts/admin-ux-screenshots.mjs --measure` and documented next to the tokens
+in the SPA; the candy border is decorative (1.5:1) and is never the sole boundary
+of a control — no pastel text anywhere.
 
 Spacing follows one scale (4/8/12/16/24/32) and the form system owns the rhythm
 (`.adm-section > * + *`, `.adm-row + .adm-row`), so renderers do not add inline
@@ -46,21 +63,33 @@ control→helper 6px, field→field 16px, heading→content 16px, section→sect
 
 Sections are a heading plus fields on a clean surface: no pink-box-in-pink-box
 and no decorative dashed borders (dashed outlines are reserved for real drop
-targets such as `.adm-dropzone-active`). Nested cards stay only for real
-entities (repeated blocks, download sources, selected media, gallery items).
+targets such as `.adm-dropzone-active`). Hierarchy comes from the brand-face
+heading plus its small candy marker, not from another container. Nested cards
+stay only for real entities (repeated blocks, download sources, selected media,
+gallery items).
 Form controls are one primitive: ~44px tall, white surface, visible border,
 clear focus ring, 15–16px text, vertical-resize textareas, real checkboxes (they
 commit on Save), and a distinct readonly presentation for generated data such as
 slugs. Every field helper/error is wired with `aria-describedby`.
+A colour pair (`.adm-field[data-adm-color-field]`) is ONE compound control:
+label on its own line, then swatch + HEX on the same row, wrapping only when the
+container is genuinely too narrow. Layout only — the partial-hex buffer, live
+preview, inheritance/custom state and reset behaviour are unchanged.
 
-Buttons follow a hierarchy: PRIMARY (the single canonical Save, plus confirms),
-SECONDARY (choose / upload / retry / add), TERTIARY (`.adm-btn-sm.tertiary` for
-open/view and clearing a draft reference) and DANGER (`.adm-btn-sm.danger` for
-deleting records and real library objects). Clearing a draft reference is never
-presented as deleting a library object. Exactly one visible Save action exists
-(`#adminTopSave`); an editor footer left with nothing visible collapses
+Buttons follow a hierarchy: PRIMARY (the single canonical Save, plus confirms —
+the only tier with candy depth), SECONDARY (choose / upload / retry / add),
+TERTIARY (`.adm-btn-sm.tertiary` for open/view and clearing a draft reference)
+and DANGER (`.adm-btn-sm.danger` for deleting records and real library objects).
+Clearing a draft reference is never presented as deleting a library object.
+Exactly one visible Save action exists (`#adminTopSave`); an editor footer left
+with nothing visible collapses
 (`.adm-editor-bar:not(:has(> :not([data-adm-save])))`) instead of leaving an
 empty divider band.
+
+Tabs (`.adm-tabs`) and the settings sub-nav (`.adm-settings-subnav`) are one
+segmented candy track: the track owns the boundary, unselected chips keep a soft
+candy edge with secondary-on-blush text (5.9:1), and the selected chip is a soft
+pink surface with a berry ring (~7:1 text) plus a small depth shadow.
 
 ## Appearance tokens
 
