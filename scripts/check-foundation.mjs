@@ -38,6 +38,20 @@ if (html.indexOf('<script src="/src/portfolio-grid-core.js">') > html.indexOf('f
   throw new Error('Portfolio planner must load before the composition wiring.');
 }
 
+const adminI18nCore = await readFile('src/admin-i18n-core.js', 'utf8');
+new Script(adminI18nCore, { filename: 'src/admin-i18n-core.js' });
+// Admin presentation copy is one dictionary + one formatter: the shell, login
+// and shared feedback helpers must load before the inline admin script.
+if (!html.includes('<script src="/src/admin-i18n-core.js">')) {
+  throw new Error('Admin i18n core script tag missing.');
+}
+if (html.indexOf('<script src="/src/admin-i18n-core.js">') > html.indexOf('<script src="/src/portfolio-grid-core.js">')) {
+  throw new Error('Admin i18n core must load before the portfolio planner.');
+}
+if (html.indexOf('<script src="/src/admin-i18n-core.js">') > html.indexOf('function tAdminFmt(')) {
+  throw new Error('Admin i18n core must load before the inline admin presentation helpers.');
+}
+
 const vercelConfig = JSON.parse(await readFile('vercel.json', 'utf8'));
 const rewrites = Array.isArray(vercelConfig.rewrites) ? vercelConfig.rewrites : [];
 if (!rewrites.some((r) => r.source === '/admin' && r.destination === '/crabbie-port26.html')) {
