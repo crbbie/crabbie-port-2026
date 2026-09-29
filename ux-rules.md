@@ -29,7 +29,7 @@ Website background authoring has four mutually exclusive modes:
 
 - Legacy themes remain valid without migration: an existing
   `backgroundImage` with no mode resolves to `image`; no image and no mode
-  resolves to `default`, preserving the built-in pastel background.
+  resolves to `default`, preserving the current built-in public fallback unchanged.
 - `solid` uses the canonical `theme.background` color.
 - `gradient` owns two strict HEX values
   (`backgroundGradientStart` / `backgroundGradientEnd`) plus a 0–360°
