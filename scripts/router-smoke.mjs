@@ -4553,6 +4553,14 @@ try {
     assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
     const bgModeControl = page.locator('[data-adm-path="settings.theme.backgroundMode"]');
     assert.equal(await bgModeControl.count(), 1, 'Appearance exposes one background mode selector');
+    assert.equal(await bgModeControl.inputValue(), 'default', 'legacy empty settings resolve to the explicit Default mode');
+    const defaultPreview = await page.evaluate(() => {
+      const el = document.querySelector('[data-adm-appearance-preview="1"]');
+      const cs = getComputedStyle(el);
+      return { color: cs.backgroundColor, image: cs.backgroundImage };
+    });
+    assert.equal(defaultPreview.color, 'rgb(255, 255, 255)', 'Default mode preview matches the current public fallback color');
+    assert.equal(defaultPreview.image, 'none', 'Default mode preview does not invent a gradient');
     await bgModeControl.selectOption('solid');
     await page.waitForSelector('[data-adm-path="settings.theme.background"][type="text"]');
     assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 0, 'solid mode hides image-only controls');
