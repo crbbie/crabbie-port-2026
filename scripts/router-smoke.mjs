@@ -947,15 +947,126 @@ try {
       return { inputMin: css(input, 'minHeight'), selectMin: css(select, 'minHeight'), rowAlign: css(row, 'alignItems') };
     });
     assert.equal(formMetrics.inputMin, formMetrics.selectMin, 'text inputs and selects share one control height');
+    assert.equal(formMetrics.inputMin, '44px', 'admin controls share one 44px height');
     assert.equal(formMetrics.rowAlign, 'start', 'two-column form rows share one alignment rule');
-    const adminFonts = await page.evaluate(() => ({
-      label: getComputedStyle(document.querySelector('#adminContent .adm-field .af-label')).fontFamily,
-      input: getComputedStyle(document.querySelector('#adminContent .adm-field input[type="text"]')).fontFamily,
-      save: getComputedStyle(document.querySelector('#adminTopSave')).fontFamily
-    }));
-    assert.ok(adminFonts.label.includes('iCiel Be Cool'), 'admin field labels use the secondary face (got ' + adminFonts.label + ')');
-    assert.ok(adminFonts.input.includes('DFVN Hogfish'), 'admin inputs use the main face (got ' + adminFonts.input + ')');
-    assert.ok(adminFonts.save.includes('DFVN Hogfish'), 'the save action uses the main face (got ' + adminFonts.save + ')');
+    const adminType = await page.evaluate(() => {
+      const css = (sel, prop) => { const el = document.querySelector(sel); return el ? getComputedStyle(el)[prop] : ''; };
+      return {
+        labelFamily: css('#adminContent .adm-field .af-label', 'fontFamily'),
+        labelSize: parseFloat(css('#adminContent .adm-field .af-label', 'fontSize')),
+        labelWeight: css('#adminContent .adm-field .af-label', 'fontWeight'),
+        labelTransform: css('#adminContent .adm-field .af-label', 'textTransform'),
+        inputFamily: css('#adminContent .adm-field input[type="text"]', 'fontFamily'),
+        inputSize: parseFloat(css('#adminContent .adm-field input[type="text"]', 'fontSize')),
+        hintSize: parseFloat(css('#adminContent .adm-field .af-hint', 'fontSize')) || parseFloat(css('#adminContent .af-hint', 'fontSize')),
+        saveFamily: css('#adminTopSave', 'fontFamily'),
+        saveSize: parseFloat(css('#adminTopSave', 'fontSize')),
+        sectionSize: parseFloat(css('#adminContent .adm-section h4', 'fontSize')),
+        topbarTitleSize: parseFloat(css('.admin-topbar h1', 'fontSize')),
+        brandFamily: css('.admin-brand .ab-name', 'fontFamily')
+      };
+    });
+    /* Batch 1 admin foundation: functional admin surfaces (labels, values,
+       helpers, buttons, section headings) read in one legible system stack;
+       brand faces stay on the admin identity and the public-mirror Appearance
+       preview only. */
+    assert.ok(!/iCiel Be Cool|DFVN/.test(adminType.labelFamily), 'admin field labels never use a decorative brand face (got ' + adminType.labelFamily + ')');
+    assert.ok(/Segoe UI|system-ui/.test(adminType.labelFamily), 'admin labels resolve to the system stack (got ' + adminType.labelFamily + ')');
+    assert.equal(adminType.inputFamily, adminType.labelFamily, 'labels and controls share one admin type stack');
+    assert.equal(adminType.saveFamily, adminType.labelFamily, 'the Save action shares one admin type stack');
+    assert.equal(adminType.labelTransform, 'none', 'field labels are not upper-cased');
+    assert.ok(adminType.labelSize >= 13.5 && adminType.labelSize <= 15, 'field labels land on ~14px (got ' + adminType.labelSize + ')');
+    assert.ok(Number(adminType.labelWeight) >= 600, 'field labels are semibold (got ' + adminType.labelWeight + ')');
+    assert.ok(adminType.inputSize >= 15 && adminType.inputSize <= 16.5, 'control values land on 15–16px (got ' + adminType.inputSize + ')');
+    assert.ok(adminType.saveSize >= 13, 'the Save action stays readable (got ' + adminType.saveSize + ')');
+    assert.ok(adminType.hintSize >= 12.5 && adminType.hintSize <= 13.5, 'helper text lands on ~13px (got ' + adminType.hintSize + ')');
+    assert.ok(adminType.sectionSize >= 16.5 && adminType.sectionSize <= 18.5, 'section headings land on 17–18px (got ' + adminType.sectionSize + ')');
+    assert.ok(adminType.topbarTitleSize >= 21 && adminType.topbarTitleSize <= 24.5, 'page titles land on 22–24px (got ' + adminType.topbarTitleSize + ')');
+    assert.ok(/DFVN/.test(adminType.brandFamily), 'the admin identity keeps the brand display face (got ' + adminType.brandFamily + ')');
+    /* Batch 1.1 identity pass: the admin primary tier is the only candy-styled
+       control, and it is scoped to the admin boundary (body.admin-mode). */
+    const adminPrimary = await page.evaluate(() => {
+      const el = (selector) => document.querySelector(selector);
+      const css = (selector, prop) => { const target = el(selector); return target ? getComputedStyle(target)[prop] : ''; };
+      const hasContentPrimary = Boolean(el('#adminContent .adm-btn-sm.primary'));
+      return {
+        hasContentPrimary,
+        saveGradient: css('#adminTopSave', 'backgroundImage'),
+        saveBorder: css('#adminTopSave', 'borderTopColor'),
+        saveRadius: css('#adminTopSave', 'borderRadius'),
+        saveColor: css('#adminTopSave', 'color'),
+        contentGradient: css('#adminContent .adm-btn-sm.primary', 'backgroundImage'),
+        contentBorder: css('#adminContent .adm-btn-sm.primary', 'borderTopColor'),
+        contentRadius: css('#adminContent .adm-btn-sm.primary', 'borderRadius')
+      };
+    });
+    assert.match(adminPrimary.saveGradient, /linear-gradient\(rgb\(156, 74, 118\) 0%, rgb\(138, 59, 103\)/, 'the admin Save carries the admin berry candy gradient');
+    assert.equal(adminPrimary.saveBorder, 'rgb(115, 49, 79)', 'the admin Save keeps its deep berry edge');
+    assert.equal(adminPrimary.saveRadius, '14px', 'the admin Save keeps the candy radius');
+    assert.equal(adminPrimary.saveColor, 'rgb(255, 255, 255)', 'the admin Save keeps white label text on berry');
+    assert.ok(adminPrimary.hasContentPrimary, 'an admin primary action exists in the editor content');
+    assert.match(adminPrimary.contentGradient, /linear-gradient\(rgb\(156, 74, 118\) 0%, rgb\(138, 59, 103\)/, 'admin primary buttons carry the admin berry candy gradient');
+    assert.equal(adminPrimary.contentBorder, 'rgb(115, 49, 79)', 'admin primary buttons keep the deep berry edge');
+    assert.equal(adminPrimary.contentRadius, '12px', 'admin primary buttons keep the admin radius');
+    /* Accessibility + overflow guards added with the foundation layer. */
+    const foundationA11y = await page.evaluate(() => {
+      const field = document.querySelector('#adminContent .adm-field');
+      const described = document.querySelector('#adminContent .adm-field input[aria-describedby], #adminContent .adm-field textarea[aria-describedby]');
+      const id = described ? described.getAttribute('aria-describedby') : '';
+      const host = document.createElement('div');
+      host.className = 'adm-media-body';
+      host.style.width = '220px';
+      const title = document.createElement('div');
+      title.className = 'mb-title';
+      title.textContent = 'crabbie_free_asset_preview_final_v2_'.repeat(4) + '.png';
+      host.appendChild(title);
+      document.getElementById('adminContent').appendChild(host);
+      const wrap = { whiteSpace: getComputedStyle(title).whiteSpace, overflow: host.scrollWidth - host.clientWidth };
+      host.remove();
+      return {
+        scrollMargin: parseFloat(getComputedStyle(field).scrollMarginTop) || 0,
+        describedId: id,
+        describedText: id ? String((document.getElementById(id) || {}).textContent || '').trim() : '',
+        titleWhiteSpace: wrap.whiteSpace,
+        titleOverflow: wrap.overflow
+      };
+    });
+    assert.ok(foundationA11y.scrollMargin >= 60, 'a focused field clears the sticky topbar (scroll-margin-top ' + foundationA11y.scrollMargin + 'px)');
+    assert.ok(foundationA11y.describedId && foundationA11y.describedText.length > 0, 'field helpers are wired with aria-describedby (got ' + foundationA11y.describedId + ')');
+    assert.equal(foundationA11y.titleWhiteSpace, 'normal', 'media titles wrap instead of forcing horizontal scroll');
+    assert.ok(foundationA11y.titleOverflow <= 1, 'a 220px media card contains a long filename (overflow ' + foundationA11y.titleOverflow + ')');
+    /* Form grid foundation: a row splits only while its editor/section container
+       can give every column ~280px of usable width — the container width, not
+       the viewport, decides. */
+    const rowContract = () => page.evaluate(() => {
+      const row = document.querySelector('#adminContent .adm-row');
+      const content = document.getElementById('adminContent');
+      const field = row ? row.querySelector('.adm-field') : null;
+      const control = row ? row.querySelector('.adm-field input, .adm-field select') : null;
+      return {
+        cols: row ? getComputedStyle(row).gridTemplateColumns.split(' ').length : 0,
+        fieldWidth: field ? Math.round(field.getBoundingClientRect().width) : 0,
+        controlWidth: control ? Math.round(control.getBoundingClientRect().width) : 0,
+        overflow: content ? content.scrollWidth - content.clientWidth : 0
+      };
+    });
+    const adminWide = await rowContract();
+    assert.ok(adminWide.cols >= 2, 'a wide editor container keeps multi-column rows (got ' + adminWide.cols + ')');
+    assert.ok(adminWide.fieldWidth >= 280, 'every wide column keeps ~280px of usable width (got ' + adminWide.fieldWidth + ')');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(150);
+    const adminNarrow = await rowContract();
+    assert.equal(adminNarrow.cols, 1, 'a narrow container stacks rows to one column (got ' + adminNarrow.cols + ')');
+    assert.ok(adminNarrow.controlWidth >= 240, 'stacked mobile controls stay comfortably wide (got ' + adminNarrow.controlWidth + ')');
+    assert.ok(adminNarrow.overflow <= 2, 'the admin editor has no horizontal overflow on mobile (got ' + adminNarrow.overflow + ')');
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.waitForTimeout(150);
+    const adminTiny = await rowContract();
+    assert.equal(adminTiny.cols, 1, '320px keeps a single column');
+    assert.ok(adminTiny.controlWidth >= 200, 'controls stay usable at 320 (got ' + adminTiny.controlWidth + ')');
+    assert.ok(adminTiny.overflow <= 2, 'no horizontal overflow at 320 (got ' + adminTiny.overflow + ')');
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.waitForTimeout(150);
     console.log('PASS admin hydration retry reaches ready with one canonical visible Save action (SDK fixture)');
 
     // Test 5: a repeated SIGNED_IN for the same session must not hydrate twice.
@@ -3926,6 +4037,72 @@ try {
     assert.equal(await page.evaluate(() => location.hash), '#project/normal-b', 'detail prev/next skips image cards');
     console.log('PASS image cards lightbox without navigating and galleries zoom uncropped (SDK fixture)');
 
+    // ---- Admin visual foundation scope: public components keep their own styling ----
+    /* `.adm-btn-sm` is shared between the admin UI and the public lightbox Retry /
+       Close buttons, so the admin visual foundation must be scoped to the admin
+       boundary (`body.admin-mode`). This runs on a public view (no admin mode) and
+       pins the public lightbox to its own pre-batch-1 look: the public buttons must
+       never pick up the admin berry/candy primary treatment. */
+    const publicScope = await page.evaluate(() => {
+      const el = (selector) => document.querySelector(selector);
+      const css = (selector, prop) => { const target = el(selector); return target ? getComputedStyle(target)[prop] : ''; };
+      /* The public stack lists system fallbacks after its brand face, so only the
+         LEADING family identifies the owner of the type. */
+      const leading = (family) => String(family || '').split(',')[0].replace(/["']/g, '').trim();
+      const retry = el('#publicLightboxRetry');
+      const close = el('#publicLightboxErrorClose');
+      return {
+        adminMode: document.body.classList.contains('admin-mode'),
+        retryExists: Boolean(retry),
+        closeExists: Boolean(close),
+        retryDisabled: retry ? retry.disabled : null,
+        closeDisabled: close ? close.disabled : null,
+        retryName: retry ? (retry.getAttribute('aria-label') || retry.textContent.trim()) : '',
+        retryGradient: css('#publicLightboxRetry', 'backgroundImage'),
+        retryBorderWidth: css('#publicLightboxRetry', 'borderTopWidth'),
+        retryBorderColor: css('#publicLightboxRetry', 'borderTopColor'),
+        retryRadius: css('#publicLightboxRetry', 'borderRadius'),
+        retryPadding: css('#publicLightboxRetry', 'padding'),
+        retryFontSize: css('#publicLightboxRetry', 'fontSize'),
+        retryLeadFamily: leading(css('#publicLightboxRetry', 'fontFamily')),
+        retryFamily: css('#publicLightboxRetry', 'fontFamily'),
+        closeBorderWidth: css('#publicLightboxErrorClose', 'borderTopWidth'),
+        closeBorderColor: css('#publicLightboxErrorClose', 'borderTopColor'),
+        closeColor: css('#publicLightboxErrorClose', 'color'),
+        closeShadow: css('#publicLightboxErrorClose', 'boxShadow'),
+        closePadding: css('#publicLightboxErrorClose', 'padding'),
+        closeLeadFamily: leading(css('#publicLightboxErrorClose', 'fontFamily')),
+        closeFamily: css('#publicLightboxErrorClose', 'fontFamily'),
+        closeFontSize: css('#publicLightboxErrorClose', 'fontSize'),
+        lightboxOwnsDialog: Boolean(el('.public-lightbox') && el('#publicLightboxError'))
+      };
+    });
+    assert.equal(publicScope.adminMode, false, 'the public lightbox is measured outside admin mode');
+    assert.ok(publicScope.retryExists && publicScope.closeExists, 'the public lightbox Retry and Close controls still render');
+    assert.equal(publicScope.retryDisabled, false, 'the public lightbox Retry stays an enabled control');
+    assert.equal(publicScope.closeDisabled, false, 'the public lightbox Close stays an enabled control');
+    assert.equal(publicScope.retryName, 'Retry', 'the public lightbox Retry keeps its accessible name');
+    assert.ok(publicScope.lightboxOwnsDialog, 'the public lightbox error surface and its controls still exist in public DOM');
+    /* Public look: 2px white ring, 8px 14px rhythm, 12px radius and the public candy
+       gradient — and none of the admin berry/candy values. */
+    assert.match(publicScope.retryGradient, /^linear-gradient\(/, 'the public lightbox Retry keeps a public candy gradient');
+    assert.ok(!/156, 74, 118|138, 59, 103/.test(publicScope.retryGradient), 'the public lightbox Retry never uses the admin berry gradient (got ' + publicScope.retryGradient + ')');
+    assert.equal(publicScope.retryBorderWidth, '2px', 'the public lightbox Retry keeps its public 2px ring');
+    assert.equal(publicScope.retryBorderColor, 'rgb(255, 255, 255)', 'the public lightbox Retry keeps its white public ring');
+    assert.equal(publicScope.retryRadius, '12px', 'the public lightbox Retry keeps its public radius');
+    assert.equal(publicScope.retryPadding, '8px 14px', 'the public lightbox Retry keeps its public rhythm');
+    assert.notEqual(publicScope.retryBorderColor, 'rgb(115, 49, 79)', 'the public lightbox Retry never uses the admin deep berry edge');
+    assert.ok(!/^(system-ui|Segoe UI)$/i.test(publicScope.retryLeadFamily), 'the public lightbox Retry never leads with the admin system stack (got ' + publicScope.retryFamily + ')');
+    assert.equal(publicScope.closeBorderWidth, '2px', 'the public lightbox Close keeps its public 2px ring');
+    assert.notEqual(publicScope.closeBorderColor, 'rgb(145, 134, 151)', 'the public lightbox Close never uses the admin control border');
+    assert.notEqual(publicScope.closeColor, 'rgb(48, 39, 53)', 'the public lightbox Close never uses the admin text colour');
+    assert.equal(publicScope.closeShadow, 'none', 'the public lightbox Close never uses the admin control shadow');
+    assert.equal(publicScope.closePadding, '8px 14px', 'the public lightbox Close keeps its public rhythm');
+    assert.ok(!/^(system-ui|Segoe UI)$/i.test(publicScope.closeLeadFamily), 'the public lightbox Close never leads with the admin system stack (got ' + publicScope.closeFamily + ')');
+    assert.equal(publicScope.retryFontSize, '12.5px', 'the public lightbox Retry keeps its public label size (never the 13px admin control size)');
+    assert.equal(publicScope.closeFontSize, '12.5px', 'the public lightbox Close keeps its public label size (never the 13px admin control size)');
+    console.log('PASS admin visual foundation is scoped to body.admin-mode and public lightbox controls keep their own styling (SDK fixture)');
+
     // ---- Asset preview galleries + shared viewer collections ----
     await page.evaluate(() => {
       window.CrabbieAssets.apply([
@@ -4433,15 +4610,29 @@ try {
     assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
     assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
-    // Mobile admin: short controls keep two columns without horizontal overflow.
+    const previewFaces = await page.evaluate(() => ({
+      label: getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"] .apv-label')).fontFamily,
+      body: getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"] .apv-body')).fontFamily
+    }));
+    assert.ok(/iCiel Be Cool/.test(previewFaces.label), 'the Appearance preview keeps mirroring the public decorative face (got ' + previewFaces.label + ')');
+    assert.ok(/DFVN Hogfish/.test(previewFaces.body), 'the Appearance preview keeps mirroring the public body face (got ' + previewFaces.body + ')');
+    // Mobile admin foundation: the appearance controls column is narrower than
+    // two ~280px columns, so rows stack to one full-width column with no
+    // horizontal overflow instead of squeezing two ~160px controls.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(150);
     const adminMobile = await page.evaluate(() => {
       const row = document.querySelector('#adminContent .adm-row');
       const content = document.getElementById('adminContent');
-      return { cols: row ? getComputedStyle(row).gridTemplateColumns.split(' ').length : 0, overflow: content ? content.scrollWidth - content.clientWidth : 0 };
+      const control = row ? row.querySelector('.adm-field input[type="text"], .adm-field select, .adm-field .adm-media-actions') : null;
+      return {
+        cols: row ? getComputedStyle(row).gridTemplateColumns.split(' ').length : 0,
+        controlWidth: control ? Math.round(control.getBoundingClientRect().width) : 0,
+        overflow: content ? content.scrollWidth - content.clientWidth : 0
+      };
     });
-    assert.ok(adminMobile.cols >= 2, 'admin rows keep two columns on mobile (got ' + adminMobile.cols + ')');
+    assert.equal(adminMobile.cols, 1, 'a narrow appearance column stacks rows to one column (got ' + adminMobile.cols + ')');
+    assert.ok(adminMobile.controlWidth >= 240, 'stacked appearance controls stay usable (got ' + adminMobile.controlWidth + ')');
     assert.ok(adminMobile.overflow <= 2, 'the admin Appearance panel has no horizontal overflow on mobile (got ' + adminMobile.overflow + ')');
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.waitForTimeout(120);
