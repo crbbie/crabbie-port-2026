@@ -72,7 +72,9 @@ per-element editor.
 - Palettes snapshot explicit overrides only; applying a palette replaces
   Advanced wholesale, so an old palette without `textOverrides` clears current
   overrides back to inheritance. Palette cards show an `N custom text colors`
-  indicator. Duplicates deep-clone nested overrides.
+  indicator. Duplicates deep-clone nested overrides. The two background
+  gradient colors are background-specific validated colors, not Core palette
+  entries: palettes never snapshot or apply them, and old palettes stay valid.
 - Cache stays v1/v2 compatible (`crabbie:appearance`); only valid override
   leaves are kept.
 - The preview is truthful: one compact sample per Advanced role using the same

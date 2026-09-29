@@ -57,6 +57,23 @@
     'fieldLabelColor',
   ]);
 
+  /* Background-only validated colors. They share HEX validation with the
+     Core palette but are NOT part of the saved-palette contract: a palette
+     preset must never silently own the background gradient (the palette
+     card shows Core swatches only). */
+  var BACKGROUND_GRADIENT_KEYS = Object.freeze([
+    'backgroundGradientStart',
+    'backgroundGradientEnd',
+  ]);
+
+  /* Saved-palette contract: the semantic Core colors only. Gradient fields
+     stay validated via COLOR_KEYS (resolve/sanitize/cache) but are excluded
+     from snapshot/apply so old palettes stay valid and new palettes never
+     capture a gradient the swatches do not show. */
+  var PALETTE_COLOR_KEYS = Object.freeze(
+    COLOR_KEYS.filter(function (k) { return BACKGROUND_GRADIENT_KEYS.indexOf(k) === -1; })
+  );
+
   /* Appearance-owned CSS variables. Text tokens live on <body> (where the
      tokens are declared); pink/purple primitives live on <body> too so the
      public `body:not(.admin-mode)` palette is actually owned (a local body
@@ -208,13 +225,14 @@
     return out;
   }
 
-  /* Palette colors: only valid normalized values survive. Invalid entries
-     are dropped (caller falls back to resolved defaults for display and
-     never writes invalid data). */
+  /* Palette colors: only valid normalized Core values survive. Background
+     gradient fields are background-specific and never enter a palette;
+     invalid entries are dropped (caller falls back to resolved defaults
+     for display and never writes invalid data). */
   function normalizePaletteColors(colors) {
     var out = {};
     if (!colors || typeof colors !== 'object') return out;
-    COLOR_KEYS.forEach(function (k) {
+    PALETTE_COLOR_KEYS.forEach(function (k) {
       var n = typeof colors[k] === 'string' ? normalizeHex(colors[k]) : null;
       if (n) out[k] = n;
     });
@@ -517,14 +535,16 @@
     return colors;
   }
 
-  /* Palette apply: the palette is the whole supported color configuration.
-   * Core colors apply when valid; explicit Advanced overrides are REPLACED
-   * (an old palette with no textOverrides clears current overrides back to
-   * inheritance — never leaves stale values). Mutates and returns the theme. */
+  /* Palette apply: the palette is the whole supported Core color
+   * configuration (background gradients are background-specific and stay
+   * untouched). Core colors apply when valid; explicit Advanced overrides
+   * are REPLACED (an old palette with no textOverrides clears current
+   * overrides back to inheritance — never leaves stale values). Mutates
+   * and returns the theme. */
   function applyPaletteColors(theme, colors) {
     if (!theme || typeof theme !== 'object') return theme;
     if (!colors || typeof colors !== 'object') return theme;
-    COLOR_KEYS.forEach(function (k) {
+    PALETTE_COLOR_KEYS.forEach(function (k) {
       var n = typeof colors[k] === 'string' ? normalizeHex(colors[k]) : null;
       if (n) theme[k] = n;
     });
@@ -542,6 +562,8 @@
     HEX_RE: HEX_RE,
     APPEARANCE_DEFAULTS: APPEARANCE_DEFAULTS,
     COLOR_KEYS: COLOR_KEYS,
+    PALETTE_COLOR_KEYS: PALETTE_COLOR_KEYS,
+    BACKGROUND_GRADIENT_KEYS: BACKGROUND_GRADIENT_KEYS,
     TEXT_VAR_MAP: TEXT_VAR_MAP,
     PRIMITIVE_VAR_MAP: PRIMITIVE_VAR_MAP,
     TEXT_OVERRIDE_GROUPS: TEXT_OVERRIDE_GROUPS,

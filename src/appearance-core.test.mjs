@@ -66,6 +66,23 @@ assert.equal(A.DEFAULT_BACKGROUND_IMAGE, '', 'default preview does not invent an
 // --- palette normalization / clone isolation ---
 const pal = A.normalizePaletteColors({ displayColor: '#112233', accentColor: 'bad', pink: '#ABCDEF' });
 assert.deepEqual(pal, { displayColor: '#112233', pink: '#abcdef' }, 'palettes keep only valid normalized colors');
+assert.deepEqual(
+  A.normalizePaletteColors({ displayColor: '#112233', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' }),
+  { displayColor: '#112233' },
+  'background gradient fields are background-specific and never enter a palette',
+);
+assert.deepEqual(
+  A.snapshotPaletteColors({ displayColor: '#112233', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' }),
+  { displayColor: '#112233' },
+  'palette snapshots never capture the background gradient',
+);
+const gradDraft = { displayColor: '#222222', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' };
+A.applyPaletteColors(gradDraft, { displayColor: '#333333', backgroundGradientStart: '#444444' });
+assert.deepEqual(
+  gradDraft,
+  { displayColor: '#333333', backgroundGradientStart: '#111111', backgroundGradientEnd: '#222222' },
+  'applying a palette leaves background gradients untouched (old palettes stay valid)',
+);
 const src = { displayColor: '#112233', nested: { a: 1 } };
 const dup = A.clonePaletteColors(src);
 dup.nested.a = 2;

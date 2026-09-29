@@ -4576,6 +4576,23 @@ try {
     assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'image mode uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundOverlay"]').inputValue(), '0.55', 'unstored image overlay renders its canonical default without persisting it');
+    // Picking a background image keeps Image mode; clearing it falls back to Solid.
+    await page.evaluate(() => {
+      window.__routerRows = window.__routerRows || {};
+      window.__routerRows.media = [
+        { id: '00000000-0000-4000-8000-000000000911', bucket_id: 'media', storage_path: 'uploads/clear-bg.png', original_name: 'clear-bg.png', mime_type: 'image/png', size_bytes: 1024, alt_text: 'bg', created_at: '2026-01-01T00:00:00Z', deletion_status: 'active', deleted_at: null, deletion_error: null }
+      ];
+    });
+    await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
+    await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
+    await page.locator('#adminMediaModal [data-adm-pick]').first().click();
+    await page.waitForFunction(() => Boolean(document.querySelector('#adminContent [data-adm-media-preview="settings.theme.backgroundImage"] img')));
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'image', 'choosing a background image keeps Image mode');
+    await page.locator('[data-adm-mediaclear="settings.theme.backgroundImage"]').click();
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundMode"]').inputValue(), 'solid', 'clearing the background image falls back to Solid mode');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 0, 'clearing the image hides image-only controls');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.background"][type="text"]').count(), 1, 'the Solid fallback color stays editable after clearing');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('default');
     // Mobile admin: short controls keep two columns without horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(150);

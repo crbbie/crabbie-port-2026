@@ -7158,8 +7158,10 @@ var SETTINGS_GROUPS = ['Branding','Typography','Appearance','Motion','Music','SE
    Canonical values live in src/appearance-core.js; these aliases keep existing
    references working without a second independent defaults table. */
 var APPEARANCE_COLOR_DEFAULTS = (window.CrabbieAppearance && window.CrabbieAppearance.APPEARANCE_DEFAULTS) || { displayColor:'#7a3d6e', accentColor:'#ff5c9a', bodyColor:'#7a3d6e', decorativeColor:'#ff5c9a', mutedColor:'#a87098', fieldLabelColor:'#8a5cff' };
-/* The full colour group a saved palette captures (one preset = one theme). */
-var PALETTE_KEYS = (window.CrabbieAppearance && window.CrabbieAppearance.COLOR_KEYS) || ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
+/* The Core colour group a saved palette captures (one preset = one theme).
+   Background gradient fields are background-specific and excluded: a palette
+   preset must never silently own them. */
+var PALETTE_KEYS = (window.CrabbieAppearance && (window.CrabbieAppearance.PALETTE_COLOR_KEYS || window.CrabbieAppearance.COLOR_KEYS)) || ['background','pink','lavender','displayColor','accentColor','bodyColor','decorativeColor','mutedColor','fieldLabelColor'];
 function appearanceCore(){ return window.CrabbieAppearance || null; }
 function appearanceResolve(theme, key){
   var A = appearanceCore();
