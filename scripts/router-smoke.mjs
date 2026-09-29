@@ -578,6 +578,16 @@ try {
       groups: ['Tổng quan', 'Nội dung', 'Hộp thư', 'Trang', 'Tài nguyên'],
       save: 'Lưu thay đổi'
     }, 'the VI locale localizes every shell label including aria copy');
+    /* Language switching re-renders the active Admin panel. Assert the Save
+       control only after the existing readiness/save-flight gate has settled;
+       this waits for real UI readiness without changing production behavior. */
+    await page.waitForFunction(() => {
+      const btn = document.getElementById('adminTopSave');
+      const ready = window.CrabbieAdminCrud && window.CrabbieAdminCrud.getAdminLoadState &&
+        window.CrabbieAdminCrud.getAdminLoadState() === 'ready';
+      const idle = !(window.CrabbieAdminSaveFlight && window.CrabbieAdminSaveFlight.active);
+      return Boolean(btn && ready && idle && !btn.disabled);
+    });
     assert.equal(await page.evaluate(() => document.getElementById('adminTopSave').disabled), false, 'the localized Save control keeps its enabled state');
 
     // Admin "Preview website" is an external-style escape hatch: it must open
