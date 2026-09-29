@@ -4570,10 +4570,12 @@ try {
     await page.waitForSelector('[data-adm-path="settings.theme.backgroundGradientStart"][type="text"]');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientEnd"]').count(), 2, 'gradient mode exposes start/end picker + HEX pairs');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientAngle"]').count(), 1, 'gradient mode exposes an angle control');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientAngle"]').inputValue(), '180', 'unstored gradient angle renders its canonical default without persisting it');
     await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
     await page.waitForSelector('[data-adm-mediabrowse="settings.theme.backgroundImage"]');
     assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'image mode uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundOverlay"]').inputValue(), '0.55', 'unstored image overlay renders its canonical default without persisting it');
     // Mobile admin: short controls keep two columns without horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(150);
