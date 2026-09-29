@@ -5393,6 +5393,8 @@ try {
     await page.locator('[data-adm-path="settings.theme.fieldLabelColor"][type="text"]').fill('#112244');
     await page.locator('[data-adm-path="settings.theme.pink"][type="text"]').fill('#010203');
     await page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]').fill('#0a0b0c');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-mediabrowse="settings.theme.backgroundImage"]');
     await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').click();
     await page.waitForSelector('#adminMediaModal.open [data-adm-pick]');
     await page.locator('#adminMediaModal [data-adm-pick]').first().click();
@@ -5417,6 +5419,7 @@ try {
     const motionRow = savedRows.find((r) => r.key === 'motion');
     const musicRow = savedRows.find((r) => r.key === 'music');
     assert.ok(themeRow && themeRow.value.backgroundImage && themeRow.value.backgroundImage.includes('bg.png'), 'theme.backgroundImage persists to the database');
+    assert.equal(themeRow.value.backgroundMode, 'image', 'theme.backgroundMode persists with the selected image');
     assert.equal(themeRow.value.fieldLabelColor, '#112244', 'theme.fieldLabelColor persists to the database');
     assert.equal(themeRow.value.pink, '#010203', 'theme.pink persists to the database');
     assert.equal(themeRow.value.displayColor, '#0a0b0c', 'theme.displayColor persists to the database');
