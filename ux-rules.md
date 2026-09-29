@@ -283,6 +283,19 @@ Show a concise actionable message in the UI. Technical detail may go to develope
 
 Known write conflicts should use purpose-built messages such as stale-save, duplicate slug, permission, missing record, and missing/invalid field.
 
+Admin copy is localized through the single `ADMIN_I18N` dictionary
+(`en` + `vi`, key parity enforced by tests):
+
+- no hard-coded English literals in Admin UI code or markup;
+- no English prefix concatenation — use a parameterized entry
+  (`tAdminFmt('save.error.generic', { message })`);
+- a stable error code selects the sentence (`stale_save`, `duplicate_slug`,
+  `email_required`, `not_authorized`, …); unknown/provider failures fall back to
+  the localized generic message, and raw detail stays in the console;
+- attribute copy (aria-label/title/placeholder) is localized too;
+- switching the Admin locale is presentation-only: it never dirties, cleans or
+  writes the draft, and never changes stored values or option values.
+
 ## Empty states
 
 Empty states should explain whether:

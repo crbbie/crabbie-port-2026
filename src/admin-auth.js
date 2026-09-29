@@ -1,5 +1,5 @@
 ﻿import { supabase, isConfigured } from './supabase-client.js';
-import { isAdminUser, validateLoginPayload } from './admin-auth-core.js';
+import { isAdminUser, validateLoginPayload, classifyAuthProviderError, ADMIN_LOGIN_ERROR_CODES } from './admin-auth-core.js';
 import { decideAdminAuthEvent } from './admin-auth-events-core.js';
 
 let currentAdmin = null;
@@ -74,16 +74,19 @@ export async function restoreSession() {
 
 export async function login(email, password) {
   const check = validateLoginPayload(email, password);
-  if (!check.valid) return { success: false, error: check.error };
-  if (!isConfigured || !supabase) return { success: false, error: 'Supabase is not configured.' };
+  if (!check.valid) return { success: false, code: check.code, error: check.error };
+  if (!isConfigured || !supabase) {
+    return { success: false, code: ADMIN_LOGIN_ERROR_CODES.serviceUnavailable, error: 'Supabase is not configured.' };
+  }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   if (error) {
-    return { success: false, error: error.message };
+    // Stable code for the UI; the provider text stays an internal debug detail.
+    return { success: false, code: classifyAuthProviderError(error), error: error.message };
   }
   if (!isAdminUser(data.user)) {
     await supabase.auth.signOut();
-    return { success: false, error: 'Access denied. Account is not authorized as admin.' };
+    return { success: false, code: ADMIN_LOGIN_ERROR_CODES.notAuthorized, error: 'Access denied. Account is not authorized as admin.' };
   }
   currentAdmin = data.user;
   // The auth-state callback delivers the same SIGNED_IN event; the policy

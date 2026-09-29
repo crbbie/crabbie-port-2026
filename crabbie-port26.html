@@ -4505,45 +4505,45 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
     <div class="admin-login-card">
       <div class="al-brand">
         <span class="al-star">✦</span>
-        <h2>Atelier Sign In</h2>
-        <p>Sign in with your administrator credentials.</p>
+        <h2 data-t="login.title">Atelier Sign In</h2>
+        <p data-t="login.subtitle">Sign in with your administrator credentials.</p>
       </div>
       <form id="adminLoginForm" novalidate>
         <div class="al-field">
-          <label for="adminEmail">Email</label>
+          <label for="adminEmail" data-t="login.email">Email</label>
           <input type="email" id="adminEmail" required autocomplete="username" placeholder="crabbie.art@gmail.com">
         </div>
         <div class="al-field">
-          <label for="adminPassword">Password</label>
+          <label for="adminPassword" data-t="login.password">Password</label>
           <input type="password" id="adminPassword" required autocomplete="current-password" placeholder="••••••••">
         </div>
         <div class="al-error" id="adminLoginError" role="alert" style="display:none;"></div>
-        <button type="submit" class="btn btn-primary al-btn" id="adminLoginBtn">Sign In</button>
-        <a href="#home" class="al-back" data-goto="home">← Back to website</a>
+        <button type="submit" class="btn btn-primary al-btn" id="adminLoginBtn" data-t="login.submit">Sign In</button>
+        <a href="#home" class="al-back" data-goto="home" data-t="login.back">← Back to website</a>
       </form>
     </div>
   </div>
   <div class="admin-shell" id="adminRealShell">
-    <aside class="admin-sidebar" id="adminSidebar" aria-label="Admin modules">
+    <aside class="admin-sidebar" id="adminSidebar" aria-label="Admin modules" data-t-aria-label="aria.adminModules">
       <div class="admin-brand">
         <div class="ab-mark">✧</div>
         <div class="ab-name">CRABBIE<small>THE ATELIER CMS</small></div>
       </div>
       <nav class="admin-nav" id="adminNav">
-        <div class="an-group">Overview</div>
+        <div class="an-group" data-t="navGroup.overview">Overview</div>
         <button type="button" data-admin-module="dashboard" aria-current="page"><span class="an-ico">◆</span> <span data-t="nav.dashboard">Dashboard</span></button>
-        <div class="an-group">Content</div>
+        <div class="an-group" data-t="navGroup.content">Content</div>
         <button type="button" data-admin-module="portfolio"><span class="an-ico">❀</span> <span data-t="nav.portfolio">Portfolio / Projects</span> <span class="an-count" data-count="portfolio"></span></button>
         <button type="button" data-admin-module="people"><span class="an-ico">♡</span> <span data-t="nav.people">People / Clients</span> <span class="an-count" data-count="people"></span></button>
         <button type="button" data-admin-module="assets"><span class="an-ico">★</span> <span data-t="nav.assets">Free Assets</span> <span class="an-count" data-count="assets"></span></button>
         <button type="button" data-admin-module="commissions"><span class="an-ico">✦</span> <span data-t="nav.commissions">Commissions</span> <span class="an-count" data-count="commissions"></span></button>
-        <div class="an-group">Inbox</div>
+        <div class="an-group" data-t="navGroup.inbox">Inbox</div>
         <button type="button" data-admin-module="requests"><span class="an-ico">✉</span> <span data-t="nav.requests">Commission Requests</span> <span class="an-count" data-count="requests"></span></button>
-        <div class="an-group">Pages</div>
+        <div class="an-group" data-t="navGroup.pages">Pages</div>
         <button type="button" data-admin-module="about"><span class="an-ico">♥</span> <span data-t="nav.about">About</span></button>
         <button type="button" data-admin-module="terms"><span class="an-ico">§</span> <span data-t="nav.terms">Terms of Service</span></button>
         <button type="button" data-admin-module="contact"><span class="an-ico">✉</span> <span data-t="nav.contact">Contact / Social</span></button>
-        <div class="an-group">Assets</div>
+        <div class="an-group" data-t="navGroup.assets">Assets</div>
         <button type="button" data-admin-module="media"><span class="an-ico">☁</span> <span data-t="nav.media">Media Library</span></button>
         <button type="button" data-admin-module="cleanup"><span class="an-ico">🧹</span> <span data-t="nav.cleanup">Storage & Cleanup</span></button>
         <button type="button" data-admin-module="settings"><span class="an-ico">⚙</span> <span data-t="nav.settings">Site Settings</span></button>
@@ -4556,7 +4556,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
     <main class="admin-main">
       <header class="admin-topbar">
         <div class="at-left">
-          <button type="button" class="adm-burger" id="adminBurger" aria-label="Open admin menu" aria-expanded="false"><span></span><span></span><span></span></button>
+          <button type="button" class="adm-burger" id="adminBurger" aria-label="Open admin menu" data-t-aria-label="aria.openAdminMenu" aria-expanded="false"><span></span><span></span><span></span></button>
           <div style="min-width:0;">
             <div class="at-eyebrow" id="adminEyebrow" data-t="top.eyebrow">YOUR SWEET LITTLE WORLD</div>
             <h1 id="adminHeading">Dashboard</h1>
@@ -4565,7 +4565,7 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
         </div>
         <div class="at-right">
           <span class="admin-save-status saved" id="adminSaveStatus" data-t="status.saved">Saved</span>
-          <div class="adm-lang" role="group" aria-label="Admin language">
+          <div class="adm-lang" role="group" aria-label="Admin language" data-t-aria-label="aria.adminLanguage">
             <button type="button" data-admin-lang="vi" aria-pressed="true">VI</button>
             <button type="button" data-admin-lang="en" aria-pressed="false">EN</button>
           </div>
@@ -4663,16 +4663,17 @@ body:not(.admin-mode) .nav-cta:focus-visible::before{
 </div>
 <div class="adm-modal" id="adminMediaPreviewModal" role="dialog" aria-modal="true" aria-labelledby="adminMediaPreviewTitle">
   <div class="adm-modal-card">
-    <h3 id="adminMediaPreviewTitle">Media preview</h3>
+    <h3 id="adminMediaPreviewTitle" data-t="media.previewTitle">Media preview</h3>
     <div id="adminMediaPreviewBody"></div>
     <div class="adm-modal-actions">
-      <button type="button" class="adm-btn-sm" data-adm-preview-close="1">Close preview</button>
+      <button type="button" class="adm-btn-sm" data-adm-preview-close="1" data-t="media.closePreview">Close preview</button>
     </div>
   </div>
 </div>
 
 <input type="file" id="adminGlobalFileInput" style="display:none;" accept="image/*,video/*,audio/*,application/pdf,application/zip,.zip">
 
+<script src="/src/admin-i18n-core.js"></script>
 <script src="/src/portfolio-grid-core.js"></script>
 <script>
 (function(){
@@ -7019,7 +7020,21 @@ en: {
 'dash.dataHealth': 'Data health','dash.healthPublished': 'published','dash.healthNeedAttention': 'need attention','dash.healthMissingThumbs': 'missing thumbnails','dash.healthMissingFiles': 'published without download file','dash.healthMissingForms': 'no request form mapped','dash.healthAboutNeeds': 'About needs contact / profile image','dash.healthTermsReview': 'Terms review recommended','dash.healthLooks': 'looks complete',
 'btn.clearMedia': 'Clear','label.downloadFile': 'Download file','label.downloadFileHint': 'The actual downloadable asset (zip/png/pdf…) — not just an image.','media.previewBroken': 'Media URL may be broken or unreachable.','media.audioBroken': 'This audio file could not be played.',
 'auditf.title': 'Title','auditf.slug': 'Slug','auditf.category': 'Category','auditf.thumbnail': 'Thumbnail','auditf.cover': 'Cover','auditf.description': 'Description','auditf.media': 'Download file','auditf.fileFormat': 'File format','auditf.license': 'License','auditf.availability': 'Availability','auditf.price': 'Price','auditf.form': 'Request form','auditf.name': 'Name','auditf.bio': 'Bio','auditf.content': 'Content','auditf.profileImage': 'Profile image','auditf.contact.email': 'Contact email','auditf.credit': 'Credit requirement','auditf.version': 'Version','auditf.updateNote': 'Update note','auditf.dateAdded': 'Date added','auditf.tags': 'Tags','auditf.date': 'Date','auditf.year': 'Year','auditf.blocks': 'Project content blocks','auditf.chips': 'Chips','auditf.includedFiles': 'Included files','auditf.delivery': 'Delivery estimate','auditf.payment': 'Payment / refund','auditf.edits': 'Edits & feedback','auditf.turnaround': 'Turnaround & deadlines','auditf.formats': 'Files & formats','auditf.copyright': 'Copyright & usage','auditf.artist-rights': 'Artist rights','auditf.contact-method': 'Contact method','auditf.skills': 'Skills','auditf.experience': 'Experience',
-'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.'
+'auditw.no-tags': 'No tags set (recommended).','auditw.no-date': 'No date/year set (recommended).','auditw.no-content-blocks': 'No project content blocks yet.','auditw.record-flagged-placeholder': 'Record is flagged as placeholder.','auditw.published-without-file': 'Published but no downloadable file — visitors cannot get this asset.','auditw.no-form-mapping': 'No request form is mapped to this service.','auditw.no-delivery': 'No delivery estimate set (recommended).','auditw.no-chips': 'No highlight chips set (recommended).','auditw.no-included-files': 'No included-files note set (recommended).','auditw.no-contact-link': 'No contact link found (email/Twitter/links).','auditw.no-contact-method': 'No contact method mentioned.','auditw.raw-email-not-clickable': 'An email appears as plain text — consider making it a clickable mailto link.','auditw.no-skills': 'No skills listed (recommended).','auditw.no-experience': 'No experience entries (recommended).','auditw.few-sections': 'Only a few sections detected.','auditw.thin-content': 'Content is very short.','auditw.missing-section': 'Section not found:','auditw.no-contact-email': 'No contact email set.','auditw.bad-contact-email': 'Contact email format looks invalid.','auditw.no-contact-twitter': 'No Twitter/X link set.','auditw.no-logo': 'No logo set.','auditw.no-hero-media': 'No hero media set.','auditw.no-seo-image': 'No social share image set.',
+/* Batch 1 shared Admin copy: shell + login + shared runtime feedback.
+   Action semantics stay separate on purpose: Delete / Remove / Clear and
+   Move to Trash / Purge are never collapsed into one key. */
+'login.title': 'Atelier Sign In','login.subtitle': 'Sign in with your administrator credentials.','login.email': 'Email','login.password': 'Password','login.submit': 'Sign In','login.back': '← Back to website','login.signingIn': 'Signing in…','login.welcome': 'Welcome back to Atelier!',
+'auth.error.emailRequired': 'Email is required.','auth.error.passwordRequired': 'Password is required.','auth.error.serviceUnavailable': 'Sign-in is not available right now. Reload the page and try again.','auth.error.invalidCredentials': 'Email or password is incorrect.','auth.error.notAuthorized': 'This account is not allowed to manage the website.','auth.error.rateLimited': 'Too many sign-in attempts. Wait a moment and try again.','auth.error.network': 'Cannot reach the sign-in service. Check your connection and try again.','auth.error.generic': 'Login failed. Please try again.',
+'navGroup.overview': 'Overview','navGroup.content': 'Content','navGroup.inbox': 'Inbox','navGroup.pages': 'Pages','navGroup.assets': 'Assets',
+'aria.adminModules': 'Admin modules','aria.openAdminMenu': 'Open admin menu','aria.adminLanguage': 'Admin language','media.previewTitle': 'Media preview','media.closePreview': 'Close preview',
+'lang.switchedVi': 'Admin language: Vietnamese','lang.switchedEn': 'Admin language: English',
+'btn.retry': 'Retry','btn.tryAgain': 'Try again','btn.moveUp': 'Move up','btn.moveDown': 'Move down','btn.remove': 'Remove','btn.replace': 'Replace','btn.clear': 'Clear','btn.select': 'Select',
+'label.loading': 'Loading','label.noResults': 'No results','label.untitled': 'Untitled','label.page': 'Page','label.draft': 'Draft',
+'jump.showList': '▾ Show list','jump.hideList': '▴ Hide list','jump.toEditor': '↓ Editor',
+'color.pickerAria': '{label} picker','color.hexAria': '{label} hex','color.invalid': 'Use a valid #RRGGBB value.',
+'load.serviceUnavailable': 'Admin data service is unavailable. Reload the page and try again.','load.failed': 'Admin data could not be loaded. Try again.',
+'save.error.conflict': 'Conflict: this item was changed in another session. Reload to review the latest version, then save again.','save.error.duplicateSlug': 'Save blocked: this slug is already used by another item. Choose a different slug.','save.error.missingRecord': 'Save blocked: this item no longer exists. Reload the admin data and try again.','save.error.missingField': 'Save blocked: a required field is empty. Fill it in and try again.','save.error.permissionDenied': 'Save blocked: this account is not allowed to make this change.','save.error.notReady': 'Admin data is still loading. Wait for it to finish, then save again.','save.error.noModule': 'Choose an editable section first.','save.error.nothingToSave': 'There is nothing to save.','save.error.serviceUnavailable': 'Saving is unavailable right now. Reload the page and try again.','save.error.protectionUnavailable': 'Save protection is not ready. Wait for the page to finish loading.','save.error.publicRefresh': 'Saved, but the public website could not be refreshed. Reload to retry.','save.error.busy': 'A save is in progress. Wait for it to finish before discarding changes.','save.error.generic': 'Save failed: {message}','error.unknown': 'Unknown error'
 },
 vi: {
 'nav.dashboard': 'Tổng quan','nav.portfolio': 'Portfolio / Dự án','nav.people': 'Mọi người / Khách hàng','nav.assets': 'Tài nguyên miễn phí','nav.commissions': 'Commission','nav.requests': 'Yêu cầu commission','nav.about': 'Giới thiệu','nav.terms': 'Điều khoản dịch vụ','nav.contact': 'Liên hệ / Mạng xã hội','nav.media': 'Thư viện media','nav.cleanup': 'Dọn dẹp Storage','nav.settings': 'Cài đặt website','nav.preview': 'Xem website','nav.signout': 'Đăng xuất',
@@ -7037,7 +7052,18 @@ vi: {
 'dash.dataHealth': 'Sức khỏe dữ liệu','dash.healthPublished': 'đã xuất bản','dash.healthNeedAttention': 'cần chú ý','dash.healthMissingThumbs': 'thiếu thumbnail','dash.healthMissingFiles': 'đã xuất bản nhưng chưa có file tải về','dash.healthMissingForms': 'chưa gắn form yêu cầu','dash.healthAboutNeeds': 'Giới thiệu thiếu liên hệ / ảnh đại diện','dash.healthTermsReview': 'Nên rà soát Điều khoản','dash.healthLooks': 'hoàn chỉnh',
 'btn.clearMedia': 'Xóa URL','label.downloadFile': 'Tệp tải về','label.downloadFileHint': 'Tệp tải về thực tế (zip/png/pdf…) — không chỉ là ảnh.','media.previewBroken': 'URL media có thể hỏng hoặc không truy cập được.','media.audioBroken': 'Không thể phát file âm thanh này.',
 'auditf.title': 'Tiêu đề','auditf.slug': 'Đường dẫn','auditf.category': 'Danh mục','auditf.thumbnail': 'Ảnh thumbnail','auditf.cover': 'Ảnh bìa','auditf.description': 'Mô tả','auditf.media': 'Tệp tải về','auditf.fileFormat': 'Định dạng file','auditf.license': 'Giấy phép','auditf.availability': 'Tình trạng','auditf.price': 'Giá','auditf.form': 'Form yêu cầu','auditf.name': 'Tên','auditf.bio': 'Giới thiệu ngắn','auditf.content': 'Nội dung','auditf.profileImage': 'Ảnh đại diện','auditf.contact.email': 'Email liên hệ','auditf.credit': 'Yêu cầu ghi công','auditf.version': 'Phiên bản','auditf.updateNote': 'Ghi chú cập nhật','auditf.dateAdded': 'Ngày thêm','auditf.tags': 'Thẻ','auditf.date': 'Ngày','auditf.year': 'Năm','auditf.blocks': 'Khối nội dung dự án','auditf.chips': 'Thẻ nổi bật','auditf.includedFiles': 'File đi kèm','auditf.delivery': 'Thời gian giao','auditf.payment': 'Thanh toán / hoàn tiền','auditf.edits': 'Chỉnh sửa & phản hồi','auditf.turnaround': 'Thời gian & deadline','auditf.formats': 'File & định dạng','auditf.copyright': 'Bản quyền & sử dụng','auditf.artist-rights': 'Quyền nghệ sĩ','auditf.contact-method': 'Phương thức liên hệ','auditf.skills': 'Kỹ năng','auditf.experience': 'Kinh nghiệm',
-'auditw.no-tags': 'Chưa có thẻ (nên bổ sung).','auditw.no-date': 'Chưa có ngày/năm (nên bổ sung).','auditw.no-content-blocks': 'Chưa có khối nội dung dự án nào.','auditw.record-flagged-placeholder': 'Mục đang được đánh dấu là placeholder.','auditw.published-without-file': 'Đã xuất bản nhưng chưa có file tải về — khách không thể tải tài nguyên này.','auditw.no-form-mapping': 'Dịch vụ này chưa gắn form yêu cầu nào.','auditw.no-delivery': 'Chưa có thời gian giao dự kiến (nên bổ sung).','auditw.no-chips': 'Chưa có thẻ nổi bật (nên bổ sung).','auditw.no-included-files': 'Chưa có ghi chú file đi kèm (nên bổ sung).','auditw.no-contact-link': 'Không tìm thấy liên kết liên hệ nào (email/Twitter/links).','auditw.no-contact-method': 'Không có phương thức liên hệ nào được nêu.','auditw.raw-email-not-clickable': 'Có email dạng text thường — nên biến thành liên kết mailto để bấm được.','auditw.no-skills': 'Chưa liệt kê kỹ năng (nên bổ sung).','auditw.no-experience': 'Chưa có mục kinh nghiệm (nên bổ sung).','auditw.few-sections': 'Chỉ phát hiện vài mục nhỏ.','auditw.thin-content': 'Nội dung khá ngắn.','auditw.missing-section': 'Không tìm thấy mục:','auditw.no-contact-email': 'Chưa đặt email liên hệ.','auditw.bad-contact-email': 'Định dạng email liên hệ có vẻ không hợp lệ.','auditw.no-contact-twitter': 'Chưa đặt liên kết Twitter/X.','auditw.no-logo': 'Chưa đặt logo.','auditw.no-hero-media': 'Chưa đặt media cho hero.','auditw.no-seo-image': 'Chưa đặt ảnh chia sẻ mạng xã hội (SEO).'
+'auditw.no-tags': 'Chưa có thẻ (nên bổ sung).','auditw.no-date': 'Chưa có ngày/năm (nên bổ sung).','auditw.no-content-blocks': 'Chưa có khối nội dung dự án nào.','auditw.record-flagged-placeholder': 'Mục đang được đánh dấu là placeholder.','auditw.published-without-file': 'Đã xuất bản nhưng chưa có file tải về — khách không thể tải tài nguyên này.','auditw.no-form-mapping': 'Dịch vụ này chưa gắn form yêu cầu nào.','auditw.no-delivery': 'Chưa có thời gian giao dự kiến (nên bổ sung).','auditw.no-chips': 'Chưa có thẻ nổi bật (nên bổ sung).','auditw.no-included-files': 'Chưa có ghi chú file đi kèm (nên bổ sung).','auditw.no-contact-link': 'Không tìm thấy liên kết liên hệ nào (email/Twitter/links).','auditw.no-contact-method': 'Không có phương thức liên hệ nào được nêu.','auditw.raw-email-not-clickable': 'Có email dạng text thường — nên biến thành liên kết mailto để bấm được.','auditw.no-skills': 'Chưa liệt kê kỹ năng (nên bổ sung).','auditw.no-experience': 'Chưa có mục kinh nghiệm (nên bổ sung).','auditw.few-sections': 'Chỉ phát hiện vài mục nhỏ.','auditw.thin-content': 'Nội dung khá ngắn.','auditw.missing-section': 'Không tìm thấy mục:','auditw.no-contact-email': 'Chưa đặt email liên hệ.','auditw.bad-contact-email': 'Định dạng email liên hệ có vẻ không hợp lệ.','auditw.no-contact-twitter': 'Chưa đặt liên kết Twitter/X.','auditw.no-logo': 'Chưa đặt logo.','auditw.no-hero-media': 'Chưa đặt media cho hero.','auditw.no-seo-image': 'Chưa đặt ảnh chia sẻ mạng xã hội (SEO).',
+'login.title': 'Đăng nhập Atelier','login.subtitle': 'Đăng nhập bằng tài khoản quản trị của bạn.','login.email': 'Email','login.password': 'Mật khẩu','login.submit': 'Đăng nhập','login.back': '← Về trang chủ','login.signingIn': 'Đang đăng nhập…','login.welcome': 'Chào mừng trở lại Atelier!',
+'auth.error.emailRequired': 'Vui lòng nhập Email.','auth.error.passwordRequired': 'Vui lòng nhập mật khẩu.','auth.error.serviceUnavailable': 'Hiện chưa thể đăng nhập. Hãy tải lại trang và thử lại.','auth.error.invalidCredentials': 'Email hoặc mật khẩu không đúng.','auth.error.notAuthorized': 'Tài khoản này không được phép quản trị website.','auth.error.rateLimited': 'Bạn đã thử đăng nhập quá nhiều lần. Hãy đợi một chút rồi thử lại.','auth.error.network': 'Không kết nối được dịch vụ đăng nhập. Hãy kiểm tra mạng và thử lại.','auth.error.generic': 'Đăng nhập thất bại. Hãy thử lại.',
+'navGroup.overview': 'Tổng quan','navGroup.content': 'Nội dung','navGroup.inbox': 'Hộp thư','navGroup.pages': 'Trang','navGroup.assets': 'Tài nguyên',
+'aria.adminModules': 'Các mục quản trị','aria.openAdminMenu': 'Mở menu quản trị','aria.adminLanguage': 'Ngôn ngữ Admin','media.previewTitle': 'Xem trước media','media.closePreview': 'Đóng xem trước',
+'lang.switchedVi': 'Ngôn ngữ Admin: Tiếng Việt','lang.switchedEn': 'Ngôn ngữ Admin: Tiếng Anh',
+'btn.retry': 'Thử lại','btn.tryAgain': 'Thử lại','btn.moveUp': 'Di chuyển lên','btn.moveDown': 'Di chuyển xuống','btn.remove': 'Gỡ','btn.replace': 'Thay thế','btn.clear': 'Xóa lựa chọn','btn.select': 'Chọn',
+'label.loading': 'Đang tải','label.noResults': 'Không có kết quả','label.untitled': 'Chưa có tiêu đề','label.page': 'Trang','label.draft': 'Nháp',
+'jump.showList': '▾ Hiện danh sách','jump.hideList': '▴ Ẩn danh sách','jump.toEditor': '↓ Trình soạn thảo',
+'color.pickerAria': '{label} — bảng chọn màu','color.hexAria': '{label} — mã HEX','color.invalid': 'Hãy nhập giá trị #RRGGBB hợp lệ.',
+'load.serviceUnavailable': 'Dịch vụ dữ liệu Admin chưa sẵn sàng. Hãy tải lại trang và thử lại.','load.failed': 'Không tải được dữ liệu Admin. Hãy thử lại.',
+'save.error.conflict': 'Xung đột: mục này đã được thay đổi ở phiên khác. Hãy tải lại để xem bản mới nhất rồi lưu lại.','save.error.duplicateSlug': 'Không lưu được: đường dẫn này đã được dùng cho mục khác. Hãy chọn đường dẫn khác.','save.error.missingRecord': 'Không lưu được: mục này không còn tồn tại. Hãy tải lại dữ liệu Admin rồi thử lại.','save.error.missingField': 'Không lưu được: một trường bắt buộc đang trống. Hãy điền rồi thử lại.','save.error.permissionDenied': 'Không lưu được: tài khoản này không được phép thực hiện thay đổi này.','save.error.notReady': 'Dữ liệu Admin vẫn đang tải. Hãy đợi tải xong rồi lưu lại.','save.error.noModule': 'Hãy chọn một mục có thể chỉnh sửa trước.','save.error.nothingToSave': 'Không có gì để lưu.','save.error.serviceUnavailable': 'Hiện chưa thể lưu. Hãy tải lại trang và thử lại.','save.error.protectionUnavailable': 'Chức năng bảo vệ khi lưu chưa sẵn sàng. Hãy đợi trang tải xong.','save.error.publicRefresh': 'Đã lưu, nhưng chưa làm mới được website công khai. Hãy tải lại để thử lại.','save.error.busy': 'Đang lưu. Hãy đợi hoàn tất trước khi hủy thay đổi.','save.error.generic': 'Lưu thất bại: {message}','error.unknown': 'Lỗi không xác định'
 }
 };
 
@@ -7046,6 +7072,22 @@ var currentAdminLang = 'vi';
 var savedAdminLang = readStore(ADMIN_LANG_KEY);
 if(savedAdminLang === 'vi' || savedAdminLang === 'en') currentAdminLang = savedAdminLang;
 function tAdmin(key){ var dict = ADMIN_I18N[currentAdminLang] || ADMIN_I18N.en; if(dict[key] != null) return dict[key]; if(ADMIN_I18N.en[key] != null) return ADMIN_I18N.en[key]; return key; }
+/* One presentation layer over the existing dictionary. The pure helpers live in
+   src/admin-i18n-core.js; when that module is missing every helper degrades to
+   the plain dictionary lookup instead of breaking the Admin shell. */
+function adminI18nCore(){ try{ return (typeof window !== 'undefined' && window.CrabbieAdminI18n) ? window.CrabbieAdminI18n : null; }catch(e){ return null; } }
+/* Parameterized message: the dictionary keeps `{token}` placeholders, so no
+   Admin code concatenates an English prefix (e.g. 'Save failed: ' + err). */
+function tAdminFmt(key, params){ var core = adminI18nCore(); var template = tAdmin(key); return (core && typeof core.formatAdminMessage === 'function') ? core.formatAdminMessage(template, params) : template; }
+/* Error presentation: a module returns a stable code, the localized sentence
+   comes from the dictionary. Raw internal/provider text is never the primary
+   user-facing message; it stays in the console for debugging. */
+function adminAuthErrorText(result){ var core = adminI18nCore(); var key = (core && typeof core.adminAuthErrorKey === 'function') ? core.adminAuthErrorKey(result && result.code) : 'auth.error.generic'; return tAdmin(key); }
+function adminSaveErrorText(err){ var core = adminI18nCore(); var feedback = (core && typeof core.adminSaveErrorFeedback === 'function') ? core.adminSaveErrorFeedback(err) : { key: 'error.unknown', params: null }; return tAdminFmt(feedback.key, feedback.params); }
+function adminLoadErrorText(code){ var core = adminI18nCore(); var key = (core && typeof core.adminLoadErrorKey === 'function') ? core.adminLoadErrorKey(code) : 'load.failed'; return tAdmin(key); }
+/* Internal save/load failures keep an English `message` for the console and add
+   a stable code the toast maps to localized copy. */
+function adminInternalError(code, message){ var err = new Error(message); err.code = code; return err; }
 ADMIN_I18N.en['load.loading'] = 'Loading live CMS data…';
 ADMIN_I18N.en['load.error'] = 'Live CMS data could not be loaded';
 ADMIN_I18N.en['load.errorHint'] = 'Editing and saving stay disabled until one complete live snapshot loads.';
@@ -7054,7 +7096,15 @@ ADMIN_I18N.vi['load.loading'] = 'Đang tải dữ liệu CMS…';
 ADMIN_I18N.vi['load.error'] = 'Không tải được dữ liệu CMS';
 ADMIN_I18N.vi['load.errorHint'] = 'Chỉnh sửa và lưu bị tạm khóa cho đến khi tải xong toàn bộ dữ liệu thật.';
 ADMIN_I18N.vi['load.retry'] = 'Tải lại';
-function applyAdminLangToDom(root){ (root || document).querySelectorAll('[data-t]').forEach(function(el){ var key = el.getAttribute('data-t'); el.textContent = tAdmin(key); }); }
+/* Text nodes use [data-t]; attribute copy uses the matching data-t-<attribute>
+   hook so an aria-label/title/placeholder is localized by the same dictionary. */
+function applyAdminLangToDom(root){
+var scope = root || document;
+scope.querySelectorAll('[data-t]').forEach(function(el){ var key = el.getAttribute('data-t'); el.textContent = tAdmin(key); });
+scope.querySelectorAll('[data-t-aria-label]').forEach(function(el){ el.setAttribute('aria-label', tAdmin(el.getAttribute('data-t-aria-label'))); });
+scope.querySelectorAll('[data-t-title]').forEach(function(el){ el.setAttribute('title', tAdmin(el.getAttribute('data-t-title'))); });
+scope.querySelectorAll('[data-t-placeholder]').forEach(function(el){ el.setAttribute('placeholder', tAdmin(el.getAttribute('data-t-placeholder'))); });
+}
 function setAdminLang(lang, announce){
 if(lang !== 'vi' && lang !== 'en') lang = 'vi';
 currentAdminLang = lang; store(ADMIN_LANG_KEY, lang);
@@ -7064,7 +7114,7 @@ b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'fals
 });
 applyAdminLangToDom(document);
 if(currentRoute && currentRoute.view === 'admin'){ renderAdmin(currentRoute.adminModule || 'dashboard'); }
-if(announce) toast(lang === 'vi' ? 'Ngôn ngữ Admin: Tiếng Việt' : 'Admin language: English');
+if(announce) toast(tAdmin(lang === 'vi' ? 'lang.switchedVi' : 'lang.switchedEn'));
 }
 document.querySelectorAll('[data-admin-lang]').forEach(function(btn){
 btn.addEventListener('click', function(){ setAdminLang(btn.getAttribute('data-admin-lang'), true); });
@@ -7556,15 +7606,13 @@ return subject ? clone(subject) : null;
    reconcile helper module is unavailable. */
 function reconcilePersistedTarget(target, captured, result){
 var api = window.CrabbiePersistedBaseline;
-if(!(api && typeof api.reconcileSavedTarget === 'function')) throw new Error('Admin persistence service is unavailable.');
+if(!(api && typeof api.reconcileSavedTarget === 'function')) throw adminInternalError('admin_service_unavailable', 'Admin persistence service is unavailable.');
 return api.reconcileSavedTarget(ADMIN_DATA, target, captured, result);
 }
-function adminSaveErrorMessage(err){
-var code = err && err.code;
-if(code === 'stale_save') return 'Conflict: ' + err.message;
-if(code === 'duplicate_slug' || code === 'missing_record' || code === 'permission_denied' || code === 'missing_field') return 'Save blocked: ' + err.message;
-return 'Save failed: ' + (err && err.message ? err.message : 'Unknown error');
-}
+/* Save feedback is localized: the stable error code selects the sentence, and
+   the unclassified case is parameterized (`save.error.generic`) instead of an
+   English prefix glued to a raw message. Internal detail stays in console.error. */
+function adminSaveErrorMessage(err){ return adminSaveErrorText(err); }
 function adminSaveTransactionActive(){
 var flight = window.CrabbieAdminSaveFlight;
 return Boolean(flight && flight.active);
@@ -7584,7 +7632,7 @@ $$('[data-adm-save], [data-adm-discard], [data-adm-path], [data-adm-new], [data-
 async function startAdminSave(msg, scope){
 var flight = window.CrabbieAdminSaveFlight;
 if(!(flight && typeof flight.run === 'function')){
-  toast('Admin save protection is unavailable. Please wait for the page to finish loading.');
+  toast(tAdmin('save.error.protectionUnavailable'));
   return { started:false };
 }
 var result = await flight.run(function(){ return doSaveCommit(msg, scope); });
@@ -7600,12 +7648,12 @@ async function doSaveCommit(msg, scope){
     requireAdminReady();
     var crud = window.CrabbieAdminCrud;
     if(!(crud && crud.saveRecord && crud.saveOrder && crud.saveSettings)){
-      throw new Error('Admin persistence service is unavailable.');
+      throw adminInternalError('admin_service_unavailable', 'Admin persistence service is unavailable.');
     }
-    if(!scope || scope === 'dashboard' || scope === 'media') throw new Error('No editable module selected.');
+    if(!scope || scope === 'dashboard' || scope === 'media') throw adminInternalError('no_editable_module', 'No editable module selected.');
     /* One save writes only the targets the user actually touched. */
     var targets = adminSaveTargetsForScope(scope);
-    if(!targets.length) throw new Error('Nothing to save.');
+    if(!targets.length) throw adminInternalError('nothing_to_save', 'Nothing to save.');
     /* Revision token: edits made after this point must stay dirty even
        though the in-flight write succeeds. */
     var saveStartRevision = ADMIN_UI.draftRevision;
@@ -7760,15 +7808,15 @@ async function doSaveCommit(msg, scope){
     toast(saveChangedMidFlight ? tAdmin('toast.savedPending') : (msg || tAdmin('toast.saved')));
   } catch(err){
     console.error('Saved, but public refresh failed:', err);
-    toast('Saved, but public refresh failed. Reload to retry.');
+    toast(tAdmin('save.error.publicRefresh'));
   }
 }
-function doDiscard(){ if(adminSaveTransactionActive()){ toast('Save in progress. Wait for it to finish before discarding changes.'); return false; } ADMIN_DRAFT = clone(ADMIN_DATA); resetAdminDirtyState(); setAdminSaveStatus('saved'); refreshStickySaveBar(); return true; }
+function doDiscard(){ if(adminSaveTransactionActive()){ toast(tAdmin('save.error.busy')); return false; } ADMIN_DRAFT = clone(ADMIN_DATA); resetAdminDirtyState(); setAdminSaveStatus('saved'); refreshStickySaveBar(); return true; }
 function refreshStickySaveBar(){ var bar = document.getElementById('admStickySave'); if(!bar) return; if(ADMIN_UI.dirty) bar.classList.add('visible'); else bar.classList.remove('visible'); }
 /* ---------- Admin draft safety: one live snapshot, one load state ---------- */
 var lastAppliedHash = null;
 function requireAdminReady(){
-if(ADMIN_UI.loadState !== 'ready') throw new Error('Admin data is not ready for mutation.');
+if(ADMIN_UI.loadState !== 'ready') throw adminInternalError('admin_not_ready', 'Admin data is not ready for mutation.');
 if(window.CrabbieAdminCrud && window.CrabbieAdminCrud.assertAdminReadyForMutation) window.CrabbieAdminCrud.assertAdminReadyForMutation();
 }
 function applyAdminLoadStateToShell(){
@@ -7807,7 +7855,7 @@ if(ADMIN_UI.loadState === 'loading' && !ADMIN_UI.hydrationPendingCrud) return fa
 ADMIN_UI.hydrationPendingCrud = false;
 if(!(window.CrabbieAdminCrud && window.CrabbieAdminCrud.loadAllAdminData)){
 if(window.__crabbieCrudLoadError){
-setAdminLoadState('error', 'Admin data service is unavailable.');
+setAdminLoadState('error', adminLoadErrorText('service_unavailable'));
 renderAdminRoute();
 return false;
 }
@@ -7850,7 +7898,7 @@ renderAdminRoute();
 return true;
 }catch(err){
 console.error('Admin hydration failed:', err);
-setAdminLoadState('error', err && err.message ? err.message : 'Unknown error');
+setAdminLoadState('error', adminLoadErrorText('hydration_failed'));
 renderAdminRoute();
 return false;
 }
@@ -7897,7 +7945,7 @@ renderAdminLoadStatePanel();
 }
 
 function confirmDiscard(onOk){
-if(adminSaveTransactionActive()){ toast('Save in progress. Wait for it to finish before discarding changes.'); return; }
+if(adminSaveTransactionActive()){ toast(tAdmin('save.error.busy')); return; }
 if(!ADMIN_UI.dirty){ onOk && onOk(); return; }
 var modal = document.getElementById('adminConfirmModal'); if(!modal){ onOk && onOk(); return; }
 var titleEl = document.getElementById('adminConfirmTitle'); var bodyEl = document.getElementById('adminConfirmBody');
@@ -8028,9 +8076,9 @@ var fallback = opts.default || (key && APPEARANCE_COLOR_DEFAULTS[key]) || '#0000
 var v = validStored || fallback;
 var pairId = 'cp-' + Math.random().toString(36).slice(2,7);
 return '<div class="adm-field" data-adm-color-field="' + esc(pairId) + '"><span class="af-label">' + esc(label) + '</span>' +
-  '<input type="color" data-adm-path="' + esc(path) + '" data-adm-color-picker="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" aria-label="' + esc(label) + ' picker">' +
-  '<input type="text" data-adm-path="' + esc(path) + '" data-adm-color-text="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" spellcheck="false" autocomplete="off" inputmode="text" aria-label="' + esc(label) + ' hex" aria-invalid="false">' +
-  '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>Use a valid #RRGGBB value.</span></div>';
+  '<input type="color" data-adm-path="' + esc(path) + '" data-adm-color-picker="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" aria-label="' + esc(tAdminFmt('color.pickerAria', { label: label })) + '">' +
+  '<input type="text" data-adm-path="' + esc(path) + '" data-adm-color-text="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(v) + '" spellcheck="false" autocomplete="off" inputmode="text" aria-label="' + esc(tAdminFmt('color.hexAria', { label: label })) + '" aria-invalid="false">' +
+  '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>' + esc(tAdmin('color.invalid')) + '</span></div>';
 }
 function setColorFieldInvalid(pairId, invalid){
   if(!adminContent || !pairId) return;
@@ -9863,7 +9911,7 @@ function inputAdvancedColor(group, key, base){
     '<input type="color" data-adm-path="' + esc(path) + '" data-adm-color-picker="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(shown) + '" aria-labelledby="advlab-' + esc(group + '-' + key) + '" data-adm-adv-focus="' + esc(group + '.' + key) + '">' +
     '<input type="text" data-adm-path="' + esc(path) + '" data-adm-color-text="' + esc(path) + '" data-adm-color-pair="' + pairId + '" value="' + esc(shown) + '" spellcheck="false" autocomplete="off" inputmode="text" aria-labelledby="advlab-' + esc(group + '-' + key) + '" aria-invalid="false" data-adm-adv-focus="' + esc(group + '.' + key) + '">' +
     '</div>' +
-    '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>Use a valid #RRGGBB value.</span></div>' +
+    '<span class="af-hint" data-adm-color-error="' + esc(pairId) + '" role="status" hidden>' + esc(tAdmin('color.invalid')) + '</span></div>' +
     '<span class="adm-adv-state" data-adm-adv-state>' + esc(state) + '</span>' +
     '<div class="adm-adv-field-actions"><button type="button" class="adm-btn-sm" data-adm-adv-inherit="' + esc(group + '.' + key) + '" data-adm-adv-focus="' + esc(group + '.' + key) + '" aria-label="Use inherited color for ' + esc(role.label) + '">Use inherited</button></div>' +
   '</div>';
@@ -10157,7 +10205,7 @@ adminContent.addEventListener('click', function(event){
   var split = btn.closest('.adm-split'); if(!split) return;
   if(action === 'toggle-list'){
     var collapsed = split.classList.toggle('list-collapsed');
-    btn.textContent = collapsed ? '▾ Show list' : '▴ Hide list';
+    btn.textContent = tAdmin(collapsed ? 'jump.showList' : 'jump.hideList');
     btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     return;
   }
@@ -10175,8 +10223,8 @@ Array.prototype.forEach.call(adminContent.querySelectorAll('.adm-split'), functi
   var list = split.querySelector('.adm-list'); if(!list || list.querySelector('.adm-jumpbar')) return;
   var bar = document.createElement('div');
   bar.className = 'adm-jumpbar';
-  bar.innerHTML = '<button type="button" class="adm-btn-sm" data-adm-jump="toggle-list" aria-expanded="true">▴ Hide list</button>' +
-    '<button type="button" class="adm-btn-sm primary" data-adm-jump="to-editor">↓ Editor</button>';
+  bar.innerHTML = '<button type="button" class="adm-btn-sm" data-adm-jump="toggle-list" aria-expanded="true">' + esc(tAdmin('jump.hideList')) + '</button>' +
+    '<button type="button" class="adm-btn-sm primary" data-adm-jump="to-editor">' + esc(tAdmin('jump.toEditor')) + '</button>';
   list.insertBefore(bar, list.firstChild);
 });
 }
@@ -11842,7 +11890,7 @@ var descriptor = typeof media.previewDescriptor === 'function'
 var rows = typeof media.mediaMetadataRows === 'function' ? media.mediaMetadataRows(item) : [];
 var meta = rows.map(function(row){ return '<div class="adm-preview-row"><span>' + esc(row.label) + '</span><span>' + esc(row.value) + '</span></div>'; }).join('');
 return '<div class="adm-preview" data-adm-preview-kind="' + esc(descriptor.kind) + '" data-adm-preview-id="' + esc(item.id) + '">' +
-  '<div class="adm-preview-head"><h3>' + esc(item.title || 'Media preview') + '</h3><span class="af-hint">' + esc(descriptor.kind) + '</span><button type="button" class="adm-preview-close" data-adm-preview-close-top="1" aria-label="Close preview">✕</button></div>' +
+  '<div class="adm-preview-head"><h3>' + esc(item.title || tAdmin('media.previewTitle')) + '</h3><span class="af-hint">' + esc(descriptor.kind) + '</span><button type="button" class="adm-preview-close" data-adm-preview-close-top="1" aria-label="' + esc(tAdmin('media.closePreview')) + '">✕</button></div>' +
   '<div class="adm-preview-body"><div data-adm-preview-url="' + esc(descriptor.original) + '">' + mediaPreviewVisualHtml(item, descriptor) + '</div></div>' +
   '<div class="adm-preview-side">' + meta +
     '<label class="adm-field"><span class="af-label">Alt text</span><input type="text" data-adm-preview-alt="1" value="' + esc(item.alt || '') + '" aria-label="Alt text"></label>' +
@@ -12274,21 +12322,28 @@ if(loginForm && loginForm.dataset.authWired !== '1'){
     var passEl = document.getElementById('adminPassword');
     var errEl = document.getElementById('adminLoginError');
     var btn = document.getElementById('adminLoginBtn');
+    /* One presentation path for every sign-in failure: the auth service returns a
+       stable code, the dictionary owns the sentence. Raw provider/internal text
+       stays in the console and never becomes the primary user-facing message. */
+    var showFailure = function(result){
+      if(result && result.error) console.warn('Admin sign-in failed (internal detail):', result.error);
+      if(errEl){ errEl.textContent = adminAuthErrorText(result); errEl.style.display = 'block'; }
+    };
     if(errEl){ errEl.style.display = 'none'; errEl.textContent = ''; }
-    if(btn){ btn.disabled = true; btn.textContent = 'Signing in…'; }
+    if(btn){ btn.disabled = true; btn.textContent = tAdmin('login.signingIn'); }
     try {
-      if(!window.CrabbieAuthService) throw new Error('Auth service not ready yet.');
+      if(!window.CrabbieAuthService){ showFailure({ code: 'service_unavailable', error: 'Auth service not ready yet.' }); return; }
       var res = await window.CrabbieAuthService.login(emailEl ? emailEl.value : '', passEl ? passEl.value : '');
       if(!res.success){
-        if(errEl){ errEl.textContent = res.error || 'Login failed'; errEl.style.display = 'block'; }
+        showFailure(res);
       } else {
         if(passEl) passEl.value = '';
-        toast('Welcome back to Atelier!');
+        toast(tAdmin('login.welcome'));
       }
     } catch(err){
-      if(errEl){ errEl.textContent = err.message || 'Login error'; errEl.style.display = 'block'; }
+      showFailure({ code: 'unknown', error: (err && err.message) ? err.message : String(err) });
     } finally {
-      if(btn){ btn.disabled = false; btn.textContent = 'Sign In'; }
+      if(btn){ btn.disabled = false; btn.textContent = tAdmin('login.submit'); }
     }
   });
 }

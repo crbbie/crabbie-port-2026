@@ -269,6 +269,39 @@ Reference these with absolute paths (for example
 
 Do not create server endpoints merely to mirror browser-safe public Supabase queries. Add server-side APIs when privileged credentials, secret integrations, or trusted server execution are actually required.
 
+## Admin presentation i18n
+
+There is exactly one Admin dictionary: `ADMIN_I18N.en` / `ADMIN_I18N.vi` in
+`crabbie-port26.html`, read through `tAdmin(key)` / `tAdminFmt(key, params)` and
+applied to the DOM by `applyAdminLangToDom()`:
+
+- text nodes: `data-t="<key>"`;
+- attribute copy: `data-t-aria-label`, `data-t-title`, `data-t-placeholder`;
+- every key exists in both locales (enforced by `src/admin-i18n-shell.test.mjs`).
+
+Pure presentation helpers live in `src/admin-i18n-core.js`
+(`window.CrabbieAdminI18n`): the `{token}` formatter used by `tAdminFmt`, and the
+stable code → i18n key routing for auth, load and save feedback. Browser
+wiring/DOM logic stays in the SPA, never in the core module.
+
+```text
+core module / provider message → stable code (e.g. stale_save) →
+adminSaveErrorFeedback/adminAuthErrorKey/adminLoadErrorKey → key →
+tAdmin/tAdminFmt → localized sentence (raw detail only in console)
+```
+
+Rules:
+
+- never build user-facing copy by concatenating an English prefix
+  (`'Save failed: ' + err`); use a parameterized dictionary entry;
+- never surface raw provider/internal text as the primary message;
+- stored values, ids, status codes and option values are never translated, and
+  the Admin locale is stored separately (`crabbie.admin.lang`);
+- switching locale is presentation-only: it must not dirty, clean or rewrite the
+  draft, and it writes only the locale key;
+- action semantics stay separate keys (`Delete` / `Remove` / `Clear`,
+  `Move to Trash` / `Purge` are never collapsed into one).
+
 ## External runtime dependencies
 
 - Google Fonts

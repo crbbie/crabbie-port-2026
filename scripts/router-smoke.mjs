@@ -498,6 +498,42 @@ try {
   if (!diagnose && !livePublic) {
     await page.goto(origin + '/admin', {waitUntil: 'load'});
     await page.waitForFunction(() => Boolean(window.CrabbieAuthService));
+
+    // ---- Batch 1 i18n: the login card renders dictionary copy --------------
+    // A fresh session defaults to VI, so the shipped EN defaults must be
+    // replaced by the VI dictionary entries before the card is usable.
+    const loginCopy = () => page.evaluate(() => ({
+      title: document.querySelector('#adminLoginShell h2').textContent,
+      subtitle: document.querySelector('#adminLoginShell .al-brand p').textContent,
+      email: document.querySelector('label[for="adminEmail"]').textContent,
+      password: document.querySelector('label[for="adminPassword"]').textContent,
+      submit: document.getElementById('adminLoginBtn').textContent,
+      back: document.querySelector('.al-back').textContent
+    }));
+    assert.deepEqual(await loginCopy(), {
+      title: 'Đăng nhập Atelier',
+      subtitle: 'Đăng nhập bằng tài khoản quản trị của bạn.',
+      email: 'Email',
+      password: 'Mật khẩu',
+      submit: 'Đăng nhập',
+      back: '← Về trang chủ'
+    }, 'the login card renders the VI dictionary copy');
+    // Missing credentials are reported in the active locale, and never reach the
+    // auth service (no wasted request, no raw English error text).
+    await page.locator('#adminEmail').fill('');
+    await page.locator('#adminPassword').fill('');
+    await page.locator('#adminLoginBtn').click();
+    await page.waitForFunction(() => !document.getElementById('adminLoginBtn').disabled);
+    await page.locator('#adminLoginError').waitFor({state: 'visible'});
+    assert.equal(await page.locator('#adminLoginError').innerText(), 'Vui lòng nhập Email.');
+    assert.equal(await page.evaluate(() => window.__routerLoginCalls || 0), 0, 'a missing email never calls the auth service');
+    await page.locator('#adminEmail').fill('admin@example.test');
+    await page.locator('#adminLoginBtn').click();
+    await page.waitForFunction(() => !document.getElementById('adminLoginBtn').disabled);
+    assert.equal(await page.locator('#adminLoginError').innerText(), 'Vui lòng nhập mật khẩu.');
+    assert.equal(await page.evaluate(() => window.__routerLoginCalls || 0), 0, 'a missing password never calls the auth service');
+    await page.locator('#adminEmail').fill('');
+
     for (const email of ['invalid@example.test', 'member@example.test', 'admin@example.test']) {
       await page.locator('#adminEmail').fill(email);
       await page.locator('#adminPassword').fill('synthetic-router-test-password');
@@ -510,9 +546,39 @@ try {
         assert.equal(await page.locator('#adminLoginShell').isVisible(), true);
         assert.equal(await page.locator('#adminRealShell').isVisible(), false);
         assert.equal(await page.locator('#adminLoginError').isVisible(), true);
+        const expectedFailure = email === 'invalid@example.test'
+          ? 'Email hoặc mật khẩu không đúng.'
+          : 'Tài khoản này không được phép quản trị website.';
+        assert.equal(await page.locator('#adminLoginError').innerText(), expectedFailure, 'the sign-in failure is localized and actionable');
       }
     }
     assert.equal(await page.evaluate(() => window.__routerLoginCalls), 3, 'Each submit must have exactly one listener');
+
+    // ---- Batch 1 i18n: the shell renders dictionary copy in both locales ----
+    const shellCopy = () => page.evaluate(() => ({
+      modules: document.getElementById('adminSidebar').getAttribute('aria-label'),
+      burger: document.getElementById('adminBurger').getAttribute('aria-label'),
+      language: document.querySelector('.adm-lang').getAttribute('aria-label'),
+      groups: Array.from(document.querySelectorAll('#adminNav .an-group')).map((el) => el.textContent),
+      save: document.getElementById('adminTopSave').textContent
+    }));
+    await page.locator('[data-admin-lang="en"]').click();
+    assert.deepEqual(await shellCopy(), {
+      modules: 'Admin modules',
+      burger: 'Open admin menu',
+      language: 'Admin language',
+      groups: ['Overview', 'Content', 'Inbox', 'Pages', 'Assets'],
+      save: 'Save Changes'
+    }, 'the EN locale renders the shipped shell copy');
+    await page.locator('[data-admin-lang="vi"]').click();
+    assert.deepEqual(await shellCopy(), {
+      modules: 'Các mục quản trị',
+      burger: 'Mở menu quản trị',
+      language: 'Ngôn ngữ Admin',
+      groups: ['Tổng quan', 'Nội dung', 'Hộp thư', 'Trang', 'Tài nguyên'],
+      save: 'Lưu thay đổi'
+    }, 'the VI locale localizes every shell label including aria copy');
+    assert.equal(await page.evaluate(() => document.getElementById('adminTopSave').disabled), false, 'the localized Save control keeps its enabled state');
 
     // Admin "Preview website" is an external-style escape hatch: it must open
     // the public root in a new tab and leave the current admin route untouched.
@@ -905,6 +971,15 @@ try {
     await loginAdmin();
     await page.locator('#adminLoadState[data-load-state="error"]').waitFor({state: 'visible'});
     assert.equal(await page.evaluate(() => window.CrabbieAdminCrud.getAdminLoadState()), 'error');
+    // Batch 1 i18n: a failed hydration shows one localized actionable sentence.
+    // The internal reason stays in the console; no raw/diagnostic text leaks in.
+    const loadErrorMessage = await page.locator('#adminLoadState .af-hint').first().innerText();
+    assert.equal(
+      ['Không tải được dữ liệu Admin. Hãy thử lại.', 'Admin data could not be loaded. Try again.'].includes(loadErrorMessage),
+      true,
+      'the load failure is localized in the active Admin locale: ' + loadErrorMessage
+    );
+    assert.doesNotMatch(loadErrorMessage, /snapshot|hydration|cms_categories|relation/, 'internal terminology never reaches the user');
     assert.equal(await page.locator('[data-adm-save]').count(), 0, 'Failed hydration must not expose Save controls');
     assert.equal(await page.locator('[data-adm-path]').count(), 0, 'Failed hydration must not render editors over prototype data');
     assert.equal(await page.locator('#adminTopSave').isVisible(), false, 'Failed hydration must hide the top Save button');
@@ -1062,6 +1137,9 @@ try {
       el.classList.remove('show');
       el.textContent = '';
     });
+    // Localized feedback is asserted against the locale that is actually active:
+    // both dictionaries must produce the same message, never an English literal.
+    const activeAdminLang = () => page.locator('[data-admin-lang][aria-pressed="true"]').getAttribute('data-admin-lang');
     const readToast = async () => {
       await page.waitForFunction(() => {
         const el = document.getElementById('toast');
@@ -1072,6 +1150,22 @@ try {
 
     // Test 1 + Test 5: one portfolio edit updates only that row, by DB id.
     await goToAdminModule('portfolio');
+
+    // Batch 1 i18n: switching the Admin locale is presentation-only. It must not
+    // dirty or clean the draft, change the unsaved value, or write to the DB.
+    await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Locale switch draft');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the edit is dirty before the switch');
+    await page.evaluate(() => { window.__routerWrites = []; });
+    await page.locator('[data-admin-lang="en"]').click();
+    assert.equal(await page.evaluate(() => document.getElementById('adminTopSave').textContent), 'Save Changes', 'the switch re-renders the shell in the new locale');
+    await page.locator('[data-admin-lang="vi"]').click();
+    assert.equal(await page.evaluate(() => document.getElementById('adminTopSave').textContent), 'Lưu thay đổi', 'switching back restores the VI copy');
+    assert.equal(await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').inputValue(), 'Locale switch draft', 'the unsaved draft value survives a locale switch');
+    assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays dirty across a locale switch');
+    assert.deepEqual(await page.evaluate(() => window.__routerWrites), [], 'a locale switch never writes to the database');
+    assert.equal(await page.evaluate(() => window.localStorage.getItem('crabbie.admin.lang')), 'vi', 'the switch stores the locale setting only');
+    console.log('PASS a locale switch keeps the unsaved draft, its dirty state and the stored data untouched');
+
     await page.locator('[data-adm-path="portfolio.color-fiesta.title"]').fill('Edited once');
     await page.evaluate(() => { window.__routerWrites = []; });
     await page.locator('#adminTopSave').click();
@@ -1232,7 +1326,8 @@ try {
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
     await page.locator('#adminTopSave').click();
-    assert.match(await readToast(), /already used/i, 'a duplicate slug surfaces a clear conflict message');
+    const duplicateCopy = (await activeAdminLang()) === 'vi' ? /đã được dùng/i : /already used/i;
+    assert.match(await readToast(), duplicateCopy, 'a duplicate slug surfaces a clear, localized conflict message');
     assert.equal(await page.locator('[data-adm-path="' + duplicatePath + '.slug"]').inputValue(), 'second-project', 'the generated duplicate slug is preserved in the unsaved draft');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the draft stays unsaved after a rejected insert');
     assert.deepEqual(await page.evaluate(() => window.__routerRows.portfolio_projects.filter(r => r.slug === 'second-project').map(r => r.title)), ['Second project'], 'the existing row is untouched');
@@ -1402,7 +1497,8 @@ try {
     await page.evaluate(() => { window.__routerWrites = []; });
     await clearToast();
     await page.locator('#adminTopSave').click();
-    assert.match(await readToast(), /Conflict/i, 'a stale settings save reports the same conflict as records');
+    const conflictCopy = (await activeAdminLang()) === 'vi' ? /Xung đột/i : /Conflict/i;
+    assert.match(await readToast(), conflictCopy, 'a stale settings save reports the same localized conflict as records');
     assert.equal(await page.locator('[data-adm-path="settings.branding.title"]').inputValue(), 'MY STALE EDIT', 'the stale settings draft is preserved');
     assert.match(await page.evaluate(() => document.getElementById('adminSaveStatus').className), /dirty/, 'the stale settings draft stays dirty');
     assert.deepEqual(await settingsRow(), { title: 'OTHER SESSION', updated_at: '2026-09-09T00:00:00Z' }, 'the newer stored value is not overwritten');
