@@ -3567,16 +3567,30 @@ try {
     assert.equal(appearanceApplied.heroColor, 'rgb(18, 52, 86)', 'the hero heading follows the display token');
     assert.match(appearanceApplied.bg, /bg\.jpg/, 'the website background image is applied');
     assert.match(appearanceApplied.bg, /rgba\(255,255,255,0\.4\)/, 'the background overlay opacity is applied');
-    // Clearing the image restores the default pastel background; removing the
-    // tokens restores the palette defaults so later passes are unaffected.
+    // Explicit solid and gradient modes render through the same shared engine.
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: { backgroundMode: 'solid', background: '#123456' } });
+    });
+    let authoredBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.match(authoredBg, /background:#123456 !important/, 'solid background mode publishes the authored color');
+    await page.evaluate(() => {
+      window.CrabbieSiteContent.apply(null, null, { theme: {
+        backgroundMode: 'gradient', backgroundGradientStart: '#112233',
+        backgroundGradientEnd: '#aabbcc', backgroundGradientAngle: 45
+      } });
+    });
+    authoredBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
+    assert.match(authoredBg, /linear-gradient\(45deg,#112233 0%,#aabbcc 100%\)/, 'gradient background mode publishes both colors and angle');
+    // Legacy no-mode + no-image remains the original site default; removing
+    // semantic tokens restores the palette defaults so later passes are unaffected.
     await page.evaluate(() => {
       window.CrabbieSiteContent.apply(null, null, { theme: { backgroundImage: '' } });
       ['--text-display', '--text-accent', '--text-body', '--text-decorative', '--text-muted', '--text-field-label']
         .forEach((key) => document.body.style.removeProperty(key));
     });
     const clearedBg = await page.evaluate(() => (document.getElementById('cmsBackgroundStyle') || {}).textContent || '');
-    assert.equal(clearedBg.trim(), '', 'clearing the background image removes the override style');
-    console.log('PASS appearance color tokens and website background image apply and clear (SDK fixture)');
+    assert.equal(clearedBg.trim(), '', 'legacy empty background settings restore the built-in pastel background');
+    console.log('PASS appearance color tokens plus image, solid and gradient backgrounds apply correctly (SDK fixture)');
 
     // ---- Motion runtime: falling candy + desktop pet (SDK fixture) ----
     assert.ok(await page.evaluate(() => { try { return Boolean(localStorage.getItem('crabbie:appearance')); } catch (e) { return false; } }), 'the appearance snapshot is cached for the next first paint');
@@ -4527,7 +4541,20 @@ try {
     await page.waitForSelector('[data-adm-appearance-preview="1"]');
     assert.equal(await page.locator('[data-adm-path="settings.theme.displayColor"]').count(), 2, 'each role token exposes a color picker + hex input');
     assert.equal(await page.locator('[data-adm-path="settings.theme.fieldLabelColor"]').count(), 2, 'the question/field-label colour has a picker + hex input');
-    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'the website background uses the media picker');
+    const bgModeControl = page.locator('[data-adm-path="settings.theme.backgroundMode"]');
+    assert.equal(await bgModeControl.count(), 1, 'Appearance exposes one background mode selector');
+    await bgModeControl.selectOption('solid');
+    await page.waitForSelector('[data-adm-path="settings.theme.background"][type="text"]');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 0, 'solid mode hides image-only controls');
+    await page.locator('[data-adm-path="settings.theme.background"][type="text"]').fill('#123456');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-adm-appearance-preview="1"]')).backgroundColor), 'rgb(18, 52, 86)', 'solid background updates Live Preview before save');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('gradient');
+    await page.waitForSelector('[data-adm-path="settings.theme.backgroundGradientStart"][type="text"]');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientEnd"]').count(), 2, 'gradient mode exposes start/end picker + HEX pairs');
+    assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundGradientAngle"]').count(), 1, 'gradient mode exposes an angle control');
+    await page.locator('[data-adm-path="settings.theme.backgroundMode"]').selectOption('image');
+    await page.waitForSelector('[data-adm-mediabrowse="settings.theme.backgroundImage"]');
+    assert.equal(await page.locator('[data-adm-mediabrowse="settings.theme.backgroundImage"]').count(), 1, 'image mode uses the media picker');
     assert.equal(await page.locator('[data-adm-path="settings.theme.backgroundImage"]').count(), 0, 'the background image is picker-only, never a raw URL input');
     // Mobile admin: short controls keep two columns without horizontal overflow.
     await page.setViewportSize({ width: 390, height: 844 });
@@ -4557,7 +4584,7 @@ try {
     await page.locator('[data-adm-palette-del]').click();
     await page.waitForTimeout(150);
     assert.equal(await page.locator('[data-adm-palette-card]').count(), 0, 'a palette can be deleted');
-    console.log('PASS admin Appearance exposes role tokens, a live preview, the background media picker and saved palettes (SDK fixture)');
+    console.log('PASS admin Appearance exposes role tokens, background modes, truthful live preview and saved palettes (SDK fixture)');
 
     // ---- Appearance Phase 1: validated color fields, truthful preview, authoritative theme ----
     const phase1Display = page.locator('[data-adm-path="settings.theme.displayColor"][type="text"]');
