@@ -4,6 +4,3 @@ node_modules/
 .vercel/
 # Temporary local router smoke-test output; never commit test logs.
 router-run.tmp.txt
-# Admin UX visual QA output (screenshots + measurement logs); regenerate with
-# `node scripts/admin-ux-screenshots.mjs --label=after --measure`.
-artifacts/

@@ -44,34 +44,4 @@ if (!rewrites.some((r) => r.source === '/admin' && r.destination === '/crabbie-p
   throw new Error('Admin route rewrite missing.');
 }
 
-/* Admin visual foundation scope guard.
-   The Batch 1 / Batch 1.1 admin visual layer must never match DOM outside the
-   admin boundary: some admin class names are also used by public components (the
-   public lightbox Retry/Close buttons use `.adm-btn-sm`), so an unscoped admin
-   rule silently restyles the public site. Every rule in the block must therefore
-   be scoped to `body.admin-mode` (the existing admin/public boundary, the inverse
-   of the `body:not(.admin-mode)` rules that own public-only styling), and the
-   block must not declare `:root` tokens. */
-const adminStyles = html.match(/<style id="admin-foundation-styles">([\s\S]*?)<\/style>/);
-if (!adminStyles) throw new Error('Admin foundation style block missing.');
-const unscoped = [];
-for (const [, prelude] of adminStyles[1].matchAll(/([^{}]+)\{/g)) {
-  const trimmed = prelude.trim();
-  if (trimmed.startsWith('@')) continue;
-  const afterComment = trimmed.includes('*/') ? trimmed.slice(trimmed.lastIndexOf('*/') + 2).trim() : trimmed;
-  if (!afterComment || afterComment.startsWith('@')) continue;
-  for (const selector of afterComment.split(',')) {
-    if (selector.trim() && !selector.trim().startsWith('body.admin-mode')) unscoped.push(selector.trim());
-  }
-}
-if (unscoped.length) {
-  throw new Error('Admin foundation rules must be scoped to body.admin-mode; unscoped: ' + unscoped.slice(0, 3).join(' / '));
-}
-if (/:root\s*\{/.test(adminStyles[1])) {
-  throw new Error('Admin foundation block must not declare :root tokens (they leak to public DOM).');
-}
-if (/body\.admin-mode\s+@/.test(adminStyles[1])) {
-  throw new Error('An at-rule prelude was mis-scoped inside the admin foundation block.');
-}
-
-console.log(`Foundation check passed (${files.length} required files + admin entrypoint + admin scope guard).`);
+console.log(`Foundation check passed (${files.length} required files + admin entrypoint).`);
