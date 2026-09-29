@@ -7425,6 +7425,22 @@ function setByPath(obj, path, value){
 function readControlValue(el){ if(!el) return undefined; if(el.type === 'checkbox') return !!el.checked; if(el.type === 'radio') return el.checked ? el.value : undefined; if(el.type === 'number' || el.type === 'range'){ var n = parseFloat(el.value); return isNaN(n) ? '' : n; } return el.value; }
 function applyPathToControl(el, path){
   var v = getByPath(ADMIN_DRAFT, path);
+  /* Background controls may intentionally have no stored leaf yet. Render
+     their canonical resolved value without materializing defaults into the
+     draft/database; authored changes still persist through the normal input
+     controller below. */
+  if(path === 'settings.theme.backgroundMode'){
+    el.value = appearanceBackgroundModeValue();
+    return;
+  }
+  if(path === 'settings.theme.backgroundGradientAngle'){
+    el.value = String(appearanceGradientAngleValue());
+    return;
+  }
+  if(path === 'settings.theme.backgroundOverlay'){
+    el.value = String(appearanceOverlayValue());
+    return;
+  }
   /* Color pairs never render blank for an absent key: they show the resolved
      canonical default (the same color Live Preview shows) without persisting
      it. Invalid stored values also fall back to the resolved default. */
