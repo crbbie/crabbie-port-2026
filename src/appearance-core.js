@@ -31,6 +31,8 @@
      Live Preview and the public site show. */
   var APPEARANCE_DEFAULTS = Object.freeze({
     background: '#fffafc',
+    backgroundGradientStart: '#fdeadd',
+    backgroundGradientEnd: '#edd1ff',
     pink: '#f6a3cf',
     lavender: '#ca9cf5',
     displayColor: '#7a3d6e',
@@ -43,6 +45,8 @@
 
   var COLOR_KEYS = Object.freeze([
     'background',
+    'backgroundGradientStart',
+    'backgroundGradientEnd',
     'pink',
     'lavender',
     'displayColor',
@@ -70,6 +74,102 @@
     pink: '--pink',
     lavender: '--purple',
   });
+
+  var BACKGROUND_MODES = Object.freeze(['default', 'solid', 'gradient', 'image']);
+  var BACKGROUND_SIZES = Object.freeze(['cover', 'original', 'repeat']);
+  var BACKGROUND_POSITIONS = Object.freeze(['center', 'top', 'bottom', 'left', 'right']);
+  var DEFAULT_BACKGROUND_IMAGE = 'radial-gradient(1200px 900px at 12% 5%, rgba(253,234,221,.55) 0%, transparent 55%),radial-gradient(900px 800px at 88% 40%, rgba(253,234,221,.5) 0%, transparent 60%),linear-gradient(180deg,#fdeadd 0%,#fdeadd 22%,#fde4da 45%,#ffd1f7 68%,#edd1ff 86%,#edd1ff 100%)';
+
+  function normalizeBackgroundModeValue(value) {
+    var v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return BACKGROUND_MODES.indexOf(v) !== -1 ? v : null;
+  }
+
+  function normalizeBackgroundAngle(value) {
+    var n = Number(value);
+    if (!isFinite(n)) return 180;
+    return Math.max(0, Math.min(360, Math.round(n)));
+  }
+
+  function resolveBackgroundMode(theme) {
+    var explicit = normalizeBackgroundModeValue(theme && theme.backgroundMode);
+    if (explicit) return explicit;
+    /* Read-compatibility for old settings: an authored image keeps behaving
+       as Image without a migration; no image keeps the original site default. */
+    var legacyImage = theme && typeof theme.backgroundImage === 'string'
+      ? theme.backgroundImage.trim()
+      : '';
+    return legacyImage ? 'image' : 'default';
+  }
+
+  function resolveBackground(theme) {
+    var requestedMode = resolveBackgroundMode(theme);
+    var image = theme && typeof theme.backgroundImage === 'string'
+      ? theme.backgroundImage.trim()
+      : '';
+    var solid = resolveColor(theme, 'background') || APPEARANCE_DEFAULTS.background;
+    var gradientStart = resolveColor(theme, 'backgroundGradientStart') || APPEARANCE_DEFAULTS.backgroundGradientStart;
+    var gradientEnd = resolveColor(theme, 'backgroundGradientEnd') || APPEARANCE_DEFAULTS.backgroundGradientEnd;
+    var overlay = theme && theme.backgroundOverlay != null && theme.backgroundOverlay !== ''
+      ? Number(theme.backgroundOverlay)
+      : 0.55;
+    if (!isFinite(overlay)) overlay = 0.55;
+    overlay = Math.max(0, Math.min(0.9, overlay));
+    var size = theme && BACKGROUND_SIZES.indexOf(theme.backgroundSize) !== -1
+      ? theme.backgroundSize
+      : 'cover';
+    var position = theme && BACKGROUND_POSITIONS.indexOf(theme.backgroundPosition) !== -1
+      ? theme.backgroundPosition
+      : 'center';
+    var angle = normalizeBackgroundAngle(theme && theme.backgroundGradientAngle);
+    return {
+      mode: requestedMode,
+      effectiveMode: requestedMode === 'image' && !image ? 'solid' : requestedMode,
+      solid: solid,
+      gradientStart: gradientStart,
+      gradientEnd: gradientEnd,
+      gradientAngle: angle,
+      image: image,
+      overlay: overlay,
+      size: size,
+      repeat: size === 'repeat' ? 'repeat' : 'no-repeat',
+      imageSize: size === 'original' || size === 'repeat' ? 'auto' : 'cover',
+      position: position,
+    };
+  }
+
+  function backgroundFallbackColor(theme) {
+    var bg = resolveBackground(theme);
+    if (bg.effectiveMode === 'default') return '#fff';
+    if (bg.effectiveMode === 'gradient') return bg.gradientStart;
+    return bg.solid;
+  }
+
+  function escapeCssUrl(value) {
+    return String(value || '').replace(/[\\")]/g, function (ch) { return '\\' + ch; });
+  }
+
+  function buildBackgroundCss(theme) {
+    var bg = resolveBackground(theme);
+    if (bg.effectiveMode === 'default') return '';
+    if (bg.effectiveMode === 'solid') {
+      return 'body:not(.admin-mode)::before{' +
+        'background:' + bg.solid + ' !important;' +
+        '}';
+    }
+    if (bg.effectiveMode === 'gradient') {
+      return 'body:not(.admin-mode)::before{' +
+        'background:linear-gradient(' + bg.gradientAngle + 'deg,' + bg.gradientStart + ' 0%,' + bg.gradientEnd + ' 100%) !important;' +
+        '}';
+    }
+    return 'body:not(.admin-mode)::before{' +
+      'background-image:linear-gradient(rgba(255,255,255,' + bg.overlay + '),rgba(255,255,255,' + bg.overlay + ')),url("' + escapeCssUrl(bg.image) + '") !important;' +
+      'background-size:auto,' + bg.imageSize + ' !important;' +
+      'background-position:center,' + bg.position + ' !important;' +
+      'background-repeat:no-repeat,' + bg.repeat + ' !important;' +
+      'background-color:' + bg.solid + ' !important;' +
+      '}';
+  }
 
   function isValidHex(value) {
     return typeof value === 'string' && HEX_RE.test(value);
@@ -445,6 +545,16 @@
     TEXT_OVERRIDE_GROUPS: TEXT_OVERRIDE_GROUPS,
     TEXT_OVERRIDE_ROLES: TEXT_OVERRIDE_ROLES,
     CORE_SOURCE_LABELS: CORE_SOURCE_LABELS,
+    BACKGROUND_MODES: BACKGROUND_MODES,
+    BACKGROUND_SIZES: BACKGROUND_SIZES,
+    BACKGROUND_POSITIONS: BACKGROUND_POSITIONS,
+    DEFAULT_BACKGROUND_IMAGE: DEFAULT_BACKGROUND_IMAGE,
+    normalizeBackgroundModeValue: normalizeBackgroundModeValue,
+    normalizeBackgroundAngle: normalizeBackgroundAngle,
+    resolveBackgroundMode: resolveBackgroundMode,
+    resolveBackground: resolveBackground,
+    backgroundFallbackColor: backgroundFallbackColor,
+    buildBackgroundCss: buildBackgroundCss,
     isValidHex: isValidHex,
     normalizeHex: normalizeHex,
     defaultFor: defaultFor,
