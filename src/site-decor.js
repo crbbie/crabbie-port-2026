@@ -24,6 +24,8 @@
 const DECO_SRC = '/assets/decorations/deco-bg (1).png';
 const STYLE_ID = 'crabbieDecoStyles';
 const LAYER_ID = 'crabbieDecoLayer';
+const SPARKLE_CLASS = 'crabbie-sparkles';
+const SPARKLE_COUNT = 144;
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const isReduced = () => reduceMotion.matches;
@@ -43,14 +45,24 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-#${LAYER_ID}{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none;}
+#${LAYER_ID}{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none;
+  background:linear-gradient(180deg,#fff0d6 0%,#ffd6e9 100%);}
 body.admin-mode #${LAYER_ID}{display:none !important;}
-.crabbie-deco-item{position:absolute;inset:-10%;opacity:0;will-change:opacity,transform;}
+.${SPARKLE_CLASS}{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+.crabbie-sparkle{position:absolute;display:block;background-position:center;background-repeat:no-repeat;background-size:contain;
+  transform-origin:center;will-change:opacity,transform;
+  background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%200%20C12%207%2017%2012%2024%2012%20C17%2012%2012%2017%2012%2024%20C12%2017%207%2012%200%2012%20C7%2012%2012%207%2012%200%20Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E");
+  animation:crabbieSparkleTwinkle var(--sparkle-duration,2.2s) var(--sparkle-delay,0s) ease-in-out infinite;}
+.crabbie-deco-item{position:absolute;inset:-10%;z-index:1;opacity:0;will-change:opacity,transform;}
 .crabbie-deco-item[data-ready="true"]{opacity:1;}
 .crabbie-deco-float{position:absolute;inset:0;will-change:transform;
   animation:crabbieDecoFloat var(--deco-dur,8.5s) var(--deco-delay,0s) ease-in-out infinite alternate;}
 .crabbie-deco-item img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;
   pointer-events:none;user-select:none;-webkit-user-drag:none;}
+@keyframes crabbieSparkleTwinkle{
+  0%,100%{opacity:0;transform:scale(.35) rotate(0deg);}
+  50%{opacity:var(--sparkle-opacity,.8);transform:scale(1) rotate(18deg);}
+}
 @keyframes crabbieDecoFloat{
   0%{transform:translate3d(0,0,0) rotate(0deg);}
   50%{transform:translate3d(var(--deco-drift,6px),-8px,0) rotate(-0.5deg);}
@@ -61,6 +73,8 @@ body.admin-mode #${LAYER_ID}{display:none !important;}
      reaching across the phone viewport while staying cropped and overflow-free. */
   .crabbie-deco-item{inset:-16%;}
   .crabbie-deco-item img{object-position:center 42%;}
+  /* Keep the sparkle texture but reduce mobile paint/compositing work. */
+  .crabbie-sparkle:nth-child(3n){display:none;}
 }
 /* Coarse pointers (phones/tablets): artwork stays visible and fixed, but the
    continuous float (incl. its horizontal drift) stops so the background never
@@ -70,6 +84,7 @@ body.admin-mode #${LAYER_ID}{display:none !important;}
 }
 @media (prefers-reduced-motion: reduce){
   .crabbie-deco-float{animation:none !important;}
+  .crabbie-sparkle{animation:none !important;opacity:.55;transform:scale(.72);}
 }
 `;
   document.head.appendChild(style);
@@ -121,12 +136,46 @@ function ensureLoaded() {
   img.addEventListener('error', () => done(false), { once: true });
 }
 
+function buildSparkles(layer) {
+  const field = document.createElement('div');
+  field.className = SPARKLE_CLASS;
+  field.setAttribute('aria-hidden', 'true');
+
+  /* Deterministic pseudo-random placement keeps the composition stable across
+     reloads while avoiding hundreds of hard-coded <i> nodes. Negative delays
+     start the twinkle cycle at different phases (the supplied sample used NaN). */
+  let seed = 0xC0FFEE;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+
+  for (let i = 0; i < SPARKLE_COUNT; i += 1) {
+    const star = document.createElement('i');
+    star.className = 'crabbie-sparkle';
+    const size = 2.8 + Math.pow(random(), 1.75) * 8.2;
+    const duration = 1.35 + random() * 1.85;
+    const delay = -(random() * duration);
+    star.style.left = (1 + random() * 98).toFixed(2) + '%';
+    star.style.top = (1 + random() * 98).toFixed(2) + '%';
+    star.style.width = size.toFixed(1) + 'px';
+    star.style.height = size.toFixed(1) + 'px';
+    star.style.setProperty('--sparkle-opacity', (0.5 + random() * 0.5).toFixed(2));
+    star.style.setProperty('--sparkle-duration', duration.toFixed(2) + 's');
+    star.style.setProperty('--sparkle-delay', delay.toFixed(2) + 's');
+    field.appendChild(star);
+  }
+
+  layer.appendChild(field);
+}
+
 function buildLayer() {
   injectStyles();
   if (deco.layer && deco.layer.isConnected) return deco.layer;
   const layer = document.createElement('div');
   layer.id = LAYER_ID;
   layer.setAttribute('aria-hidden', 'true');
+  buildSparkles(layer);
   const item = document.createElement('div');
   item.className = 'crabbie-deco-item';
   item.dataset.deco = '1';
