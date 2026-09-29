@@ -78,7 +78,9 @@
   var BACKGROUND_MODES = Object.freeze(['default', 'solid', 'gradient', 'image']);
   var BACKGROUND_SIZES = Object.freeze(['cover', 'original', 'repeat']);
   var BACKGROUND_POSITIONS = Object.freeze(['center', 'top', 'bottom', 'left', 'right']);
-  var DEFAULT_BACKGROUND_IMAGE = 'radial-gradient(1200px 900px at 12% 5%, rgba(253,234,221,.55) 0%, transparent 55%),radial-gradient(900px 800px at 88% 40%, rgba(253,234,221,.5) 0%, transparent 60%),linear-gradient(180deg,#fdeadd 0%,#fdeadd 22%,#fde4da 45%,#ffd1f7 68%,#edd1ff 86%,#edd1ff 100%)';
+  /* Current public default is the existing plain fallback. Authored gradients
+     are explicit; Default must never invent a gradient in Admin preview. */
+  var DEFAULT_BACKGROUND_IMAGE = '';
 
   function normalizeBackgroundModeValue(value) {
     var v = typeof value === 'string' ? value.trim().toLowerCase() : '';
