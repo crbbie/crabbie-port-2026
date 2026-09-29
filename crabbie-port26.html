@@ -9997,23 +9997,23 @@ var vi = currentAdminLang === 'vi';
    their own block below the grid. Background has an explicit mode so deleting
    an image can fall back to a user-authored color instead of a hidden default. */
 var controls = '<div class="adm-appearance-controls">' +
-  '<div class="adm-section"><h4>' + (vi ? 'Bảng màu' : 'Palette') + '</h4><div class="adm-row">' +
-    inputColor(vi ? 'Hồng' : 'Pink', base + '.theme.pink') +
-    inputColor(vi ? 'Tím lavender' : 'Lavender', base + '.theme.lavender') +
+  '<div class="adm-section"><h4>Palette</h4><div class="adm-row">' +
+    inputColor('Pink', base + '.theme.pink') +
+    inputColor('Lavender', base + '.theme.lavender') +
   '</div></div>' +
-  '<div class="adm-section"><h4>' + (vi ? 'Màu chữ' : 'Typography colors') + '</h4>' +
+  '<div class="adm-section"><h4>Typography colors</h4>' +
     '<div class="adm-row three">' +
-      inputColor(vi ? 'Tiêu đề / Heading' : 'Display / Heading', base + '.theme.displayColor', { default:d.displayColor }) +
-      inputColor(vi ? 'Điểm nhấn' : 'Accent / Highlight', base + '.theme.accentColor', { default:d.accentColor }) +
-      inputColor(vi ? 'Nội dung' : 'Body / Information', base + '.theme.bodyColor', { default:d.bodyColor }) +
+      inputColor('Display / Heading', base + '.theme.displayColor', { default:d.displayColor }) +
+      inputColor('Accent / Highlight', base + '.theme.accentColor', { default:d.accentColor }) +
+      inputColor('Body / Information', base + '.theme.bodyColor', { default:d.bodyColor }) +
     '</div>' +
     '<div class="adm-row three">' +
-      inputColor(vi ? 'Trang trí / Nhãn' : 'Decorative / Label', base + '.theme.decorativeColor', { default:d.decorativeColor }) +
-      inputColor(vi ? 'Phụ / Muted' : 'Secondary / Muted', base + '.theme.mutedColor', { default:d.mutedColor }) +
-      inputColor(vi ? 'Màu câu hỏi / nhãn trường' : 'Question / field label', base + '.theme.fieldLabelColor', { default:d.fieldLabelColor }) +
+      inputColor('Decorative / Label', base + '.theme.decorativeColor', { default:d.decorativeColor }) +
+      inputColor('Secondary / Muted', base + '.theme.mutedColor', { default:d.mutedColor }) +
+      inputColor(currentAdminLang === 'vi' ? 'Màu câu hỏi / nhãn trường' : 'Question / field label', base + '.theme.fieldLabelColor', { default:d.fieldLabelColor }) +
     '</div>' +
     '<div class="adm-row">' +
-      '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">' + (vi ? 'Đặt lại mặc định' : 'Reset to default') + '</button></div>' +
+      '<div class="adm-field"><span class="af-label">&nbsp;</span><button type="button" class="adm-btn-sm" data-adm-appearance-reset="1">' + 'Reset to default' + '</button></div>' +
     '</div>' +
   '</div>' +
   renderAdvancedAppearanceSection(base) +
