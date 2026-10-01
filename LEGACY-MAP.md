@@ -77,9 +77,11 @@ Motion values:
 Feature decisions (58 total): KEEP_EXACT 19, KEEP_BEHAVIOR_REDESIGN_VISUAL 26,
 REPLACE 9, REMOVE 4, UNSURE 0.
 
-Motion decisions (58 total): KEEP_EXISTING_MOTION 29, NEW_MOTION 1, N_A 28, UNSURE 0.
-(N_A 28 = 25 items with no motion dimension + 3 removed items whose motion field was
-untouched, canonically N_A because the parent feature is removed.)
+Motion decisions (58 total): KEEP_EXISTING_MOTION 28, NEW_MOTION 1, N_A 29, UNSURE 0.
+(N_A 29 = 25 items with no motion dimension + 4 removed items whose canonical motion is
+N_A because the parent feature is REMOVE — decor background artwork is explicitly N_A,
+while boot overlay, hero background motion, and loading animation have untouched motion
+selectors normalized to N_A. None of these is UNSURE. See SPECIAL CASE F, §16.)
 
 Removed features (4): boot overlay, decorative background artwork, hero background
 motion, loading animation.
@@ -644,6 +646,11 @@ technical constraints / future integration instruction.
   manipulation stays uninterpolated.
 - Loading animation: REMOVE / N_A. Loading visuals are not carried; loading ROUTE correctness
   (pending view, no false 404) is a separate guarantee in §18.
+- SPECIAL CASE F — removed item with untouched motion. Rule: when the parent feature is
+  explicitly REMOVE and its motion selector was untouched, canonical motion is N_A —
+  parent feature removed. This is normalization only: it does not change a user decision
+  and does not create an UNSURE item. Applies to: boot overlay, hero background motion,
+  loading animation.
 
 ## 17. Removed Features (canonical)
 
@@ -651,6 +658,9 @@ technical constraints / future integration instruction.
 - Global — decorative background artwork (engine stays, §16).
 - Motion — hero background motion (remaining hero motion choice unaffected).
 - Motion — loading animation (loading route correctness unaffected).
+- Motion normalization: all 4 removed items canonicalize to motion N_A because the parent
+  feature is REMOVE. The 3 with untouched motion selectors (boot overlay, hero background
+  motion, loading animation) are N_A, not UNSURE. See SPECIAL CASE F, §16.
 
 ## 18. Technical Invariants (PRESERVE_GUARANTEE)
 
@@ -784,7 +794,9 @@ All 58 user decisions represented. No silent omissions.
 - Motion choices match the Motion Decisions table for all 32 table rows.
 - Removed items with untouched motion fields recorded as N_A (not UNSURE), preserving
   the source file's "Deferred: none" truth.
-- Special cases A–F all represented (§6 boot/decor, §7 featured/freebies/hero, §16).
+- Special cases A–F all represented: A/B = §6 boot overlay / decor background artwork;
+  C/D/E = §7 featured works / freebies strip / hero; F = §16 removed item with untouched
+  motion (canonical N_A, never UNSURE).
 - Genuine conflicts between user decisions: none. Apparent tensions (REMOVE vs guarantee,
   KEEP_EXACT vs note) are handled by separating dimensions per §2: the user
   visual/behavior/motion decision and the technical invariant coexist, and neither
