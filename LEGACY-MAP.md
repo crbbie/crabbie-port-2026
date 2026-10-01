@@ -1,705 +1,797 @@
-# CRABBIE LEGACY MAP
+# CRABBIE LEGACY MAP (CANONICAL)
 
-Decisions only: what to preserve, reuse, or replace. No redesign implemented here.
+USER-LEGACY-DECISIONS.md is the authoritative decision source.
+This file synchronizes the technical audit to those user decisions.
+No redesign is implemented here. No code was changed in this batch.
 
 ## 1. Metadata
 
-- audit date: 2026-10-01 (UTC)
+- canonicalization date: 2026-10-01 (UTC)
 - repository: crbbie/crabbie-port-2026
-- source main SHA: 6f9dbec9fe77e5d49038f872f6dcd542e59adf7 (origin/main after inventory merge)
+- base: docs/redesign-legacy-map @ 0cd8866 (prior agent audit)
+- source main SHA: 6f9dbec9fe77e5d49038f872f6dcd542e59adf7
 - baseline SHA/tag: a0f04697ac4585166977001a46ba6b4074cfad87 / pre-redesign-2026-10-01
 - inventory source: SITE-INVENTORY.md (commit 6f9dbec)
-- scope: every meaningful SITE-INVENTORY area; each has a decision or explicit N/A/UNKNOWN
-- branch: docs/redesign-legacy-map
+- user decision source: USER-LEGACY-DECISIONS.md (owner USER, COMPLETE, 58/58)
+- branch: docs/lock-user-legacy-decisions
 
-## 2. Decision Legend
+## 2. Source Precedence (binding)
 
-- LOGIC `KEEP`: reuse the existing implementation/behavior contract; redesign reconnects to it.
-- LOGIC `REPLACE`: concrete reason to rewrite; used sparingly, never for working app logic.
-- LOGIC `N/A`: no logic dimension (pure presentation or pure motion item).
-- LOGIC `UNKNOWN`: evidence insufficient; do not guess.
-- VISUAL `KEEP EXACT`: reuse the actual existing implementation/styling, not an imitation.
-- VISUAL `REPLACE`: redesign defines new presentation; listed `preserve` items still bind.
-- VISUAL `N/A` / `UNKNOWN`: no visual dimension / insufficient evidence.
-- MOTION `KEEP EXACT`: reuse actual animation implementation and parameters.
-- MOTION `REPLACE`: redesign defines new motion for this item.
-- MOTION `STATIC`: item must not animate (intentional stillness is part of the contract).
-- MOTION `N/A` / `UNKNOWN`: no motion dimension / insufficient evidence.
+1. USER-LEGACY-DECISIONS.md — authoritative for all user design/product decisions.
+2. Technical invariants (§18) — authoritative functional guarantees that must survive
+   redesign, independent of any visual decision.
+3. SITE-INVENTORY.md — authoritative description of what existed before redesign.
+4. Legacy audit / source evidence in this file — implementation references,
+   dependencies, and risks (technical statements only, never design authority).
+5. Old agent-authored KEEP/REPLACE classifications — SUPERSEDED. They must not
+   override user choices anywhere in this document.
 
-## 3. Critical Preservation Rules
+Where a user decision and a technical guarantee coexist, both apply: the user decision
+governs the user-facing experience, the guarantee governs the hidden correctness that
+must survive beneath it (e.g. REMOVE boot overlay removes the visible overlay, not the
+CMS first-paint gate).
 
-1. Router, history, scroll-restoration, and viewer-owned history are load-bearing
-   application logic, not presentation. Reuse, do not rewrite (§15, §16).
-2. All public CMS adapters, pure cores, and the refresh router stay; new markup must
-   rebind to their container/selector contracts (§18).
-3. Admin persistence invariants (UUID identity, `updated_at` guard, single-flight,
-   revision gate, confirmed-only baselines) are non-negotiable (§14).
-4. RLS posture, constrained visitor insert, and RPC-only junction writes stay;
-   never edit applied migrations — new forward migration only (§18).
-5. Media deletion stays recoverable multi-step; purge stays gated; audit log stays
-   append-only (§18).
-6. Commission success is reported only after confirmed insert; single-flight submit
-   stays (§17).
-7. Free-asset download truthfulness (availability + URL presence) stays (§8).
-8. Reduced-motion support stays for every motion item, kept or replaced (§20, §21).
-9. Absence from a future Figma is never permission to drop Admin, CMS fields, or
-   data wiring (§14).
+## 3. Canonical Decision Values and Semantics
 
-## 4. Global Shell / Navigation
+Feature values (exactly as in USER-LEGACY-DECISIONS.md):
 
-### Skip link
+- KEEP_EXACT — user wants the existing feature/component retained very closely.
+  A future implementation agent prefers reuse of the existing implementation over
+  visual approximation. User notes always narrow the scope (e.g. Featured Works keeps
+  the card, not the section title).
+- KEEP_BEHAVIOR_REDESIGN_VISUAL — preserve purpose, required data connections, and
+  required interaction/behavior; presentation may be rebuilt. Old markup/CSS need not
+  remain exact unless a technical dependency requires compatibility or explicit rebinding.
+- REPLACE — user permits the previous presentation/implementation to be replaced.
+  Technical invariants still survive (Typography REPLACE does not break Appearance
+  persistence; grid REPLACE does not allow mobile overflow; 404 REPLACE does not remove
+  404 routing behavior).
+- REMOVE — user does not want that user-facing feature/presentation. Before deleting
+  implementation later, future agents must check whether the same code also provides a
+  technical invariant; if so, remove the surface while preserving the guarantee.
+  Nothing is deleted in this documentation batch.
+- UNSURE — undecided. Count in this batch: 0.
 
-classification: logic KEEP / visual REPLACE / motion N/A
-current responsibility: keyboard bypass to `#main`.
-source: `crabbie-port26.html` `a.skip-link[href="#main"]`; focus reveal CSS; `#main` focus wiring.
-preserve: `skip-link` class, `href="#main"`, existing `#main` target.
-replace: pill styling, position.
-integration note: new shell must keep an equivalent bypass + focus target.
+Motion values:
+
+- KEEP_EXISTING_MOTION — reuse the existing motion implementation.
+- NEW_MOTION — new motion will be designed (only: commission CTA band).
+- STATIC — intentionally still (used implicitly by stationary-detail/ restored-list rules).
+- N_A — no motion dimension, or parent feature removed (removed items with untouched
+  motion fields are N_A, not UNSURE).
+- UNSURE — undecided. Count in this batch: 0.
+
+## 4. USER DECISION SUMMARY (generated from USER-LEGACY-DECISIONS.md)
+
+Feature decisions (58 total): KEEP_EXACT 19, KEEP_BEHAVIOR_REDESIGN_VISUAL 26,
+REPLACE 9, REMOVE 4, UNSURE 0.
+
+Motion decisions (58 total): KEEP_EXISTING_MOTION 29, NEW_MOTION 1, N_A 28, UNSURE 0.
+(N_A 28 = 25 items with no motion dimension + 3 removed items whose motion field was
+untouched, canonically N_A because the parent feature is removed.)
+
+Removed features (4): boot overlay, decorative background artwork, hero background
+motion, loading animation.
+
+Non-empty user notes (2): Featured works card scope note; freebies decorative-download
+note. Both preserved verbatim adjacent to their items.
+
+Technical invariants carried: 20, all PRESERVE_GUARANTEE.
+
+Intra-file inconsistency found and resolved (1): "Thẻ asset" item block records motion
+N_A while the Motion Decisions table records KEEP_EXISTING_MOTION. The dedicated motion
+table governs the motion dimension, so canonical motion is KEEP_EXISTING_MOTION. Recorded
+explicitly; no user intent was altered. See §21.
+
+## 5. Overview Decisions (Tổng quan)
+
+### Layout / grid system
+
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: no horizontal overflow on small screens; keep anti-overflow rules
+(`min-width:0`, wrapping) in any new grid.
+existing implementation: per-area grids (`.hero-grid`, `.grid`, `.comm-grid`, `.rules-grid`)
+in `crabbie-port26.html` CSS; no unified grid system.
+integration risk: MEDIUM — global grid swap can introduce phone overflow.
+
+### Typography
+
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: `--text-*` variable chain managed by appearance must stay consistent
+between preview and public; variable renames require dual updates.
+existing implementation: `crabbie-port26.html` CSS (`body`, `h1–h4`, `.eyebrow`, `.signature`);
+`src/appearance-core.js` (`setTextOverride`, `planThemeVars`).
+integration risk: MEDIUM on variable rename.
+
+### Color / theme tokens
+
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: strict hex model, inheritance, prune-on-absent, sanitized writes;
+never materialize inherited values; preview stays truthful.
+existing implementation: `src/appearance-core.js` (`planThemeVars`, `planAdvancedVars`,
+`sanitizeThemeForWrite`).
+integration risk: MEDIUM — raw path writes create unprunable overrides.
+
+### Base buttons & controls
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A (press motion decided separately under Jelly)
+user note: (none)
+technical guarantees: disabled semantics for closed-service CTAs and unavailable downloads
+must survive any restyle.
+existing implementation: `crabbie-port26.html` CSS (`.btn`, `.nav-cta`, `[disabled]`).
+integration risk: LOW.
+
+## 6. Global Decisions
 
 ### Desktop navigation
 
-classification: logic KEEP / visual REPLACE / motion N/A (nav press motion: see §20 jelly contracts)
-current responsibility: route navigation, active-route indication (`NAVKEY` maps detail
-views to list parents), commission CTA, burger host.
-source: `crabbie-port26.html` `nav#mainNav`, `.nav-links a[data-goto]`, `a.nav-cta`,
-`NAVKEY`, `applyRoute` active/`aria-current` toggling; titles via `src/site-content-core.js`
-(`cmsBrandName`, `cmsSeoTitle`); labels from `cms_navigation` via `src/site-content-cms.js`.
-dependencies: `parseRoute`, `navigate`, `titleFor`, site-content adapter.
-preserve: `id="mainNav"`, `a[data-goto="<view>"]` values, `aria-current` handling, CTA destination.
-replace: layout, pill/capsule style, typography, badge treatment.
-risks: renaming `data-goto` values breaks delegation + highlighting (MEDIUM).
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: routing semantics, `aria-current` behavior, `data-goto` delegation
+contract, `NAVKEY` detail→parent mapping, CMS labels/titles wiring.
+existing implementation: `nav#mainNav`, `.nav-links a[data-goto]`, `a.nav-cta`, `NAVKEY`,
+`applyRoute`, `parseRoute`, `navigate`, `titleFor`; `src/site-content-core.js`,
+`src/site-content-cms.js`, table `cms_navigation`.
+integration risk: MEDIUM — renaming `data-goto` values breaks delegation + highlight.
 
-### Mobile menu
+### Mobile menu (burger)
 
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: small-viewport navigation open/close with focus trap.
-source: `crabbie-port26.html` `button#navBurger`, `div#mobileMenu`, `closeMenu`,
-outside-click/Escape/route-change close, Tab wrap.
-preserve: `#navBurger` + `aria-expanded`, `#mobileMenu` + `.open`, inner `a[data-goto]`, trap behavior.
-replace: slide direction, stagger, burger morph.
-risks: dropping trap/`aria-expanded` breaks keyboard users (MEDIUM).
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: open/close behavior, outside-click/Escape/route-change close, focus
+trap, `aria-expanded`.
+existing implementation: `button#navBurger`, `div#mobileMenu`, `.open`, inner `a[data-goto]`,
+`closeMenu`, trap wiring in `crabbie-port26.html`.
+integration risk: MEDIUM — dropping trap/`aria-expanded` breaks keyboard use.
 
-### Footer + contact rendering
+### Footer & contact block
 
-classification: logic KEEP / visual REPLACE / motion N/A
-current responsibility: explore links, CMS-ordered contact/social links, fixed links,
-admin entry.
-source: `crabbie-port26.html` footer markup, `ul#footContactList`, `#footEmail`/`#footTwitter`,
-`data-foot-fixed`; `contactLinksSettings()` in `src/site-content-core.js` (authoritative
-ordered `settings.contact.links[]`; legacy email/twitter fallback; unsafe values never render).
-preserve: `#footContactList`, `.cms-contact-link`, fixed-link survival, https/mailto/anchor-only
-URL policy (security invariant).
-replace: columns, icons, typography.
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: `contactLinksSettings` ordering/visibility/fallback semantics;
+https/mailto/anchor-only URL policy (security invariant, not aesthetic).
+existing implementation: `#footContactList`, `.cms-contact-link`, `[data-foot-fixed]`,
+`#footEmail`, `#footTwitter`; `src/site-content-core.js`.
+integration risk: MEDIUM on URL policy change (security).
 
 ### Toast
 
-classification: logic KEEP / visual REPLACE / motion REPLACE (STATIC acceptable)
-current responsibility: transient feedback (commission result, picker/save notices).
-source: `crabbie-port26.html` `#toast[role=status]`, `toast()`.
-preserve: `#toast` id, `role=status` live region, global `toast()` function.
-replace: position, styling, duration.
+user decision: REPLACE
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: `role=status` live region must survive restyle.
+existing implementation: `#toast[role=status]`, `toast()` in `crabbie-port26.html`.
+integration risk: MEDIUM if live region lost.
 
-### Boot / paint gates
+### Skip link
 
-classification: logic KEEP / visual REPLACE (overlay art) / motion REPLACE (keep pending-hide + reduced-motion)
-current responsibility: hide chrome until first CMS paint; `loading` view for pending detail
-slugs (prevents false 404); boot overlay orchestration.
-source: `crabbie-port26.html` `html.cms-content-pending/ready`, `#homeBloomTransition`,
-`cmsDetailPending/Missing`, `startupFallback404`; `src/site-content-cms.js` owns first-paint gate.
-preserve: html gate classes, overlay `.is-hidden` contract, `loading` route for pending details.
-replace: bloom/glow artwork, reveal stagger.
-risks: removing gates causes prototype flash / false 404 (HIGH).
+user decision: KEEP_EXACT
+motion: N_A
+user note: (none)
+technical guarantees: equivalent bypass mechanism + focus target must exist in new shell.
+existing implementation: `a.skip-link[href="#main"]`, `#main` in `crabbie-port26.html`.
+integration risk: LOW; removal breaks keyboard bypass.
 
-## 5. Home
+### Boot overlay — SPECIAL CASE A
 
-### Hero (content + artwork slot)
+user decision: REMOVE
+motion: N_A (parent feature removed; untouched motion field is not an open decision)
+user note: (none)
+technical guarantees (PRESERVED, not removed): `cms-content-pending/ready` correctness,
+CMS first-paint gate, pending detail must not become false 404, startup loading correctness.
+REMOVE covers the visible overlay/bloom/loading presentation only.
+existing implementation: `html.cms-content-pending/.cms-content-ready`, `#homeBloomTransition`,
+`.is-hidden`, `cmsDetailPending/Missing`, `startupFallback404`; `src/site-content-cms.js`.
+integration risk: HIGH if the hidden gate is removed together with the overlay
+(prototype flash / false 404).
 
-classification: logic KEEP (copy/hydration bindings) / visual REPLACE / motion REPLACE
-current responsibility: headline/tagline/CTAs/hero-media render from settings/brand.
-source: `crabbie-port26.html` `section.view[data-view=home]`, `.hero-grid`, `.hero-ctas`,
-`.hero-art-wrap`; brand/seo/hero copy via `src/site-content-cms.js`.
-preserve: heading hierarchy, CTA destinations (portfolio/commissions), hero-media binding.
-replace: layout, artwork treatment, bob/entrance (see §20).
+### Decorative background artwork — SPECIAL CASE B
 
-### Featured works + freebies strips
+user decision: REMOVE
+motion: N_A (artwork has no motion of its own; the motion engine is a separate
+KEEP_EXACT item below)
+user note: (none)
+technical guarantees: none for the artwork itself. The parallax/crossfade motion system
+is preserved separately as a reusable engine for future assets — this is NOT permission
+to keep the old artwork.
+existing implementation: background CSS layers in `crabbie-port26.html`.
+integration risk: LOW for artwork; engine reuse documented under decor motion.
 
-classification: logic KEEP (hydration + delegation) / visual REPLACE / motion REPLACE
-current responsibility: CMS-driven cards opening detail routes.
-source: `crabbie-port26.html` `#worksGrid`, `#assetsGrid`; `window.CrabbiePortfolio.apply`,
-`window.CrabbieAssets.apply`; `data-project`/`data-asset` delegation; `.work`/`.item`
-in `isNavigatingControl`.
-preserve: grid ids, `data-*` attributes, card classes in nav-exclusion list.
-replace: card visuals, grid rhythm.
-risks: cards outside the nav-exclusion list get press-delayed navigation (MEDIUM).
+## 7. Home Decisions
+
+### Hero — SPECIAL CASE E
+
+user decision: REPLACE
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: heading hierarchy, CTA destinations (portfolio/commissions), hero
+image CMS binding. REPLACE governs visual/composition only, not the motion choice.
+existing implementation: `section.view[data-view=home]`, `.hero-grid`, `.hero-ctas`,
+`.hero-art-wrap`; `src/site-content-cms.js`.
+integration risk: LOW provided bindings survive.
+
+### Featured works — SPECIAL CASE C
+
+user decision: KEEP_EXACT (narrowed by user note)
+motion: KEEP_EXISTING_MOTION
+user note (verbatim): "chỉ giữ cái thẻ thôi, còn cái thẻ tiêu đề A few little favorites thì bỏ đi. "
+canonical instruction: KEEP_EXACT applies to the featured work card implementation only.
+The "A few little favorites" title/banner treatment is REMOVED. The note overrides any
+broad reading of KEEP_EXACT.
+technical guarantees: card stays in nav-exclusion (immediate navigation); CMS card bindings.
+existing implementation: `#worksGrid`, `.work`, `[data-project]`;
+`window.CrabbiePortfolio.apply`.
+integration risk: MEDIUM if cards leave the exclusion list.
+
+### Freebies strip — SPECIAL CASE D
+
+user decision: KEEP_EXACT
+motion: KEEP_EXISTING_MOTION
+user note (verbatim): "thêm nút download trên trên góc trái như bản thiết kế mới, chỉ là nút trang trí không tác dụng gì"
+canonical instruction: preserve the existing asset card/strip behavior. The future redesign
+adds a decorative download-looking control at top-left that MUST NOT trigger any download
+or navigation. Real asset opening/downloading stays on the existing behavior paths.
+existing implementation: `#assetsGrid`, `.item`, `[data-asset]`;
+`window.CrabbieAssets.apply`.
+integration risk: MEDIUM — a future agent must not wire the decorative control to real logic.
 
 ### Commission CTA band
 
-classification: logic KEEP (tier data bindings) / visual REPLACE / motion REPLACE
-current responsibility: tier teaser + conversion CTA.
-source: `crabbie-port26.html` `.cta`, `.cta-tier`; commission services data.
-preserve: price/destination bindings. replace: everything visual.
-
-## 6. Portfolio
-
-### Portfolio list (search, chips, grid, empty states)
-
-classification: logic KEEP / visual REPLACE / motion REPLACE (entrance suppressible; restored-activation STATIC per §15)
-current responsibility: filterable deterministic grid.
-source: `crabbie-port26.html` `#pfSearch/#pfChips/#pfGrid/#pfStatus/#pfEmpty`, `initFilter('pf')`;
-`planPortfolioVariants` → `src/portfolio-grid-core.js` (desktop bands, compact fallback);
-`syncPortfolioComposition` call sites (hydrate/filter/resize); `.is-art-ready/.is-image-card`.
-dependencies: `src/portfolio-cms.js`, `src/portfolio-cms-core.js`.
-preserve: all five ids, `data-cat/data-search`, variant classes `pf-l/pf-t/pf-s/pf-w`,
-art-ready classes, anti-overflow rules (`min-width:0`, wrapping).
-replace: card visuals, gaps, filter control styling.
-risks: dense auto-placement or dropped recompute sites freeze/break composition (MEDIUM).
-
-### Portfolio data + CMS hydration
-
-classification: logic KEEP / visual N/A / motion N/A
-current responsibility: published projects feed list/detail/home.
-source: `src/portfolio-cms.js` (`hydratePortfolio`, generation ownership, prototype fallback);
-`src/portfolio-cms-core.js` mapping; tables `portfolio_projects`, `cms_categories`.
-preserve: adapter contract + fallback policy. replace: nothing (N/A).
-
-## 7. Project Detail
-
-### Project detail route + blocks + cover + credits + prev/next
-
-classification: logic KEEP / visual REPLACE / motion STATIC (stationary by design)
-current responsibility: single-project story with CMS blocks, cover viewer, people credits,
-sibling navigation, stationary entrance, list return with scroll restore.
-source: `crabbie-port26.html` `section[data-view=project-detail]`, `renderProject`,
-`publicBlockBody` (all block kinds), `#pdTitle/#pdDesc/#pdCreditStrip/#pdCover[data-cover-viewer]/#pdBlocks/#pdPrev/#pdNext`;
-credits via `src/people-cms.js` ordered junction + `content.peopleCreditLabel`; stationary CSS.
-preserve: all `pd*` ids, block-type switch coverage, cover containment, prev/next in nav-exclusion,
-`data-cover-viewer` → viewer wiring, stationary entrance.
-replace: hero/facts/block styling.
-risks: dropped block kinds lose CMS content (MEDIUM); shared-image helper swap breaks containment (LOW).
-
-## 8. Free Assets
-
-### Free asset listing
-
-classification: logic KEEP / visual REPLACE / motion N/A-to-REPLACE
-current responsibility: searchable/filterable asset shelf.
-source: `crabbie-port26.html` `#faSearch/#faChips/#faGrid/#faStatus/#faEmpty`, `initFilter('fa')`;
-`src/free-assets-cms.js`, `src/free-assets-core.js` (`mapFreeAsset`, canonical category).
-preserve: ids, `data-asset`, filter contract. replace: card/chip visuals.
-
-### Asset detail + download gating + gallery
-
-classification: logic KEEP / visual REPLACE / motion N/A
-current responsibility: spec/license render, truthful download gating, cover-first gallery in
-shared viewer.
-source: `crabbie-port26.html` `renderAsset`, `#adDownload/#adDriveDownload/#adUnavailable/#adGallery/#adGalleryMore`,
-`data-ad-index`; `isAssetAvailable`; `src/asset-gallery-core.js` (ordered `metadata.gallery[]`, coverAlt).
-preserve: availability truth check (URL presence + `available`), disabled states, cover-first order,
-viewer wiring.
-replace: spec rows, gallery grid, banner styling.
-risks: enabling download when unavailable/URL-less violates product truthfulness (HIGH).
-
-## 9. Commissions
-
-### Service tiers + accordions + other-service detail + fees
-
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: pricing/availability render, fee disclosure, service→form mapping.
-source: `crabbie-port26.html` `.comm-grid .acc`, `[data-service][data-form][data-service-slug]`,
-`#miniServicesGrid[data-other-service]`, `#otherServiceDetail[aria-live]`, `.rules-grid`;
-`OTHER_SERVICES` map; `src/commissions-cms.js`, `src/commissions-core.js`; tables
-`commission_services`, `commission_forms`.
-preserve: `data-service/data-form` mapping, accordion open semantics, availability-disabled CTA
-with reason, fee content. replace: cards, pills, accordion visuals.
-risks: broken `data-form` mapping routes requests to the wrong tab (MEDIUM).
-
-### Client thanks carousel
-
-classification: logic KEEP (data/mode rules) / visual REPLACE / motion KEEP EXACT
-current responsibility: people-driven thanks display with 3 modes (static/scroll/marquee).
-source: `crabbie-port26.html` `section#clientThanks`, `renderClientThanks`, `ThanksMotion`;
-`src/people-cms.js`; `settings.portfolioThanks`; mode thresholds, pause control, clone handling.
-preserve: mode thresholds, pause persistence, clones `aria-hidden`/unfocusable, focus→browsing switch.
-replace: track/item styling. motion implementation reused as-is (see §20).
-
-### Request form tabs
-
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: per-type panels with keyboard-correct tab semantics.
-source: `crabbie-port26.html` `.tab-btn[role=tab]`, `.tab-panel`, roving tabindex + Arrow/Home/End.
-preserve: tab roles, `aria-selected/controls`, `.on` contracts, keyboard map. replace: pill/panel visuals.
-
-## 10. About
-
-classification: logic KEEP (public model) / visual REPLACE / motion REPLACE
-current responsibility: bio/skills/experience/values render from CMS.
-source: `crabbie-port26.html` `data-view=about`; `aboutPublicModel` in `src/site-content-core.js`;
-table `cms_pages` (about + data).
-preserve: model fields, repeater bindings. replace: all styling.
-
-## 11. Contact
-
-classification: logic KEEP / visual REPLACE / motion N/A
-current responsibility: letter card, ordered contact rows/actions, copy-email.
-source: `crabbie-port26.html` `data-view=contact`, `#publicContactRows .cms-contact-row`,
-`#publicContactActions`, `#copyEmailBtn`; same `contactLinksSettings` provider as footer.
-preserve: row/action ids, order/visibility semantics, unsafe-value policy. replace: card visuals.
-
-## 12. Terms
-
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: 8-section agreement + jump nav + scrollspy (CMS-rebindable).
-source: `crabbie-port26.html` `data-view=terms`, `details.tos-disclosure`, `[data-jump]`,
-scrollspy wiring with `aria-current`.
-preserve: section ids, jump mapping, spy rebind after CMS hydration. replace: layout/typography.
-
-## 13. 404 / Loading
-
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: recovery links; CMS-pending placeholder.
-source: `crabbie-port26.html` `data-view=404` (`.v404-num`), `data-view=loading`;
-entered via `cmsDetailMissing/startupFallback404` and `cmsDetailPending`.
-preserve: entry conditions, focus targets, recovery destinations. replace: art/copy styling.
-
-## 14. Admin
-
-Overall: logic KEEP for all panels and the save/auth/hydration machinery; visual REPLACE
-allowed panel-by-panel provided editor field paths and `data-adm-*` bindings are preserved
-or explicitly rebound; motion N/A.
-
-### Auth (login, role gate, event policy)
-
-classification: logic KEEP / visual REPLACE (keep ids) / motion N/A
-source: `src/admin-auth.js` (session restore, sign-in, metadata-only denial, dirty bridge);
-`src/admin-auth-core.js` (`app_metadata.role==='admin'` only, stable error codes);
-`src/admin-auth-events-core.js` (only initial/sign-in hydrate; token refresh never replaces draft).
-preserve: `app_metadata` gate, event policy, login form contract. replace: card styling.
-risks: non-`app_metadata` authorization leaks admin UX (HIGH).
-
-### Shell chrome (sidebar, topbar, locale, dirty guard)
-
-classification: logic KEEP / visual REPLACE (keep ids) / motion N/A
-source: `crabbie-port26.html` `#adminSidebar/#adminBurger/#adminSaveStatus/#adminTopSave/#adminContent`,
-`ADMIN_MODULES` (+dashboard fallback); `ADMIN_I18N/tAdmin` single dictionary;
-`src/admin-draft-guard*.js` (`canMutateAdmin`, `shouldBlockAdminExit`, `shouldSetBeforeUnload`).
-preserve: module routing, readiness-gated save, presentation-only locale, discard guards.
-replace: sidebar/topbar styling. risks: guard removal loses drafts (MEDIUM).
-
-### Hydration mapping + persistence contract
-
-classification: logic KEEP / visual N/A / motion N/A
-source: `src/admin-hydration-core.js` (record identity `dbId`+`originalUpdatedAt`, per-key settings
-baselines, atomic replace, throw-on-partial); `src/admin-record-save-core.js` (write plans,
-UUID identity, `updated_at` guard, zero-row = `stale_save`, settings per-key writes,
-confirmed-only baseline advance); `src/admin-save-flight-core.js` (single-flight);
-`src/admin-save-revision-core.js` (revision gate); `src/admin-persisted-baseline-core.js`;
-`src/admin-crud.js` (loads/saves/orders/deletes/RPC calls); `ADMIN_DATA/ADMIN_DRAFT/ADMIN_UI`
-single state model.
-preserve: every invariant in §3 rules 3–4. No second state model.
-risks: baseline/single-flight/revision removal or slug-as-identity causes silent overwrites (HIGH);
-`upsert(onConflict:'slug')` forbidden.
-
-### Panels (dashboard, portfolio, people, assets, commissions, requests, about, terms, contact, media, cleanup, settings)
-
-classification: logic KEEP / visual REPLACE (bindings preserved) / motion N/A
-source: `crabbie-port26.html` `renderAdmin*` functions; `src/admin-crud.js`, `src/admin-media*.js`,
-`src/admin-cleanup.js`, `src/admin-data-audit.js`, `src/appearance-core.js`; people RPCs
-`save_project_with_people` / `move_person`; request lifecycle core; upload pipeline cores.
-preserve: `ADMIN_DRAFT` field paths, `[data-adm-mediabrowse]` picker hook, the three admin modals,
-sticky save, server paging (30/page), lifecycle ⊥ status model, trash+hold purge gate.
-replace: panel styling, control visuals.
-risks: renamed draft paths without formatter updates silently drop fields (MEDIUM).
-
-## 15. Routing / History / Scroll
-
-### Hash router core
-
-classification: logic KEEP / visual N/A / motion N/A
-current responsibility: route parse, sync apply with echo-dedup, titles, admin fallback, detail gates.
-source: `crabbie-port26.html` `parseRoute`, `routeFromLocation`, `navigate`, `applyRoute`,
-`handleHash`, `titleFor`, `SIMPLE_VIEWS`, `ADMIN_MODULES`, `NAVKEY`; `lastAppliedHash` echo guard.
-preserve: echo guard, teardown-before-apply order, `restored` flag plumbing, dirty-guard replay
-(`replaceState` + confirm + one-shot replay), 404/dashboard fallbacks.
-replace: nothing. risks: echo loss double-applies views; owned-entry leak strands history (HIGH).
-
-### History (Back/Forward, viewer-owned entry, dirty replay)
-
-classification: logic KEEP / visual N/A / motion N/A
-current responsibility: viewer-dismiss-first Back, stale-entry reconcile, admin discard replay.
-source: `crabbie-port26.html` `popstate` capture, `viewerOwnedEntry/viewerStaleSkip/viewerScrollY`,
-single same-URL `{crabbieViewer:true}` push, `closePublicLightbox` entry consumption,
-`teardownViewerForRoute`.
-preserve: at-most-one owned entry, steps push nothing, teardown without stale restore.
-risks: mismatch strands viewer or steals focus (HIGH).
-
-### Scroll restoration + focus + stationary rules
-
-classification: logic KEEP / visual N/A / motion KEEP EXACT
-current responsibility: deterministic keep/restore/top outcomes; stationary restores and detail
-entrances (anti-flash); scroll-safe focus.
-source: `src/route-scroll-core.js` (`sameRoute`, `isDetailReturn`, `clampScrollY`, `decideScroll`);
-`instantScrollTo` sole primitive (never smooth); `scrollMemory` per view; `body.is-restoring` +
-persistent `.view.is-restored-activation`; `focusView` per-view targets with `preventScroll`.
-preserve: instant-only primitive, clamp, keep-on-same-route, activation lifetime, focus map.
-replace: fresh-navigation entrance aesthetics only.
-risks: smooth route scroll reintroduces crawl-to-top bug; focus-with-scroll destroys restore (HIGH).
-
-### Nav delegation + immediacy
-
-classification: logic KEEP / visual N/A / motion KEEP EXACT (exclusion contract)
-current responsibility: immediate synchronous navigation for all card/link/back controls.
-source: delegated click map (`data-goto/project/asset`, `.work/.item`, prev/next, back links,
-admin jumps) with missing-source guard + slug encode/decode; `isNavigatingControl` exclusion from
-press feedback + CSS kill-switch.
-preserve: selector list parity between delegation and exclusion; immediacy (no animation delay).
-risks: new clickable card outside exclusion gets delayed navigation (MEDIUM).
-
-## 16. Viewer / Media
-
-### Viewer visual chrome
-
-classification: logic N/A / visual REPLACE / motion KEEP EXACT (functional zoom transition only)
-current responsibility: dialog shell, caption/credits/position pills, prev/next, loading/error,
-zoom bar, safe-area bands, live announcements.
-source: `crabbie-port26.html` `#publicLightbox*` markup/CSS; `syncViewerChrome`, `paintViewerItem`.
-preserve: all `publicLightbox*` ids, `hidden` collapsing, stage model (artwork clear of controls),
-touch-action/cursor classes, trap list, live region. replace: colors, radii, blur, icons.
-risks: overlay restyle pushing art under controls; dropped `hidden` collapsing breaking stage math (MEDIUM).
-
-### Viewer logic / gesture engine
-
-classification: logic KEEP / visual N/A / motion KEEP EXACT
-current responsibility: collection API, gen-guarded loads, scroll lock, history ownership, focus
-trap/restore, clamped zoom/pan across wheel/pinch/drag/keys, resize re-clamp.
-source: `crabbie-port26.html` `openViewerCollection/loadViewerIndex/stepViewer/paintViewerItem/teardownViewerUI`,
-gesture handlers; `src/lightbox-gesture-core.js` pure math (`window.CrabbieLightboxGesture`);
-`src/lightbox-gesture.js` bridge.
-preserve: gen guard, 1–4x clamp, edge pan bounds, direct (uninterpolated) drag/pinch, animated-only
-discrete steps, lock pair, owned-entry lifecycle, loading/error mutual exclusion + retry.
-replace: step sizes, pan px, announcer copy only.
-risks: stale-load overwrite, root scroll drift, teardown/focus mismatch (HIGH); Escape ordering vs
-menu/modals must stay viewer-first (MEDIUM).
-Explicit non-features (confirmed absent, N/A): swipe-to-step, double-tap handler, DPR scaling.
-
-## 17. Forms / Requests
-
-### Commission submit pipeline
-
-classification: logic KEEP / visual REPLACE / motion REPLACE
-current responsibility: schema-aware collect → validate (required/email/consent, first-invalid
-focus, per-field messages) → payload → single-flight insert → confirmed-only success panel +
-toast + confetti; friendly failure with draft preserved.
-source: `crabbie-port26.html` form ids (`#requestForm/#commissionForm/#consentBox/#commissionSubmit[aria-busy]/#briefResult/#briefText/#briefEmail`),
-`setFormState`, `isCommissionSubmitting`; `src/commission-requests.js` (tolerant service/form
-lookup, RLS insert); `src/commission-requests-core.js` (validation, payload, `toPublicRequestError`,
-`isConfirmedCommissionSubmission`).
-preserve: single-flight flag, busy lock, confirmed-insert gate, generic public errors (never raw DB
-text), `hidden` result contract, edit-returns-with-values.
-replace: field layout, shell styling (keep readable column + ≥16px inputs).
-risks: duplicates/false success if gates removed (HIGH — product rule 4).
-
-### Request lifecycle (admin)
-
-classification: logic KEEP / visual REPLACE / motion N/A
-current responsibility: inbox/archive/trash orthogonal to status; bulk cap + typed confirm;
-trash-only + retention-hold purge gate; server paging/filtering.
-source: `src/commission-request-lifecycle-core.js`; `src/admin-query-core.js` filter/paging specs;
-migration `202609220001_commission_request_lifecycle.sql`.
-preserve: transition rules, identity (UUID + `expectedUpdatedAt`), role gate, purge preconditions.
-risks: one-click hard delete loses PII records (HIGH).
-
-## 18. CMS / Data / Supabase
-
-### Public adapters + refresh router
-
-classification: logic KEEP / visual REPLACE (output contracts kept) / motion N/A
-current responsibility: published-only hydration with latest-request ownership and prototype
-fallback (People hides instead); scope → adapter refresh after admin saves.
-source: `src/portfolio-cms.js`, `src/people-cms.js`, `src/free-assets-cms.js`,
-`src/commissions-cms.js`, `src/site-content-cms.js` (owns first-paint gate), `src/public-cms-refresh.js`
-(13 scopes in 5 groups; requests/media/cleanup intentionally no-op).
-preserve: ownership tokens, fallback policy, output container/selector contracts, refresh scope map.
-replace: renderer markup only together with its adapter.
-risks: renamed DOM ids without adapter updates cause stale/empty views after save (MEDIUM);
-dropped generation tokens cause paint races (LOW).
-
-### Tables / RLS / RPCs / policies
-
-classification: logic KEEP / visual N/A / motion N/A
-current responsibility: 15 tables, published-only anon reads, constrained visitor insert,
-admin-only writes/audit/cleanup/leases, public media bucket, hardened functions/grants,
-`save_project_with_people` + `move_person` RPCs (invoker security, fixed path).
-source: `supabase/migrations/*.sql` (reference only — never edit applied files).
-preserve: entire posture; new needs → new forward migration + schema/security checks.
-risks: blanket policies, disabled RLS, client-side role flags, service-role in browser (HIGH).
-
-### Server APIs
-
-classification: logic KEEP / visual N/A / motion N/A
-current responsibility: public Supabase config (public key only); SSRF-pinned TikTok oEmbed proxy
-with sanitized fields.
-source: `api/public-config.js`; `api/tiktok-oembed.js` + `tiktokVideoId` gate.
-preserve: key hygiene, host pinning, field sanitization. risks: open proxy or secret leak (HIGH).
-
-### Media pipeline + deletion + cleanup + purge + audit
-
-classification: logic KEEP / visual REPLACE (panels) / motion N/A
-current responsibility: validated split upload (standard ≤6MB / TUS resumable with fallback),
-SHA-256 dedupe, lease coordination; recoverable deletion lifecycle with usage gate + fresh
-re-check; read-only scanner; gated manual purge; append-only audit.
-source: `src/admin-upload-core.js`, `src/admin-media-upload.js`, `src/admin-media-core.js`,
-`src/admin-media-safety-core.js`, `src/admin-media.js`, `src/media-upload-leases.js`,
-`src/media-cleanup-scanner-core.js`, `src/media-purge-core.js`, `src/admin-cleanup.js`;
-migrations for tombstone/cleanup/lease columns.
-preserve: thresholds, retry/backoff, dedupe, lifecycle order, grace/scan/lease gates, audit writes.
-replace: library/cleanup panel styling.
-risks: one-step delete, skipped re-check, auto-purge, incomplete-scan purge → data loss (HIGH);
-treating public bucket as private → exposure (MEDIUM).
-
-## 19. Appearance / Settings
-
-classification: logic KEEP / visual REPLACE (control styling; token contract fixed) / motion N/A
-current responsibility: strict hex tokens, canonical defaults, resolved/inherited model, palette
-snapshot/apply, background modes, 24-role Advanced overrides with prune-on-absent, truthful preview,
-sanitized save, authoritative hydration.
-source: `src/appearance-core.js` (`setTextOverride`, `planThemeVars/planAdvancedVars`,
-`sanitizeThemeForWrite`); `refreshAppearancePreview`; `settings.theme.*` + `textOverrides` paths;
-`body`-hosted `--text-*` chains.
-preserve: token paths, inheritance semantics, preview-truthfulness, var chains.
-replace: settings control visuals.
-risks: raw path writes or materialized inherited values cause unprunable overrides; var renames
-without dual preview/public update cause divergence (MEDIUM).
-
-## 20. Legacy Motion
-
-- Jelly/press delegation: logic KEEP (target list + nav-exclusion + admin/reduced skip) /
-  visual REPLACE / motion REPLACE. Reuse contracts: `JELLY_TARGETS`, `isNavigatingControl`
-  parity, `JELLY_MS`, `__jellyRunning` guard, `translate`/`scale`-property convention that composes
-  with lifts; pet uses inner-body variant (transform-conflict avoidance).
-- Hover lift/wobble: logic N/A / visual REPLACE / motion REPLACE.
-- Hero/page entrances (fade/view/scale/eyebrow/signature/nav/menu/footer): visual N/A /
-  motion REPLACE, except suppression contract (`is-restoring`, `.is-restored-activation`,
-  stationary detail) KEEP EXACT.
-- Sparkle burst, confetti (+ trigger points at commission success / admin save), flower sway,
-  bow pop, hover bob, loading motion: visual REPLACE / motion REPLACE.
-- Falling candy: visual REPLACE / motion KEEP EXACT (spawner, density/viewport scaling, asset
-  list, gates). Settings `motion.fallingCandy/candyDensity`.
-- Desktop pet: visual REPLACE / motion KEEP EXACT (spawn cap/FIFO, click/drag/wander/dialogue,
-  field-avoid, mobile cap). Settings `motion.pet{enabled,maxDesktop,dialogues}`.
-- Music control: logic KEEP EXACT (reuse `src/site-motion.js` implementation: single stable
-  audio, gesture resume, persisted volume/mute, state attribute, admin/field-focus hiding) /
-  visual REPLACE / motion N/A. Settings `music{enabled,url,title,volume,loop,autoplay}`.
-- Thanks marquee: visual REPLACE / motion KEEP EXACT (mode thresholds, ~24px/s pacing, pause
-  persistence, clone/focus rules, visibility pausing).
-- Decor parallax/crossfade: visual REPLACE (artwork) / motion KEEP EXACT (thresholds, prefetch
-  margins, decode gating, parallax/float split, coarse/reduced/admin gates).
-- Viewer zoom transitions: visual N/A / motion KEEP EXACT (discrete-step `.anim-zoom`, direct
-  manipulation uninterpolated).
-- Reduced-motion system: visual N/A / motion KEEP EXACT (CSS kill + JS gates + live `matchMedia`
-  handling across candy/pet/decor/thanks/boot/scroll).
-- Dead code confirmed: `animFloatIn` keyframes defined, no application selector (N/A, no action).
-
-## 21. Accessibility
-
-- Focus system (`focusView` map, skip link, `preventScroll`): logic KEEP / visual REPLACE
-  (keep visible focus) / motion N/A.
-- ARIA semantics (pressed/expanded/selected/current/busy/disabled/hidden/modal, live regions,
-  labelledby/describedby): logic KEEP / visual REPLACE / motion N/A.
-- Focus traps (mobile menu, viewer) + opener restore: logic KEEP EXACT / visual REPLACE / motion N/A.
-- Keyboard maps (viewer arrows/pan, tabs roving, admin save shortcut, Escape layering viewer-first):
-  logic KEEP / visual N/A / motion N/A.
-- Reduced motion: logic KEEP EXACT (see §20).
-- Admin EN/VI dictionary boundary (admin-only, never public strings): logic KEEP.
-- risks: dropped traps/restore or public use of `ADMIN_I18N` (MEDIUM).
-
-## 22. Redesign Integration Risks
-
-### R-01 Router echo / history ownership
-
-severity: HIGH
-source: `navigate`/`handleHash`/`popstate`, owned `{crabbieViewer:true}` entry, dirty replay.
-coupling: every route change, viewer open/close, admin exit.
-failure mode: double-applied views, stranded history, Back skipping routes, silent draft loss.
-future requirement: reuse router/history/scroll/viewer-teardown as a unit; preserve guard order.
-
-### R-02 Adapter–selector coupling
-
-severity: HIGH
-source: `-cms.js` renderers ↔ public container ids (grids, blocks, galleries, forms, contact rows).
-coupling: admin save → `refreshPublicCms(scope)` → adapter repaint.
-failure mode: save succeeds but public view goes stale/empty.
-future requirement: change renderer markup only together with its adapter; keep id contracts.
-
-### R-03 Persistence invariants
-
-severity: HIGH
-source: `admin-record-save-core.js`, save-flight/revision/baseline cores, `admin-crud.js`.
-coupling: every admin mutation.
-failure mode: silent overwrites, duplicate submits, phantom saved states.
-future requirement: keep UUID identity, `updated_at` guard, single-flight, revision gate,
-confirmed-only baselines; no slug-based upserts.
-
-### R-04 Auth / RLS posture
-
-severity: HIGH
-source: `admin-auth*.js`, migrations (RLS/policies/grants), `public-config.js`.
-coupling: admin shell, all reads/writes, request inserts.
-failure mode: data exposure, privilege escalation surface.
-future requirement: `app_metadata` gate, published-only reads, constrained inserts, public key only.
-
-### R-05 Media deletion / purge safety
-
-severity: HIGH
-source: `admin-media-safety-core.js`, purge/scanner cores, cleanup migration.
-coupling: media library, cleanup panel, every referenced view.
-failure mode: irreversible asset loss breaking public pages.
-future requirement: keep recoverable lifecycle, fresh re-check, grace/scan/lease gates, audit writes.
-
-### R-06 Commission success truthfulness
-
-severity: HIGH
-source: `commission-requests*.js`, form state machine.
-coupling: public form → `commission_requests` table → admin inbox.
-failure mode: duplicates, false success, raw DB errors shown publicly.
-future requirement: keep single-flight + confirmed-insert gate + generic errors.
-
-### R-07 Scroll primitive discipline
-
-severity: HIGH
-source: `route-scroll-core.js`, `instantScrollTo`, stationary CSS.
-coupling: all route transitions, detail open/return, viewer teardown.
-failure mode: crawl-to-top, mid-read animation bursts, destroyed restore positions.
-future requirement: instant-only route scroll; keep clamp, keep-on-same, activation lifetime,
-scroll-safe focus, stationary detail.
-
-### R-08 Viewer race / lock / focus
-
-severity: HIGH
-source: viewer controller + gesture bridge.
-coupling: cards, galleries, covers, keyboard, touch, history.
-failure mode: stale image/caption, page scroll drift during pan, lost focus, modal conflicts.
-future requirement: keep gen guard, lock pair, owned-entry lifecycle, clamp math, trap + restore,
-viewer-first Escape.
-
-### R-09 Asset availability truthfulness
-
-severity: MEDIUM
-source: `renderAsset` gating, `isAssetAvailable`, service availability flags.
-coupling: asset detail, commission tiers.
-failure mode: dead downloads presented as live; closed services purchasable.
-future requirement: keep gating logic; restyle banners freely.
-
-### R-10 Draft-path / formatter parity
-
-severity: MEDIUM
-source: `ADMIN_DRAFT` paths ↔ `admin-crud-core.js` formatters ↔ `admin-query-core.js` selects.
-coupling: every admin editor, especially gallery/`peopleIds`/overrides.
-failure mode: silently dropped fields on save.
-future requirement: rename paths only with formatter/select updates + round-trip test.
-
-### R-11 Appearance var-chain parity
-
-severity: MEDIUM
-source: `appearance-core.js`, preview refresher, public CSS, hydration planner.
-coupling: settings panel → preview → saved theme → public paint.
-failure mode: preview/public divergence, unprunable inline overrides.
-future requirement: keep token paths, inheritance, prune semantics, `body` var host.
-
-### R-12 Nav-exclusion parity
-
-severity: MEDIUM
-source: delegation triggers ↔ `isNavigatingControl` ↔ CSS kill-switch.
-coupling: every clickable card/link + any press animation.
-failure mode: delayed navigation on new controls.
-future requirement: every navigation trigger must be in the exclusion list.
-
-### R-13 People junction integrity
-
-severity: MEDIUM
-source: `save_project_with_people` / `move_person` RPCs, ordered `peopleIds`.
-coupling: project editor, credit strips, thanks section.
-failure mode: misordered/lost credits; copied (stale) person data.
-future requirement: RPC-only writes; junction stores references, never copies.
-
-### R-14 oEmbed proxy pinning
-
-severity: MEDIUM
-source: `api/tiktok-oembed.js`, `tiktokVideoId`.
-coupling: video link cards.
-failure mode: SSRF if broadened.
-future requirement: keep host pinning + field sanitization.
-
-## 23. UNKNOWN / Decisions Requiring User Input
-
-1. Live production interaction (music playback, form submission, auth against production
-   Supabase) — not exercised in any batch; local suite covers the paths. UNKNOWN, no action.
-2. `scripts/check-live-public.mjs` invocation — no npm script references it. UNKNOWN; likely
-   manual/CI helper, out of redesign scope.
-3. `scripts/seed-*.mjs` contents — not read (dev helpers). UNKNOWN; no redesign impact assumed,
-   flag if seeds are ever rerun against production.
-4. New visual treatment for every REPLACE item — by design deferred to DESIGN-CONTRACT /
-   Figma stages, not decided here.
-5. Whether Admin panels receive any visual refresh at all — no repository evidence or instruction
-   either way; default assumption per §3 rule 9 is Admin stays functionally intact regardless.
-
-## 24. Inventory Traceability Matrix
-
-| Inventory area (SITE-INVENTORY §) | Logic | Visual | Motion | Legacy Map § |
-|---|---|---|---|---|
-| Route/View index (13 views) | KEEP | REPLACE (surfaces) | mixed | §4–§13, §15 |
-| Global shell, nav, footer, overlays, gates, toast | KEEP | REPLACE | mixed | §4 |
-| Home (hero, strips, CTA) | KEEP | REPLACE | REPLACE | §5 |
-| Portfolio list + data/hydration | KEEP | REPLACE | REPLACE | §6 |
-| Project detail | KEEP | REPLACE | STATIC | §7 |
-| Free Assets list | KEEP | REPLACE | REPLACE | §8 |
-| Asset detail + gating + gallery | KEEP | REPLACE | N/A | §8 |
-| Commissions tiers/fees/services | KEEP | REPLACE | REPLACE | §9 |
-| Thanks carousel | KEEP | REPLACE | KEEP EXACT | §9, §20 |
-| Request form + pipeline | KEEP | REPLACE | REPLACE | §9, §17 |
-| About | KEEP | REPLACE | REPLACE | §10 |
-| Contact | KEEP | REPLACE | N/A | §11 |
-| Terms | KEEP | REPLACE | REPLACE | §12 |
-| 404 / loading | KEEP | REPLACE | REPLACE | §13 |
-| Admin login/shell/panels | KEEP | REPLACE | N/A | §14 |
-| Hidden/conditional UI (menu, viewer, music, candy, pet, modals, banners, badges) | KEEP | REPLACE | mixed | §4, §16, §20 |
-| UI states (~30 tokens) | KEEP | REPLACE | mixed | §4, §15, §16, §20 |
-| Navigation behavior | KEEP | N/A | KEEP EXACT (exclusion) | §15 |
-| History Back/Forward | KEEP | N/A | N/A | §15 |
-| Scroll restoration | KEEP | N/A | KEEP EXACT | §15 |
-| Keyboard | KEEP | N/A | N/A | §15, §21 |
-| Touch/pointer + gestures | KEEP | N/A | KEEP EXACT | §15, §16 |
-| Viewer/lightbox | KEEP | REPLACE (chrome) | KEEP EXACT | §16 |
-| Forms behavior | KEEP | REPLACE | REPLACE | §17 |
-| Media behavior | KEEP | REPLACE | KEEP EXACT (decor) | §16, §18, §20 |
-| Animation/motion inventory | mixed | REPLACE | mixed | §20 |
-| CMS adapters + refresh | KEEP | REPLACE (contracts) | N/A | §18 |
-| Pure cores | KEEP | N/A | N/A | §18 |
-| Supabase/RLS/RPCs | KEEP | N/A | N/A | §18 |
-| Server APIs | KEEP | N/A | N/A | §18 |
-| Settings/appearance | KEEP | REPLACE (controls) | N/A | §19 |
-| Admin persistence/lifecycle | KEEP | REPLACE (panels) | N/A | §14, §17 |
-| Media pipeline/deletion/cleanup | KEEP | REPLACE (panels) | N/A | §18 |
-| Admin↔public relationships | KEEP | REPLACE | N/A | §18 |
-| Mobile-specific | KEEP | REPLACE | mixed | §4, §15, §20 |
-| Accessibility/keyboard | KEEP | REPLACE | STATIC (reduced) | §21 |
-| Error/empty/loading states | KEEP | REPLACE | REPLACE | §4, §13, §17 |
-| Unknown/unverified items | carried | — | — | §23 |
-
-Every SITE-INVENTORY section maps to at least one LEGACY-MAP decision above; no
-inventory area was skipped. Dead/confirmed-absent items (`animFloatIn` unused,
-swipe-to-step, double-tap, DPR scaling, `nav-motion-core.js` source module) are N/A
-with evidence, not open unknowns.
-
-## 25. Summary
-
-- Public presentation is overwhelmingly REPLACE; application logic, data contracts,
-  and safety machinery are overwhelmingly KEEP.
-- KEEP EXACT concentrates in: scroll/history/viewer-teardown behavior, stationary
-  restore/detail rules, nav-delegation immediacy, viewer gesture math, falling candy,
-  desktop pet, music-control behavior, thanks marquee, decor parallax/crossfade,
-  viewer zoom transitions, reduced-motion system, focus traps + opener restore.
-- REPLACE concentrates in: every visible surface (nav, hero, cards, grids, detail
-  layouts, forms shell, footer, admin panels, viewer chrome, settings controls) and
-  decorative motion (entrances, jelly feel, sparkle, confetti, sway, bob, lifts, loading).
-- 14 integration risks documented (8 HIGH); 5 unknowns carried, none blocking.
+user decision: REPLACE
+motion: NEW_MOTION (the only NEW_MOTION item)
+user note: (none)
+technical guarantees: tier teaser + commissions destination binding.
+existing implementation: `.cta`, `.cta-tier` in `crabbie-port26.html`.
+integration risk: LOW.
+
+## 8. Portfolio Decisions
+
+### Portfolio grid
+
+user decision: KEEP_EXACT
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: deterministic band planner, recompute points (hydrate/filter/resize),
+anti-overflow behavior; no dense auto-placement.
+existing implementation: `#pfGrid`, `.is-art-ready`, `.is-image-card`, `.pf-l/.pf-t/.pf-s/.pf-w`,
+`initFilter('pf')`, `planPortfolioVariants`, `syncPortfolioComposition`;
+`src/portfolio-grid-core.js`, `src/portfolio-cms.js`, `src/portfolio-cms-core.js`.
+integration risk: MEDIUM if recompute points are dropped.
+
+### Portfolio search & filter
+
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: deterministic `data-cat`/`data-search` filtering, status + empty-state
+behavior; control ids stay rebindable for adapters.
+existing implementation: `#pfSearch`, `#pfChips`, `#pfStatus`, `#pfEmpty`, `initFilter('pf')`.
+integration risk: LOW provided ids/contracts survive.
+
+### Project card
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: card opens project detail; card stays in nav-exclusion for immediate
+navigation; art-ready image handling.
+existing implementation: `.work`, `[data-project]`, `.is-art-ready`.
+integration risk: MEDIUM on exclusion-list drift.
+
+### Portfolio empty state
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: `#pfEmpty` + reset behavior when no cards match.
+existing implementation: `#pfEmpty`, `#pfStatus`.
+integration risk: LOW.
+
+## 9. Project Detail Decisions
+
+### Detail layout
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: full block-type coverage (missing kinds lose CMS content); stationary
+entry (anti-flash); list return keeps scroll position; cover containment.
+existing implementation: `section[data-view=project-detail]`, `#pdTitle`, `#pdDesc`,
+`#pdCover[data-cover-viewer]`, `#pdBlocks`, `#pdPrev`, `#pdNext`, `renderProject`,
+`publicBlockBody`; `src/portfolio-cms.js`.
+integration risk: MEDIUM on block coverage.
+
+### Credits presentation
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: ordered junction references; label from `content.peopleCreditLabel`;
+junction stores references, never copied person data.
+existing implementation: `#pdCreditStrip`; `src/people-cms.js`.
+integration risk: MEDIUM (People RPC integrity invariant).
+
+### Content / media blocks
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: `publicBlockBody` handles every CMS block kind.
+existing implementation: `#pdBlocks`, `publicBlockBody`.
+integration risk: MEDIUM on dropped block kinds.
+
+### Prev / next navigation
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: immediate sibling navigation; controls stay in nav-exclusion.
+existing implementation: `#pdPrev`, `#pdNext`.
+integration risk: LOW.
+
+## 10. Free Assets Decisions
+
+### Asset list layout
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: grid + search/filter behavior via adapter contracts.
+existing implementation: `#faGrid`, `initFilter('fa')`, `mapFreeAsset`;
+`src/free-assets-cms.js`, `src/free-assets-core.js`.
+integration risk: LOW.
+
+### Asset search & filter
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: normalized-category filtering.
+existing implementation: `#faSearch`, `#faChips`, `#faStatus`, `#faEmpty`.
+integration risk: LOW.
+
+### Asset card
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION (per Motion Decisions table; item-block N_A noted as the
+single resolved inconsistency in §4/§21)
+user note: (none)
+technical guarantees: card opens asset detail via `data-asset`.
+existing implementation: `.item`, `[data-asset]`.
+integration risk: LOW.
+
+### Asset detail page
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: spec/license/gallery/status render; DOM changes require matching
+adapter updates.
+existing implementation: `renderAsset` in `crabbie-port26.html`.
+integration risk: MEDIUM (adapter–selector coupling).
+
+### Download area
+
+user decision: KEEP_EXACT
+motion: N_A
+user note: (none)
+technical guarantees: download allowed only when asset is `available` AND a URL exists;
+otherwise disabled with reason (product truthfulness, HIGH).
+existing implementation: `#adDownload`, `#adDriveDownload`, `#adUnavailable`,
+`isAssetAvailable`.
+integration risk: HIGH if gating is weakened.
+
+### Asset gallery
+
+user decision: KEEP_EXACT
+motion: N_A
+user note: (none)
+technical guarantees: ordered `metadata.gallery[]`, cover-first (cover index 0), shared
+viewer opening.
+existing implementation: `src/asset-gallery-core.js`, `#adGallery`, `#adGalleryMore`,
+`[data-ad-index]`.
+integration risk: MEDIUM on order/viewer wiring.
+
+## 11. Commissions Decisions
+
+### Tier cards
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: price/availability render; disabled-with-reason CTA when closed;
+`data-form` mapping must route to the correct tab.
+existing implementation: `.comm-grid`, `[data-service][data-form][data-service-slug]`;
+`src/commissions-cms.js`, `src/commissions-core.js`.
+integration risk: MEDIUM on form mapping.
+
+### Service accordion
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: correct accordion open/close semantics.
+existing implementation: `.acc` in `crabbie-port26.html`.
+integration risk: LOW.
+
+### Other services
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: `OTHER_SERVICES` map render into `#otherServiceDetail[aria-live]`.
+existing implementation: `#miniServicesGrid[data-other-service]`, `#otherServiceDetail`.
+integration risk: LOW.
+
+### Fees & terms display
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: fee/terms content completeness.
+existing implementation: `.rules-grid`.
+integration risk: LOW.
+
+### Client thanks
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: people-driven render, count-threshold modes, pause control, clones
+`aria-hidden` and unfocusable, focus→browsing switch.
+existing implementation: `#clientThanks`, `renderClientThanks`, `ThanksMotion`;
+`src/people-cms.js`.
+integration risk: LOW; mode/clone/focus rules are contractual.
+
+### Request form (tabs)
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: `role=tab` semantics, roving tabindex, Arrow/Home/End, `.on` panel
+switching; CMS schema override path.
+existing implementation: `.tab-btn[role=tab]`, `.tab-panel`, `.on`.
+integration risk: MEDIUM if tab semantics break (keyboard loss).
+
+### Result / success screen
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: success shown ONLY after confirmed insert; toast + confetti on
+success; generic error + preserved draft on failure (HIGH).
+existing implementation: `#briefResult`, `#briefText`, `#briefEmail`,
+`#commissionSubmit[aria-busy]`, `setFormState`, `isConfirmedCommissionSubmission`,
+`isCommissionSubmitting`; `src/commission-requests.js`, `src/commission-requests-core.js`.
+integration risk: HIGH if gates are removed (duplicates / false success).
+
+## 12. About / Contact / Terms Decisions
+
+### About page
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: `aboutPublicModel` fields from `cms_pages`.
+existing implementation: `src/site-content-core.js` (`aboutPublicModel`).
+integration risk: LOW.
+
+### Contact page
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: same provider/semantics as footer (order, visibility, URL policy).
+existing implementation: `#publicContactRows .cms-contact-row`, `#publicContactActions`,
+`#copyEmailBtn`; `src/site-content-core.js`.
+integration risk: LOW.
+
+### Terms page
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: disclosure/jump structure; scrollspy `aria-current` rebound after
+CMS hydration.
+existing implementation: `details.tos-disclosure`, `[data-jump]`, scrollspy wiring.
+integration risk: LOW (rebind required after hydration).
+
+## 13. 404 / Loading Decisions
+
+### 404 page
+
+user decision: REPLACE
+motion: N_A
+user note: (none)
+technical guarantees: 404 routing behavior stays (unknown routes, bare detail paths,
+renamed slugs); focus target + recovery destinations in the new presentation.
+existing implementation: `[data-view=404]`, `.v404-num`, `cmsDetailMissing`,
+`startupFallback404`.
+integration risk: LOW.
+
+### Loading view (CMS pending)
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: pending detail slugs render loading, never false 404 (HIGH).
+existing implementation: `[data-view=loading]`, `cmsDetailPending`.
+integration risk: HIGH if the view is dropped.
+
+## 14. Viewer / Lightbox Decisions
+
+### Viewer chrome
+
+user decision: KEEP_EXACT
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: `hidden` collapsing, stage model (artwork clear of controls),
+safe-area bands, live announcements; restyle must not push art under controls or break
+stage math (MEDIUM).
+existing implementation: `#publicLightbox*` markup/CSS, `syncViewerChrome`,
+`paintViewerItem` in `crabbie-port26.html`.
+integration risk: MEDIUM.
+
+### Viewer controls (gesture engine)
+
+user decision: KEEP_EXACT
+motion: N_A (the engine's motion behavior is covered by the viewer zoom-transition item
+and §16; no separate motion choice was recorded for the controls)
+user note: (none)
+technical guarantees: 1–4x clamped zoom, bounded pan, direct drag/pinch, discrete-step
+animation only; gen-guarded loads, scroll lock, history ownership, focus trap/restore,
+loading/error mutual exclusion (HIGH on races/drift/focus).
+existing implementation: `src/lightbox-gesture-core.js` (`window.CrabbieLightboxGesture`),
+`src/lightbox-gesture.js`, `openViewerCollection`, `loadViewerIndex`, `stepViewer`,
+`teardownViewerUI`.
+integration risk: HIGH.
+
+## 15. Global Features Decisions
+
+### Music player
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL (authoritative; the old map's
+"logic KEEP EXACT" phrasing referenced in the user file's constraint note is superseded)
+motion: N_A
+user note: (none)
+technical guarantees: single stable audio element across routes; gesture-gated resume;
+persisted volume/mute; playback-state attribute; hidden in admin and while typing into
+fields on touch. Reuse of `src/site-motion.js` behavior is expected.
+existing implementation: `src/site-motion.js` (`#crabbieMusicControl`, `applyMusic`);
+settings `music{enabled,url,title,volume,loop,autoplay}`.
+integration risk: LOW.
+
+### Desktop pet
+
+user decision: KEEP_EXACT
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: FIFO cap, click/drag/wander/dialogue, field avoidance, mobile cap.
+existing implementation: `src/site-motion.js` wiring + `src/desktop-pet-core.js` pure rules;
+settings `motion.pet{enabled,maxDesktop,dialogues}`.
+integration risk: LOW.
+
+### Falling candy
+
+user decision: KEEP_EXACT
+motion: KEEP_EXISTING_MOTION
+user note: (none)
+technical guarantees: density/viewport scaling, device and reduced-motion gates.
+existing implementation: `src/site-motion.js` spawner; settings
+`motion.fallingCandy/candyDensity`.
+integration risk: LOW.
+
+## 16. Motion Decisions (rebuilt from USER-LEGACY-DECISIONS.md)
+
+Format per item: user feature decision / user motion decision / existing source /
+technical constraints / future integration instruction.
+
+- Mobile menu: KEEP_BEHAVIOR_REDESIGN_VISUAL / KEEP_EXISTING_MOTION. Source: burger/menu
+  wiring in `crabbie-port26.html`. Constraints: trap + `aria-expanded` stay. Future: rebuild
+  visuals, keep open/close/focus behavior and existing entrance feel.
+- Toast: REPLACE / KEEP_EXISTING_MOTION. Source: `#toast`, `toast()`. Constraints: keep
+  `role=status`; keep existing show/hide timing feel. Future: new toast visuals, same behavior.
+- Boot overlay: REMOVE / N_A. No motion to carry; hidden gate guarantee lives in §18.
+- Hero: REPLACE / KEEP_EXISTING_MOTION. Source: hero entrance/bob wiring. Constraints: heading
+  order + CTA bindings. Future: new composition reusing selected hero motion behavior (SPECIAL E).
+- Featured works: KEEP_EXACT narrowed by note / KEEP_EXISTING_MOTION. Card motion kept;
+  section title treatment removed with the title (SPECIAL C).
+- Freebies strip: KEEP_EXACT / KEEP_EXISTING_MOTION. Card motion kept; decorative top-left
+  download control must be inert (SPECIAL D).
+- Commission CTA: REPLACE / NEW_MOTION. Only item permitted new motion; design later.
+- Portfolio grid/cards/detail/list/assets/tiers/accordion/other/thanks/result/loading-view/
+  viewer chrome: KEEP_* / KEEP_EXISTING_MOTION per §§8–14. Sources: planner, cards, blocks,
+  gallery, tiers, thanks, brief result, loading view, viewer chrome wiring. Constraints: the
+  contractual behaviors listed in each section stay.
+- Jelly: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: `JELLY_TARGETS`, `isNavigatingControl`,
+  `JELLY_MS`, `__jellyRunning`, pet inner-body variant. Constraints: nav-exclusion parity,
+  admin/reduced skip, transform-conflict avoidance. Future: reuse implementation as-is.
+- Hover lift/wobble: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: hover/wobble CSS + wiring.
+  Future: reuse as-is.
+- Hero background motion: REMOVE / N_A. Ambient hero-bg motion is not carried; hero's
+  KEEP_EXISTING_MOTION covers the remaining selected hero motion, not this removed layer.
+- Page entrance: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: entrance keyframes + stagger.
+  Constraints: suppression contract (`is-restoring`, `.is-restored-activation`, stationary
+  detail) is an invariant, not aesthetic.
+- Sparkle: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: burst wiring + trigger points.
+- Confetti: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: burst wiring; triggers at commission
+  success + admin save. Trigger points stay.
+- Flower sway / bow pop: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: deco CSS.
+- Thanks marquee: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: `ThanksMotion`. Constraints:
+  thresholds, pacing, pause persistence, clone/focus rules.
+- Decor parallax/crossfade: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: `src/site-decor.js`.
+  Constraints: thresholds, prefetch margins, decode gating, coarse/reduced/admin gates.
+  The current decor ARTWORK is REMOVE; the engine is preserved for future assets (SPECIAL B).
+- Viewer zoom transition: KEEP_EXACT / KEEP_EXISTING_MOTION. Source: `.anim-zoom`; direct
+  manipulation stays uninterpolated.
+- Loading animation: REMOVE / N_A. Loading visuals are not carried; loading ROUTE correctness
+  (pending view, no false 404) is a separate guarantee in §18.
+
+## 17. Removed Features (canonical)
+
+- Global — boot overlay (visible overlay/presentation only; hidden gate stays, §18).
+- Global — decorative background artwork (engine stays, §16).
+- Motion — hero background motion (remaining hero motion choice unaffected).
+- Motion — loading animation (loading route correctness unaffected).
+
+## 18. Technical Invariants (PRESERVE_GUARANTEE)
+
+Carried from USER-LEGACY-DECISIONS.md. Status of every item: PRESERVE_GUARANTEE —
+the redesigned application must preserve equivalent correctness. This does not require
+keeping exact source code forever, only equivalent guarantees, unless the user later
+changes the requirement.
+
+1. Hash routing & route application: `parseRoute`/`routeFromLocation`/`navigate`/
+   `applyRoute`/`handleHash` with echo-dedup, teardown-before-apply, 404/dashboard
+   fallbacks. Visuals may change freely.
+2. Back/Forward & viewer history ownership: viewer-dismiss-first, at most one
+   `{crabbieViewer:true}` entry, no per-step entries, no stale restore.
+3. Scroll restoration: deterministic keep/restore/top via `decideScroll`;
+   `instantScrollTo` only (never smooth); clamped; same-route keep.
+4. Detail→list return position: `isDetailReturn` + `.is-restored-activation` stationary
+   state preserves reading context.
+5. Focus traps & opener restore: mobile menu + viewer trap focus; close restores opener.
+6. Viewer zoom/pan bounds: 1–4x clamp, bounded pan, resize re-clamp, direct manipulation.
+7. CMS refresh after admin save: `refreshPublicCms(scope)` over 13 scopes / 5 groups;
+   adapters repaint the correct containers.
+8. Dirty-draft protection: `canMutateAdmin` / `shouldBlockAdminExit` /
+   `shouldSetBeforeUnload` block losing unsaved work.
+9. Save-conflict protection: UUID identity, `updated_at` guard, zero-row = stale,
+   single-flight, revision gate, confirmed-only baselines; no slug upserts.
+10. Supabase auth/RLS: `app_metadata.role==='admin'` gate; published-only reads;
+    constrained visitor inserts; public key only in browser.
+11. Confirmed commission submission: single-flight + busy lock + success only after
+    confirmed insert; generic public errors.
+12. Media deletion & purge safety: recoverable lifecycle, usage gate, fresh re-check,
+    grace/scan/lease gates, manual confirmed purge, append-only audit.
+13. Truthful asset downloads: availability + URL gating with disabled-with-reason states.
+14. Accessibility semantics: ARIA set, live regions, keyboard maps, skip link.
+15. Reduced-motion support: CSS kill + JS gates + live `matchMedia` handling.
+16. Immediate navigation & nav-exclusion: delegation/exclusion parity, no animation delay.
+17. Server API security: public key only; pinned, sanitized oEmbed proxy.
+18. Appearance tokens & var chains: token paths, inheritance, prune-on-absent,
+    `body`-hosted `--text-*`.
+19. Media upload pipeline: validated split standard/TUS with fallback, SHA-256 dedupe,
+    leases, retry/backoff.
+20. People junction RPC integrity: `save_project_with_people` / `move_person` only;
+    references, never copies.
+
+Full rationale, sources, and per-item "what visual may still change" are recorded in
+USER-LEGACY-DECISIONS.md (§ Technical Invariants) and remain the reference.
+
+## 19. Admin Decision
+
+user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
+motion: N_A
+user note: (none)
+technical guarantees: save/auth/hydration machinery intact (invariants 8–10, 12, 19, 20);
+Admin stays functionally intact regardless of public visual decisions. Only presentation
+may change, with editor field paths and `data-adm-*` bindings preserved or rebound.
+existing implementation: `crabbie-port26.html` (`#adminSidebar`, `#adminBurger`,
+`#adminSaveStatus`, `#adminTopSave`, `#adminContent`); `src/admin-crud.js`,
+`src/admin-media*.js`, `src/admin-cleanup.js`, `src/appearance-core.js`.
+integration risk: MEDIUM on draft-path/formatter drift.
+
+## 20. Traceability Matrix (58/58 user decisions)
+
+| # | Area | User decision | Motion | Technical guarantee | Map section |
+|---|---|---|---|---|---|
+| 1 | Layout / grid system | REPLACE | N_A | no phone overflow | §5 |
+| 2 | Typography | REPLACE | N_A | appearance var-chain parity | §5 |
+| 3 | Color / theme tokens | REPLACE | N_A | token inheritance/pruning | §5 |
+| 4 | Base buttons & controls | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | disabled semantics | §5 |
+| 5 | Desktop navigation | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | routing + aria-current | §6 |
+| 6 | Mobile menu | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | trap + aria-expanded | §6 |
+| 7 | Footer & contact block | REPLACE | N_A | URL policy (security) | §6 |
+| 8 | Toast | REPLACE | KEEP_EXISTING_MOTION | role=status live region | §6 |
+| 9 | Skip link | KEEP_EXACT | N_A | equivalent bypass + target | §6 |
+| 10 | Boot overlay | REMOVE | N_A | first-paint gate remains | §6 |
+| 11 | Decor background artwork | REMOVE | N_A | motion engine kept separately | §6 |
+| 12 | Hero | REPLACE | KEEP_EXISTING_MOTION | heading/CTA/image bindings | §7 |
+| 13 | Featured works card | KEEP_EXACT | KEEP_EXISTING_MOTION | nav immediacy; title removed per note | §7 |
+| 14 | Freebies strip | KEEP_EXACT | KEEP_EXISTING_MOTION | inert decorative download control | §7 |
+| 15 | Commission CTA band | REPLACE | NEW_MOTION | tier teaser + destination | §7 |
+| 16 | Portfolio grid | KEEP_EXACT | KEEP_EXISTING_MOTION | deterministic planner + recompute | §8 |
+| 17 | Portfolio search & filter | REPLACE | N_A | deterministic filtering + ids | §8 |
+| 18 | Project card | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | nav-exclusion + art-ready | §8 |
+| 19 | Portfolio empty state | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | empty + reset behavior | §8 |
+| 20 | Detail layout | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | block coverage + stationary + restore | §9 |
+| 21 | Credits presentation | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | junction references only | §9 |
+| 22 | Content / media blocks | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | all block kinds render | §9 |
+| 23 | Prev / next navigation | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | immediacy + exclusion | §9 |
+| 24 | Asset list layout | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | adapter contracts | §10 |
+| 25 | Asset search & filter | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | normalized-category filtering | §10 |
+| 26 | Asset card | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | detail opening via data-asset | §10 |
+| 27 | Asset detail page | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | adapter–selector coupling | §10 |
+| 28 | Download area | KEEP_EXACT | N_A | availability + URL truthfulness | §10 |
+| 29 | Asset gallery | KEEP_EXACT | N_A | cover-first order + viewer | §10 |
+| 30 | Tier cards | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | price/availability + form mapping | §11 |
+| 31 | Service accordion | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | accordion semantics | §11 |
+| 32 | Other services | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | OTHER_SERVICES + aria-live | §11 |
+| 33 | Fees & terms display | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | content completeness | §11 |
+| 34 | Client thanks | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | modes + pause + clone rules | §11 |
+| 35 | Request form tabs | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | tab keyboard semantics | §11 |
+| 36 | Result / success screen | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | confirmed-insert gate | §11 |
+| 37 | About page | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | aboutPublicModel fields | §12 |
+| 38 | Contact page | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | order/visibility/URL policy | §12 |
+| 39 | Terms page | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | scrollspy rebind after hydration | §12 |
+| 40 | 404 page | REPLACE | N_A | 404 routing behavior stays | §13 |
+| 41 | Loading view | KEEP_BEHAVIOR_REDESIGN_VISUAL | KEEP_EXISTING_MOTION | no false 404 for pending slugs | §13 |
+| 42 | Viewer chrome | KEEP_EXACT | KEEP_EXISTING_MOTION | hidden collapse + stage model | §14 |
+| 43 | Viewer controls/engine | KEEP_EXACT | N_A | clamp/bounds/race/focus guarantees | §14 |
+| 44 | Music player | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | single stable audio behavior | §15 |
+| 45 | Desktop pet | KEEP_EXACT | KEEP_EXISTING_MOTION | FIFO/drag/wander/dialogue rules | §15 |
+| 46 | Falling candy | KEEP_EXACT | KEEP_EXISTING_MOTION | density/viewport/gate rules | §15 |
+| 47 | Jelly / press | KEEP_EXACT | KEEP_EXISTING_MOTION | exclusion/skip/transform contracts | §16 |
+| 48 | Hover lift / wobble | KEEP_EXACT | KEEP_EXISTING_MOTION | existing feel reused | §16 |
+| 49 | Hero background motion | REMOVE | N_A | remaining hero motion unaffected | §16 |
+| 50 | Page entrance | KEEP_EXACT | KEEP_EXISTING_MOTION | suppression contract is invariant | §16 |
+| 51 | Sparkle burst | KEEP_EXACT | KEEP_EXISTING_MOTION | trigger points stay | §16 |
+| 52 | Confetti | KEEP_EXACT | KEEP_EXISTING_MOTION | success/save triggers stay | §16 |
+| 53 | Flower sway / bow pop | KEEP_EXACT | KEEP_EXISTING_MOTION | existing feel reused | §16 |
+| 54 | Thanks marquee | KEEP_EXACT | KEEP_EXISTING_MOTION | thresholds/pacing/clone rules | §16 |
+| 55 | Decor parallax/crossfade | KEEP_EXACT | KEEP_EXISTING_MOTION | thresholds/gates; engine for future assets | §16 |
+| 56 | Viewer zoom transition | KEEP_EXACT | KEEP_EXISTING_MOTION | discrete steps; direct manipulation raw | §16 |
+| 57 | Loading animation | REMOVE | N_A | loading route correctness separate | §16 |
+| 58 | Admin interface | KEEP_BEHAVIOR_REDESIGN_VISUAL | N_A | full machinery intact | §19 |
+
+All 58 user decisions represented. No silent omissions.
+
+## 21. Coverage Validation and Conflicts
+
+- Resolved: 58/58 per USER-LEGACY-DECISIONS.md. Untouched required items: 0.
+- UNSURE: 0. Deferred: none (matches source file).
+- Removed Features (4) match source file exactly.
+- Both non-empty user notes copied verbatim (§7).
+- Motion choices match the Motion Decisions table for all 32 table rows; the single
+  block/table divergence (asset card) is resolved in §4 with the table governing.
+- Removed items with untouched motion fields recorded as N_A (not UNSURE), preserving
+  the source file's "Deferred: none" truth.
+- Special cases A–F all represented (§6 boot/decor, §7 featured/freebies/hero, §16).
+- Genuine conflicts between user decisions: none. Apparent tensions (REMOVE vs guarantee,
+  KEEP_EXACT vs note) resolved by separating visual/behavior/motion dimensions per §2.
+- Old agent-authored classifications no longer appear as design authority anywhere in
+  this file; remaining technical statements describe behavior, safety, integrity,
+  accessibility, dependencies, or risk only.
+
+## 22. Summary
+
+- The user owns all 58 design/product decisions; this file is their canonical technical
+  mirror. KEEP_EXACT clusters in cards, grids, galleries, downloads, viewer, pet, candy,
+  and the motion library; KEEP_BEHAVIOR_REDESIGN_VISUAL covers navigation, detail flows,
+  forms, and content pages; REPLACE covers tokens, footer, toast shell, hero/CTA/404
+  presentation and filters; REMOVE covers 4 surfaces whose hidden guarantees survive.
+- 20 technical invariants stand as PRESERVE_GUARANTEE regardless of visual treatment.
+- A future agent resolving any ambiguity must prefer, in order: the user note, the user
+  decision value, the motion table, the invariant — never an old agent classification.
 - No code, schema, CMS, animation, or routing was changed in this batch.
