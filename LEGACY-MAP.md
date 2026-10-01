@@ -17,19 +17,30 @@ No redesign is implemented here. No code was changed in this batch.
 
 ## 2. Source Precedence (binding)
 
+These sources are authoritative along independent dimensions. They coexist and govern
+different aspects of a change; none is a lower-priority fallback for another.
+
 1. USER-LEGACY-DECISIONS.md — authoritative for all user design/product decisions.
-2. Technical invariants (§18) — authoritative functional guarantees that must survive
-   redesign, independent of any visual decision.
+   User notes narrow the scope of the user's feature decision; feature decisions govern
+   the user-facing feature/presentation; motion decisions govern motion.
+2. Technical invariants (§18) — independent mandatory functional constraints. They are
+   authoritative for implementation correctness and are neither overridden by, nor used
+   to override, any user visual/motion decision.
 3. SITE-INVENTORY.md — authoritative description of what existed before redesign.
 4. Legacy audit / source evidence in this file — implementation references,
    dependencies, and risks (technical statements only, never design authority).
 5. Old agent-authored KEEP/REPLACE classifications — SUPERSEDED. They must not
    override user choices anywhere in this document.
 
-Where a user decision and a technical guarantee coexist, both apply: the user decision
-governs the user-facing experience, the guarantee governs the hidden correctness that
-must survive beneath it (e.g. REMOVE boot overlay removes the visible overlay, not the
-CMS first-paint gate).
+When resolving ambiguity, first determine which dimension the statement belongs to: user
+notes narrow the user's feature decision, feature decisions govern the user-facing
+feature/presentation, motion decisions govern motion, and technical invariants
+independently constrain implementation correctness. These dimensions coexist; no old agent
+classification may override any of them. Where a user decision and a technical guarantee
+coexist, both apply simultaneously — the user decision governs the user-facing experience,
+the guarantee independently governs the hidden correctness beneath it (e.g. REMOVE boot
+overlay removes the visible overlay; CMS first-paint / pending-detail correctness keeps
+its PRESERVE_GUARANTEE). Neither overrides the other.
 
 ## 3. Canonical Decision Values and Semantics
 
@@ -78,10 +89,8 @@ note. Both preserved verbatim adjacent to their items.
 
 Technical invariants carried: 20, all PRESERVE_GUARANTEE.
 
-Intra-file inconsistency found and resolved (1): "Thẻ asset" item block records motion
-N_A while the Motion Decisions table records KEEP_EXISTING_MOTION. The dedicated motion
-table governs the motion dimension, so canonical motion is KEEP_EXISTING_MOTION. Recorded
-explicitly; no user intent was altered. See §21.
+Asset card: user decision KEEP_BEHAVIOR_REDESIGN_VISUAL, motion KEEP_EXISTING_MOTION
+(matches the Motion Decisions table, §16).
 
 ## 5. Overview Decisions (Tổng quan)
 
@@ -363,8 +372,7 @@ integration risk: LOW.
 ### Asset card
 
 user decision: KEEP_BEHAVIOR_REDESIGN_VISUAL
-motion: KEEP_EXISTING_MOTION (per Motion Decisions table; item-block N_A noted as the
-single resolved inconsistency in §4/§21)
+motion: KEEP_EXISTING_MOTION
 user note: (none)
 technical guarantees: card opens asset detail via `data-asset`.
 existing implementation: `.item`, `[data-asset]`.
@@ -773,13 +781,14 @@ All 58 user decisions represented. No silent omissions.
 - UNSURE: 0. Deferred: none (matches source file).
 - Removed Features (4) match source file exactly.
 - Both non-empty user notes copied verbatim (§7).
-- Motion choices match the Motion Decisions table for all 32 table rows; the single
-  block/table divergence (asset card) is resolved in §4 with the table governing.
+- Motion choices match the Motion Decisions table for all 32 table rows.
 - Removed items with untouched motion fields recorded as N_A (not UNSURE), preserving
   the source file's "Deferred: none" truth.
 - Special cases A–F all represented (§6 boot/decor, §7 featured/freebies/hero, §16).
 - Genuine conflicts between user decisions: none. Apparent tensions (REMOVE vs guarantee,
-  KEEP_EXACT vs note) resolved by separating visual/behavior/motion dimensions per §2.
+  KEEP_EXACT vs note) are handled by separating dimensions per §2: the user
+  visual/behavior/motion decision and the technical invariant coexist, and neither
+  overrides the other.
 - Old agent-authored classifications no longer appear as design authority anywhere in
   this file; remaining technical statements describe behavior, safety, integrity,
   accessibility, dependencies, or risk only.
@@ -792,6 +801,9 @@ All 58 user decisions represented. No silent omissions.
   forms, and content pages; REPLACE covers tokens, footer, toast shell, hero/CTA/404
   presentation and filters; REMOVE covers 4 surfaces whose hidden guarantees survive.
 - 20 technical invariants stand as PRESERVE_GUARANTEE regardless of visual treatment.
-- A future agent resolving any ambiguity must prefer, in order: the user note, the user
-  decision value, the motion table, the invariant — never an old agent classification.
+- When resolving ambiguity, first determine which dimension the statement belongs to.
+  User notes narrow the user's feature decision; feature decisions govern the user-facing
+  feature/presentation; motion decisions govern motion; technical invariants independently
+  constrain implementation correctness. These dimensions coexist; do not use an old agent
+  classification to override any of them.
 - No code, schema, CMS, animation, or routing was changed in this batch.
